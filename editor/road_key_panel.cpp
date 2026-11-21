@@ -7,6 +7,7 @@
 
 extern "C" {
 #include "app_select.h"
+#include "key_ops.h"
 }
 
 #include "imgui.h"
@@ -16,6 +17,26 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void road_extend_menu(App *a, int point, unsigned mask)
+{
+    ImGui::Separator();
+    if (ImGui::MenuItem("Extend to next change")) app_extend_point(a, point, mask, 0);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Run this value on past the point: the next key that sets it goes, so the value holds up to the one after.");
+    if (ImGui::MenuItem("Extend to the end")) app_extend_point(a, point, mask, 1);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Run this value on to the last point: every later key that sets it goes.");
+}
+
+void road_reach_hover(App *a, int point, unsigned mask)
+{
+    if (!ImGui::IsItemHovered() && !ImGui::IsItemActive()) return;
+    int from = point;
+    if (sel_count(&a->sel) > 1 && sel_has(&a->sel, point)) {   // a selection: from its first point, and past its last
+        from = sel_first(&a->sel);
+        point = sel_last(&a->sel);
+    }
+    a->reach_from = from, a->reach_to = keys_reach(&a->trace, point, mask);
+}
 
 namespace {
 
@@ -49,6 +70,7 @@ void lanes_row(App *a, int point, bool own, int shown)
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::Combo("##lanes", &choice, NAMES, 3)) app_set_point_lanes(a, point, LANES[choice]);
     if (!own) ImGui::PopStyleColor();
+    road_reach_hover(a, point, TRACE_KEY_LANES);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s\nLeft + right lanes, 5 m each.\n1+2 or 2+1: the road is 15 m wide from this point to the next one that sets lanes; a width set "
                           "inside is not used. The extra lane opens and closes over about 50 m, the shoulder, fence and barrier moving out with it.\n"
@@ -56,6 +78,7 @@ void lanes_row(App *a, int point, bool own, int shown)
                           own ? "Set on this point. Right-click to let it inherit again." : "Not set on this point: it holds from the key before. Choose to set it on this point.");
     if (own && ImGui::BeginPopupContextItem("##inherit_lanes")) {
         if (ImGui::MenuItem("Inherit again")) app_clear_point_lanes(a, point);
+        road_extend_menu(a, point, TRACE_KEY_LANES);
         ImGui::EndPopup();
     }
 }
@@ -75,10 +98,12 @@ void road_row(App *a, int point, const char *label, unsigned bit, const char *co
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::Combo("##road", &choice, names, count)) app_set_point_fence(a, point, bit, choice);
     if (!own) ImGui::PopStyleColor();
+    road_reach_hover(a, point, bit);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s\n%s", own ? "Set on this point. Right-click to let it inherit again."
                                                               : "Not set on this point: it holds from the key before. Choose to set it on this point.", what);
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
         if (ImGui::MenuItem("Inherit again")) app_clear_point_fence(a, point, bit);
+        road_extend_menu(a, point, bit);
         ImGui::EndPopup();
     }
     ImGui::PopID();
@@ -112,12 +137,14 @@ void surface_cell(App *a, int point, int side, TraceSurface set, TraceSurface sh
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::Combo("##surface", &choice, NAMES, 2)) app_set_point_surface(a, point, side, choice == 1 ? TRACE_SURFACE_TARMAC : TRACE_SURFACE_VERGE);
     if (!own) ImGui::PopStyleColor();
+    road_reach_hover(a, point, TRACE_KEY_SHOULDER_SURFACE);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s\nAsphalt: grips as the road does.\nOff-road: the Verge material of the Track panel; the car loses grip "
                           "(the player's car; the rivals do not feel either).",
                           own ? "Set on this point. Right-click to let it inherit again." : "Inherited from the points before. Choose to set it on this point.");
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
         if (ImGui::MenuItem("Inherit again")) app_set_point_surface(a, point, side, TRACE_SURFACE_INHERIT);
+        road_extend_menu(a, point, TRACE_KEY_SHOULDER_SURFACE);
         ImGui::EndPopup();
     }
     ImGui::PopID();
@@ -136,6 +163,7 @@ void inherit_menu(App *a, int point, int field, int side, bool own)
 {
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
         if (ImGui::MenuItem("Inherit again")) app_clear_point_side(a, point, field, side);
+        road_extend_menu(a, point, TRACE_KEY_SIDE(field, side));
         ImGui::EndPopup();
     }
 }
@@ -158,6 +186,7 @@ void metres_cell(App *a, int point, int field, int side, bool own, double shown,
     }
     if (held_id == id && !ImGui::IsItemActive()) held_id = 0;
     if (!own) ImGui::PopStyleColor();
+    road_reach_hover(a, point, TRACE_KEY_SIDE(field, side));
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s\n%s", inherit_tip(own, true), what);
     inherit_menu(a, point, field, side, own);
     ImGui::PopID();
@@ -173,6 +202,7 @@ void wall_cell(App *a, int point, int side, bool own, double shown)
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::Combo("##wall", &choice, NAMES, 2)) app_set_point_side(a, point, TRACE_SIDE_WALL, side, choice == 1 ? TRACK_GEN_WALL_SOFT : TRACK_GEN_WALL_HARD);
     if (!own) ImGui::PopStyleColor();
+    road_reach_hover(a, point, TRACE_KEY_SIDE(TRACE_SIDE_WALL, side));
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s\nThe barrier is not drawn: it only stops the car, where Barrier from edge says. Both kinds stop it.\nHard: a hit makes the crash sound, a hard one is recorded in the race, and the car is turned "
                           "off the barrier twice as sharply.\nSoft: no sound and nothing recorded; the car is turned off the barrier more gently.",
@@ -189,6 +219,7 @@ void fence_cell(App *a, int point, int side, bool own, double shown)
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     if (ImGui::Checkbox(on ? "On###fence" : "Off###fence", &on)) app_set_point_side(a, point, TRACE_SIDE_FENCE, side, on ? 1 : 0);
     if (!own) ImGui::PopStyleColor();
+    road_reach_hover(a, point, TRACE_KEY_SIDE(TRACE_SIDE_FENCE, side));
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s\nOn: the game's fence is drawn on this side, at the end of the shoulder; its height and picture are the Fence rows above.\n"
                           "Off: no fence is drawn; the barrier still stops the car where the shoulder ends (or at Barrier from edge with Custom barrier).\n"
@@ -222,12 +253,14 @@ void custom_cell(App *a, int point, int side, bool own, bool on)
     bool tick = on;
     if (ImGui::Checkbox(tick ? "On###custom" : "Off###custom", &tick)) app_set_point_fence(a, point, bit, tick ? 1 : 0);
     if (!own || on) ImGui::PopStyleColor();
+    road_reach_hover(a, point, bit);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s\nOn: the barrier stops the car at Barrier from edge, set apart from the fence (Problems says where).\n"
                           "Off: the barrier follows the fence, where the shoulder ends.",
                           inherit_tip(own, false));
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
         if (ImGui::MenuItem("Inherit again")) app_clear_point_fence(a, point, bit);
+        road_extend_menu(a, point, bit);
         ImGui::EndPopup();
     }
     ImGui::PopID();
@@ -282,28 +315,6 @@ bool point_side_values(const App *a, int point, double out[TRACE_SIDE_FIELDS][2]
     return true;
 }
 
-// the profile of several points, read only (dep87 part 1): each value the selected points share, or «Mixed» (app_sel_profile)
-void several_points(const App *a)
-{
-    if (!ImGui::BeginTable("road_key_several", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) return;
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, label_width());
-    ImGui::TableSetupColumn("Left");
-    ImGui::TableSetupColumn("Right");
-    ImGui::TableHeadersRow();
-    for (int row = 0; row < APP_SEL_PROFILE_ROWS; ++row) {
-        ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted(row == 0 ? SURFACE_LABEL : LABELS[row - 1]);
-        for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side) {
-            char text[32];
-            ImGui::TableSetColumnIndex(1 + side);
-            ImGui::TextDisabled("%s", app_sel_profile(a, row, side, text, sizeof text) >= 0 ? text : "-");
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Several points selected: select one point to change its profile.");
-        }
-    }
-    ImGui::EndTable();
-}
-
 }   // namespace
 
 float road_key_panel_width()
@@ -320,16 +331,26 @@ void road_key_panel(App *a)
         ImGui::TextDisabled("Select a point to set its road profile.");
         return;
     }
-    if (sel_count(&a->sel) > 1) {   // several points: what they share, read only until editing a selection comes (dep87 part 2)
+    if (sel_count(&a->sel) > 1 && sel_has(&a->sel, point)) {   // several points: the rows show the selected point's; a change is made on all of them (dep87 part 2)
         char which[96];
         sel_describe(&a->sel, which, sizeof which);
         const bool run = sel_last(&a->sel) - sel_first(&a->sel) + 1 == sel_count(&a->sel);
         if (run) ImGui::Text("%s at points %s (%d points)", PANEL_ROAD_KEY, which, sel_count(&a->sel));
         else ImGui::Text("%s at %d points (%s)", PANEL_ROAD_KEY, sel_count(&a->sel), which);
-        several_points(a);
-        return;
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("The rows show point %d. A change sets that value on all the selected points; the value that held before comes back after them.", point);
+    } else {
+        ImGui::Text("%s at point %d", PANEL_ROAD_KEY, point);
     }
-    ImGui::Text("%s at point %d", PANEL_ROAD_KEY, point);
+    if (ImGui::SmallButton("Copy profile")) app_copy_profile(a);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Copy every road value of the selected point: width, bank, lanes, the shoulder, wall and fence of both sides.");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(a->profile_clip.has == 0);
+    if (ImGui::SmallButton("Paste profile")) app_paste_profile(a);
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip(a->profile_clip.has == 0 ? "Nothing copied yet: select a point and Copy profile."
+                                                   : "Set the copied profile on the selected points; what held before comes back after them. One undo step.");
     // the point's key and side values as they are before any cell draws: copies, as a cell's change may move or free the keys
     const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
     TraceKey own_key = {};

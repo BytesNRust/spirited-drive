@@ -91,6 +91,7 @@ static void bank_cell(App *a, int i, int *shown)
         app_set_point_bank(a, i, degrees);
     }
     ImGui::PopStyleColor();
+    road_reach_hover(a, i, TRACE_KEY_BANK);
     if (ImGui::IsItemHovered()) {
         const char *what = keyed ? "A bank set on this point. Right-click to let it inherit again." : "Inherited from the points around. Drag or type to bank the road here.";
         const char *limit = red ? "Over %g\xc2\xb0: the track can't be built." : amber ? "Over %g\xc2\xb0: it may not look right in the game." : "";
@@ -102,6 +103,7 @@ static void bank_cell(App *a, int i, int *shown)
     }
     if (keyed && ImGui::BeginPopupContextItem("##clearbank")) {
         if (ImGui::MenuItem("Inherit again (clear this bank)")) app_clear_point_bank(a, i);
+        road_extend_menu(a, i, TRACE_KEY_BANK);
         ImGui::EndPopup();
     }
 }
@@ -238,12 +240,14 @@ void points_panel(App *a)
                     }
                     ImGui::EndDisabled();
                     if (!keyed) ImGui::PopStyleColor();
+                    road_reach_hover(a, i, TRACE_KEY_WIDTH);
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
                         if (by_lanes) ImGui::SetTooltip("Set by the lanes (%d+%d, 5 m each). Change the lanes in Road profile to set a width here.", (lanes >> 4) & 0xf, lanes & 0xf);
                         else ImGui::SetTooltip("%s", keyed ? "A width set on this point. Right-click to let it inherit again." : "Inherited from the points before. Drag or type to set this point's width.");
                     }
                     if (keyed && ImGui::BeginPopupContextItem("##clear")) {
                         if (ImGui::MenuItem("Inherit again (clear this width)")) app_clear_point_width(a, i);
+                        road_extend_menu(a, i, TRACE_KEY_WIDTH);
                         ImGui::EndPopup();
                     }
                     bank_cell(a, i, &shown);

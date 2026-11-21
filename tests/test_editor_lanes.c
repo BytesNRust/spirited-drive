@@ -129,20 +129,24 @@ static void check_lanes_app(void)
     CHECK(!app_modified(a));
     app_set_point_lanes(a, 1, TRACK_GEN_LANES_1_2);
     CHECK(app_modified(a));
-    CHECK(a->trace.key_count == 1 && a->trace.keys[0].point == 1 && a->trace.keys[0].lanes == TRACK_GEN_LANES_1_2);
+    /* dep87 part 2: the edit is on point 1 alone: the lanes that held come back on point 2 */
+    CHECK(a->trace.key_count == 2 && a->trace.keys[0].point == 1 && a->trace.keys[0].lanes == TRACK_GEN_LANES_1_2);
+    CHECK(a->trace.keys[1].point == 2 && a->trace.keys[1].lanes == TRACK_GEN_LANES_1_1);
     CHECK(app_save(a));
     CHECK(!app_modified(a));
     app_set_point_lanes(a, 1, TRACK_GEN_LANES_1_2);
     CHECK(!app_modified(a));                                 /* the same lanes: nothing changed */
     app_set_point_lanes(a, 1, 0x22);                         /* not one of the three: nothing */
     app_set_point_lanes(a, 99, TRACK_GEN_LANES_2_1);         /* no such point: nothing */
-    CHECK(!app_modified(a) && a->trace.key_count == 1 && a->trace.keys[0].lanes == TRACK_GEN_LANES_1_2);
+    CHECK(!app_modified(a) && a->trace.key_count == 2 && a->trace.keys[0].lanes == TRACK_GEN_LANES_1_2);
     app_set_point_lanes(a, 1, TRACK_GEN_LANES_1_1);
     CHECK(app_modified(a) && a->trace.keys[0].lanes == TRACK_GEN_LANES_1_1);
     CHECK(app_save(a));
     app_clear_point_lanes(a, 1);
     CHECK(app_modified(a));
-    CHECK_EQ_INT(a->trace.key_count, 0);                     /* nothing left on point 1: its key is gone */
+    CHECK_EQ_INT(a->trace.key_count, 1);                     /* nothing left on point 1: its key is gone, the one on point 2 stays */
+    app_clear_point_lanes(a, 2);
+    CHECK_EQ_INT(a->trace.key_count, 0);
     CHECK(app_save(a));
     app_clear_point_lanes(a, 1);
     CHECK(!app_modified(a));                                 /* nothing to clear: no change */
@@ -151,13 +155,15 @@ static void check_lanes_app(void)
     CHECK(!app_lane_width_note(a, note, sizeof note));
     CHECK_EQ_INT(app_point_lanes(a, 1), TRACK_GEN_LANES_1_1);   /* no key: 1+1 */
     app_set_point_lanes(a, 1, TRACK_GEN_LANES_2_1);
+    app_set_point_lanes(a, 2, TRACK_GEN_LANES_2_1);          /* an edit holds on its point alone: the stretch is points 1 and 2 */
     app_set_point_width(a, 2, 14.0);
     app_set_point_width(a, 0, 12.0);                         /* before the stretch: used */
     CHECK_EQ_INT(app_point_lanes(a, 0), TRACK_GEN_LANES_1_1);
     CHECK_EQ_INT(app_point_lanes(a, 2), TRACK_GEN_LANES_2_1);
     CHECK(app_lane_width_note(a, note, sizeof note));
-    CHECK(strstr(note, "point 2 (2+1)") != NULL && strstr(note, "ignored") != NULL && strstr(note, " 0 ") == NULL);
+    CHECK(strstr(note, "2 (2+1)") != NULL && strstr(note, "ignored") != NULL && strstr(note, " 0 ") == NULL);
     app_set_point_lanes(a, 2, TRACK_GEN_LANES_1_1);          /* the stretch ends on point 2: its width is used again */
+    app_clear_point_width(a, 1);                             /* the ramp's pin on point 1 is still in the 2+1 stretch of point 1 */
     CHECK(!app_lane_width_note(a, note, sizeof note));
     /* undo and redo take a lanes change back and forth as any other key's */
     app_track_commit(a);

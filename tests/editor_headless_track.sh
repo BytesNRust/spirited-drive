@@ -381,6 +381,61 @@ grep -q "the game was not found" "$work/log" || fail "Test drive's refusal does 
 "$editor" "$work/fresh" --frames 6 --shot "$work/drive.png" >"$work/log" 2>&1 || fail "run with the Drive window: $(cat "$work/log")"
 [ -s "$work/drive.png" ] || fail "no PNG with the Drive window"
 
+# ==== dep87 part 2: an edit changes only what is selected ====
+# a straight of 10 points 40 m apart with a 2+1 lanes key on point 7; print-road prints what the keys make at every point (lanes 17 = 1+1, 18 = 1+2, 33 = 2+1)
+mkdir "$work/scope"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [0.0, 80.0], [0.0, 120.0], [0.0, 160.0], [0.0, 200.0], [0.0, 240.0], [0.0, 280.0], [0.0, 320.0], [0.0, 360.0]],\n  "keys": [{"point": 7, "lanes": "2+1"}]\n}\n' > "$work/scope/trace.json"
+road_lanes() { grep '^road ' "$work/log" | sed -e 's/^road \([0-9]*\):.* lanes \([0-9]*\) shoulder.*/\1=\2/' | tr '\n' ' '; }
+run_scope() { "$editor" "$work/scope" --user "$work/scope-u" --frames 2 --steps "$1" >"$work/log" 2>&1 || fail "scope $1: $(cat "$work/log")"; road_lanes; }
+got=$(run_scope "row:3,lanes:3,1,print-road")
+[ "$got" = "0=17 1=17 2=17 3=18 4=17 5=17 6=17 7=33 8=33 9=33 " ] || fail "a lanes edit on one point runs on (got: $got)"
+got=$(run_scope "row:3,shift-row:5,lanes:4,2,print-road")
+[ "$got" = "0=17 1=17 2=17 3=33 4=33 5=33 6=17 7=33 8=33 9=33 " ] || fail "a lanes edit on points 3-5 is not on 3-5 alone (got: $got)"
+got=$(run_scope "row:1,cmd-row:4,cmd-row:8,lanes:4,1,print-road")
+[ "$got" = "0=17 1=18 2=17 3=17 4=18 5=17 6=17 7=33 8=18 9=33 " ] || fail "a lanes edit on points 1, 4 and 8 is not on each of them alone (got: $got)"
+got=$(run_scope "lanes:3,1,extend:3,2,print-road")
+[ "$got" = "0=17 1=17 2=17 3=18 4=18 5=18 6=18 7=33 8=33 9=33 " ] || fail "Extend to next change does not run the value on to the next key (got: $got)"
+got=$(run_scope "lanes:3,1,extend-end:3,2,print-road")
+[ "$got" = "0=17 1=17 2=17 3=18 4=18 5=18 6=18 7=18 8=18 9=18 " ] || fail "Extend to the end does not run the value on to the last point (got: $got)"
+got=$(run_scope "lanes:3,1,undo,print-road")
+[ "$got" = "0=17 1=17 2=17 3=17 4=17 5=17 6=17 7=33 8=33 9=33 " ] || fail "one undo does not take a scoped edit back whole (got: $got)"
+# Copy profile / Paste profile: point 2's lanes (1+2) and left shoulder (6 m) put on points 6-7; points 4 and 8 give back what held before (1+1, 3 m), one undo
+mkdir "$work/scope2"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [0.0, 80.0], [0.0, 120.0], [0.0, 160.0], [0.0, 200.0], [0.0, 240.0], [0.0, 280.0], [0.0, 320.0], [0.0, 360.0]],\n  "keys": [{"point": 2, "lanes": "1+2", "shoulder_l_m": 6.0}, {"point": 4, "lanes": "1+1", "shoulder_l_m": 3.0}]\n}\n' > "$work/scope2/trace.json"
+"$editor" "$work/scope2" --user "$work/scope-u" --frames 2 --steps row:2,copy-profile,status,row:6,shift-row:7,paste-profile,status,print-road,undo,print-road >"$work/log" 2>&1 || fail "copy and paste profile: $(cat "$work/log")"
+grep -q "status: profile of point 2 copied" "$work/log" || fail "Copy profile did not say what it copied: $(cat "$work/log")"
+grep -q "status: profile pasted on points 6-7" "$work/log" || fail "Paste profile did not say where it pasted: $(cat "$work/log")"
+python3 - "$work/log" <<'PY' || fail "Paste profile did not put the profile on points 6-7 alone, or one undo did not take it back"
+import re, sys
+rows = [re.match(r"road (\d+): width [\d.]+ bank [-\d.]+ lanes (\d+) shoulder ([\d.]+)\|", l) for l in open(sys.argv[1]) if l.startswith("road ")]
+lanes = [int(m.group(2)) for m in rows]
+shoulder = [float(m.group(3)) for m in rows]
+after, undone = (lanes[:10], shoulder[:10]), (lanes[10:], shoulder[10:])
+assert after[0] == [17, 17, 18, 18, 17, 17, 18, 18, 17, 17], after
+assert shoulder[:10][5] == 3.0 and shoulder[:10][6] == 6.0 and shoulder[:10][7] == 6.0 and shoulder[:10][8] == 3.0, shoulder[:10]
+assert undone[0] == [17, 17, 18, 18, 17, 17, 17, 17, 17, 17], undone
+assert shoulder[10:][6] != 6.0, shoulder[10:]
+PY
+"$editor" "$work/scope2" --user "$work/scope-u" --frames 2 --steps row:6,paste-profile >"$work/log" 2>&1 && fail "Paste profile with nothing copied went"
+grep -q "no profile copied" "$work/log" || fail "Paste profile before any copy did not say nothing was copied: $(cat "$work/log")"
+# a ramped value: a width on one point rises to it and falls after it; on a range it holds over the range
+"$editor" "$work/scope" --user "$work/scope-u" --frames 2 --steps print-road,width:5,14,print-road >"$work/log" 2>&1 || fail "scope width: $(cat "$work/log")"
+python3 - "$work/log" <<'PY' || fail "a width edit on one point is not on that point alone"
+import re, sys
+rows = [re.match(r"road (\d+): width ([\d.]+)", l) for l in open(sys.argv[1]) if l.startswith("road ")]
+w = [float(m.group(2)) for m in rows]
+before, after = w[:10], w[10:]
+assert after[5] == 14.0, after
+assert [i for i in range(10) if after[i] != before[i]] == [5], (before, after)
+PY
+"$editor" "$work/scope" --user "$work/scope-u" --frames 2 --steps row:3,shift-row:6,width:3,12,print-road >"$work/log" 2>&1 || fail "scope width range: $(cat "$work/log")"
+python3 - "$work/log" <<'PY' || fail "a width edit on points 3-6 is not on 3-6 alone"
+import re, sys
+w = [float(re.match(r"road (\d+): width ([\d.]+)", l).group(2)) for l in open(sys.argv[1]) if l.startswith("road ")]
+assert w[3:7] == [12.0] * 4, w
+assert w[2] != 12.0 and w[7] != 12.0 and w[0] == w[2] == w[7] == w[9], w
+PY
+
 # ==== Window, player folder, and what a track project refuses ====
 # --window WxH: the picture is that size (a layout at another window size); a size out of range is refused by name
 "$editor" "$work/surface" --window 1440x900 --frames 6 --select 2 --shot "$work/wide.png" >"$work/log" 2>&1 || fail "run with --window: $(cat "$work/log")"

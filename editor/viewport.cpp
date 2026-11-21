@@ -34,6 +34,7 @@ const float BOX_MIN_PX = 4;       // a left drag on no point shorter than this i
 const double END_SNAP_PX = 8;     // the last point dragged this near point 0 lands on it (snap_end)
 const ImU32 PREVIEW_GREY = IM_COL32(200, 200, 200, 230), PREVIEW_TAIL = IM_COL32(150, 150, 150, 140);   // Add curve's preview (draw_curve_preview)
 const ImU32 PREVIEW_RED = IM_COL32(255, 90, 90, 255), PREVIEW_AMBER = IM_COL32(255, 176, 33, 255);
+const ImU32 REACH = IM_COL32(80, 220, 200, 150);   // how far a Road profile value reaches (draw_reach)
 const ImU32 BOX_EDGE = IM_COL32(255, 220, 0, 200), BOX_FILL = IM_COL32(255, 220, 0, 32);
 
 struct Box {   // the box a left drag on no point draws (dep87): its first corner in the panel's pixels, while the button is held
@@ -136,6 +137,18 @@ void draw_road(const Canvas &c, const App &a, const uint8_t *classes)
         c.list->AddLine(to_screen(c, v, p.position[0] / 65536.0, p.position[2] / 65536.0),
                         to_screen(c, v, q.position[0] / 65536.0, q.position[2] / 65536.0), colour, 3);
     }
+}
+
+// how far the value under the mouse in the Road profile reaches (app.h reach_from..reach_to): the road from the first point to where it stops, drawn over
+void draw_reach(const Canvas &c, App *a)
+{
+    const int from = a->reach_from, to = a->reach_to;
+    a->reach_from = a->reach_to = -1;   // the panels set it again each frame while the mouse is over a value
+    if (!a->road_made || from < 0 || to <= from || to >= a->point_count) return;
+    const int first = app_nearest_node(a, from), last = app_nearest_node(a, to);
+    for (int i = first + 1; i <= last && i < a->node_count; ++i)
+        c.list->AddLine(to_screen(c, a->view, a->nodes[i - 1].position[0] / 65536.0, a->nodes[i - 1].position[2] / 65536.0),
+                        to_screen(c, a->view, a->nodes[i].position[0] / 65536.0, a->nodes[i].position[2] / 65536.0), REACH, 6);
 }
 
 void draw_points(const Canvas &c, const App &a)
@@ -396,6 +409,7 @@ void viewport_panel(App *a)
             c.list->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), BACKGROUND);
             draw_grid(c, a->view);
             draw_road(c, *a, app_colour_classes(a));
+            draw_reach(c, a);
             draw_points(c, *a);
             draw_box(c);
             draw_curve_preview(c, a);

@@ -1,10 +1,100 @@
 /* The road's sides and lanes on the editor's road keys (steps 3 and 4; app.h): set and clear a side value or the lanes of a control point, as the Road
  * profile block edits them. */
 #include "app.h"
+#include "key_ops.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+/* ---- dep87 part 2: an edit changes only what is selected ---- */
+
+/* whether two key lists say the same */
+static int same_keys(const TraceKey *a, int na, const TraceKey *b, int nb)
+{
+    if (na != nb) return 0;
+    for (int i = 0; i < na; ++i)
+        if (a[i].point != b[i].point || !key_same(&a[i], &b[i], ~0u)) return 0;
+    return 1;
+}
+
+int app_set_scoped(App *a, int point, const TraceKey *value)
+{
+    if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return 0;
+    int *points = malloc(sizeof *points * (size_t)a->trace.count);
+    if (points == NULL) return snprintf(a->status, sizeof a->status, "out of memory"), 0;
+    int count = 0;
+    if (sel_count(&a->sel) > 1 && sel_has(&a->sel, point)) {
+        for (int i = 0; i < a->trace.count; ++i)
+            if (sel_has(&a->sel, i)) points[count++] = i;
+    } else {
+        points[count++] = point;
+    }
+    TraceKey *keys = NULL;
+    int key_count = 0;
+    const int ok = keys_set_scoped(&a->trace, points, count, value, &keys, &key_count);
+    free(points);
+    if (!ok) return snprintf(a->status, sizeof a->status, "out of memory"), 0;
+    if (same_keys(a->trace.keys, a->trace.key_count, keys, key_count)) {
+        free(keys);
+        return 1;   /* the same: nothing changed */
+    }
+    free(a->trace.keys);
+    a->trace.keys = keys, a->trace.key_count = key_count, a->trace.key_cap = key_count;
+    a->dirty = 1;
+    return 1;
+}
+
+void app_extend_point(App *a, int point, unsigned mask, int to_end)
+{
+    if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return;
+    int last = point;
+    if (sel_count(&a->sel) > 1 && sel_has(&a->sel, point))   /* the end of the run it is in */
+        while (last + 1 < a->trace.count && sel_has(&a->sel, last + 1)) ++last;
+    TraceKey *keys = NULL;
+    int key_count = 0;
+    if (!keys_extend(&a->trace, last, mask, to_end, &keys, &key_count)) {
+        snprintf(a->status, sizeof a->status, "out of memory");
+        return;
+    }
+    if (same_keys(a->trace.keys, a->trace.key_count, keys, key_count)) {
+        free(keys);
+        return;
+    }
+    free(a->trace.keys);
+    a->trace.keys = keys, a->trace.key_count = key_count, a->trace.key_cap = key_count;
+    a->dirty = 1;
+}
+
+int app_copy_profile(App *a)
+{
+    if (a->kind != APP_KIND_TRACK || a->selected < 0 || a->selected >= a->trace.count) return snprintf(a->status, sizeof a->status, "select a point to copy its profile"), 0;
+    KeyState st;
+    if (!key_state_make(&a->trace, &st)) return snprintf(a->status, sizeof a->status, "out of memory"), 0;
+    a->profile_clip = key_state_at(&st, a->selected, KEY_RAMPED | KEY_HELD);
+    key_state_free(&st);
+    snprintf(a->status, sizeof a->status, "profile of point %d copied", a->selected);
+    return 1;
+}
+
+int app_paste_profile(App *a)
+{
+    if (a->kind != APP_KIND_TRACK) return 0;
+    if (a->profile_clip.has == 0) return snprintf(a->status, sizeof a->status, "no profile copied: select a point and Copy profile first"), 0;
+    if (a->selected < 0 || a->selected >= a->trace.count) return snprintf(a->status, sizeof a->status, "select the points to paste the profile on"), 0;
+    const int point = a->selected;   /* app_set_scoped takes the whole selection when it is one of several */
+    if (!app_set_scoped(a, point, &a->profile_clip)) return 0;
+    app_track_commit(a);   /* one step to undo */
+    if (sel_count(&a->sel) > 1 && sel_has(&a->sel, point)) {
+        char which[96];
+        sel_describe(&a->sel, which, sizeof which);
+        snprintf(a->status, sizeof a->status, "profile pasted on points %s", which);
+    } else {
+        snprintf(a->status, sizeof a->status, "profile pasted on point %d", point);
+    }
+    return 1;
+}
 
 /* what a side value is kept to: widths to a quarter of a metre in 0..TRACE_SIDE_MAX_M, a wall to hard or soft, a fence to on or off */
 static double side_value(int field, double v)
@@ -23,14 +113,10 @@ static int side_ok(const App *a, int point, int field, int side)
 void app_set_point_side(App *a, int point, int field, int side, double value)
 {
     if (!side_ok(a, point, field, side)) return;
-    const double want = side_value(field, value);
-    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
-    if (at >= 0 && (a->trace.keys[at].has & TRACE_KEY_SIDE(field, side)) && a->trace.keys[at].side[field][side] == want) return;   /* the same: nothing changed */
-    if (!track_trace_key_set_side(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, field, side, want)) {
-        snprintf(a->status, sizeof a->status, "out of memory");
-        return;
-    }
-    a->dirty = 1;
+    TraceKey v;
+    memset(&v, 0, sizeof v);
+    v.has = TRACE_KEY_SIDE(field, side), v.side[field][side] = side_value(field, value);
+    app_set_scoped(a, point, &v);
 }
 
 void app_clear_point_side(App *a, int point, int field, int side)
@@ -47,13 +133,10 @@ static int lanes_point_ok(const App *a, int point) { return a->kind == APP_KIND_
 void app_set_point_lanes(App *a, int point, int lanes)
 {
     if (!lanes_point_ok(a, point) || !(lanes == TRACK_GEN_LANES_1_1 || lanes == TRACK_GEN_LANES_1_2 || lanes == TRACK_GEN_LANES_2_1)) return;
-    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
-    if (at >= 0 && (a->trace.keys[at].has & TRACE_KEY_LANES) && a->trace.keys[at].lanes == lanes) return;   /* the same: nothing changed */
-    if (!track_trace_key_set_lanes(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, lanes)) {
-        snprintf(a->status, sizeof a->status, "out of memory");
-        return;
-    }
-    a->dirty = 1;
+    TraceKey v;
+    memset(&v, 0, sizeof v);
+    v.has = TRACE_KEY_LANES, v.lanes = lanes;
+    app_set_scoped(a, point, &v);
 }
 
 void app_clear_point_lanes(App *a, int point)
@@ -98,18 +181,17 @@ static unsigned fence_bit_ok(unsigned bit)
            bit == TRACE_KEY_BARRIER_CUSTOM(TRACK_GEN_RIGHT);
 }
 
-static int fence_value_of(const TraceKey *k, unsigned bit)
-{
-    return bit == TRACE_KEY_FENCE_HEIGHT ? k->fence_tall : bit == TRACE_KEY_FENCE_ART ? k->fence_art : k->barrier_custom[bit == TRACE_KEY_BARRIER_CUSTOM(TRACK_GEN_RIGHT)];
-}
-
 void app_set_point_fence(App *a, int point, unsigned bit, int value)
 {
     if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count || !fence_bit_ok(bit)) return;
-    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
-    if (at >= 0 && (a->trace.keys[at].has & bit) && fence_value_of(&a->trace.keys[at], bit) == value) return;   /* the same: nothing changed */
-    if (!track_trace_key_set_fence(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, bit, value)) return;   /* a value out of range */
-    a->dirty = 1;
+    if (value < 0 || value >= (bit == TRACE_KEY_FENCE_ART ? TRACE_FENCE_PICTURES : 2)) return;   /* a value out of range */
+    TraceKey v;
+    memset(&v, 0, sizeof v);
+    v.has = bit;
+    if (bit == TRACE_KEY_FENCE_HEIGHT) v.fence_tall = value;
+    else if (bit == TRACE_KEY_FENCE_ART) v.fence_art = value;
+    else v.barrier_custom[bit == TRACE_KEY_BARRIER_CUSTOM(TRACK_GEN_RIGHT)] = value;
+    app_set_scoped(a, point, &v);
 }
 
 void app_clear_point_fence(App *a, int point, unsigned bit)

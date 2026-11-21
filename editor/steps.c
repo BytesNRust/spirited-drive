@@ -1,5 +1,6 @@
 #include "steps.h"
 #include "app_slope.h"
+#include "key_ops.h"
 
 #include "app_points.h"
 #include "app_select.h"
@@ -16,8 +17,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -213,6 +214,8 @@ static int at_once(App *a, const char *name, const double *arg)
     if (strcmp(name, "status") == 0) return fprintf(stdout, "status: %s\n", a->status), 1;
     if (strcmp(name, "copy") == 0) return app_copy_points(a);   /* each is one step to undo (app_points.h) */
     if (strcmp(name, "paste") == 0) return app_paste_points(a);
+    if (strcmp(name, "copy-profile") == 0) return app_copy_profile(a);   /* the Road profile buttons */
+    if (strcmp(name, "paste-profile") == 0) return app_paste_profile(a);
     if (strcmp(name, "mirror-lr") == 0) return app_mirror_points(a, 0);
     if (strcmp(name, "mirror-fb") == 0) return app_mirror_points(a, 1);
     if (strcmp(name, "reverse") == 0) return app_reverse_points(a);
@@ -308,6 +311,30 @@ static int at_once(App *a, const char *name, const double *arg)
         const int point = (int)arg[0];
         if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return 0;
         app_set_point_height(a, point, arg[1]);
+        return 1;
+    }
+    if (strncmp(name, "lanes:", 6) == 0) {   /* lanes:P,L: the lanes row's combo on point P, L 0 1+1, 1 1+2, 2 2+1 */
+        const int point = (int)arg[0], lanes = (int)arg[1];
+        if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count || lanes < 0 || lanes > 2) return 0;
+        app_set_point_lanes(a, point, lanes == 0 ? TRACK_GEN_LANES_1_1 : lanes == 1 ? TRACK_GEN_LANES_1_2 : TRACK_GEN_LANES_2_1);
+        app_track_commit(a);   /* one step to undo, as the window's let go is */
+        return 1;
+    }
+    if (strncmp(name, "extend:", 7) == 0 || strncmp(name, "extend-end:", 11) == 0) {   /* extend:P,F / extend-end:P,F: right-click Extend to next change / to the end; F 0 width, 1 bank, 2 lanes */
+        const int point = (int)arg[0], field = (int)arg[1];
+        if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count || field < 0 || field > 2) return 0;
+        app_extend_point(a, point, field == 0 ? TRACE_KEY_WIDTH : field == 1 ? TRACE_KEY_BANK : TRACE_KEY_LANES, name[6] == '-');
+        app_track_commit(a);
+        return 1;
+    }
+    if (strcmp(name, "print-road") == 0) {   /* what the keys make at each point: road P: width bank lanes shoulder-left|right surface (1 verge, 2 tarmac) */
+        if (a->kind != APP_KIND_TRACK) return 0;
+        KeyState st;
+        if (!key_state_make(&a->trace, &st)) return 0;
+        for (int i = 0; i < a->trace.count; ++i)
+            fprintf(stdout, "road %d: width %.2f bank %.1f lanes %d shoulder %.2f|%.2f surface %d|%d\n", i, st.width_m[i], st.bank_deg[i], st.lanes[i],
+                    st.side[i][TRACE_SIDE_SHOULDER][TRACK_GEN_LEFT], st.side[i][TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT], (int)st.surface[0][i], (int)st.surface[1][i]);
+        key_state_free(&st);
         return 1;
     }
     if (strncmp(name, "bank", 4) == 0) {   /* a cell of the Road profile's bank row, as the panel sets it */

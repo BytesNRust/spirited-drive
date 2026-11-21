@@ -262,3 +262,88 @@ int keys_reverse(const Trace *t, int s, int e, TraceKey **out, int *count)
     key_state_free(&st);
     return grid_list(g, n, out, count);
 }
+
+/* the grid of t's keys, as they are */
+static TraceKey *grid_of(const Trace *t)
+{
+    TraceKey *g = grid_new(t->count);
+    for (int k = 0; g != NULL && k < t->key_count; ++k)
+        if (t->keys[k].point >= 0 && t->keys[k].point < t->count) put(&g[t->keys[k].point], &t->keys[k], KEY_KNOWN);
+    return g;
+}
+
+/* the values of `mask` g[i] sets drop out */
+static void unset(TraceKey *g, int i, unsigned mask)
+{
+    g[i].has &= ~mask;
+}
+
+/* g[i] takes `old`'s values of `mask` unless it has its own, and only where they differ from `now`'s (what it would hold otherwise) */
+static void restore(TraceKey *g, int i, const TraceKey *old, const TraceKey *now, unsigned mask)
+{
+    for (unsigned bit = 1; bit != 0 && bit <= KEY_KNOWN; bit <<= 1) {
+        if (!(mask & bit & old->has) || key_same(old, now, bit)) continue;
+        if (bit == TRACE_KEY_SHOULDER_SURFACE && (g[i].has & bit)) {   /* a key that speaks for one side only: the other side's old surface comes back */
+            if (g[i].shoulder_l_surface == TRACE_SURFACE_INHERIT) g[i].shoulder_l_surface = old->shoulder_l_surface;
+            if (g[i].shoulder_r_surface == TRACE_SURFACE_INHERIT) g[i].shoulder_r_surface = old->shoulder_r_surface;
+        } else if (!(g[i].has & bit)) {
+            put(&g[i], old, bit);
+        }
+    }
+}
+
+int keys_set_scoped(const Trace *t, const int *points, int count, const TraceKey *value, TraceKey **out, int *out_count)
+{
+    const int n = t->count;
+    const unsigned mask = value->has & KEY_KNOWN;
+    if (count < 1 || mask == 0) return 0;
+    unsigned char *on = calloc((size_t)(n > 0 ? n : 1), 1);
+    KeyState st;
+    if (on == NULL) return 0;
+    for (int i = 0; i < count; ++i) {
+        if (points[i] < 0 || points[i] >= n) return free(on), 0;
+        on[points[i]] = 1;
+    }
+    if (!key_state_make(t, &st)) return free(on), 0;
+    TraceKey *g = grid_of(t);
+    if (g == NULL) return free(on), key_state_free(&st), 0;
+    TraceKey v = *value;
+    for (int s = 0; s < n; ++s) {
+        if (!on[s] || (s > 0 && on[s - 1])) continue;
+        int e = s;
+        while (e + 1 < n && on[e + 1]) ++e;
+        TraceKey was_after = e + 1 < n ? key_state_at(&st, e + 1, mask) : v, was_before = s > 0 ? key_state_at(&st, s - 1, mask & KEY_RAMPED) : v;
+        was_after.has |= mask & TRACE_KEY_WIDTH, was_before.has |= mask & TRACE_KEY_WIDTH & KEY_RAMPED;   /* a width a lane stretch ignores still comes back: the lanes may end */
+        for (int i = s; i <= e; ++i) unset(g, i, mask);
+        put(&g[s], &v, mask);
+        put(&g[e], &v, mask & KEY_RAMPED);
+        if (e + 1 < n) restore(g, e + 1, &was_after, &v, mask);
+        if (s > 0) restore(g, s - 1, &was_before, &v, mask & KEY_RAMPED);
+    }
+    free(on);
+    key_state_free(&st);
+    return grid_list(g, n, out, out_count);
+}
+
+int keys_extend(const Trace *t, int point, unsigned mask, int to_end, TraceKey **out, int *out_count)
+{
+    const int n = t->count;
+    mask &= KEY_KNOWN;
+    if (point < 0 || point >= n || mask == 0) return 0;
+    TraceKey *g = grid_of(t);
+    if (g == NULL) return 0;
+    for (int i = point + 1; i < n; ++i) {
+        if (!(g[i].has & mask)) continue;
+        unset(g, i, mask);
+        if (!to_end) break;
+    }
+    return grid_list(g, n, out, out_count);
+}
+
+int keys_reach(const Trace *t, int point, unsigned mask)
+{
+    int reach = t->count - 1;
+    for (int k = t->key_count - 1; k >= 0; --k)
+        if (t->keys[k].point > point && (t->keys[k].has & mask)) reach = t->keys[k].point;
+    return reach < point ? point : reach;
+}

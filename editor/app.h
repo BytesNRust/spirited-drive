@@ -195,6 +195,8 @@ typedef struct {
     double (*point_sides)[TRACE_SIDE_FIELDS][2];   /* each control point's side values as the keys make them (track_trace_point_sides), with the road: the Road key block's */
     double *point_bank;          /* the road's bank in degrees at each control point as the keys make it (track_trace_point_banks), the same way */
     int node;                    /* the node the Node window shows, -1 for none */
+    TraceKey profile_clip;       /* Copy profile: every road value as it is at the point copied (profile_clip.has says which; 0 before the first copy) */
+    int reach_from, reach_to;    /* the points a Road profile value under the mouse reaches (road_reach_hover), set each frame the mouse is over one; the Viewport draws them and clears it */
     int node_for;                /* the control point `node` was taken from (app_sync_selection) */
     char road_text[APP_MSG];     /* why the road is not made; "" when it is */
     char build_text[APP_MSG];    /* why Build would refuse the road made (build_road_check); "" when it takes it */
@@ -450,6 +452,18 @@ int app_tarmac_art_note(const App *a, char *text, size_t cap);
 /* The road's sides (step 3; app_sides.c): a side value of point `point` (TRACE_SIDE_*, TRACK_GEN_LEFT / _RIGHT): widths kept to a quarter of a metre in
  * 0..TRACE_SIDE_MAX_M, a wall to hard or soft, a fence to on or off. A change makes the project modified; the same value again, or clearing a value the point
  * does not set, does not. A key with nothing left goes. */
+/* dep87 part 2: the set_point calls (width, bank, surface, side, lanes, fence) change only what is selected. When `point` is one of several selected points the value is set on all of
+ * them (a run: on its first point, ramped values on its last too) and the value that held before comes back right after each run (key_ops.h
+ * keys_set_scoped); on a point that is not in a multi-selection it is that one point alone. `value`'s `has` says which values, its fields what. 0 with the
+ * status set when memory is out; an unsaved change when it changes any key. */
+int app_set_scoped(App *a, int point, const TraceKey *value);
+/* «Extend to next change» (`to_end` 0) and «Extend to the end» (1) for the values of `mask` (TRACE_KEY_ bits) set on `point`, or on the run of selected points it
+ * is in (from the run's last): key_ops.h keys_extend. An unsaved change when it removes a key. */
+void app_extend_point(App *a, int point, unsigned mask, int to_end);
+/* Copy profile / Paste profile: the road values (width, bank, shoulders, walls, fences, lanes, surfaces) of the selected point, put on the selected point or points
+ * as a scoped edit (app_set_scoped: the value that held comes back after them), one undo step. 1 when it did it; 0 with the reason in the status. */
+int app_copy_profile(App *a);
+int app_paste_profile(App *a);
 void app_set_point_side(App *a, int point, int field, int side, double value);
 void app_clear_point_side(App *a, int point, int field, int side);
 /* The fence step (app_sides.c): on point `point`'s road key, `bit` TRACE_KEY_FENCE_HEIGHT (0 low, 1 tall), TRACE_KEY_FENCE_ART (a TRACE_FENCE_ picture) or

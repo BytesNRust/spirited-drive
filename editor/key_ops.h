@@ -48,4 +48,20 @@ int keys_mirror(const Trace *t, int s, int e, TraceKey **out, int *count);
 /* t's keys for pts_reverse(t, s, e): the run's values on the mirror-image points, sides swapped */
 int keys_reverse(const Trace *t, int s, int e, TraceKey **out, int *count);
 
+/* dep87 part 2: an edit changes only what is selected. t's keys with the values of `value` (its `has` says which, its fields what) set on the
+ * selected points (points[0..count), any order, no point twice) and the value that held before put back right after each run of consecutive
+ * points: a held value (lanes, the fence, the wall...) at the point after the run, a ramped one (width, bank, shoulder, barrier distance) on the
+ * run's first and last point, pinned to what it was on the points just outside it, so it rises and falls around the run. A key already on the
+ * point after the run (or before it, for a ramp) already says what comes next and stays; the run's own keys for these values give way to the
+ * edit. 0 for no points, a point that is not on the road, or memory out; else a new malloc'd ascending key list, t's left alone. */
+int keys_set_scoped(const Trace *t, const int *points, int count, const TraceKey *value, TraceKey **out, int *out_count);
+/* a value of `mask` set on `point` runs on again: the next key after it that sets any of those values loses them (the value holds up to the key after
+ * that; the restoring key keys_set_scoped left is the usual one), or with `to_end` every later key loses them and the value holds to the road's end.
+ * 0 when `point` is not on the road or memory is out; else a new malloc'd ascending key list (a key left setting nothing goes). */
+int keys_extend(const Trace *t, int point, unsigned mask, int to_end, TraceKey **out, int *out_count);
+
+/* how far a value reaches: the point where what `point` (or the run of points it is in: the caller gives its last) sets of `mask` stops, which is the next key
+ * after it that sets any of those values (a held value holds up to it, a ramped one rises or falls to it), or the road's last point when none does. */
+int keys_reach(const Trace *t, int point, unsigned mask);
+
 #endif

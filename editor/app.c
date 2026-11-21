@@ -867,14 +867,10 @@ static double key_metres(double metres)
 void app_set_point_width(App *a, int point, double metres)
 {
     if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return;
-    const double want = key_metres(metres);
-    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
-    if (at >= 0 && (a->trace.keys[at].has & TRACE_KEY_WIDTH) && a->trace.keys[at].width_m == want) return;   // the same: nothing changed
-    if (!track_trace_key_set_width(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, want)) {
-        set_status(a, "out of memory");
-        return;
-    }
-    a->dirty = 1;
+    TraceKey v;
+    memset(&v, 0, sizeof v);
+    v.has = TRACE_KEY_WIDTH, v.width_m = key_metres(metres);
+    app_set_scoped(a, point, &v);
 }
 
 void app_clear_point_width(App *a, int point)
@@ -890,16 +886,21 @@ void app_clear_point_width(App *a, int point)
 void app_set_point_surface(App *a, int point, int side, TraceSurface surface)
 {
     if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return;
-    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
-    const TraceSurface now = at < 0 || !(a->trace.keys[at].has & TRACE_KEY_SHOULDER_SURFACE) ? TRACE_SURFACE_INHERIT
-                             : side == TRACK_GEN_LEFT                                          ? a->trace.keys[at].shoulder_l_surface
-                                                                                               : a->trace.keys[at].shoulder_r_surface;
-    if (now == surface) return;   // the same: nothing changed
-    if (!track_trace_key_set_surface(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, side, surface)) {
-        set_status(a, "out of memory");
+    if (surface == TRACE_SURFACE_INHERIT) {   // inherit again: that side's key goes
+        const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+        if (at < 0 || !(a->trace.keys[at].has & TRACE_KEY_SHOULDER_SURFACE)) return;   // nothing to inherit again
+        const TraceSurface now = side == TRACK_GEN_LEFT ? a->trace.keys[at].shoulder_l_surface : a->trace.keys[at].shoulder_r_surface;
+        if (now == TRACE_SURFACE_INHERIT) return;
+        track_trace_key_set_surface(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, side, surface);
+        a->dirty = 1;
         return;
     }
-    a->dirty = 1;
+    if ((side != TRACK_GEN_LEFT && side != TRACK_GEN_RIGHT) || (surface != TRACE_SURFACE_VERGE && surface != TRACE_SURFACE_TARMAC)) return;
+    TraceKey v;
+    memset(&v, 0, sizeof v);
+    v.has = TRACE_KEY_SHOULDER_SURFACE;
+    *(side == TRACK_GEN_LEFT ? &v.shoulder_l_surface : &v.shoulder_r_surface) = surface;
+    app_set_scoped(a, point, &v);
 }
 
 int app_tarmac_art_note(const App *a, char *text, size_t cap)
@@ -920,14 +921,10 @@ void app_set_point_bank(App *a, int point, double degrees)
 {
     if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count || !isfinite(degrees)) return;
     const double most = TRACE_BANK_INPUT_MAX_DEG;
-    const double want = round((degrees < -most ? -most : degrees > most ? most : degrees) * 10) / 10;
-    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
-    if (at >= 0 && (a->trace.keys[at].has & TRACE_KEY_BANK) && a->trace.keys[at].bank_deg == want) return;   // the same: nothing changed
-    if (!track_trace_key_set_bank(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, want)) {
-        set_status(a, "out of memory");
-        return;
-    }
-    a->dirty = 1;
+    TraceKey v;
+    memset(&v, 0, sizeof v);
+    v.has = TRACE_KEY_BANK, v.bank_deg = round((degrees < -most ? -most : degrees > most ? most : degrees) * 10) / 10;
+    app_set_scoped(a, point, &v);
 }
 
 void app_clear_point_bank(App *a, int point)

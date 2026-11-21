@@ -282,6 +282,14 @@ static void check_surface_file(void)
     cleanup_project(dir);
 }
 
+/* dep87 part 2: an edit is on its point alone, so the value that held comes back on the point after it (a ramped value: and on the one before): the keys an
+ * edit leaves are the edit's and those restoring ones; this finds a point's */
+static TraceKey *key_on(App *a, int point)
+{
+    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+    return at < 0 ? NULL : &a->trace.keys[at];
+}
+
 /* the editor: a side's surface set on a point is an unsaved change; the same again is none; inheriting both sides clears the key */
 static void check_surface_app(void)
 {
@@ -295,12 +303,15 @@ static void check_surface_app(void)
     CHECK(!app_modified(a));
     app_set_point_surface(a, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_TARMAC);
     CHECK(app_modified(a));
-    CHECK(a->trace.key_count == 1 && a->trace.keys[0].shoulder_r_surface == TRACE_SURFACE_TARMAC);
+    CHECK(a->trace.key_count == 2 && key_on(a, 2) != NULL && key_on(a, 2)->shoulder_r_surface == TRACE_SURFACE_TARMAC && key_on(a, 3) != NULL);   /* and the verge back on 3 */
     CHECK(app_save(a));
     app_set_point_surface(a, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_TARMAC);
     CHECK(!app_modified(a));                                 /* the same value: nothing changed */
     app_set_point_surface(a, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_INHERIT);
-    CHECK(app_modified(a) && a->trace.key_count == 0);
+    CHECK(app_modified(a) && a->trace.key_count == 1);
+    app_set_point_surface(a, 3, TRACK_GEN_LEFT, TRACE_SURFACE_INHERIT);
+    app_set_point_surface(a, 3, TRACK_GEN_RIGHT, TRACE_SURFACE_INHERIT);
+    CHECK_EQ_INT(a->trace.key_count, 0);
     app_set_point_surface(a, 99, TRACK_GEN_LEFT, TRACE_SURFACE_TARMAC);   /* no such point: nothing */
     CHECK_EQ_INT(a->trace.key_count, 0);
     app_recompute(a);
@@ -467,27 +478,28 @@ static void check_side_keys_app(void)
     CHECK(!app_modified(a));
     app_set_point_side(a, 2, TRACE_SIDE_SHOULDER, TRACK_GEN_RIGHT, 4.1);
     CHECK(app_modified(a));
-    CHECK(a->trace.key_count == 1 && a->trace.keys[0].point == 2 && a->trace.keys[0].side[TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT] == 4.0);   /* 4.1 is 4 m */
+    CHECK(a->trace.key_count == 3 && key_on(a, 2) != NULL && key_on(a, 2)->side[TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT] == 4.0);   /* 4.1 is 4 m; the 3 m back on 1 and 3 */
+    CHECK(key_on(a, 1) != NULL && key_on(a, 3) != NULL);
     CHECK(app_save(a));
     CHECK(!app_modified(a));
     app_set_point_side(a, 2, TRACE_SIDE_SHOULDER, TRACK_GEN_RIGHT, 4.0);
     CHECK(!app_modified(a));                                 /* the same value: nothing changed */
     app_set_point_side(a, 2, TRACE_SIDE_BARRIER, TRACK_GEN_LEFT, 99);
-    CHECK(a->trace.keys[0].side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] == TRACE_SIDE_MAX_M);   /* kept to the range */
+    CHECK(key_on(a, 2)->side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] == TRACE_SIDE_MAX_M);   /* kept to the range */
     app_set_point_side(a, 2, TRACE_SIDE_BARRIER, TRACK_GEN_LEFT, -3);
-    CHECK(a->trace.keys[0].side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] == 0);
+    CHECK(key_on(a, 2)->side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] == 0);
     app_set_point_side(a, 3, TRACE_SIDE_WALL, TRACK_GEN_LEFT, 7);   /* anything but hard is soft; anything but off is on */
     app_set_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0.4);
-    CHECK(a->trace.key_count == 2 && a->trace.keys[1].side[TRACE_SIDE_WALL][TRACK_GEN_LEFT] == TRACK_GEN_WALL_SOFT &&
-          a->trace.keys[1].side[TRACE_SIDE_FENCE][TRACK_GEN_RIGHT] == 1);
+    CHECK(key_on(a, 3) != NULL && key_on(a, 3)->side[TRACE_SIDE_WALL][TRACK_GEN_LEFT] == TRACK_GEN_WALL_SOFT &&
+          key_on(a, 3)->side[TRACE_SIDE_FENCE][TRACK_GEN_RIGHT] == 1);
     app_set_point_side(a, a->trace.count, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0);   /* no such point: nothing */
     app_set_point_side(a, 3, TRACE_SIDE_FIELDS, TRACK_GEN_RIGHT, 0);   /* no such value: nothing */
-    CHECK_EQ_INT(a->trace.key_count, 2);
+    CHECK_EQ_INT(a->trace.key_count, 3);
     CHECK(app_save(a));
     app_clear_point_side(a, 3, TRACE_SIDE_WALL, TRACK_GEN_LEFT);
-    CHECK(app_modified(a) && a->trace.key_count == 2);
+    CHECK(app_modified(a) && a->trace.key_count == 3);
     app_clear_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT);
-    CHECK_EQ_INT(a->trace.key_count, 1);                     /* nothing left on point 3: its key is gone */
+    CHECK(key_on(a, 3) != NULL && !(key_on(a, 3)->has & TRACE_KEY_SIDE(TRACE_SIDE_FENCE, TRACK_GEN_RIGHT)));   /* that value is gone from it */
     CHECK(app_save(a));
     app_clear_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT);
     CHECK(!app_modified(a));                                 /* nothing to clear: no change */
@@ -570,30 +582,29 @@ static void check_keys_app(void)
     CHECK(!app_modified(a));
     app_set_point_width(a, 2, 14.1);
     CHECK(app_modified(a));
-    CHECK_EQ_INT(a->trace.key_count, 1);
-    CHECK(a->trace.keys[0].point == 2 && a->trace.keys[0].width_m == 14.0);   /* 14.1 is 14 m: a quarter of a metre is a byte */
+    CHECK_EQ_INT(a->trace.key_count, 3);                     /* the edit on point 2 and the road's width back on 1 and 3 */
+    CHECK(key_on(a, 2) != NULL && key_on(a, 2)->width_m == 14.0);   /* 14.1 is 14 m: a quarter of a metre is a byte */
     CHECK(app_save(a));
     CHECK(!app_modified(a));
     app_set_point_width(a, 2, 14.0);
     CHECK(!app_modified(a));                                 /* the same value: nothing changed */
     app_set_point_width(a, 3, 99.0);
-    CHECK(a->trace.key_count == 2 && a->trace.keys[1].width_m == 30.0);       /* clamped to the road's range */
+    CHECK(key_on(a, 3) != NULL && key_on(a, 3)->width_m == 30.0);       /* clamped to the road's range */
     app_set_point_width(a, 4, 0.5);
-    CHECK(a->trace.key_count == 3 && a->trace.keys[2].width_m == 2.0);
-    app_clear_point_width(a, 4);
-    app_clear_point_width(a, 3);
+    CHECK(key_on(a, 4) != NULL && key_on(a, 4)->width_m == 2.0);
+    for (int i = 0; i < a->trace.count; ++i)
+        if (i != 2) app_clear_point_width(a, i);             /* the edit's own key and its restoring ones go; point 2's stays */
     CHECK_EQ_INT(a->trace.key_count, 1);
     app_set_point_bank(a, 2, 12.34);                         /* the bank: a tenth of a degree, on the width's key */
-    CHECK(a->trace.key_count == 1 && a->trace.keys[0].has == (TRACE_KEY_WIDTH | TRACE_KEY_BANK) && a->trace.keys[0].bank_deg == 12.3);
+    CHECK(key_on(a, 2)->has == (TRACE_KEY_WIDTH | TRACE_KEY_BANK) && key_on(a, 2)->bank_deg == 12.3 && key_on(a, 1) != NULL && key_on(a, 3) != NULL);   /* level back on 1 and 3 */
     CHECK(app_save(a));
     app_set_point_bank(a, 2, 12.3);
     CHECK(!app_modified(a));                                 /* the same value: nothing changed */
     app_set_point_bank(a, 1, -75);
-    CHECK(a->trace.key_count == 2 && a->trace.keys[0].bank_deg == -TRACE_BANK_INPUT_MAX_DEG && a->trace.keys[0].has == TRACE_KEY_BANK);   /* clamped to the input's */
+    CHECK(key_on(a, 1)->bank_deg == -TRACE_BANK_INPUT_MAX_DEG && (key_on(a, 1)->has & TRACE_KEY_BANK));   /* clamped to the input's */
     app_recompute(a);   /* the Points column's values: each point's bank as the keys make it */
     CHECK(a->point_bank != NULL && a->point_count > 2 && a->point_bank[0] == 0 && a->point_bank[1] == -60 && a->point_bank[2] == 12.3);
-    app_clear_point_bank(a, 1);
-    app_clear_point_bank(a, 2);
+    for (int i = 0; i < a->trace.count; ++i) app_clear_point_bank(a, i);   /* the edits' keys and their restoring ones */
     CHECK(app_modified(a) && a->trace.key_count == 1 && a->trace.keys[0].has == TRACE_KEY_WIDTH);
     CHECK(app_save(a));
     a->selected = 1;

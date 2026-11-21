@@ -125,7 +125,9 @@ verge = [d[0x98C + 36 * k] for k in range(nodes) if d[0x98C + 36 * k] != 0]   # 
 assert min(verge) == 32 and max(verge) == 40, (min(verge), max(verge))
 slant = [struct.unpack_from("<h", d, 0x98C + 36 * k + 0x16)[0] for k in range(nodes)]
 bank = max(v for v in slant if v < 0x1000)   # +0x16 of each node: the slant, a 14-bit angle (0x4000 a turn); the 5 degrees at its peak
-assert bank == round(5 * 0x4000 / 360), sorted(set(slant))
+# the bank is on point 3 alone (dep87 part 2): it rises to its 5 degrees there (a node is within a few metres of the point) and is gone at the end
+assert round(4.5 * 0x4000 / 360) <= bank <= round(5 * 0x4000 / 360), sorted(set(slant))
+assert slant[-1] == 0, slant[-1]
 PY
 
 # 5. Test drive: the editor builds, installs into its own scratch folder and runs the game on the piece; the game's log names it (the line is the editor's

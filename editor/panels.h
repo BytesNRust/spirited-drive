@@ -14,6 +14,8 @@ extern "C" {
 void points_panel(App *a);
 float points_panel_width();   // the Points panel's width that shows all its columns (the first-run layout gives it that much when it can)
 float road_key_panel_width();   // the Road profile window's width that shows its labels and both sides' combos whole
+void road_extend_menu(App *a, int point, unsigned mask);   // in a right-click menu of a set value: «Extend to next change» and «Extend to the end» (key_ops.h keys_extend)
+void road_reach_hover(App *a, int point, unsigned mask);   // right after an item of the value `mask` on `point`: while it is hovered the Viewport shows how far the value reaches
 void road_key_panel(App *a);   // the selected point's road key, each side (Left | Right): the Road profile window's content
 void road_key_window(App *a);   // the Road profile window (PANEL_ROAD_KEY), beside Limits and Problems
 void strip_panel(App *a);   // the Distance strip window (strip_panel.cpp): each road value's stretches along the road, a tab beside Limits
