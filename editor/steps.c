@@ -15,8 +15,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "shift-dblclick", "cmd-dblclick" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 2 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -222,7 +222,7 @@ static int at_once(App *a, const char *name, const double *arg)
         app_colour_summary(a, text, sizeof text);
         return fprintf(stdout, "%s\n", text), 1;
     }
-    if (strncmp(name, "dblclick-road:", 14) == 0) return 2;   /* by_frames: the mouse goes in */
+    if (strncmp(name, "dblclick-road:", 14) == 0 || strstr(name, "-dblclick:") != NULL) return 2;   /* by_frames: the mouse goes in */
     if (strcmp(name, "print-sel") == 0) {
         if (a->kind != APP_KIND_TRACK) return 0;
         char which[256];
@@ -327,7 +327,12 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         if (p == 0) a->curve.block_force = arg[0] != 0 ? 1 : 2;
         return p == 0;
     }
-    if (strncmp(name, "dblclick-road:", 14) == 0) {   /* dblclick-road:X,Z: a double click on the road where track place (X, Z) is, in metres */
+    if (strncmp(name, "dblclick-road:", 14) == 0 || strstr(name, "-dblclick:") != NULL) {   /* dblclick-road:X,Z: a double click on the road where track place (X, Z) is, in metres; shift-dblclick, cmd-dblclick: with the modifier held */
+        SDL_Keycode mod_key;
+        SDL_Keymod mod;
+        const char *rest;
+        held(name, &mod_key, &mod, &rest);
+        if (p == 0 && mod_key != SDLK_UNKNOWN) key_event(win, mod_key, 1, mod);
         if (p == 0) {
             double sx, sy;
             if (a->kind != APP_KIND_TRACK) return s->failed = 1, 0;
@@ -339,7 +344,8 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         if (p == 2) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_UP, s->from_x, s->from_y, 1);
         if (p == 3) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y, 2);
         if (p == 4) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_UP, s->from_x, s->from_y, 2);
-        return p < 5;
+        if (p == 5 && mod_key != SDLK_UNKNOWN) key_event(win, mod_key, 0, SDL_KMOD_NONE);
+        return p < 6;
     }
     if (strncmp(name, "sheet:", 6) == 0) {   /* sheet:N, N 0 the car's, 1 the traffic's: started, then waited for (a sheet is a few photos of a game run) */
         if (p == 0 && !app_sheet_start(a, (int)arg[0])) return s->failed = 1, 0;

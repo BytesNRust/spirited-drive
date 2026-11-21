@@ -283,6 +283,14 @@ assert runs[2][2] - runs[2][1] > 80, ('the right turn is the long run', runs)
 PY
 grep -q "^selected: 3-9$" "$work/log" || fail "a double-click on the road after the turn did not select its stretch (points 3 to 9): $(grep '^selected' "$work/log")"
 grep -q "^status: stretch selected: points 3 to 9$" "$work/log" || fail "the stretch does not say which points: $(grep '^status' "$work/log")"
+# Shift or Cmd on the double-click adds the stretch to the selection, which stays; a plain one replaces it
+cs_run() { "$editor" "$work/cs" --user "$work/cs-u" --window 960x600 --frames 12 --steps "colour-by:1,$1" 2>&1 | grep -E '^(selected|status):' | tr '\n' '|'; }
+got=$(cs_run "dblclick-road:0,150,print-sel,shift-dblclick:280,200,print-sel,status")
+[ "$got" = "selected: 0-1|selected: 0-1, 3-9|status: stretch added: points 3 to 9|" ] || fail "a Shift double-click on a second stretch did not add it to the first: $got"
+got=$(cs_run "dblclick-road:280,200,print-sel,cmd-dblclick:0,150,print-sel,status")
+[ "$got" = "selected: 3-9|selected: 0-1, 3-9|status: stretch added: points 0 to 1|" ] || fail "a Cmd double-click on a second stretch did not add it to the first: $got"
+got=$(cs_run "click:5,dblclick-road:280,200,print-sel")
+[ "$got" = "selected: 3-9|" ] || fail "a plain double-click on a stretch did not replace the selection with it: $got"
 # in Limits mode a double-click on the road selects nothing (the first click clears); a click on a point still picks it
 "$editor" "$work/cs" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:0,dblclick-road:280,200,print-sel,click:9,print-sel >"$work/log" 2>&1 || fail "Limits mode: $(cat "$work/log")"
 [ "$(grep '^selected:' "$work/log" | tr '\n' '|')" = "selected: none|selected: 9|" ] || fail "Limits mode: a double-click on the road must select nothing, a click a point: $(grep '^selected' "$work/log")"
