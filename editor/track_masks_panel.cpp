@@ -80,7 +80,7 @@ void track_masks_panel(App *a, ImTextureID picture)
     }
     if (ImGui::BeginTable("##trackmasks", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Borders, ImVec2(0, bounded(ImGui::GetContentRegionAvail().y * 0.42f, 120.0f, 600.0f)))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("Texture");
+        ImGui::TableSetupColumn("Texture", ImGuiTableColumnFlags_WidthFixed, 190.0f);   // wide enough for the «Not painted yet (N)» line, which a column clips
         ImGui::TableSetupColumn("Size");
         ImGui::TableSetupColumn("Mask");
         ImGui::TableSetupColumn("State");
