@@ -17,6 +17,13 @@ int psd_car_mask(const char *psd_path, uint8_t **grey, uint32_t *w, uint32_t *h,
  * buffers are malloc'd. */
 int psd_dash_mask(const char *psd_path, uint8_t **classes, uint8_t **color_rgba, uint32_t *w, uint32_t *h, char *why, size_t why_cap);
 
+/* A track texture's PSD (tools/track_mask_from_psd.py): the layer "mask"; `*marks` is width x height bytes, TRACK_MASK_NONE / TRACK_MASK_REFLECTIVE / TRACK_MASK_LAMP. A texel
+ * is a lamp's mark when it is opaque enough (alpha 128 or more) and yellow (red and green 192 or more, blue 64 or less), else reflective when alpha is 128 or more and its brightest
+ * channel 64 or more. `*has_lamp` is 1 when any texel is a lamp (the script writes the PNG as RGBA then, grey otherwise). */
+enum { TRACK_MASK_NONE = 0, TRACK_MASK_REFLECTIVE = 1, TRACK_MASK_LAMP = 2 };
+int psd_track_mask(const char *psd_path, uint8_t **marks, int *has_lamp, uint32_t *w, uint32_t *h, char *why, size_t why_cap);
+int psd_track_mask_bytes(const uint8_t *bytes, size_t len, uint8_t **marks, int *has_lamp, uint32_t *w, uint32_t *h, char *why, size_t why_cap);
+
 /* The same over the bytes of a PSD already in memory (what the tests use). */
 int psd_car_mask_bytes(const uint8_t *bytes, size_t len, uint8_t **grey, uint32_t *w, uint32_t *h, char *why, size_t why_cap);
 int psd_dash_mask_bytes(const uint8_t *bytes, size_t len, uint8_t **classes, uint8_t **color_rgba, uint32_t *w, uint32_t *h, char *why, size_t why_cap);

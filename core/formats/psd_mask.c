@@ -84,6 +84,13 @@ static void color_texel(uint8_t *dst, size_t at, const uint8_t *px)
     if (px[3] >= 128) memcpy(dst + at * 4, px, 3), dst[at * 4 + 3] = 255;
 }
 
+static void track_texel(uint8_t *dst, size_t at, const uint8_t *px)
+{
+    if (px[3] < 128) return;
+    if (px[0] >= 192 && px[1] >= 192 && px[2] <= 64) dst[at] = TRACK_MASK_LAMP;
+    else if (max3(px[0], px[1], px[2]) >= 64) dst[at] = TRACK_MASK_REFLECTIVE;
+}
+
 static int no_mask(char *why, size_t cap)
 {
     if (why != NULL && cap > 0) snprintf(why, cap, "no layer named \"mask\"");
@@ -106,6 +113,26 @@ int psd_car_mask_bytes(const uint8_t *bytes, size_t len, uint8_t **grey, uint32_
     }
     paint(&psd, layer, out, car_texel);
     *grey = out, *w = psd.width, *h = psd.height;
+    psd_free(&psd);
+    return 1;
+}
+
+int psd_track_mask_bytes(const uint8_t *bytes, size_t len, uint8_t **marks, int *has_lamp, uint32_t *w, uint32_t *h, char *why, size_t why_cap)
+{
+    PsdFile psd;
+    if (!psd_parse(bytes, len, MASK_WANT, 1, &psd, why, why_cap)) return 0;
+    const PsdLayer *layer = psd_find_layer(&psd, MASK_NAMES, 1);
+    if (layer == NULL) return psd_free(&psd), no_mask(why, why_cap);
+    uint8_t *out = calloc((size_t)psd.width * psd.height, 1);
+    if (out == NULL) {
+        psd_free(&psd);
+        if (why != NULL && why_cap > 0) snprintf(why, why_cap, "out of memory");
+        return 0;
+    }
+    paint(&psd, layer, out, track_texel);
+    int lamp = 0;
+    for (size_t i = 0; i < (size_t)psd.width * psd.height && !lamp; ++i) lamp = out[i] == TRACK_MASK_LAMP;
+    *marks = out, *has_lamp = lamp, *w = psd.width, *h = psd.height;
     psd_free(&psd);
     return 1;
 }
@@ -159,6 +186,16 @@ int psd_car_mask(const char *psd_path, uint8_t **grey, uint32_t *w, uint32_t *h,
     uint8_t *bytes = slurp(psd_path, &len, why, why_cap);
     if (bytes == NULL) return 0;
     const int ok = psd_car_mask_bytes(bytes, len, grey, w, h, why, why_cap);
+    free(bytes);
+    return ok;
+}
+
+int psd_track_mask(const char *psd_path, uint8_t **marks, int *has_lamp, uint32_t *w, uint32_t *h, char *why, size_t why_cap)
+{
+    size_t len;
+    uint8_t *bytes = slurp(psd_path, &len, why, why_cap);
+    if (bytes == NULL) return 0;
+    const int ok = psd_track_mask_bytes(bytes, len, marks, has_lamp, w, h, why, why_cap);
     free(bytes);
     return ok;
 }
