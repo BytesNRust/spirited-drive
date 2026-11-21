@@ -808,6 +808,45 @@ void app_insert_point(App *a)
     set_status(a, "point inserted after the selected one");
 }
 
+int app_insert_point_at(App *a, int seg, double frac)
+{
+    if (a->kind != APP_KIND_TRACK) return 0;
+    if (seg < 0 || seg + 1 >= a->trace.count || !(frac >= APP_INSERT_MARGIN && frac <= 1 - APP_INSERT_MARGIN)) {
+        set_status(a, "click a place on the profile between two points first");
+        return 0;
+    }
+    if (!can_add(a)) return 0;
+    const TracePoint *p = &a->trace.points[seg], *q = &a->trace.points[seg + 1];
+    const TracePoint at = { .x = p->x + frac * (q->x - p->x), .z = p->z + frac * (q->z - p->z), .h = track_trace_height_at(a->trace.points, a->trace.count, seg, frac) };   /* on the curve: no height moves */
+    TracePoint *more = points_with(a, seg + 1, at);
+    if (more == NULL) {
+        set_status(a, "out of memory");
+        return 0;
+    }
+    track_trace_keys_insert_point(a->trace.keys, a->trace.key_count, seg + 1);   // the keys stay on their points
+    put_points(a, more, a->trace.count + 1, seg + 1);
+    set_status(a, "point inserted at the clicked place");
+    return 1;
+}
+
+void app_profile_place(App *a, int seg, double frac)
+{
+    a->profile_place.set = 1;
+    a->profile_place.seg = seg;
+    a->profile_place.frac = frac;
+}
+
+int app_insert_here(App *a)
+{
+    if (!a->profile_place.set) {
+        set_status(a, "click a place on the profile between two points first");
+        return 0;
+    }
+    const int done = app_insert_point_at(a, a->profile_place.seg, a->profile_place.frac);
+    if (done) a->profile_place.set = 0;
+    return done;
+}
+
 void app_set_point_height(App *a, int point, double metres)
 {
     if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count || !(fabs(metres) <= 1e9)) return;   /* not a number: nothing */

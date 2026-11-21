@@ -161,6 +161,10 @@ typedef struct {
         float x, width, top, bottom;   /* the curve's left edge and width in the window, the rows of its highest and lowest height */
         double lo, hi, total;          /* the heights at those rows, the road's length in metres */
     } profile_drawn;
+    struct {                     /* the place on the profile last clicked (app_profile_place): between point seg and the next, at fraction frac; the Insert point here button's target */
+        int set, seg;
+        double frac;
+    } profile_place;
     int focus_strip;             /* set: the Distance strip's tab is brought to the front by the next frame (--steps strip) */
     int colour_by;               /* the Viewport's Colour by mode (TraceColourBy, 0 Limits); not saved with the project */
     uint8_t *node_class;         /* each node's class in colour_by, made by app_colour_classes; NULL until then and whenever the road is made again */
@@ -417,6 +421,13 @@ void app_install_stop(App *a);   /* asks the installer to end (a hung one): app_
  * the selected point removed (a trace keeps TRACE_POINTS_MIN points). Each sets the status when it refuses. */
 void app_add_point(App *a);
 void app_insert_point(App *a);
+/* a point put in at fraction `frac` (APP_INSERT_MARGIN .. 1 - APP_INSERT_MARGIN) of the way from point `seg` to the next, on the curve (its height there), and selected; 1 when it was, 0
+ * with the reason in the status (off the road, too near a point, or no room) */
+#define APP_INSERT_MARGIN 0.02
+int app_insert_point_at(App *a, int seg, double frac);
+/* the strip's click on the profile remembers its place; Insert point here puts a point there (app_insert_point_at) and forgets it */
+void app_profile_place(App *a, int seg, double frac);
+int app_insert_here(App *a);
 void app_remove_point(App *a);
 /* A control point's height in metres above the start (the Points table's "h"; dep95): kept to a tenth of a metre and inside +-TRACE_HEIGHT_MAX_M. An unsaved change when it
  * changes anything; a project with a height is written as trace.json version 5. */

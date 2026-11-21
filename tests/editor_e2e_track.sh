@@ -84,6 +84,15 @@ awk -v a="$(h 1)" -v b="$(h 2)" 'BEGIN { exit !(b > a) }' || fail "dragging the 
 fine=$(grep '^height: 2 ' "$work/log" | cut -d' ' -f3)
 awk -v a="$(h 1)" -v b="$(h 2)" -v f="$fine" 'BEGIN { exit !(f > a && (f - a) * 5 < (b - a)) }' || fail "the fine drag did not move the height a tenth as far: plain $(h 1) -> $(h 2), fine -> $fine"
 
+# 2c5. Insert point here (the strip's button): with no place clicked it says so; after a click on the profile between points 2 and 3 it puts a point there, on the
+# curve (a height between theirs), selected
+"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:3,12,strip,insert-here,status,profile-click:2,30,insert-here,status,print-sel,print-height:3,print-height:2,print-height:4 >"$work/log" 2>&1 \
+    || fail "Insert point here: $(cat "$work/log")"
+grep -q "^status: click a place on the profile between two points first" "$work/log" || fail "Insert point here with no place clicked did not say so: $(grep '^status' "$work/log")"
+grep -q "^status: point inserted at the clicked place" "$work/log" || fail "Insert point here did not put a point in: $(grep '^status' "$work/log")"
+grep -qx "selected: 3" "$work/log" || fail "the inserted point is not the one selected: $(grep '^selected' "$work/log")"
+awk '/^height: 2 /{a=$3} /^height: 3 /{m=$3} /^height: 4 /{b=$3} END { exit !(m > a && m < b) }' "$work/log" || fail "the inserted point is not on the curve between its neighbours: $(grep '^height' "$work/log")"
+
 # 2d. A point dragged too near the next (17 m before it, on a new project): the nodes bunch up with no red node; Problems says so in red in
 # Build's words before Build, and Build refuses with those words
 "$editor" "$work/near" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (near): $(cat "$work/log")"

@@ -205,6 +205,7 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
             double frac;
             const int seg = segment_at(metres, (mouse.x - origin.x) / width * total, &frac);
             app_sel_click(a, frac < 0.5 ? seg : seg + 1, SEL_ONE);
+            app_profile_place(a, seg, frac);   // where Insert point here would put a point
         }
     }
     if (dragged >= 0) {
@@ -244,6 +245,10 @@ void readout(App *a, const std::vector<double> &metres)
              TRACK_GEN_GRADE_MAX_PERCENT);
     help_marker(help);
     const int count = a->trace.count, i = a->selected;
+    ImGui::SameLine();
+    if (ImGui::Button("Insert point here")) app_insert_here(a);
+    ImGui::SameLine();
+    help_marker("Inserts a point at the place on the profile you clicked last (between two points), on the curve at its height there. Drag it like any other point.");
     if (i < 0 || i >= count) {
         ImGui::TextDisabled("no point selected");
         return;

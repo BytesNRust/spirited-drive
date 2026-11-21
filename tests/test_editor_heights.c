@@ -221,6 +221,17 @@ static void test_app_flow(void)
     a->selected = 2;
     app_remove_point(a);
     CHECK(a->trace.count == 5 && a->trace.points[1].h == 4.0 && fabs(a->trace.points[2].h - 12.3) < 1e-9 && a->trace.points[3].h == 20.0);
+    // a point put in at a place on the strip's profile: a quarter of the way from point 1 to point 2, on the curve (its height between theirs), selected; refused at a
+    // point or off the road
+    CHECK(!app_insert_point_at(a, 1, 0.0) && !app_insert_point_at(a, 1, 1.0) && !app_insert_point_at(a, -1, 0.5) && !app_insert_point_at(a, a->trace.count - 1, 0.5) && a->trace.count == 5);
+    CHECK(app_insert_point_at(a, 1, 0.25) && a->trace.count == 6 && fabs(a->trace.points[2].z - 125.0) < 1e-9 && a->selected == 2);
+    CHECK(a->trace.points[2].h > 4.0 && a->trace.points[2].h < 12.3 && fabs(a->trace.points[3].h - 12.3) < 1e-9 && a->trace.points[1].h == 4.0);
+    app_track_commit(a);
+    CHECK(app_undo(a) && a->trace.count == 5);   // one undo step
+    CHECK(app_redo(a) && a->trace.count == 6);
+    a->selected = 2;
+    app_remove_point(a);
+    CHECK(a->trace.count == 5);
     // every height back to 0 and Save: the old version and pairs again
     for (int i = 0; i < a->trace.count; ++i) app_set_point_height(a, i, 0);
     CHECK(app_save(a));
