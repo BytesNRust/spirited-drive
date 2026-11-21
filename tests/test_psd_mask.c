@@ -167,6 +167,52 @@ static void test_dash(void)
     free(cls); free(f.p);
 }
 
+static void test_track(void)
+{
+    /* one row: transparent, black, dark grey (below 64), grey (64), white, red, yellow (lamp), a yellowish orange (not a lamp), half-transparent white (alpha 127), opaque enough (128) */
+    static const uint8_t R[10][4] = { { 255, 255, 255, 0 }, { 0, 0, 0, 255 }, { 63, 63, 63, 255 }, { 64, 64, 64, 255 }, { 255, 255, 255, 255 }, { 255, 0, 0, 255 }, { 255, 255, 0, 255 },
+                                      { 255, 191, 0, 255 }, { 255, 255, 255, 127 }, { 255, 255, 255, 128 } };
+    const int want[10] = { TRACK_MASK_NONE, TRACK_MASK_NONE, TRACK_MASK_NONE, TRACK_MASK_REFLECTIVE, TRACK_MASK_REFLECTIVE, TRACK_MASK_REFLECTIVE, TRACK_MASK_LAMP,
+                           TRACK_MASK_REFLECTIVE, TRACK_MASK_NONE, TRACK_MASK_REFLECTIVE };
+    uint8_t row[10 * 4], tex[10 * 4] = { 0 };
+    memcpy(row, R, sizeof row);
+    FxLayer l[3] = { { "texture", NULL, 0, 0, 0, 10, 1, tex, 0, 1, 0 }, { "mask", NULL, 0, 0, 0, 10, 1, row, 0, 1, 0 }, { "draft", NULL, 0, 0, 0, 10, 1, row, 1, 1, 0 } };
+    FxBuf f = fx_psd(10, 1, l, 3, 8, 3, 1);
+    uint8_t *marks = NULL; uint32_t w = 0, h = 0; int lamp = -1; char why[128] = "";
+    CHECK(psd_track_mask_bytes(f.p, f.n, &marks, &lamp, &w, &h, why, sizeof why) && marks != NULL && w == 10 && h == 1, "track: %s", why);
+    for (int x = 0; marks != NULL && x < 10; ++x) CHECK(marks[x] == want[x], "track texel %d is %d, not %d", x, marks[x], want[x]);
+    CHECK(lamp == 1, "a lamp is there");
+    free(marks); free(f.p);
+
+    /* no lamp: the flag is 0; an empty mask layer (only a hidden draft painted) marks nothing */
+    uint8_t white[4 * 4], none[4 * 4] = { 0 };
+    for (int i = 0; i < 4; ++i) memset(white + i * 4, 255, 4);
+    FxLayer plain[2] = { { "mask", NULL, 0, 0, 0, 4, 1, white, 0, 1, 0 }, { "draft", NULL, 0, 0, 0, 4, 1, white, 1, 1, 0 } };
+    f = fx_psd(4, 1, plain, 2, 8, 3, 1);
+    marks = NULL, lamp = -1;
+    CHECK(psd_track_mask_bytes(f.p, f.n, &marks, &lamp, &w, &h, why, sizeof why) && lamp == 0 && marks != NULL && marks[0] == TRACK_MASK_REFLECTIVE && marks[3] == TRACK_MASK_REFLECTIVE, "no lamp: %s", why);
+    free(marks); free(f.p);
+    FxLayer empty[2] = { { "mask", NULL, 0, 0, 0, 4, 1, none, 0, 1, 0 }, { "draft", NULL, 0, 0, 0, 4, 1, white, 1, 1, 0 } };
+    f = fx_psd(4, 1, empty, 2, 8, 3, 1);
+    marks = NULL;
+    CHECK(psd_track_mask_bytes(f.p, f.n, &marks, &lamp, &w, &h, why, sizeof why) && marks != NULL && psd_track_marks_count(marks, 4) == 0 && lamp == 0, "an empty mask layer marks nothing (the hidden draft is never read)");
+    free(marks); free(f.p);
+
+    /* a layer of its own bounds, partly off the canvas, and a PSD with no mask layer is refused in words */
+    uint8_t two[2 * 4];
+    for (int i = 0; i < 2; ++i) memset(two + i * 4, 255, 4);
+    FxLayer moved[1] = { { "Mask ", NULL, 0, 3, 0, 5, 1, two, 0, 1, 0 } };   /* the name is trimmed and lower-cased; texels 3 and 4 of a 4-wide canvas: 4 is off it */
+    f = fx_psd(4, 1, moved, 1, 8, 3, 1);
+    marks = NULL;
+    CHECK(psd_track_mask_bytes(f.p, f.n, &marks, &lamp, &w, &h, why, sizeof why) && marks != NULL && marks[2] == 0 && marks[3] == TRACK_MASK_REFLECTIVE && psd_track_marks_count(marks, 4) == 1, "bounds: %s", why);
+    free(marks); free(f.p);
+    FxLayer other[1] = { { "texture", NULL, 0, 0, 0, 4, 1, white, 0, 1, 0 } };
+    f = fx_psd(4, 1, other, 1, 8, 3, 1);
+    marks = NULL;
+    CHECK(!psd_track_mask_bytes(f.p, f.n, &marks, &lamp, &w, &h, why, sizeof why) && strstr(why, "mask") != NULL, "no mask layer: %s", why);
+    free(f.p);
+}
+
 int main(void)
 {
     test_values();
@@ -174,6 +220,7 @@ int main(void)
     test_bounds();
     test_refusals();
     test_dash();
+    test_track();
     if (g_fail != 0) return fprintf(stderr, "%d failed\n", g_fail), 1;
     puts("psd_mask: ok");
     return 0;

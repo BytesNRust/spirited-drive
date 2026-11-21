@@ -117,6 +117,13 @@ int psd_car_mask_bytes(const uint8_t *bytes, size_t len, uint8_t **grey, uint32_
     return 1;
 }
 
+size_t psd_track_marks_count(const uint8_t *marks, size_t n)
+{
+    size_t count = 0;
+    for (size_t i = 0; marks != NULL && i < n; ++i) count += marks[i] != TRACK_MASK_NONE;
+    return count;
+}
+
 int psd_track_mask_bytes(const uint8_t *bytes, size_t len, uint8_t **marks, int *has_lamp, uint32_t *w, uint32_t *h, char *why, size_t why_cap)
 {
     PsdFile psd;

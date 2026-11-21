@@ -21,6 +21,8 @@ int psd_dash_mask(const char *psd_path, uint8_t **classes, uint8_t **color_rgba,
  * is a lamp's mark when it is opaque enough (alpha 128 or more) and yellow (red and green 192 or more, blue 64 or less), else reflective when alpha is 128 or more and its brightest
  * channel 64 or more. `*has_lamp` is 1 when any texel is a lamp (the script writes the PNG as RGBA then, grey otherwise). */
 enum { TRACK_MASK_NONE = 0, TRACK_MASK_REFLECTIVE = 1, TRACK_MASK_LAMP = 2 };
+/* how many texels of `marks` (n of them) are marked, reflective or lamp: 0 means the mask layer is empty (nothing painted: the PSD is not a source for the PNG) */
+size_t psd_track_marks_count(const uint8_t *marks, size_t n);
 int psd_track_mask(const char *psd_path, uint8_t **marks, int *has_lamp, uint32_t *w, uint32_t *h, char *why, size_t why_cap);
 int psd_track_mask_bytes(const uint8_t *bytes, size_t len, uint8_t **marks, int *has_lamp, uint32_t *w, uint32_t *h, char *why, size_t why_cap);
 
