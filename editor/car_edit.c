@@ -9,6 +9,8 @@
 #include <string.h>
 #include <strings.h>
 
+#include "car_photos.h"
+
 typedef struct {
     const char *key, *label;
     size_t cap;   /* the longest value in bytes; 0 for a word */
@@ -28,6 +30,7 @@ static const FieldInfo FIELDS[CE_FIELDS] = {
     { "abs", "ABS", 0 },
     { "traction", "Traction control", 0 },
     { "sound_from", "Sound from", 0 },
+    { "photos", "Showcase photos", MOD_INI_PHOTOS_MAX * (MOD_INI_PHOTO_NAME_MAX + 1) },
 };
 
 int car_edit_sound_words(const char **out, int cap)
@@ -105,6 +108,9 @@ static void fill_state(CarEditState *s, const ModInfo *m)
     snprintf(s->value[CE_ABS], CE_VALUE_MAX, "%s", m->assist_abs);
     snprintf(s->value[CE_TRACTION], CE_VALUE_MAX, "%s", m->assist_traction);
     snprintf(s->value[CE_SOUND_FROM], CE_VALUE_MAX, "%s", m->sound_from);
+    char photos[MOD_INI_PHOTOS_MAX][MOD_INI_PHOTO_NAME_MAX + 1];
+    memcpy(photos, m->photo, sizeof photos);
+    car_photos_join(photos, m->photo_count, s->value[CE_PHOTOS], CE_VALUE_MAX);
     s->paint_count = m->paint_count;
     memcpy(s->paints, m->paints, sizeof(ModPaint) * (size_t)m->paint_count);
 }

@@ -15,6 +15,7 @@ enum {
     CE_ABS,           /* "yes", "no" or "" (the car's own file says) */
     CE_TRACTION,      /* the same */
     CE_SOUND_FROM,    /* the word of an original car: car_piece_word_of_model */
+    CE_PHOTOS,        /* the showcase's photos: names between commas (car_photos.h), up to MOD_INI_PHOTOS_MAX */
     CE_FIELDS,
     CE_PAINTS = CE_FIELDS,   /* the colors, not a text: a problem about them is for this field */
     CE_CARD = CE_FIELDS + 1  /* the card as a whole (its size) */

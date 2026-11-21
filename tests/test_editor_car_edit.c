@@ -385,6 +385,37 @@ static void check_version_next(void)
     CHECK_EQ_INT(car_edit_version_next("0.2", small, sizeof small), 0);   /* "0.2.1" does not fit in 5 bytes */
 }
 
+static void check_photos(void)
+{
+    CarEdit *e = open_card(KIT);
+    CarEditProblem p[CE_PROBLEMS_MAX];
+    CHECK(strcmp(car_edit_key(CE_PHOTOS), "photos") == 0 && car_edit_cap(CE_PHOTOS) == 200);
+    CHECK(e->now.value[CE_PHOTOS][0] == '\0');   /* the kit names none */
+    CHECK_EQ_INT(car_edit_set(e, CE_PHOTOS, "front.png,side.png"), 1);
+    CHECK(car_edit_modified(e) && car_edit_can_undo(e) && problems(e, p) == 0);
+    char out[MOD_INI_MAX_SIZE + 1], why[200];
+    CHECK(car_edit_render(e, out, sizeof out, NULL, why, sizeof why) && strstr(out, "photos=front.png,side.png") != NULL);
+    CHECK_EQ_INT(car_edit_save(e, why, sizeof why), 1);
+    CHECK(!car_edit_modified(e));
+    CHECK_EQ_INT(car_edit_set(e, CE_PHOTOS, "front.png"), 1);   /* one removed: undo brings it back */
+    CHECK_EQ_INT(car_edit_undo(e), 1);
+    CHECK(strcmp(e->now.value[CE_PHOTOS], "front.png,side.png") == 0 && !car_edit_modified(e));
+    CHECK_EQ_INT(car_edit_set(e, CE_PHOTOS, "front.png,front.png"), 1);   /* the game's reader refuses a name twice: Save is blocked */
+    CHECK(problems(e, p) == 1 && p[0].field == CE_PHOTOS);
+    CHECK_EQ_INT(car_edit_set(e, CE_PHOTOS, "Front.png"), 1);
+    CHECK(problems(e, p) == 1 && p[0].field == CE_PHOTOS);
+    CHECK_EQ_INT(car_edit_set(e, CE_PHOTOS, "card.png"), 1);
+    CHECK(problems(e, p) == 1 && p[0].field == CE_PHOTOS);
+    CHECK_EQ_INT(car_edit_set(e, CE_PHOTOS, "1.png,2.png,3.png,4.png,5.png,6.png,7.png,8.png,9.png"), 1);
+    CHECK(problems(e, p) >= 1 && p[0].field == CE_PHOTOS);
+    car_edit_free(e);
+    static CarEdit again;   /* reopened (the card as saved, not the kit): the saved line is the list */
+    CHECK_EQ_INT(car_edit_open(&again, path, why, sizeof why), 1);
+    e = &again;
+    CHECK(strcmp(e->now.value[CE_PHOTOS], "front.png,side.png") == 0);
+    car_edit_free(e);
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -403,6 +434,7 @@ int main(void)
     check_a_card_that_is_full();
     check_by_text();
     check_version_next();
+    check_photos();
     remove(path);
     rmdir(dir);
     return TEST_REPORT();
