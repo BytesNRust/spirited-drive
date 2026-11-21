@@ -818,6 +818,7 @@ int main(int argc, char **argv)
             snprintf(data, sizeof data, "%s", o.port_data != NULL ? o.port_data : o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);
             if (data[0] == '\0') app_light_default_dir(o.game, data, sizeof data);
             app_set_game_data(app, data, o.art_dir);
+            app_set_repo_arg(app, o.port_data);   // the copy to the game repo shows only with the repo's data/ given: --port-data, or the kept setting
         }
         app_set_light_dir(app, o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);   /* the folder the Track light window tunes: named, or the source tree's data/ it was built from */
         app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */

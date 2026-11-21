@@ -116,31 +116,31 @@ int app_track_mask_regenerate(App *a)
     return 1;
 }
 
-/* Publish to the game (app.h): the preview is the light files and the masks' PNGs of the open original track against data/; the copy writes the changed and new ones */
-int app_original_publish_ask(App *a)
+/* Copy to game repo (app.h): the preview is the light files and the masks' PNGs of the open original track against data/; the copy writes the changed and new ones */
+int app_original_copy_ask(App *a)
 {
     OriginalPublish *plan = &a->publish_plan;
     char why[OT_WHY] = "", stem[16];
-    if (!app_original_can_publish(a)) return snprintf(a->status, sizeof a->status, "publish: Studio has no game data folder (--port-data)"), 0;
-    if (app_modified(a)) return snprintf(a->status, sizeof a->status, "publish: Save the light file first"), 0;
+    if (!app_original_can_copy(a)) return snprintf(a->status, sizeof a->status, "copy to game repo: the game repo's data/ is not set (--port-data, or repo data in workspace.txt)"), 0;
+    if (app_modified(a)) return snprintf(a->status, sizeof a->status, "copy to game repo: Save the light file first"), 0;
     if (!original_track_stem_of(a->original_dir, stem, sizeof stem)) return 0;
     app_track_masks_load(a);   // the PNGs are made from the PSDs before they are compared
-    if (!original_track_publish_plan(a->original_dir, a->data_dir, plan, why, sizeof why) || !track_masks_publish_plan(a->original_dir, a->data_dir, stem, plan, why, sizeof why))
-        return snprintf(a->status, sizeof a->status, "publish: %s", why), 0;
+    if (!original_track_publish_plan(a->original_dir, app_repo_data(a), plan, why, sizeof why) || !track_masks_publish_plan(a->original_dir, app_repo_data(a), stem, plan, why, sizeof why))
+        return snprintf(a->status, sizeof a->status, "copy to game repo: %s", why), 0;
     original_track_publish_text(plan, stem, a->publish_text, sizeof a->publish_text);
     a->publish_dialog = 1;
     return 1;
 }
 
-int app_original_publish(App *a)
+int app_original_copy(App *a)
 {
     char why[OT_WHY] = "";
     int written = 0;
     a->publish_dialog = 0;
-    if (!app_original_can_publish(a)) return 0;
-    if (!original_track_publish(a->original_dir, a->data_dir, &written, why, sizeof why) || !track_masks_publish(a->original_dir, a->data_dir, &a->publish_plan, &written, why, sizeof why))
-        return snprintf(a->status, sizeof a->status, "publish: %s", why), 0;
-    snprintf(a->status, sizeof a->status, "published to the game: %d file%s written into %s", written, written == 1 ? "" : "s", a->data_dir);
+    if (!app_original_can_copy(a)) return 0;
+    if (!original_track_publish(a->original_dir, app_repo_data(a), &written, why, sizeof why) || !track_masks_publish(a->original_dir, app_repo_data(a), &a->publish_plan, &written, why, sizeof why))
+        return snprintf(a->status, sizeof a->status, "copy to game repo: %s", why), 0;
+    snprintf(a->status, sizeof a->status, "copied to the game repo: %d file%s written into %s", written, written == 1 ? "" : "s", app_repo_data(a));
     return 1;
 }
 
@@ -148,7 +148,7 @@ int app_original_check_all(App *a, char *out, size_t cap)
 {
     int tracks = 0, masks = 0, equal = 0, differ = 0, added = 0, failed = 0;
     char why[OT_WHY] = "";
-    if (a->workspace[0] == '\0' || a->data_dir[0] == '\0') return snprintf(out, cap, "originals: needs a workspace and the game's data folder"), 0;
+    if (a->workspace[0] == '\0' || app_repo_data(a)[0] == '\0') return snprintf(out, cap, "originals: needs a workspace and the game's data folder"), 0;
     for (int i = 0; i < OT_STEMS; ++i) {
         char dir[APP_PATH];
         if (!original_track_dir(a->workspace, original_track_stem(i), dir, sizeof dir) || !original_track_present(dir)) continue;
@@ -158,7 +158,7 @@ int app_original_check_all(App *a, char *out, size_t cap)
         OriginalPublish plan;
         memset(&plan, 0, sizeof plan);
         if (!track_masks_scan(dir, NULL, 0, &m, why, sizeof why)) continue;   // no masks in that folder
-        if (!track_masks_generate(dir, &m, &written, why, sizeof why) || !track_masks_publish_plan(dir, a->data_dir, original_track_stem(i), &plan, why, sizeof why)) ++failed;
+        if (!track_masks_generate(dir, &m, &written, why, sizeof why) || !track_masks_publish_plan(dir, app_repo_data(a), original_track_stem(i), &plan, why, sizeof why)) ++failed;
         masks += plan.count, equal += plan.same, differ += plan.changed, added += plan.added;
     }
     snprintf(out, cap, "originals: %d tracks, %d masks: %d equal, %d differ, %d new in the workspace%s%s", tracks, masks, equal, differ, added, failed > 0 ? "; failed: " : "", failed > 0 ? why : "");

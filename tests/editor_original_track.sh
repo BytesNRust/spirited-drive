@@ -37,21 +37,21 @@ for f in light/track_light/CL1B.txt light/track/CL1.txt original.ini; do [ -f "$
 [ -f "$work/ws/tracks/AL1/art-source/masks/slot_00.before-x.psd" ] && fail "a PSD backup was copied"
 [ -f "$work/art/AL1/scenery_00.psd" ] || fail "the original PSD is gone from the art folder"
 
-# open one: the Tracks room, its own light folder, the track fixed; the publish item is there
-out=$(run --frames 60 --steps open-original:3,publish-ask,print-original,print-menu 2>&1) || fail "open-original: $out"
+# open one: the Tracks room, its own light folder, the track fixed; the copy item is there
+out=$(run --frames 60 --steps open-original:3,repo-ask,print-original,print-menu 2>&1) || fail "open-original: $out"
 echo "$out" | grep -q "^original: $work/ws/tracks/CL1$" || fail "the original track is open: $out"
 echo "$out" | grep -q "^light: $work/ws/tracks/CL1/light$" || fail "the light folder is the track's own: $out"
 echo "$out" | grep -q '^track: CL1 time: B$' || fail "CL1 at day: $out"
-echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Open recent | Publish to the game... | Save | Main menu | Quit$' || fail "the room's File menu: $out"
-echo "$out" | grep -q '^publish: CL1:.*5 unchanged' || fail "an untouched track has nothing to publish: $out"
+echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Open recent | Copy to game repo | Save | Main menu | Quit$' || fail "the room's File menu: $out"
+echo "$out" | grep -q '^preview: CL1:.*5 unchanged' || fail "an untouched track has nothing to publish: $out"
 
-# an edited light file: the preview names it, Publish writes it into data/ and nothing else
+# an edited light file: the preview names it, Copy writes it into data/ and nothing else
 printf 'brightness 0 5 120\n' >> "$work/ws/tracks/CL1/light/track_light/CL1N.txt"
-out=$(run --frames 60 --steps open-original:3,publish-ask,print-original,publish,publish-ask,print-original 2>&1) || fail "publish: $out"
+out=$(run --frames 60 --steps open-original:3,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish: $out"
 echo "$out" | grep -q 'track_light/CL1N.txt changed (+1 -0 lines)' || fail "the preview names the edited file: $out"
 echo "$out" | grep -q '4 unchanged' || fail "the other four are unchanged: $out"
 grep -q '^brightness 0 5 120$' "$work/data/track_light/CL1N.txt" || fail "data/ did not get the edited file"
-echo "$out" | grep -q '^status: published to the game: 1 file written' || fail "the status says what was written: $out"
+echo "$out" | grep -q '^status: copied to the game repo: 1 file written' || fail "the status says what was written: $out"
 [ "$(grep -c brightness "$work/data/track_light/CL1B.txt")" = 0 ] || fail "an untouched file was changed"
 
 # the masks: PSDs make the PNGs when the track opens (never from an empty mask layer); the panel's rows say the state
@@ -63,11 +63,11 @@ echo "$out" | grep -q '^mask slot_01: no mask painted in the PSD, 4x1, 0 reflect
 [ -f "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png" ] || fail "scenery_00.png was not made"
 [ -f "$work/ws/tracks/AL1/art-generated/track_masks/slot_01.png" ] && fail "a PNG was made from an empty mask layer"
 
-# publish lists the PNGs, the copy puts them in data/track_masks/<TRACK>/ and a second one finds nothing to do
-out=$(run --frames 60 --steps open-original:0,publish-ask,print-original,publish,publish-ask,print-original 2>&1) || fail "publish masks: $out"
+# copy to game repo lists the PNGs, the copy puts them in data/track_masks/<TRACK>/ and a second one finds nothing to do
+out=$(run --frames 60 --steps open-original:0,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish masks: $out"
 echo "$out" | grep -q 'track_masks/AL1/scenery_00.png new' || fail "the preview lists the new PNG: $out"
 [ -f "$work/data/track_masks/AL1/slot_00.png" ] && [ -f "$work/data/track_masks/AL1/scenery_00.png" ] || fail "the PNGs are not in data/track_masks/AL1"
-echo "$out" | grep -q '^publish: AL1: *7 unchanged' || fail "after publishing nothing is left to publish: $out"
+echo "$out" | grep -q '^preview: AL1: *7 unchanged' || fail "after publishing nothing is left to publish: $out"
 out=$(run --frames 4 --steps check-originals 2>&1) || fail "check-originals: $out"
 echo "$out" | grep -q '^originals: 16 tracks, 2 masks: 2 equal, 0 differ, 0 new in the workspace$' || fail "the migration check: $out"
 
@@ -103,6 +103,13 @@ echo "$out" | grep -q '^mask scenery_00: edited by hand, 4x1, 4 reflective' || f
 out=$(run --frames 60 --steps open-original:0,mask-select:2,mask-regen,masks-print 2>&1) || fail "regenerate: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "Regenerate from PSD makes it again: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "the PSD's mask is back: $out"
+
+# the copy action is hidden unless the game repo's data/ is given (--port-data): without it the room's File menu has no Copy item and print-repo says none
+out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --window 1280x800 --frames 20 --steps open-original:3,print-menu,print-repo 2>&1) || fail "no repo: $out"
+echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Open recent | Save | Main menu | Quit$' || fail "no Copy item without the repo's data/: $out"
+echo "$out" | grep -q '^repo data: none$' || fail "no repo data is given: $out"
+out=$(run --frames 20 --steps print-repo 2>&1) || fail "repo: $out"
+echo "$out" | grep -q "^repo data: $work/data$" || fail "--port-data is the repo data: $out"
 
 # Main menu goes back to the hub and the plain light folder comes back
 out=$(run --frames 60 --steps open-original:3,main-menu,print-menu,print-original 2>&1) || fail "main-menu: $out"

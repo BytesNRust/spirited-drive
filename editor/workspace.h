@@ -37,6 +37,11 @@ void workspace_start_dir(const char *dir, int kind, const char *open_dir, char *
 void workspace_load(const char *file, char *dir, size_t cap, int *put_aside);
 int workspace_save(const char *file, const char *dir, int put_aside);
 
+/* The game repo's data/ folder, the third kept setting ("repo data<TAB><path>" in the same file, set by hand or by app_repo_data_set): where Copy to game repo writes. "" for none: the
+ * copy action stays hidden. workspace_save keeps it as it is; workspace_save_repo changes it and keeps the others. 1 when written. */
+void workspace_load_repo(const char *file, char *repo, size_t cap);
+int workspace_save_repo(const char *file, const char *repo);
+
 /* The id a name makes (a mod's id: a-z, 0-9 and '-', up to `max` characters): lower case, every run of anything else one '-', none first or last. 0 when nothing is left. */
 int workspace_id_from_name(const char *name, char *id, size_t cap, size_t max);
 

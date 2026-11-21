@@ -95,7 +95,7 @@ void workspace_load(const char *file, char *dir, size_t cap, int *put_aside)
     fclose(f);
 }
 
-int workspace_save(const char *file, const char *dir, int put_aside)
+static int write_settings(const char *file, const char *dir, int put_aside, const char *repo)
 {
     if (file == NULL || file[0] == '\0') return 0;
     char tmp[4096 + 8];
@@ -105,10 +105,39 @@ int workspace_save(const char *file, const char *dir, int put_aside)
     int ok = 1;
     if (dir != NULL && dir[0] != '\0') ok &= fprintf(f, "dir\t%s\n", dir) > 0;
     if (put_aside) ok &= fprintf(f, "put aside\t1\n") > 0;
+    if (repo != NULL && repo[0] != '\0') ok &= fprintf(f, "repo data\t%s\n", repo) > 0;
     ok &= fclose(f) == 0;
     if (ok) ok = rename(tmp, file) == 0;
     if (!ok) remove(tmp);
     return ok;
+}
+
+void workspace_load_repo(const char *file, char *repo, size_t cap)
+{
+    repo[0] = '\0';
+    FILE *f = file != NULL && file[0] != '\0' ? fopen(file, "r") : NULL;
+    if (f == NULL) return;
+    char line[4096 + 16];
+    while (fgets(line, sizeof line, f) != NULL) {
+        line[strcspn(line, "\r\n")] = '\0';
+        if (strncmp(line, "repo data\t", 10) == 0 && strlen(line + 10) < cap) snprintf(repo, cap, "%s", line + 10);
+    }
+    fclose(f);
+}
+
+int workspace_save(const char *file, const char *dir, int put_aside)
+{
+    char repo[4096];
+    workspace_load_repo(file, repo, sizeof repo);   // the repo's path is not this call's to change
+    return write_settings(file, dir, put_aside, repo);
+}
+
+int workspace_save_repo(const char *file, const char *repo)
+{
+    char dir[4096];
+    int put_aside = 0;
+    workspace_load(file, dir, sizeof dir, &put_aside);
+    return write_settings(file, dir, put_aside, repo);
 }
 
 int workspace_id_from_name(const char *name, char *id, size_t cap, size_t max)

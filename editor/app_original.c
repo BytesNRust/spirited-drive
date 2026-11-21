@@ -66,7 +66,7 @@ int app_open_original(App *a, const char *dir)
     return 1;
 }
 
-int app_original_can_publish(const App *a)
+int app_original_can_copy(const App *a)
 {
-    return a->kind == APP_KIND_LIGHT && a->original_dir[0] != '\0' && a->data_dir[0] != '\0' && !app_light_in_bundle(a->data_dir);
+    return a->kind == APP_KIND_LIGHT && a->original_dir[0] != '\0' && app_repo_data(a)[0] != '\0';
 }

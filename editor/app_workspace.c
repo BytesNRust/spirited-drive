@@ -31,6 +31,24 @@ void app_workspace_keep(App *a, const char *file)
     char why[APP_MSG];
     if (a->workspace[0] != '\0' && !workspace_prepare(a->workspace, why, sizeof why)) a->workspace[0] = '\0';   /* the folder is gone: no workspace (the file keeps what it had) */
     workspace_scan(a->workspace, present, &a->workspace_list);
+    workspace_load_repo(a->workspace_file, a->repo_cfg, sizeof a->repo_cfg);
+}
+
+const char *app_repo_data(const App *a)
+{
+    const char *dir = a->repo_arg[0] != '\0' ? a->repo_arg : a->repo_cfg;
+    return app_light_in_bundle(dir) ? "" : dir;
+}
+
+void app_set_repo_arg(App *a, const char *dir)
+{
+    snprintf(a->repo_arg, sizeof a->repo_arg, "%s", dir != NULL ? dir : "");
+}
+
+int app_repo_data_set(App *a, const char *dir_or_empty)
+{
+    snprintf(a->repo_cfg, sizeof a->repo_cfg, "%s", dir_or_empty != NULL ? dir_or_empty : "");
+    return workspace_save_repo(a->workspace_file, a->repo_cfg);
 }
 
 int app_workspace_set(App *a, const char *dir)
