@@ -121,6 +121,9 @@ typedef struct {
     char tools[APP_PATH];        /* the repository's tools folder, where the converter scripts are ("" when not found) */
     InstallJob install;          /* Install (U): the game's installer, run in the background (install_job.h) */
     int drive_pick;              /* the car Test drive gives the player: the game's car menu's number (0..7, car_race_menu_car); the editor's settings keep it */
+    int dash_check;              /* Check dash (app_dash.h): 1 while its Convert PSD runs (the cockpit photo follows) */
+    char dash_stale[320];        /* what is older than its PSD, a sentence ("" when nothing): the Masks window's warning */
+    int dash_stale_ticks;        /* frames since it was last worked out */
     char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder, or a file to show selected in its folder (main.c does it and clears this) */
     Project project;
     Trace trace;

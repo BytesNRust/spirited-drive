@@ -9,6 +9,7 @@ extern "C" {
 #include "command_keys.h"
 #include "shortcut_keys.h"
 #include "car_race.h"
+#include "app_dash.h"
 #include "formats/car_piece.h"
 }
 
@@ -421,6 +422,21 @@ void masks_panel(App *a)
                 else if (!app_psd_python_ready(a)) ImGui::SetTooltip("%s", python_note);
                 else if (!found) ImGui::SetTooltip("No folder named %s in %s", c.folder, a->psd_root[0] != '\0' ? a->psd_root : "the PSD folder (--psd-root)");
                 else ImGui::SetTooltip("Make this car's masks again from the PSDs in %s.\nThe masks it makes replace the same ones here; the PSDs are never written.\n%s", psd, python_note);
+            }
+            ImGui::SameLine();
+            char why[800];
+            const bool can_check = app_dash_possible(a, why, sizeof why);
+            ImGui::BeginDisabled(!can_check);
+            if (ImGui::Button("Check dash")) app_dash_check_start(a);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("%s", can_check ? "Convert PSD, then take the cockpit photo at night with the car's own gauge colours: the dash as the game lights it.\nThe photo shows in the Drive window."
+                                                  : why);
+            if (a->dash_stale[0] != '\0') {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.69f, 0.13f, 1.0f));
+                ImGui::TextWrapped("%s", a->dash_stale);
+                ImGui::PopStyleColor();
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("The PSD was painted after the mask the game uses was made: Convert PSD makes the masks again.");
             }
             if (busy) {
                 ImGui::SameLine();

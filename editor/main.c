@@ -13,6 +13,7 @@
  * run. */
 #include "app.h"
 #include "app_select.h"
+#include "app_dash.h"
 #include "art.h"
 #include "build.h"
 #include "capture.h"
@@ -656,6 +657,7 @@ static int run(App *a, const Options *o)
         app_rehacer_poll(a);
         app_install_poll(a);
         app_psd_poll(a);
+        app_dash_poll(a);
         app_race_poll(a);
         app_card_watch(a, SDL_GetTicks() / 1000.0);   /* mod.ini, the car file and the textures */
         app_light_poll(a, SDL_GetTicks() / 1000.0);   /* the Track light photo: its output, and the next one when a change has settled */
