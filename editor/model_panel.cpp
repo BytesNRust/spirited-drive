@@ -291,6 +291,9 @@ void card_view_controls(const App *a)
 void backdrop_controls(App *a)
 {
     static const char *const KINDS[] = { "Plain colour", "Gradient", "Picture" };
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Backdrop");   // its colour swatch is a square: named, it is not read as a checkbox of the Wheels beside it
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(110);
     if (ImGui::BeginCombo("##backdrop", KINDS[g.backdrop.kind])) {
         for (int i = 0; i < 3; ++i)
@@ -377,7 +380,7 @@ void toolbar(App *a)
     ImGui::SameLine();
     card_view_controls(a);
     backdrop_controls(a);
-    ImGui::SameLine();
+    ImGui::SameLine(0.0f, ImGui::GetStyle().ItemSpacing.x * 3.0f);   // apart from the backdrop's swatch
     static const char *const WHEELS[] = { "Still", "Slow", "Fast" };
     ImGui::TextUnformatted("Wheels");
     ImGui::SameLine();
