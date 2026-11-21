@@ -344,6 +344,11 @@ int model_scene_shine(ModelScene *m, int on, const PreviewIn *in, const char *en
     return 1;
 }
 
+int model_scene_wheels(ModelScene *m, int frame)
+{
+    return car_scene_wheels(&m->scene, frame);
+}
+
 int model_scene_shine_textures(const ModelScene *m)
 {
     return m->shine.textures;

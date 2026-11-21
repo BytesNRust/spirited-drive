@@ -138,6 +138,8 @@ typedef struct {
     char psd_root[APP_PATH];     /* the folder of the owner's PSDs, one folder a car ("" for none): --psd-root, TNFS_PSD_ROOT, else art/tnfs-masks in the workspace */
     char tools[APP_PATH];        /* the repository's tools folder, where the converter scripts are ("" when not found) */
     CarBuildJob car_build;       /* the kit built in a thread: when the car file is not there at Open, and by Build (car_build_job.h) */
+    int model_wheels;            /* the Model window's Wheels: 0 Still, 1 Slow (the slow pair swapped at the game's rate), 2 Fast (the blur); the window's, not the project's */
+    int model_wheels_fixed;      /* a headless run: Slow shows its first frame, so a picture is the same every time */
     InstallJob install;          /* Install (U): the game's installer, run in the background (install_job.h) */
     int drive_pick;              /* the car Test drive gives the player: the game's car menu's number (0..7, car_race_menu_car); the editor's settings keep it */
     int dash_check;              /* Check dash (app_dash.h): 1 while its Convert PSD runs (the cockpit photo follows) */

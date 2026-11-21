@@ -28,7 +28,7 @@ const char *const PANEL_MODEL = "Model";
 
 namespace {
 
-enum { MAX_W = 2048, AUTO_DEG_PER_SECOND = 24 };
+enum { MAX_W = 2048, AUTO_DEG_PER_SECOND = 24, GAME_TICKS_PER_SECOND = 30 /* the race calls its wheels 30 times a second (game/race/race_sim.h; the Studio links only the core) */ };
 
 struct Model {
     char loaded[APP_PATH] = "";   // the CFM the scene holds (or tried to)
@@ -58,6 +58,7 @@ struct Model {
     int preset = 0;               // an orbit asked for on the command line, waiting for the car
     double preset_yaw = 0, preset_pitch = 0;
     int32_t preset_dist = 0;
+    int key_wheel = -1;           // the wheel frame the picture was drawn with
     NightSettings key_night = {};   // the Preview's Day / Night and lamps the picture was drawn in, and the police flash's phase
     int key_phase = -1;
     SDL_Texture *tex = nullptr;
@@ -175,7 +176,6 @@ bool make_target(SDL_Renderer *ren, int w, int h)
     return true;
 }
 
-// the picture in the Preview window's light: Day or Night, the track the night is of, the light at the car, the lamps (editor/night_view.h)
 // the backdrop's pixels, made again when it changed; a picture that cannot be read leaves the plain colour under it, and its reason is kept for the tooltip
 const uint8_t *backdrop_pixels()
 {
@@ -192,8 +192,18 @@ const uint8_t *backdrop_pixels()
     return g.back_rgba;
 }
 
+// the race frame the Wheels choice shows: Still tire1, Fast tire4, Slow the pair tire2 / tire3 swapped at the game's rate (30 calls a second: race_sim.h)
+int wheel_frame(const App *a)
+{
+    if (a->model_wheels == 1) return 1 + (a->model_wheels_fixed ? 0 : static_cast<int>(static_cast<long>(ImGui::GetTime() * GAME_TICKS_PER_SECOND) & 1));
+    return a->model_wheels == 2 ? 3 : 0;
+}
+
+// the picture in the Preview window's light: Day or Night, the track the night is of, the light at the car, the lamps (editor/night_view.h)
 void draw_picture(const App *a, int phase, int w, int h)
 {
+    g.key_wheel = wheel_frame(a);
+    model_scene_wheels(g.scene, g.key_wheel);
     const CarNightState night = night_settings_state(&a->night, phase * POLICE_FLASH_TICKS);
     const bool made = g.card_view ? card_photo_render(g.scene, &g.orbit, &night, backdrop_pixels(), g.rgba) : model_scene_render(g.scene, &g.orbit, w, h, &night, g.rgba);
     if (made && g.card_view && g.as_card && g.cpal_ok) {   // what Central makes of it: the same dither into the same palette
@@ -368,6 +378,21 @@ void toolbar(App *a)
     ImGui::SameLine();
     card_view_controls(a);
     backdrop_controls(a);
+    ImGui::SameLine();
+    static const char *const WHEELS[] = { "Still", "Slow", "Fast" };
+    ImGui::TextUnformatted("Wheels");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(ImGui::CalcTextSize("Slow").x + ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+    if (ImGui::BeginCombo("##wheels", WHEELS[a->model_wheels])) {
+        for (int i = 0; i < 3; i++)
+            if (ImGui::Selectable(WHEELS[i], a->model_wheels == i)) a->model_wheels = i, g.dirty = true;
+        ImGui::EndCombo();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("The wheels as the race draws them at a speed.\n"
+                          "Still: the car at rest or crawling (tire1).\n"
+                          "Slow: turning, tire2 and tire3 swapped at the game's pace (30 a second).\n"
+                          "Fast: the blur (tire4), from the speed the race stops swapping.");
 }
 
 void turn_and_zoom()
@@ -466,7 +491,7 @@ void model_panel(App *a, SDL_Renderer *ren)
                     g.dirty = true;
                 }
                 const int phase = a->night.police ? static_cast<int>((SDL_GetTicks() / 500u) & 1u) : 0;   // the flash, as the Preview window has it
-                if (g.dirty || (g.back_dirty && g.card_view) || g.key_phase != phase || memcmp(&g.key_night, &a->night, sizeof a->night) != 0) draw_picture(a, phase, w, h);
+                if (g.dirty || (g.back_dirty && g.card_view) || g.key_phase != phase || g.key_wheel != wheel_frame(a) || memcmp(&g.key_night, &a->night, sizeof a->night) != 0) draw_picture(a, phase, w, h);
                 const ImVec2 at = ImGui::GetCursorScreenPos(), area(static_cast<float>(area_w), static_cast<float>(area_h));
                 ImGui::InvisibleButton("##orbit", area);
                 turn_and_zoom();

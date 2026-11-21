@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as <workspace>/tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * <workspace>/cars/<kit>/ (the workspace: one folder with cars/ and tracks/, --workspace or File > Workspace): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -53,6 +53,7 @@ enum {
 typedef struct {
     const char *dir, *game, *user, *shot;
     const char *psd_root;     /* --psd-root DIR: the folder of the owner's PSDs, one folder a car (Convert PSD) */
+    const char *wheels;       /* --wheels still|slow|fast: the Model window's Wheels before the first frame (a headless picture shows Slow's first frame) */
     int frames, save, build, install, select;   /* select: a control point to select before the first frame, -1 for none */
     int test_drive;           /* --test-drive: Test drive as the Drive window runs it, until the game's log says whether it took the track; then the game is stopped */
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
@@ -97,7 +98,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--workspace DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png] [--add-photo FILE.png]...\n"
-                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
+                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--wheels still|slow|fast] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
     return 0;
 }
 
@@ -161,6 +162,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--add-photo") == 0 && has_value && o->add_photo_count < 8) o->add_photo[o->add_photo_count++] = argv[++i];
         else if (strcmp(argv[i], "--card-backdrop") == 0 && has_value) o->card_backdrop = argv[++i];
         else if (strcmp(argv[i], "--shine") == 0 && has_value) o->shine = argv[++i];
+        else if (strcmp(argv[i], "--wheels") == 0 && has_value) o->wheels = argv[++i];
         else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
         else if (strcmp(argv[i], "--race-png") == 0 && has_value) o->race_png = argv[++i];
         else if (strcmp(argv[i], "--race-off") == 0 && has_value) o->race_off = argv[++i];
@@ -214,6 +216,7 @@ static int parse_args(int argc, char **argv, Options *o)
     if ((o->race_off != NULL || o->race_scale != 0) && !o->race_photo && !o->test_drive) return usage();   /* the Race look is a Race photo's or a test drive's */
     if ((o->race_cockpit || o->gauge_light != 0) && !o->race_photo) return usage();   /* the dash view is a photo's: a test drive has its own camera */
     if (o->race_off != NULL && !race_off_apply(o->race_off, &check)) return usage();
+    if (o->wheels != NULL && strcmp(o->wheels, "still") != 0 && strcmp(o->wheels, "slow") != 0 && strcmp(o->wheels, "fast") != 0) return usage();   /* --wheels still|slow|fast */
     return 1;
 }
 
@@ -655,6 +658,10 @@ static int run(App *a, const Options *o)
             return 0;   /* a run that did not go */
         }
         ui_model_shine(strcmp(o->shine, "on") == 0);
+    }
+    if (o->wheels != NULL) {   /* the Model's Wheels, as chosen in its window */
+        a->model_wheels = strcmp(o->wheels, "fast") == 0 ? 2 : strcmp(o->wheels, "slow") == 0 ? 1 : 0;
+        a->model_wheels_fixed = o->frames > 0;   /* Slow: its first frame, the same picture every run */
     }
     if (a->kind == APP_KIND_TRACK && o->select >= 0 && o->select < a->trace.count) a->selected = o->select;   /* for a headless picture of the Node window */
     for (int i = 0; i < o->set_count; ++i) {   /* a car's fields, as typed */

@@ -37,6 +37,20 @@ static void wheels_at_rest(Object3D *obj)
     if (rear >= 0) object3d_set_texture(obj, rear, shape);
 }
 
+int car_scene_wheels(CarScene *s, int frame)
+{
+    static const char *const FRAMES[4] = { "tire1", "tire2", "tire3", "tire4" };
+    if (frame < 0 || frame > 3) return 0;
+    const int32_t front = object3d_texture_named(&s->obj, "frntires"), rear = object3d_texture_named(&s->obj, "rertires");
+    const int32_t shape = object3d_texture_named(&s->obj, FRAMES[frame]);
+    if (shape < 0 || (uint32_t)shape >= s->obj.texture_count || (front < 0 && rear < 0)) return 0;
+    const FshEntry *entry = s->obj.textures[shape].texture;
+    if (entry == NULL) return 0;
+    if (front >= 0) object3d_set_texture(&s->obj, front, entry);
+    if (rear >= 0) object3d_set_texture(&s->obj, rear, entry);
+    return 1;
+}
+
 int car_scene_open(CarScene *s, const uint8_t *cfm, size_t size)
 {
     memset(s, 0, sizeof *s);

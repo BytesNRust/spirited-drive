@@ -32,6 +32,8 @@ int model_scene_render(ModelScene *m, const Orbit *o, int w, int h, const CarNig
 const CarPreview *model_scene_preview(const ModelScene *m);
 /* the texels of the high bank's texture `name` (4 letters) as the scene draws them, w x h; NULL when it has none */
 const uint8_t *model_scene_texels(const ModelScene *m, const char *name, int *w, int *h);
+/* The wheels as the race frame `frame` has them: 0 still, 1 and 2 the slow pair, 3 the fast blur (car_scene_wheels); a scene made again starts at 0. 1 when set. */
+int model_scene_wheels(ModelScene *m, int frame);
 /* how many pixels of the last picture show a lit lamp: 0 by day or without masks */
 int model_scene_lamp_pixels(const ModelScene *m);
 /* The body shine as the race draws it (raster/shine_pass.h): on or off, its envmap the PNG at `envmap` (a kit's car_envmap.png, as a mod's replaces the

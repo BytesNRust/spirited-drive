@@ -114,7 +114,7 @@ static uint8_t *make_cfm_with(size_t *len, int wheels)
     static MeshVertex v[8];
     static MeshUv uv[4] = { { 0, 0 }, { 7, 0 }, { 7, 7 }, { 0, 7 } };
     static MeshDescPolygon p[6];
-    static MeshTexture t[7];
+    static MeshTexture t[9];
     static uint32_t surface[6] = { 0, 1, 2, 3, 4, 5 };
     static MeshDescGroup g[1];
     const int sx[8] = { -1, 1, 1, -1, -1, 1, 1, -1 }, sy[8] = { -1, -1, 1, 1, -1, -1, 1, 1 }, sz[8] = { -1, -1, -1, -1, 1, 1, 1, 1 };
@@ -128,25 +128,28 @@ static uint8_t *make_cfm_with(size_t *len, int wheels)
     t[1].unknown_1[0] = 0x80 | 0x40 << 8;   /* flat colours, nearest the bank palette's */
     t[2].unknown_1[0] = 0x20 << 16 | 0xC0 << 8;
     memcpy(g[0].name, "surface", 7), g[0].polygons = surface, g[0].count = 6;
-    memset(t + 3, 0, sizeof t[0] * 4);
+    memset(t + 3, 0, sizeof t[0] * 6);
     memcpy(t[3].label, "frntires", 8), memcpy(t[4].label, "rertires", 8);
     memcpy(t[5].label, "tire1", 5), memcpy(t[5].name, "tyr1", 4), memcpy(t[6].label, "tire4", 5), memcpy(t[6].name, "tyr4", 4);
+    memcpy(t[7].label, "tire2", 5), memcpy(t[7].name, "tyr2", 4), memcpy(t[8].label, "tire3", 5), memcpy(t[8].name, "tyr3", 4);
     MeshDesc d = { 0 };
-    d.vertices = v, d.vertex_count = 8, d.uvs = uv, d.uv_count = 4, d.polygons = p, d.polygon_count = 6, d.textures = t, d.texture_count = wheels ? 7 : 3, d.groups = g, d.group_count = 1;
+    d.vertices = v, d.vertex_count = 8, d.uvs = uv, d.uv_count = 4, d.polygons = p, d.polygon_count = 6, d.textures = t, d.texture_count = wheels ? 9 : 3, d.groups = g, d.group_count = 1;
     uint8_t *orip = NULL;
     size_t orip_len = 0;
     ExchangeError err = { { 0 } };
     if (!mesh_build(&d, &orip, &orip_len, &err)) return NULL;
-    static uint8_t pal[768], side[64], tyr1[64], tyr4[64];
+    static uint8_t pal[768], side[64], tyr1[64], tyr2[64], tyr3[64], tyr4[64];
     for (int i = 0; i < 256; i++) pal[3 * i] = (uint8_t)i, pal[3 * i + 1] = (uint8_t)(255 - i), pal[3 * i + 2] = (uint8_t)(i / 2);
-    for (int i = 0; i < 64; i++) side[i] = (uint8_t)(40 + i), tyr1[i] = 11, tyr4[i] = 44;
-    const ShpiDescEntry e[4] = { { .name = { '!', 'P', 'A', 'L' }, .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
+    for (int i = 0; i < 64; i++) side[i] = (uint8_t)(40 + i), tyr1[i] = 11, tyr2[i] = 22, tyr3[i] = 33, tyr4[i] = 44;
+    const ShpiDescEntry e[6] = { { .name = { '!', 'P', 'A', 'L' }, .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
                                  { .name = { 's', 'i', 'd', 'e' }, .type = 0x7b, .width = 8, .height = 8, .data = side, .block_size = SHPI_BLOCK_AUTO, .dir_index = 1 },
                                  { .name = { 't', 'y', 'r', '1' }, .type = 0x7b, .width = 8, .height = 8, .data = tyr1, .block_size = SHPI_BLOCK_AUTO, .dir_index = 2 },
-                                 { .name = { 't', 'y', 'r', '4' }, .type = 0x7b, .width = 8, .height = 8, .data = tyr4, .block_size = SHPI_BLOCK_AUTO, .dir_index = 3 } };
+                                 { .name = { 't', 'y', 'r', '4' }, .type = 0x7b, .width = 8, .height = 8, .data = tyr4, .block_size = SHPI_BLOCK_AUTO, .dir_index = 3 },
+                                 { .name = { 't', 'y', 'r', '2' }, .type = 0x7b, .width = 8, .height = 8, .data = tyr2, .block_size = SHPI_BLOCK_AUTO, .dir_index = 4 },
+                                 { .name = { 't', 'y', 'r', '3' }, .type = 0x7b, .width = 8, .height = 8, .data = tyr3, .block_size = SHPI_BLOCK_AUTO, .dir_index = 5 } };
     uint8_t *shpi = NULL;
     size_t shpi_len = 0;
-    if (!shpi_build(e, wheels ? 4 : 2, &shpi, &shpi_len, &err)) return free(orip), NULL;
+    if (!shpi_build(e, wheels ? 6 : 2, &shpi, &shpi_len, &err)) return free(orip), NULL;
     const uint8_t *const child[CFM_CHILDREN] = { orip, shpi, orip, shpi };
     const size_t clen[CFM_CHILDREN] = { orip_len, shpi_len, orip_len, shpi_len };
     uint8_t *cfm = NULL;
@@ -355,6 +358,34 @@ static void test_the_wheels_at_rest_are_the_still_frame(void)
     free(cfm);
 }
 
+/* Wheels: Still / Slow / Fast: car_scene_wheels(k) draws race frame k on both axles: 0 tire1, 1 tire2, 2 tire3, 3 tire4; each frame its own pixels */
+static void test_each_wheel_frame_links_its_entry(void)
+{
+    size_t len = 0;
+    uint8_t *cfm = make_cfm_with(&len, 1);
+    CHECK(cfm != NULL);
+    if (cfm == NULL) return;
+    CarScene s;
+    CHECK(car_scene_open(&s, cfm, len));
+    static const char *const NAMES[4] = { "tire1", "tire2", "tire3", "tire4" };
+    const int32_t front = object3d_texture_named(&s.obj, "frntires"), rear = object3d_texture_named(&s.obj, "rertires");
+    for (int k = 0; k < 4; k++) {
+        const int32_t frame = object3d_texture_named(&s.obj, NAMES[k]);
+        CHECK(frame >= 0 && car_scene_wheels(&s, k));
+        if (frame < 0 || front < 0 || rear < 0) continue;
+        CHECK(s.obj.textures[front].texture == s.obj.textures[frame].texture && s.obj.textures[rear].texture == s.obj.textures[frame].texture);
+        for (int j = 0; j < k; j++) CHECK(s.obj.textures[front].texture != s.obj.textures[object3d_texture_named(&s.obj, NAMES[j])].texture);   /* not another frame's */
+    }
+    const void *last = s.obj.textures[front].texture;
+    CHECK(!car_scene_wheels(&s, 4) && !car_scene_wheels(&s, -1) && s.obj.textures[front].texture == last);   /* a frame the race does not have: nothing changes */
+    car_scene_close(&s);
+    free(cfm);
+    uint8_t *plain = make_cfm_with(&len, 0);   /* a car with no tyre refs */
+    CHECK(plain != NULL && car_scene_open(&s, plain, len) && !car_scene_wheels(&s, 1));
+    car_scene_close(&s);
+    free(plain);
+}
+
 static void test_what_is_not_a_car_is_refused(void)
 {
     CarScene s;
@@ -372,6 +403,7 @@ int main(void)
     test_a_layer_of_the_same_pixels();
     test_the_cds_911();
     test_the_wheels_at_rest_are_the_still_frame();
+    test_each_wheel_frame_links_its_entry();
     test_what_is_not_a_car_is_refused();
     return TEST_REPORT();
 }

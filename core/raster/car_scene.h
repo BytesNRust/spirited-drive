@@ -36,6 +36,10 @@ typedef struct {
 
 /* Opens the CFM `cfm` (kept: it must outlive the scene). 0 when it is not a car (nothing is left open). */
 int car_scene_open(CarScene *s, const uint8_t *cfm, size_t size);
+/* The wheels as the race frame `frame` has them (game/race/car_wheels.c): 0 still (tire1), 1 and 2 the slow pair (tire2, tire3: the race swaps them each call),
+ * 3 the fast blur (tire4); both axles' tyre refs (frntires, rertires) are bound to that frame's texture. 1 when bound; 0 for a frame the race has not or a car
+ * with no tyre refs, and nothing changes. */
+int car_scene_wheels(CarScene *s, int frame);
 void car_scene_close(CarScene *s);
 
 /* The car as `o` sees it into `pixels`, w x h bytes, which the caller has cleared (CAR_SCENE_CLEAR is what car_scene_rgba leaves transparent). Any shape: the
