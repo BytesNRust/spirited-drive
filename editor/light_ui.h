@@ -3,6 +3,7 @@
 #ifndef TNFS_EDITOR_LIGHT_UI_H
 #define TNFS_EDITOR_LIGHT_UI_H
 
+#include "light_compare.h"
 #include "light_photo.h"
 #include "light_session.h"
 
@@ -31,6 +32,7 @@ typedef struct {
     double edit_at;              /* the clock of the last change: a photo follows when the clock is LIGHT_UI_SETTLE past it */
     LightPhotoJob photo;         /* the photo's job, running or last run */
     char error[LIGHT_UI_MSG];    /* why the last Save, select or photo was refused, until the next try; "" for none */
+    LightCompare compare;        /* part D: the Before picture or the four times of day beside the photo (light_compare.h) */
 } LightUi;
 
 #endif

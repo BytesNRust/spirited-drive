@@ -293,6 +293,8 @@ int app_light_photo(App *a);
 /* Every frame, with the clock `now` in seconds: takes the photo job's output and picture, and starts the photo that is due once `now` is LIGHT_UI_SETTLE past the last
  * change. 1 while a job runs. */
 int app_light_poll(App *a, double now);
+/* part D: what is shown beside the photo, LIGHT_COMPARE_OFF, _BEFORE (the files as they are on disk) or _FOUR (the four times of day); the pictures are made on the poll */
+void app_light_set_compare(App *a, int mode);
 int app_light_busy(const App *a);
 /* lets go of the window's session and photo (app_free) */
 void app_light_free(App *a);

@@ -135,6 +135,7 @@ int app_open_light(App *a)
     app_free(a);
     *a = *next;   /* the new state's session belongs to `a` now */
     free(next);
+    light_compare_init(&a->light.compare);   /* after the move: its jobs start only now */
     snprintf(a->status, sizeof a->status, "Track light: %s", a->light_dir[0] != '\0' ? a->light_dir : "no folder set");
     changed(a);
     return 1;
@@ -207,6 +208,14 @@ int app_light_save(App *a)
     return 1;
 }
 
+void app_light_set_compare(App *a, int mode)
+{
+    LightCompare *c = &a->light.compare;
+    if (mode < 0 || mode >= LIGHT_COMPARE_MODES || mode == c->mode) return;
+    c->mode = mode;
+    c->why[0] = '\0';
+}
+
 int app_light_busy(const App *a)
 {
     return a->light.photo.state == LIGHT_PHOTO_RUNNING;
@@ -260,12 +269,15 @@ int app_light_poll(App *a, double now)
         ui->photo.why[0] = '\0';   /* said once */
     }
     if (ui->session.has_file && ui->edit_serial != ui->photo_serial && now - ui->edit_at >= LIGHT_UI_SETTLE) return app_light_photo(a);
-    return 0;
+    /* the comparison pictures wait for the window's own photo (one game at a time) and for a change to settle */
+    const int waiting = ui->photo.state == LIGHT_PHOTO_RUNNING || ui->edit_serial != ui->photo_serial || now - ui->edit_at < LIGHT_UI_SETTLE;
+    return light_compare_poll(&ui->compare, &ui->session, ui->node, a->game, a->export_src.cd, waiting);
 }
 
 void app_light_free(App *a)
 {
     light_photo_free(&a->light.photo);
+    light_compare_free(&a->light.compare);
     if (a->light.open) light_session_close(&a->light.session);
     memset(&a->light, 0, sizeof a->light);
 }

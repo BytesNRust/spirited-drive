@@ -57,6 +57,7 @@ typedef struct {
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
     int set_count;
     const char *light_pick;  /* --light TRACK:TIME:NODE (CY1:N:70): the Track light window's first track, time of day (A, B, C or N) and photo node, for a headless picture or flow */
+    const char *light_compare;   /* --compare off|before|four: what the Track light window shows beside the photo (part D) */
     const char *light_dir;   /* --light-dir DIR: the folder whose track_light/ the Track light window tunes (default: the source tree's data/) */
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
@@ -91,7 +92,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
-                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE]] [--steps STEP,...]\n");
+                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
     return 0;
 }
 
@@ -172,6 +173,10 @@ static int parse_args(int argc, char **argv, Options *o)
             const char *v = argv[++i];
             if (v[0] < '0' || v[0] > '5' || v[1] != '\0') return usage();   /* 0..5: the game's gauge_light */
             o->gauge_light = v[0] - '0' + 1;
+        }
+        else if (strcmp(argv[i], "--compare") == 0 && has_value) {
+            o->light_compare = argv[++i];
+            if (strcmp(o->light_compare, "off") != 0 && strcmp(o->light_compare, "before") != 0 && strcmp(o->light_compare, "four") != 0) return usage();
         }
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
@@ -627,6 +632,8 @@ static int run(App *a, const Options *o)
             if (t < 0 || track_index < 0 || !app_light_select(a, track_index, t)) fprintf(stderr, "--light %s: TRACK:TIME:NODE such as CY1:N:70, the track one that has a light file\n", o->light_pick);
             else app_light_set_node(a, node);
         }
+        if (a->kind == APP_KIND_LIGHT && o->light_compare != NULL)
+            app_light_set_compare(a, strcmp(o->light_compare, "four") == 0 ? LIGHT_COMPARE_FOUR : strcmp(o->light_compare, "before") == 0 ? LIGHT_COMPARE_BEFORE : LIGHT_COMPARE_OFF);
     }
     else if (o->ask == APP_ACT_EXPORT_PICK) a->export_dialog = 1;   /* the window itself, for a headless picture of it */
     else if (o->ask != APP_ACT_NONE) app_ask(a, o->ask, "");   /* ... and the action asked for */

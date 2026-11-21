@@ -211,9 +211,12 @@ void light_layout(ImGuiID dock)
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
     ImGuiID left = 0, right = 0;
-    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.38f, nullptr, &right);
+    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.34f, nullptr, &right);
+    ImGuiID photo = 0, compare = 0;
+    photo = ImGui::DockBuilderSplitNode(right, ImGuiDir_Left, 0.5f, nullptr, &compare);   // the photo and, beside it, the comparison
     ImGui::DockBuilderDockWindow(PANEL_LIGHT, left);
-    ImGui::DockBuilderDockWindow(PANEL_LIGHT_PHOTO, right);
+    ImGui::DockBuilderDockWindow(PANEL_LIGHT_PHOTO, photo);
+    ImGui::DockBuilderDockWindow(PANEL_LIGHT_COMPARE, compare);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -492,13 +495,10 @@ static ImTextureID photo_texture(SDL_Renderer *ren, const App *a)
     return reinterpret_cast<ImTextureID>(tex);
 }
 
-// the Track light photo as a texture: made again when the job took another picture (a->light.photo.serial)
-static ImTextureID light_texture(SDL_Renderer *ren, const App *a)
+// a Track light job's picture as a texture, in `tex`: made again when the job took another picture (its serial); none when the window is not on or the job has no picture
+static ImTextureID job_texture(SDL_Renderer *ren, bool on, const LightPhotoJob &j, SDL_Texture *&tex, int &serial)
 {
-    static SDL_Texture *tex = nullptr;
-    static int serial = -1;
-    const LightPhotoJob &j = a->light.photo;
-    if (a->kind != APP_KIND_LIGHT || j.rgba == nullptr) {
+    if (!on || j.rgba == nullptr) {
         if (tex != nullptr) SDL_DestroyTexture(tex), tex = nullptr;
         serial = -1;
         return 0;
@@ -550,6 +550,21 @@ static ImTextureID sheet_texture(SDL_Renderer *ren, const App *a)
         serial = a->sheet_serial;
     }
     return reinterpret_cast<ImTextureID>(tex);
+}
+
+// the window's own photo, and the comparison's pictures (Before is the first of them)
+static ImTextureID light_texture(SDL_Renderer *ren, const App *a)
+{
+    static SDL_Texture *tex = nullptr;
+    static int serial = -1;
+    return job_texture(ren, a->kind == APP_KIND_LIGHT, a->light.photo, tex, serial);
+}
+
+static void light_compare_textures(SDL_Renderer *ren, const App *a, ImTextureID out[LIGHT_COMPARE_SLOTS])
+{
+    static SDL_Texture *tex[LIGHT_COMPARE_SLOTS] = {};
+    static int serial[LIGHT_COMPARE_SLOTS] = { -1, -1, -1, -1 };
+    for (int i = 0; i < LIGHT_COMPARE_SLOTS; ++i) out[i] = job_texture(ren, a->kind == APP_KIND_LIGHT && i < light_compare_count(a->light.compare.mode), a->light.compare.job[i], tex[i], serial[i]);
 }
 
 // the mask being edited over its texture as a texture: made again when the mask or what is shown of it changed
@@ -645,6 +660,9 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (a->confirm == APP_ACT_NONE) light_shortcuts(a);
         light_panel(a);
         light_photo_panel(a, light_texture(ren, a));
+        ImTextureID compare[LIGHT_COMPARE_SLOTS];
+        light_compare_textures(ren, a, compare);
+        light_compare_panel(a, compare);
     } else {
         start_screen(a);
     }

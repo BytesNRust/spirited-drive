@@ -29,6 +29,9 @@ void race_look_controls(RaceLook *look);   // the race look's switches and resol
 void light_panel(App *a);
 // the tone, car tone, tunnel zone and places rows of the Track light window (light_tone_panel.cpp), called by light_panel
 void light_tone_rows(App *a);
+// the comparison beside the photo (light_compare_panel.cpp): Off, Before (the files on disk) or the four times of day; the textures are the pictures of the four jobs, 0 for none
+extern const char *const PANEL_LIGHT_COMPARE;
+void light_compare_panel(App *a, const ImTextureID photos[LIGHT_COMPARE_SLOTS]);
 void light_photo_panel(App *a, ImTextureID photo);
 void light_shortcuts(App *a);   // Cmd+S saves the light file
 
