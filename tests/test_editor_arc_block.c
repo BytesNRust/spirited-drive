@@ -16,7 +16,7 @@ static int near(TracePoint a, double x, double z)
 
 static void test_arc(void)
 {
-    TracePoint p[ARC_POINTS_MAX + 1];
+    TracePoint p[ARC_POINTS_MAX + 1] = { { .x = 0 } };
     CHECK(arc_block(1, 90, 60, 6, p));   /* a quarter to the right, radius 60: the centre is 60 to the right of the start */
     CHECK(near(p[0], 0, 0) && near(p[6], 60, 60));
     for (int i = 0; i <= 6; ++i) CHECK(fabs(hypot(p[i].x - 60, p[i].z) - 60) < 1e-9);   /* every point on the arc */
@@ -24,7 +24,7 @@ static void test_arc(void)
         CHECK(fabs(hypot(p[i + 1].x - p[i].x, p[i + 1].z - p[i].z) - hypot(p[1].x - p[0].x, p[1].z - p[0].z)) < 1e-9);
     const PointReadout r = pts_readout(p, 7, 3);
     CHECK(fabs(r.turn_deg - 15) < 1e-9 && fabs(r.radius_m - 60) < 1e-6);   /* to the right, as the Viewport's readout says it */
-    TracePoint q[ARC_POINTS_MAX + 1];
+    TracePoint q[ARC_POINTS_MAX + 1] = { { .x = 0 } };
     CHECK(arc_block(0, 90, 60, 6, q));   /* to the left: the mirror image */
     for (int i = 0; i <= 6; ++i) CHECK(near(q[i], -p[i].x, p[i].z));
     CHECK(arc_block(1, 180, 25, 12, p) && near(p[12], 50, 0));   /* a hairpin ends a diameter across, going back */
@@ -34,7 +34,7 @@ static void test_arc(void)
 
 static void test_straight(void)
 {
-    TracePoint p[ARC_POINTS_MAX + 1];
+    TracePoint p[ARC_POINTS_MAX + 1] = { { .x = 0 } };
     CHECK(straight_block(250, 3, p) && near(p[0], 0, 0) && near(p[1], 0, 250.0 / 3) && near(p[3], 0, 250));
     CHECK(!straight_block(0, 3, p) && !straight_block(STRAIGHT_LENGTH_MAX_M + 1, 3, p) && !straight_block(100, 0, p));
 }
@@ -52,7 +52,7 @@ static void test_counts(void)
 static void test_goes_on_along_the_road(void)
 {
     const TracePoint east[3] = { { .x = 0, .z = 0 }, { .x = 100, .z = 0 }, { .x = 150, .z = 0 } };
-    TracePoint arc[7];
+    TracePoint arc[7] = { { .x = 0 } };
     CHECK(arc_block(1, 90, 60, 6, arc));
     /* heading east, a quarter right after point 1: it ends 60 on and 60 to the south; the road after it (50 m east) now runs 50 m south */
     TracePoint *q = pts_paste_tangents(east, 3, 1, arc, 7, (TracePoint){ .x = 0, .z = 1 }, arc_end_heading(1, 90));

@@ -55,7 +55,7 @@ static int segment_start_after(const TrackGenNode *n, int count, double metres)
 
 static void test_no_lanes_same_nodes(void)
 {
-    TracePoint p[POINTS];
+    TracePoint p[POINTS] = { { .x = 0 } };
     straight(p);
     TraceKey width = { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 };
     int a = 0, b = 0;
@@ -71,7 +71,7 @@ static void test_no_lanes_same_nodes(void)
 /* 1+2 from point 2 (200 m) to point 4 (400 m): the halves, the lanes, and each step */
 static void test_stretch(int lanes)
 {
-    TracePoint p[POINTS];
+    TracePoint p[POINTS] = { { .x = 0 } };
     straight(p);
     const TraceKey keys[2] = { lanes_key(2, lanes), lanes_key(4, TRACK_GEN_LANES_1_1) };
     int count = 0;
@@ -118,7 +118,7 @@ static void test_stretch(int lanes)
 /* a narrower road (8 m) going into 1+2: the two-lane half jumps to a lane at once (1 m), then grows 5 a node; the other half grows to a lane */
 static void test_from_narrow(void)
 {
-    TracePoint p[POINTS];
+    TracePoint p[POINTS] = { { .x = 0 } };
     straight(p);
     const TraceKey keys[3] = { { .point = 0, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, lanes_key(2, TRACK_GEN_LANES_1_2), lanes_key(4, TRACK_GEN_LANES_1_1) };
     int count = 0;
@@ -135,7 +135,7 @@ static void test_from_narrow(void)
 /* a width key inside a stretch is ignored, and named: the halves stay the lanes'; one outside is not */
 static void test_width_inside_ignored(void)
 {
-    TracePoint p[POINTS];
+    TracePoint p[POINTS] = { { .x = 0 } };
     straight(p);
     const TraceKey keys[4] = { lanes_key(2, TRACK_GEN_LANES_2_1), { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 }, lanes_key(4, TRACK_GEN_LANES_1_1),
                                { .point = 5, .has = TRACE_KEY_WIDTH, .width_m = 12.0 } };

@@ -129,7 +129,7 @@ static void test_reading(void)
 static void test_point_ops_carry_heights(void)
 {
     // a straight road north with heights 0, 1, 2, 3, 4 on points 0..4
-    TracePoint road[5];
+    TracePoint road[5] = { { .x = 0 } };
     for (int i = 0; i < 5; ++i) road[i] = (TracePoint){ .x = 0, .z = 10.0 * i, .h = i };
     // the whole road reversed: the points turn round and each keeps its height
     TracePoint *q = pts_reverse(road, 5, 0, 4);

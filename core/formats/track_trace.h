@@ -44,7 +44,7 @@ typedef struct {
 
 /* The height of the curve at fraction `frac` (0..1) of the chord from point `seg` to point `seg + 1`, by a monotone cubic over the chord lengths: a run of equal heights is
  * flat, a hill top is its point, and the curve never leaves the range of the two heights it joins. 0 for a segment that is not in the points. This is the height a point put in
- * there takes, so putting it in changes no height anywhere. */
+ * there takes, and the height of every node on the spline (track_trace_nodes_keyed: node y and grade, dep95 step 2), so the profile hardly moves when a point is put in. */
 double track_trace_height_at(const TracePoint *points, int count, int seg, double frac);
 
 enum {

@@ -39,7 +39,7 @@ static void test_bit(void)
 /* no bank key: every node level, whatever the width keys do */
 static void test_no_bank_keys(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);
     const TraceKey width = { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 12.0 };
     int count = 0;
@@ -55,7 +55,7 @@ static void test_no_bank_keys(void)
 /* level at the start, 20 at point 2 and -10 at point 4 by smoothsteps over the arc length, then held; a width on the same key stays the width's */
 static void test_interpolates(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);   /* 300 m: 48 spans of 6.25 m */
     const TraceKey keys[2] = { { .point = 2, .has = TRACE_KEY_BANK | TRACE_KEY_WIDTH, .width_m = 10.0, .bank_deg = 20.0 },
                                { .point = 4, .has = TRACE_KEY_BANK, .bank_deg = -10.0 } };
@@ -82,7 +82,7 @@ static void test_interpolates(void)
 /* a key on point 0 is the start's bank */
 static void test_key_on_start(void)
 {
-    TracePoint p[4];
+    TracePoint p[4] = { { .x = 0 } };
     straight_points(p, 4, 60);
     const TraceKey key = { .point = 0, .has = TRACE_KEY_BANK, .bank_deg = -12.5 };
     int count = 0;
@@ -97,7 +97,7 @@ static void test_key_on_start(void)
 /* the input's range is -60..60: past it the trace fails naming the point; at it, it builds nodes (the generator's 35 is a red flag, not this) */
 static void test_range(void)
 {
-    TracePoint p[4];
+    TracePoint p[4] = { { .x = 0 } };
     straight_points(p, 4, 60);
     TraceKey key = { .point = 2, .has = TRACE_KEY_BANK, .bank_deg = 60.0 };
     int count = 0;
@@ -119,7 +119,7 @@ static void test_range(void)
 /* the Points column's values: each point's bank as the keys make it */
 static void test_point_banks(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);
     const TraceKey keys[2] = { { .point = 2, .has = TRACE_KEY_BANK, .bank_deg = 20.0 }, { .point = 4, .has = TRACE_KEY_BANK, .bank_deg = -10.0 } };
     double deg[6];
@@ -201,7 +201,7 @@ static void test_bank_flags(void)
 /* a trace keyed past 35 makes nodes (red, not refused), and the nodes the generator gets are refused: Build stops on the red flag first */
 static void test_keyed_red(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);
     const TraceKey key = { .point = 3, .has = TRACE_KEY_BANK, .bank_deg = 40.0 };
     int count = 0;

@@ -55,7 +55,7 @@ static void test_bits(void)
 /* no side keys: no node says anything of its sides (the template's, byte for byte), whatever the width keys do */
 static void test_no_side_keys(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);
     const TraceKey width = { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 12.0 };
     int count = 0;
@@ -72,7 +72,7 @@ static void test_no_side_keys(void)
  * the other side says nothing */
 static void test_widths_interpolate(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);   /* 300 m: a node every 6.25 m */
     TraceKey keys[3] = { side_key(0, TRACE_SIDE_SHOULDER, R, 3.0), side_key(2, TRACE_SIDE_SHOULDER, R, 6.0), side_key(4, TRACE_SIDE_BARRIER, R, 12.0) };
     keys[0].has |= TRACE_KEY_BARRIER_CUSTOM(R), keys[0].barrier_custom[R] = 1;   /* the barrier its own from the start (else it follows the shoulder) */
@@ -102,7 +102,7 @@ static void test_widths_interpolate(void)
 /* a kind (the wall's, the fence): nothing before the first key (the template's), the key's from its point to the next */
 static void test_kinds_hold(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);
     const TraceKey keys[3] = { side_key(1, TRACE_SIDE_WALL, L, TRACK_GEN_WALL_HARD), side_key(3, TRACE_SIDE_WALL, L, TRACK_GEN_WALL_SOFT),
                                side_key(2, TRACE_SIDE_FENCE, R, 0) };
@@ -125,7 +125,7 @@ static void test_kinds_hold(void)
 /* values off their range, or on no point, are refused naming the point and what is wrong */
 static void test_side_faults(void)
 {
-    TracePoint p[4];
+    TracePoint p[4] = { { .x = 0 } };
     straight_points(p, 4, 100);
     static const struct { int point, field, side; double value; const char *words; } BAD[] = {
         { 1, TRACE_SIDE_SHOULDER, R, 20.25, "shoulder" }, { 1, TRACE_SIDE_SHOULDER, L, -0.25, "shoulder" },
@@ -149,7 +149,7 @@ static void test_side_faults(void)
 /* each control point's values, as the Road key block shows them dimmed when inherited: the template's before any key */
 static void test_point_values(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);
     const TraceKey keys[2] = { side_key(2, TRACE_SIDE_SHOULDER, R, 6.0), side_key(3, TRACE_SIDE_WALL, L, TRACK_GEN_WALL_HARD) };
     double v[6][TRACE_SIDE_FIELDS][2];

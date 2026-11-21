@@ -263,6 +263,27 @@ static void node_surfaces(const Curve *c, const TraceKey *keys, int key_count, d
     }
 }
 
+/* the profile's height in metres at spline parameter u: the monotone curve over the span's chord (track_trace_height_at), the same function a point put in takes its height from */
+static double node_height(const Curve *c, const TracePoint *points, int count, double u)
+{
+    int i = (int)floor(u);
+    if (i > c->count - 2) i = c->count - 2;
+    if (i < 0) i = 0;
+    return track_trace_height_at(points, count, i, u - i);
+}
+
+/* each node's grade, percent: the rise over the run to the next node as the integer positions have them (the last node takes the one before it), so the TRI's pitch and its
+ * heights agree; a flat road has exactly 0 everywhere */
+static void node_grades(TrackGenNode *nodes, int count)
+{
+    for (int k = 0; k + 1 < count; ++k) {
+        const double dx = (double)(nodes[k + 1].position[0] - nodes[k].position[0]) / POSITION_ONE, dz = (double)(nodes[k + 1].position[2] - nodes[k].position[2]) / POSITION_ONE;
+        const double rise = (double)(nodes[k + 1].position[1] - nodes[k].position[1]) / POSITION_ONE, run = hypot(dx, dz);
+        nodes[k].grade = run > 0 ? 100.0 * rise / run : 0.0;
+    }
+    if (count > 1) nodes[count - 1].grade = nodes[count - 2].grade;
+}
+
 int track_trace_nodes_keyed(const TracePoint *points, int count, double width, const TraceKey *keys, int key_count, TrackGenNode **nodes,
                             int *node_count, ExchangeError *err)
 {
@@ -300,13 +321,13 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
                 double x, z;
                 eval(&c, u, 0, &x, &z);
                 out[k].heading = heading_of(&c, u);
-                out[k].grade = 0;
                 out[k].bank = 0;
                 out[k].width = stop_count == 1 ? stops[0].w : width_at(stops, stop_count, k * step);   // one stop: that width as it is (the project's with no key), not a computed one
                 out[k].position[0] = (int32_t)lround(x * POSITION_ONE);
-                out[k].position[1] = 0;
+                out[k].position[1] = (int32_t)lround(node_height(&c, points, count, u) * POSITION_ONE);   /* the profile's height there (0 for a flat road) */
                 out[k].position[2] = (int32_t)lround(z * POSITION_ONE);
             }
+            node_grades(out, count_nodes);
             node_surfaces(&c, keys, key_count, step, out, count_nodes);
             double *point_s = malloc(sizeof *point_s * (size_t)c.count);   // the sides (step 3) along the arc length, from the keys
             for (int i = 0; point_s != NULL && i < c.count; ++i) point_s[i] = c.s[i * SAMPLES_PER_SPAN];

@@ -28,7 +28,7 @@ static TraceKey key_at(int point)
 
 static TrackGenNode *nodes_of(const TraceKey *keys, int key_count, int *count, double **metres, char *why, size_t cap)
 {
-    TracePoint p[POINTS];
+    TracePoint p[POINTS] = { { .x = 0 } };
     straight(p);
     TrackGenNode *nodes = NULL;
     ExchangeError err;

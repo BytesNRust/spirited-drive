@@ -13,7 +13,7 @@
 
 enum { N = 10 };
 
-static TracePoint g_points[N];
+static TracePoint g_points[N] = { { .x = 0 } };
 static TraceKey g_keys[6];
 
 static Trace road(void)

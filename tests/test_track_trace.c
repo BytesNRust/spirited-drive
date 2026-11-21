@@ -107,7 +107,7 @@ static void arc_points(double r, int steps, double degrees, TracePoint *out)
 
 static void test_arc(void)
 {
-    TracePoint p[32];
+    TracePoint p[32] = { { .x = 0 } };
     arc_points(100, 12, 90, p);
     TrackGenNode *nodes = NULL;
     int n = 0;
@@ -130,7 +130,7 @@ static void test_arc(void)
 
 static void test_tight_arc_flags_radius(void)
 {
-    TracePoint p[32];
+    TracePoint p[32] = { { .x = 0 } };
     TrackGenNode *nodes = NULL;
     int n = 0;
     arc_points(30, 24, 180, p);                             /* a half circle of radius 30: about 11.5 degrees a node: amber, not red */
@@ -209,7 +209,7 @@ static void test_drawn_16_is_amber(void)
 {
     enum { STRAIGHT = 20, ARC = 12, COUNT = 2 * STRAIGHT + ARC + 1 };
     const double step = TRACK_GEN_NODE_LENGTH / 65536.0;
-    TracePoint p[COUNT];
+    TracePoint p[COUNT] = { { .x = 0 } };
     double x = 0, z = 0, heading = 0;
     for (int i = 0; i < COUNT; ++i) {
         p[i].x = x, p[i].z = z;
@@ -340,7 +340,7 @@ static void test_faults(void)
     CHECK(!nodes_of(twins, 3, WIDTH, &nodes, &n));
     const TracePoint short_road[] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 } };   /* 8 segments would put the nodes 0.3 units apart */
     CHECK(!nodes_of(short_road, 2, WIDTH, &nodes, &n));
-    TracePoint long_road[61];
+    TracePoint long_road[61] = { { .x = 0 } };
     for (int i = 0; i <= 60; ++i) { long_road[i].x = 0; long_road[i].z = 300.0 * i; }   /* 18000 units: 750 segments */
     CHECK(!nodes_of(long_road, 61, WIDTH, &nodes, &n));
     CHECK(nodes == NULL);
@@ -348,7 +348,7 @@ static void test_faults(void)
 
 static void test_generates_tri(void)
 {
-    TracePoint p[32];
+    TracePoint p[32] = { { .x = 0 } };
     arc_points(100, 6, 90, p);
     TrackGenNode *nodes = NULL;
     int n = 0;
@@ -370,7 +370,7 @@ static void test_generates_tri(void)
 /* the road made on the generic template (no CD byte) through the turned writer: a curve comes out as a TRI that opens */
 static void test_turned_generic(void)
 {
-    TracePoint p[32];
+    TracePoint p[32] = { { .x = 0 } };
     arc_points(100, 12, 90, p);
     TrackGenNode *nodes = NULL;
     int n = 0;
@@ -410,7 +410,7 @@ static void straight_points(TracePoint *p, int n, double gap)
 /* no keys: the same nodes as ever, byte for byte; and a key list of nothing is the same */
 static void test_keys_none_is_old(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);
     TrackGenNode *a = NULL, *b = NULL, *c = NULL;
     int na = 0, nb = 0, nc = 0;
@@ -437,7 +437,7 @@ static void test_keys_none_is_old(void)
 /* the width along the road: the project's at the start, then a key's value at its point, and between two keys a smoothstep over the arc length */
 static void test_keys_interpolate(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);                    /* 300 m: 12 segments, a node every 6.25 m */
     const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 4, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 32 and 56 bytes at s = 60 and 240 */
     TrackGenNode *n = NULL;
@@ -476,7 +476,7 @@ static void test_keys_interpolate(void)
 /* a key list that is wrong is refused with its point named */
 static void test_keys_faults(void)
 {
-    TracePoint p[4];
+    TracePoint p[4] = { { .x = 0 } };
     straight_points(p, 4, 100);
     TrackGenNode *n = NULL;
     int count = 0;
@@ -527,7 +527,7 @@ static void test_keys_edits(void)
 /* the limit on the road width: more than 5 bytes (1.25 m) a node is amber, wording and summary included; a calm ramp is clean */
 static void test_keys_width_limit(void)
 {
-    TracePoint q[12];                                   /* evenly spaced, so the curve is straight: only the width is amber */
+    TracePoint q[12] = { { .x = 0 } };                                   /* evenly spaced, so the curve is straight: only the width is amber */
     straight_points(q, 12, 15);
     TracePoint p[4] = { { .x = 0, .z = 0 }, { .x = 0, .z = 100 }, { .x = 0, .z = 115 }, { .x = 0, .z = 300 } };
     const TraceKey sudden[2] = { { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 10.0 }, { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 10 to 14 m (16 bytes) over 15 m */
@@ -643,7 +643,7 @@ static void test_stage_too_short(void)
  * segment (4 nodes) that starts at or after the key, so the grip and the shoulder's texture, which goes by segment, change together */
 static void test_surface_keys(void)
 {
-    TracePoint p[6];
+    TracePoint p[6] = { { .x = 0 } };
     straight_points(p, 6, 60);                    /* 300 m: 49 nodes, a node every 6.25 m; points at 0, 60, 120 .. 300 m */
     const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH | TRACE_KEY_SHOULDER_SURFACE, .width_m = 8.0, .shoulder_l_surface = TRACE_SURFACE_TARMAC, .shoulder_r_surface = TRACE_SURFACE_INHERIT },
                                { .point = 3, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_VERGE, .shoulder_r_surface = TRACE_SURFACE_TARMAC } };
@@ -684,7 +684,7 @@ static void test_surface_keys(void)
 /* a surface key that is wrong is refused with its point named */
 static void test_surface_faults(void)
 {
-    TracePoint p[4];
+    TracePoint p[4] = { { .x = 0 } };
     straight_points(p, 4, 100);
     TrackGenNode *n = NULL;
     int count = 0;

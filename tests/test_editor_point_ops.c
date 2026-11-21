@@ -103,7 +103,7 @@ static void test_circuit_closes(void)
         for (int i = 0; i < n; ++i) CHECK(near(c[i], -c[n - 1 - i].x, c[n - 1 - i].z));
     }
     free(c);
-    TracePoint gon[9];   /* half a 16-gon with S and T on corners (each turns 22.5 degrees): the ends are not square, it misses */
+    TracePoint gon[9] = { { .x = 0 } };   /* half a 16-gon with S and T on corners (each turns 22.5 degrees): the ends are not square, it misses */
     for (int i = 0; i < 9; ++i) gon[i] = (TracePoint){ .x = 100 * sin(2 * M_PI * i / 16), .z = 100 - 100 * cos(2 * M_PI * i / 16) };
     c = close_half(gon, 9, &n);
     CHECK(c != NULL && dist(c[n - 1], gon[0]) > 50);
