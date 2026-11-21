@@ -73,7 +73,7 @@ int main(void)
     }
     if (top != NULL) closedir(top);
     printf("%d masks, %d different\n", files, bad);
-    CHECK(files >= 196);
+    CHECK(files >= 188);   /* the car masks: the 8 stray car_masks/<CAR>/dash_mask.png that made it 196 are gone (the dash masks are in data/dash_masks) */
     CHECK(bad == 0);
     return TEST_REPORT();
 }

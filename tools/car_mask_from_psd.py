@@ -122,7 +122,7 @@ def main(argv):
         if not os.path.isdir(folder):
             continue
         for name in sorted(os.listdir(folder)):
-            if not name.endswith(".psd"):
+            if not name.endswith(".psd") or name == "dash.psd":   # dash.psd is the dash's: tools/dash_mask_from_psd.py (it once made a stray car_masks/<CAR>/dash_mask.png)
                 continue
             tex = name[: -len(".psd")]
             keep = keep_mask(PSDImage.open(os.path.join(folder, name)))
