@@ -107,6 +107,27 @@ int main(void)
     CHECK(dir[0] == '\0' && aside == 1, "put aside comes back with no folder");
     CHECK(!workspace_save("", g_root, 0), "no file name: not kept");
 
+    {   /* the game repo's data/: a third setting in the same file, kept by the other saves, changed by its own */
+        char rfile[512], repo[512], rdir[512];
+        int raside = 0;
+        snprintf(rfile, sizeof rfile, "%s/repo-settings.txt", g_root);
+        workspace_load_repo(rfile, repo, sizeof repo);
+        CHECK(repo[0] == '\0', "no file, no repo");
+        CHECK(workspace_save(rfile, "/w/space", 1), "save");
+        CHECK(workspace_save_repo(rfile, "/path/to/repo/data"), "save the repo");
+        workspace_load_repo(rfile, repo, sizeof repo);
+        workspace_load(rfile, rdir, sizeof rdir, &raside);
+        CHECK(strcmp(repo, "/path/to/repo/data") == 0 && strcmp(rdir, "/w/space") == 0 && raside == 1, "the repo is set and the others kept: %s %s %d", repo, rdir, raside);
+        CHECK(workspace_save(rfile, "/other", 0), "save again");
+        workspace_load_repo(rfile, repo, sizeof repo);
+        workspace_load(rfile, rdir, sizeof rdir, &raside);
+        CHECK(strcmp(repo, "/path/to/repo/data") == 0 && strcmp(rdir, "/other") == 0 && raside == 0, "the workspace saves keep the repo: %s %s", repo, rdir);
+        CHECK(workspace_save_repo(rfile, ""), "clear the repo");
+        workspace_load_repo(rfile, repo, sizeof repo);
+        workspace_load(rfile, rdir, sizeof rdir, &raside);
+        CHECK(repo[0] == '\0' && strcmp(rdir, "/other") == 0, "cleared, the workspace stays");
+    }
+
     if (g_fail != 0) return fprintf(stderr, "%d failed (scratch %s)\n", g_fail, g_root), 1;
     puts("workspace: ok");
     return 0;

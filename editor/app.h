@@ -108,6 +108,8 @@ typedef struct {
     LightUi light;               /* the Track light window (light_ui.h), when kind is APP_KIND_LIGHT */
     char light_dir[APP_PATH];    /* the light folder the Track light window tunes: its track_light/ and track/ (--light-dir, else the source tree's data/); "" for none */
     MaskUi mask;                 /* the masks window's state (editor/mask_edit.h), when kind is APP_KIND_CAR */
+    char repo_arg[APP_PATH];     /* --port-data DIR: the game repo's data/ for this run; wins over the kept setting */
+    char repo_cfg[APP_PATH];     /* the kept setting ("repo data" in workspace.txt beside the recent list); "" for none */
     char data_dir[APP_PATH];     /* the game's data/ as a source tree has it (--port-data, --light-dir, the tree the program was built from): where the original tracks are added from and published to; "" for none (a packaged app) */
     char art_dir[APP_PATH];      /* the owner's track mask PSDs, <TRACK>/<name>.psd (--art-dir, else art/tnfs-masks/tracks beside the source tree); "" for none */
     char original_dir[APP_PATH]; /* the original track's folder the Track light window is on (<workspace>/tracks/<STEM>); "" for the plain window of a light folder */
@@ -337,15 +339,20 @@ int app_light_default_dir(const char *game, char *out, size_t cap);
 
 /* Original tracks (dep103; app_original.c). app_set_game_data says where the game's data/ and the art folder are (either may be ""; an empty art folder is looked for beside the
  * source tree). app_original_add_all makes the sixteen CD tracks projects of the workspace (copies, nothing overwritten); 1, or 0 with the reason in status. app_open_original closes what is
- * open (the caller asked first) and opens the Track light window on that original track's folder: its own light files, the track fixed. app_original_publish_ask makes the preview
- * (publish_text) and puts the window up; app_original_publish copies the changed light files into data/. */
+ * open (the caller asked first) and opens the Track light window on that original track's folder: its own light files, the track fixed. app_original_copy_ask makes the preview
+ * (publish_text) and puts the window up; app_original_copy copies the changed light files into data/. */
 void app_set_game_data(App *a, const char *data_dir, const char *art_dir);
+/* The game repo's data/ folder: where Copy to game repo writes (cars' mask PNGs, an original track's light files and mask PNGs). "" unless it was given, by --port-data (app_set_repo_arg) or by
+ * the kept setting (app_repo_data_set, or "repo data<TAB><path>" in workspace.txt by hand): the copy action is hidden without it, there is no dialog and nothing on the hub. Never in a packaged app's bundle. */
+const char *app_repo_data(const App *a);
+void app_set_repo_arg(App *a, const char *dir);
+int app_repo_data_set(App *a, const char *dir_or_empty);   /* keeps it; 1 when written */
 int app_original_add_all(App *a);
 int app_original_count(const App *a);   /* how many of the sixteen are in the workspace */
 int app_open_original(App *a, const char *dir);
-int app_original_can_publish(const App *a);
-int app_original_publish_ask(App *a);
-int app_original_publish(App *a);
+int app_original_can_copy(const App *a);
+int app_original_copy_ask(App *a);
+int app_original_copy(App *a);
 /* The Masks panel of an original track (app_track_masks.c, editor only). app_track_masks_load scans the folder and makes the PNGs of the PSDs that need them (NEW and STALE), once
  * per open; app_track_masks_refresh scans again. app_track_mask_select puts row `i`'s picture in tmask_rgba; app_track_mask_regenerate makes the selected one's PNG from its PSD
  * again (after the warning: it replaces a PNG edited by hand). 1, or 0 with the reason in tmask_note. */

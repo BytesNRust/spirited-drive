@@ -429,6 +429,8 @@ void app_carry_window(App *to, const App *from)
     to->drive_pick = from->drive_pick;   /* the editor's setting, not the project's */
     memcpy(to->light_dir, from->original_dir[0] != '\0' ? from->data_dir : from->light_dir, sizeof to->light_dir);   /* an original track's own light folder stays with it */
     memcpy(to->data_dir, from->data_dir, sizeof to->data_dir);
+    memcpy(to->repo_arg, from->repo_arg, sizeof to->repo_arg);
+    memcpy(to->repo_cfg, from->repo_cfg, sizeof to->repo_cfg);
     memcpy(to->art_dir, from->art_dir, sizeof to->art_dir);
     memcpy(to->tools, from->tools, sizeof to->tools);   /* Convert PSD's folders are the window's too */
     memcpy(to->psd_root, from->psd_root, sizeof to->psd_root);
