@@ -156,6 +156,7 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
     ImGui::GetCurrentContext()->ErrorCallback = imgui_error;   // the context's own hook for the recoverable errors (imgui_internal.h)
+    io.ConfigErrorRecoveryEnableAssert = false;                // the callback reports the error; an assert after it would abort the sanitizer builds before the run can say it failed
     g_win = win;
     ImGuiSettingsHandler settings;
     settings.TypeName = "StudioSettings";
