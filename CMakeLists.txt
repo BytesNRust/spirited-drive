@@ -2170,6 +2170,10 @@ if(NOT EMSCRIPTEN)
         # tools/light_photo.sh on one CD track: a 1280x960 sheet, four different times of day (registered with the other tests that need original/)
         add_test(NAME light_photo_run COMMAND ${CMAKE_SOURCE_DIR}/tests/light_photo_run.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_photo_run)
         set_tests_properties(light_photo_run PROPERTIES TIMEOUT 300)
+        if(TARGET test_editor_light_compare)
+            add_test(NAME editor_light_compare_game COMMAND test_editor_light_compare ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original)   # the Track light comparison against the real game
+            set_tests_properties(editor_light_compare_game PROPERTIES TIMEOUT 600)
+        endif()
         if(TARGET test_editor_light_flow)
             add_test(NAME editor_light_flow_game COMMAND test_editor_light_flow ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original)   # the Track light loop against the real game: CY1 at night, a brightness line darkens the photo, Save, the same picture from the saved folder
             set_tests_properties(editor_light_flow_game PROPERTIES TIMEOUT 300)

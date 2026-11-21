@@ -1,10 +1,12 @@
 /* The Track light window's comparison pictures at the App level (dep98 step 2 part D): Before (the files as they are on disk) beside the working copy's photo, and the four
  * times of day at one node. A fake game records which light files it was given at which time (FAKE_RECORD.<time>) and paints a grey by time, so the test sees what each
  * picture was made from: the working copy for the time being edited, the folder's files for the others, the working places file in all, the saved files for Before; a
- * change makes only the pictures it touches again; one game at a time. Temp copy of repo files, no CD data. usage: test_editor_light_compare REPO */
+ * change makes only the pictures it touches again; one game at a time. Temp copy of repo files, no CD data; with a game and the CD data given, the same loop runs against the real
+ * game too (a tone tints the photo, the four times differ, Before after Save is the window's own picture). usage: test_editor_light_compare REPO [GAME CD] */
 #include "app.h"
 #include "test.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -205,6 +207,51 @@ static void test_four(App *a, double *now)
     CHECK_EQ_INT(runs(), 1);
 }
 
+/* the mean of one channel of a photo (0 R, 1 G, 2 B) */
+static double channel(const LightPhotoJob *j, int c)
+{
+    double sum = 0;
+    for (size_t i = 0; i < (size_t)j->w * j->h; ++i) sum += j->rgba[i * 4 + c];
+    return sum / ((double)j->w * j->h);
+}
+
+/* the real game, CY1 at night, node 70: a tone line over the nodes of the photo tints it (red up), a car tone changes the car; the four times show day brighter than night;
+ * after Save, Before is the same picture as the window's own */
+static void test_real_game(const char *game, const char *cd)
+{
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, game, "", NULL);
+    app_set_light_dir(a, light);
+    snprintf(a->export_src.cd, sizeof a->export_src.cd, "%s", cd);
+    CHECK(app_open_light(a) && app_light_select(a, track_index("CY1"), 3));
+    app_light_set_node(a, 70);
+    double now = 1;
+    CHECK(settle(a, &now) > 0 && a->light.photo.state == LIGHT_PHOTO_DONE && a->light.photo.w == 1280);
+    if (a->light.photo.state != LIGHT_PHOTO_DONE) { app_free(a), free(a); return; }
+    const double red_before = channel(&a->light.photo, 0), blue_before = channel(&a->light.photo, 2);
+    char why[LIGHT_WHY];
+    CHECK(light_file_set_tone(&a->light.session.file, -1, &(LightTone){ 40, 100, 0, "ff0000", 80 }, why, sizeof why));
+    app_light_touch(a);
+    app_light_set_compare(a, LIGHT_COMPARE_BEFORE);
+    CHECK(settle(a, &now) > 0 && a->light.photo.state == LIGHT_PHOTO_DONE);
+    const double red_after = channel(&a->light.photo, 0), blue_after = channel(&a->light.photo, 2);
+    CHECK(red_after - blue_after > red_before - blue_before + 1.0);                       // a red tone: red up against blue
+    LightCompare *c = &a->light.compare;
+    CHECK(c->job[0].state == LIGHT_PHOTO_DONE && memcmp(c->job[0].rgba, a->light.photo.rgba, (size_t)a->light.photo.w * a->light.photo.h * 4) != 0);   // Before is not the changed photo
+    CHECK(fabs(channel(&c->job[0], 0) - red_before) < 0.5);                                // ... it is the file as it was
+    CHECK(app_light_save(a));
+    CHECK(settle(a, &now) > 0);
+    CHECK(memcmp(c->job[0].rgba, a->light.photo.rgba, (size_t)a->light.photo.w * a->light.photo.h * 4) == 0);   // saved: Before is the same picture as the window's own
+    app_light_set_compare(a, LIGHT_COMPARE_FOUR);
+    CHECK(settle(a, &now) > 0);
+    for (int t = 0; t < 4; ++t) CHECK(c->job[t].state == LIGHT_PHOTO_DONE);
+    CHECK(channel(&c->job[1], 1) > channel(&c->job[3], 1));                                // day is brighter than night
+    app_free(a);
+    free(a);
+}
+
 static void test_flow(void)
 {
     App *a = calloc(1, sizeof *a);
@@ -247,6 +294,7 @@ int main(int argc, char **argv)
     write_file(fake, FAKE, strlen(FAKE), 1);
     snprintf(record, sizeof record, "%s/record", root);
     test_flow();
+    if (argc > 3) test_real_game(argv[2], argv[3]);
     car_race_temp_remove(root);
     return TEST_REPORT();
 }
