@@ -19,6 +19,7 @@
 #include "build.h"
 #include "capture.h"
 #include "game_find.h"
+#include "light_photo.h"
 #include "mask_changes.h"
 #include "formats/png.h"
 #include "steps.h"
@@ -62,6 +63,7 @@ typedef struct {
     int add_photo_count;
     const char *light_pick;  /* --light TRACK:TIME:NODE (CY1:N:70): the Track light window's first track, time of day (A, B, C or N) and photo node, for a headless picture or flow */
     const char *light_compare;   /* --compare off|before|four: what the Track light window shows beside the photo (part D) */
+    int light_view;          /* --light-view 0..5: the Track light window's photo camera (light_photo_view_name), -1 for none given */
     const char *light_dir;   /* --light-dir DIR: the folder whose track_light/ the Track light window tunes (default: the source tree's data/) */
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
     const char *workspace;   /* --workspace DIR: the workspace folder (cars/ and tracks/ in it) for this run, kept like one chosen in the menu */
@@ -95,7 +97,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--workspace DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
                     "       [--mask NAME] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png] [--add-photo FILE.png]...\n"
-                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--wheels still|slow|fast] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
+                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--wheels still|slow|fast] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--light-view 0..5] [--compare off|before|four]] [--steps STEP,...]\n");
     return 0;
 }
 
@@ -126,6 +128,7 @@ static int parse_args(int argc, char **argv, Options *o)
 {
     memset(o, 0, sizeof *o);
     o->select = -1;
+    o->light_view = -1;
     o->window_w = 0, o->window_h = 0;
     for (int i = 1; i < argc; ++i) {
         const int has_value = i + 1 < argc;
@@ -170,6 +173,11 @@ static int parse_args(int argc, char **argv, Options *o)
         }
         else if (strcmp(argv[i], "--light-dir") == 0 && has_value) o->light_dir = argv[++i];
         else if (strcmp(argv[i], "--light") == 0 && has_value) o->light_pick = argv[++i];
+        else if (strcmp(argv[i], "--light-view") == 0 && has_value) {
+            const char *v = argv[++i];
+            if (v[0] < '0' || v[0] > '0' + LIGHT_VIEWS - 1 || v[1] != '\0') return usage();
+            o->light_view = v[0] - '0';
+        }
         else if (strcmp(argv[i], "--race-view") == 0 && has_value) {
             const char *v = argv[++i];
             if (strcmp(v, "follow") != 0 && strcmp(v, "cockpit") != 0) return usage();
@@ -680,6 +688,7 @@ static int run(App *a, const Options *o)
             if (t < 0 || track_index < 0 || !app_light_select(a, track_index, t)) fprintf(stderr, "--light %s: TRACK:TIME:NODE such as CY1:N:70, the track one that has a light file\n", o->light_pick);
             else app_light_set_node(a, node);
         }
+        if (a->kind == APP_KIND_LIGHT && o->light_view >= 0) app_light_set_view(a, o->light_view);
         if (a->kind == APP_KIND_LIGHT && o->light_compare != NULL)
             app_light_set_compare(a, strcmp(o->light_compare, "four") == 0 ? LIGHT_COMPARE_FOUR : strcmp(o->light_compare, "before") == 0 ? LIGHT_COMPARE_BEFORE : LIGHT_COMPARE_OFF);
     }

@@ -47,6 +47,17 @@ void picker(App *a)
         if (t > 0) ImGui::SameLine();
         if (ImGui::RadioButton(light_ui_time_name(t), ui.time == t) && ui.time != t) app_light_select(a, ui.track, t);
     }
+    ImGui::TextUnformatted("View");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(130.0f);
+    if (ImGui::BeginCombo("##lightview", light_photo_view_name(ui.view))) {
+        for (int i = 0; i < LIGHT_VIEWS; ++i)
+            if (ImGui::Selectable(light_photo_view_name(i), i == ui.view)) app_light_set_view(a, i);
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    help_marker("The camera of the photo and of the comparison pictures: Bumper has no car in the picture (the track's light alone); Dash is the cockpit; Chase near, mid and far "
+                "and High show the car from 4 to 16 m behind (their photos run longer, the camera glides to its place). It is kept for the next time.");
 }
 
 void node_row(App *a)

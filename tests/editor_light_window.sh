@@ -28,10 +28,26 @@ before=$(cksum < "$work/light/track_light/AL1B.txt")
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 200 --shot "$work/window.png" > "$work/out" 2>&1 ||
     fail "the window did not run: $(tail -3 "$work/out")"
 [ -s "$work/window.png" ] || fail "no picture of the window"
-grep -q "^time=day view=0$" "$work/record" 2>/dev/null || fail "the photo was not taken at day, in the in-car view: $(cat "$work/record" 2>/dev/null)"
+grep -q "^time=day view=1$" "$work/record" 2>/dev/null || fail "the photo was not taken at day, at the bumper (kind 1): $(cat "$work/record" 2>/dev/null)"
 grep -q "^track AL1 time B " "$work/record" 2>/dev/null || fail "the game was not given AL1B's file: $(cat "$work/record" 2>/dev/null)"
 [ "$(cksum < "$work/light/track_light/AL1B.txt")" = "$before" ] || fail "the light file changed without a Save"
 [ -z "$(ls "$work/tmp")" ] || fail "the photo left its scratch folder behind: $(ls "$work/tmp")"
+
+# the View selector: each --light-view is the game's chase kind (Bumper 1, Dash 0, near 2, mid 3, far 4, High 12), and the choice is kept in the ini for the next run
+i=0
+for want in 1 0 2 3 4 12; do
+    rm -f "$work/record"
+    "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --light-view "$i" --window 1280x800 --frames 80 --user "$work/viewuser$i" --shot "$work/view$i.png" > "$work/outv" 2>&1 ||
+        fail "--light-view $i did not run: $(tail -3 "$work/outv")"
+    grep -q "^time=day view=$want$" "$work/record" 2>/dev/null || fail "--light-view $i: the game was not given TNFS_VIEW=$want: $(cat "$work/record" 2>/dev/null)"
+    i=$((i + 1))
+done
+grep -q "^LightView=5$" "$work/viewuser5/track-editor.ini" 2>/dev/null || fail "the High view was not kept in the ini: $(cat "$work/viewuser5/track-editor.ini" 2>/dev/null)"
+rm -f "$work/record"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 --user "$work/viewuser5" --shot "$work/viewkept.png" > "$work/outv" 2>&1 ||
+    fail "the run on the kept view did not run: $(tail -3 "$work/outv")"
+grep -q "^time=day view=12$" "$work/record" 2>/dev/null || fail "the kept view (High) was not used by the next run: $(cat "$work/record" 2>/dev/null)"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --light-view 6 --frames 5 > "$work/outbad" 2>&1 && fail "--light-view 6 was accepted"
 
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/bare" --ask light --window 1280x800 --frames 20 --shot "$work/bare.png" > "$work/out2" 2>&1 ||
     fail "a folder with no track_light/ ended the editor: $(tail -3 "$work/out2")"

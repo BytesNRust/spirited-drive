@@ -1154,7 +1154,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back
         set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)
         add_test(NAME editor_light_window COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_light_window.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})   # the Track light window headless: opens, photographs the working copy through a fake game, leaves the folder as it was
-        set_tests_properties(editor_light_window PROPERTIES TIMEOUT 120)
+        set_tests_properties(editor_light_window PROPERTIES TIMEOUT 240)
         add_test(NAME editor_ui_words COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_ui_words.sh ${CMAKE_SOURCE_DIR})   # words Studio never shows ("GIMP")
         add_test(NAME editor_game_lookup COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_lookup.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
         set_tests_properties(editor_game_lookup PROPERTIES TIMEOUT 300)

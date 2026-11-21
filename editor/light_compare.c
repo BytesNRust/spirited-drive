@@ -34,12 +34,13 @@ static uint64_t mix(uint64_t h, const void *bytes, size_t n)
     return h;
 }
 
-uint64_t light_compare_key(const char *track, char letter, unsigned node, const char *file, size_t file_size, const char *places, size_t places_size)
+uint64_t light_compare_key(const char *track, char letter, unsigned node, int view, const char *file, size_t file_size, const char *places, size_t places_size)
 {
     uint64_t h = 1469598103934665603ull;
     h = mix(h, track, strlen(track));
     h = mix(h, &letter, 1);
     h = mix(h, &node, sizeof node);
+    h = mix(h, &view, sizeof view);
     h = mix(h, &file_size, sizeof file_size);
     if (file != NULL) h = mix(h, file, file_size);
     h = mix(h, &places_size, sizeof places_size);
@@ -101,13 +102,13 @@ static void say(LightCompare *c, const char *why)
 
 /* starts slot's picture if its key is out of date; 1 when a game was started, 0 when the picture is current, -1 when it cannot be made (said in c->why, and not tried again
  * for the same key) */
-static int start_slot(LightCompare *c, const LightSession *s, int slot, int node, const char *game, const char *cd)
+static int start_slot(LightCompare *c, const LightSession *s, int slot, int node, int view, const char *game, const char *cd)
 {
     char letter = 0;
     size_t size = 0, places_size = 0;
     char *text = slot_text(c, s, slot, &letter, &size);
     char *places = slot_places(c, s, &places_size);
-    const uint64_t key = light_compare_key(s->track, letter, (unsigned)node, text, text != NULL ? size : 0, places, places != NULL ? places_size : 0);
+    const uint64_t key = light_compare_key(s->track, letter, (unsigned)node, view, text, text != NULL ? size : 0, places, places != NULL ? places_size : 0);
     int result = 0;
     if (c->shown[slot] != key) {
         char why[LIGHT_PHOTO_WHY];
@@ -117,7 +118,7 @@ static int start_slot(LightCompare *c, const LightSession *s, int slot, int node
             c->shown[slot] = key;
             c->missing[slot] = 1;
             result = -1;
-        } else if (!light_photo_start(&c->job[slot], game, cd, s->track, letter, (unsigned)node, LIGHT_PHOTO_TICKS_DEFAULT, text, size, places, places_size, why, sizeof why)) {
+        } else if (!light_photo_start(&c->job[slot], game, cd, s->track, letter, (unsigned)node, view, light_photo_view_ticks(view), text, size, places, places_size, why, sizeof why)) {
             say(c, why);
             c->shown[slot] = key;   /* tried: a refusal is not tried again every frame */
             result = -1;
@@ -134,7 +135,7 @@ static int start_slot(LightCompare *c, const LightSession *s, int slot, int node
     return result;
 }
 
-int light_compare_poll(LightCompare *c, const LightSession *s, int node, const char *game, const char *cd, int main_busy)
+int light_compare_poll(LightCompare *c, const LightSession *s, int node, int view, const char *game, const char *cd, int main_busy)
 {
     if (c->running >= 0) {
         LightPhotoJob *job = &c->job[c->running];
@@ -146,6 +147,6 @@ int light_compare_poll(LightCompare *c, const LightSession *s, int node, const c
     if (c->mode == LIGHT_COMPARE_OFF || !s->has_file) return 0;
     if (main_busy) return 1;
     for (int slot = 0; slot < light_compare_count(c->mode); ++slot)
-        if (start_slot(c, s, slot, node, game, cd) == 1) return 1;
+        if (start_slot(c, s, slot, node, view, game, cd) == 1) return 1;
     return 0;
 }

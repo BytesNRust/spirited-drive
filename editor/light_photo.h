@@ -17,6 +17,17 @@ enum {
     LIGHT_PHOTO_WHY = 256
 };
 
+/* The camera of the photo, a kind of the game's chase camera (TNFS_VIEW, game/race/chase_struct.h): the bumper has no car in the picture (the clean track light), the dash is the
+ * cockpit, and the chase cameras show the car from 4 m to 16 m behind. A chase camera glides to its place, so the photo of one runs more ticks than the others. */
+enum { LIGHT_VIEWS = 6, LIGHT_VIEW_DEFAULT = 0, LIGHT_PHOTO_TICKS_CHASE = 200 };
+const char *light_photo_view_name(int view);     /* "Bumper", "Dash", "Chase near", "Chase mid", "Chase far", "High"; NULL out of range */
+int light_photo_view_kind(int view);             /* the game's chase kind of view 0..LIGHT_VIEWS-1: 1, 0, 2, 3, 4, 12; -1 out of range */
+int light_photo_view_ticks(int view);            /* the ticks the photo of the view runs: LIGHT_PHOTO_TICKS_DEFAULT, or LIGHT_PHOTO_TICKS_CHASE for the chase cameras */
+int light_photo_view_clamp(int view);
+/* the person's view, kept for the session and in the ini (the window, the photo and the comparison all use it): clamped on the way in */
+void light_photo_view_pref_set(int view);
+int light_photo_view_pref(void);            /* view when it is in range, else LIGHT_VIEW_DEFAULT */
+
 /* the game's name of a time of day for a light file's letter: 'A' "dawn", 'B' "day", 'C' "dusk", 'N' "night"; NULL for any other */
 const char *light_photo_time_word(char letter);
 
@@ -28,6 +39,7 @@ typedef struct {
     char track[8];           /* a CD track's stem: "CY1" */
     char letter;             /* the time of day: 'A', 'B', 'C' or 'N' */
     unsigned node;           /* the road node the car starts at (TNFS_START_NODE) */
+    int view;                /* 0..LIGHT_VIEWS-1: the camera */
     int ticks;               /* 1..LIGHT_PHOTO_TICKS_MAX */
     const char *shot;        /* the PPM the game writes */
 } LightPhotoSetup;
@@ -48,6 +60,7 @@ typedef struct {
     char track[8];
     char letter;
     unsigned node;
+    int view;
     uint8_t *rgba;               /* DONE: the picture, w x h RGBA (malloc'd; the last good one stays through a later failure) */
     int w, h;
     int serial;                  /* changes when `rgba` does */
@@ -56,7 +69,7 @@ typedef struct {
 
 /* Starts a photo: the scratch folder with `file_text` as mods/track_light/<TRACK><letter>.txt (and `places_text`, when given, as mods/track/<TRACK>.txt), the player
  * files, and the game. A job that runs is stopped first. 1, or 0 with `why` (and the state FAILED). */
-int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int ticks,
+int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int ticks,
                       const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap);
 /* every frame: takes the game's output and sees whether it ended. 1 while it runs; when it ends the state is DONE (the picture in `rgba`) or FAILED (`why`), and the
  * scratch folder is gone. */

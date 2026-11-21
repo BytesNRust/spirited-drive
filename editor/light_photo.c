@@ -23,6 +23,19 @@ static int refuse(char *why, size_t cap, const char *format, ...)
     return 0;
 }
 
+static const struct { const char *name; int kind; } VIEWS[LIGHT_VIEWS] = {
+    { "Bumper", 1 }, { "Dash", 0 }, { "Chase near", 2 }, { "Chase mid", 3 }, { "Chase far", 4 }, { "High", 12 },
+};
+
+const char *light_photo_view_name(int view) { return view >= 0 && view < LIGHT_VIEWS ? VIEWS[view].name : NULL; }
+int light_photo_view_kind(int view) { return view >= 0 && view < LIGHT_VIEWS ? VIEWS[view].kind : -1; }
+int light_photo_view_ticks(int view) { return view >= 2 && view < LIGHT_VIEWS ? LIGHT_PHOTO_TICKS_CHASE : LIGHT_PHOTO_TICKS_DEFAULT; }
+int light_photo_view_clamp(int view) { return view >= 0 && view < LIGHT_VIEWS ? view : LIGHT_VIEW_DEFAULT; }
+
+static int g_view_pref = LIGHT_VIEW_DEFAULT;
+void light_photo_view_pref_set(int view) { g_view_pref = light_photo_view_clamp(view); }
+int light_photo_view_pref(void) { return g_view_pref; }
+
 const char *light_photo_time_word(char letter)
 {
     switch (letter) {
@@ -55,10 +68,11 @@ static int push(char **list, int *count, int cap, const char *format, ...)
     return 1;
 }
 
-static int check_setup(const char *track, char letter, int ticks, char *why, size_t cap)
+static int check_setup(const char *track, char letter, int view, int ticks, char *why, size_t cap)
 {
     if (!stem_ok(track)) return refuse(why, cap, "%s is not a CD track's stem such as CY1 or TR7", track != NULL ? track : "(none)");
     if (light_photo_time_word(letter) == NULL) return refuse(why, cap, "the time of day is A, B, C or N");
+    if (light_photo_view_kind(view) < 0) return refuse(why, cap, "the photo's view is 0 to %d", LIGHT_VIEWS - 1);
     if (ticks < 1 || ticks > LIGHT_PHOTO_TICKS_MAX) return refuse(why, cap, "the photo's ticks are 1 to %d", LIGHT_PHOTO_TICKS_MAX);
     return 1;
 }
@@ -69,7 +83,7 @@ int light_photo_command(const LightPhotoSetup *s, char *const *base, RaceCommand
     if (s->game == NULL || s->game[0] == '\0' || s->cd == NULL || s->cd[0] == '\0' || s->user == NULL || s->user[0] == '\0' || s->mods == NULL || s->mods[0] == '\0' ||
         s->shot == NULL || s->shot[0] == '\0')
         return refuse(why, why_cap, "the photo is not set up (the game, its files, the scratch folders or the picture file are missing)");
-    if (!check_setup(s->track, s->letter, s->ticks, why, why_cap)) return 0;
+    if (!check_setup(s->track, s->letter, s->view, s->ticks, why, why_cap)) return 0;
     char **const a = out->argv, **const e = out->envp;
     int *const ac = &out->argc, *const ec = &out->envc;
     int ok = push(a, ac, RACE_ARGS, "%s", s->game) && push(a, ac, RACE_ARGS, "--data") && push(a, ac, RACE_ARGS, "%s", s->cd) && push(a, ac, RACE_ARGS, "--user") &&
@@ -78,7 +92,7 @@ int light_photo_command(const LightPhotoSetup *s, char *const *base, RaceCommand
              push(a, ac, RACE_ARGS, "%s", s->shot);
     for (char *const *v = base; ok && v != NULL && *v != NULL; ++v)
         if (strncmp(*v, "TNFS_", 5) != 0 && strncmp(*v, "SDL_", 4) != 0) ok = push(e, ec, RACE_ENVS, "%s", *v);
-    ok = ok && push(e, ec, RACE_ENVS, "TNFS_AUTOPILOT=1") && push(e, ec, RACE_ENVS, "TNFS_FRAMES=1") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=clear") && push(e, ec, RACE_ENVS, "TNFS_VIEW=0") &&
+    ok = ok && push(e, ec, RACE_ENVS, "TNFS_AUTOPILOT=1") && push(e, ec, RACE_ENVS, "TNFS_FRAMES=1") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=clear") && push(e, ec, RACE_ENVS, "TNFS_VIEW=%d", light_photo_view_kind(s->view)) &&
          push(e, ec, RACE_ENVS, "TNFS_LIGHT_TIME=%s", light_photo_time_word(s->letter)) && push(e, ec, RACE_ENVS, "TNFS_START_NODE=%u", s->node) &&
          push(e, ec, RACE_ENVS, "SDL_VIDEO_DRIVER=dummy") && push(e, ec, RACE_ENVS, "SDL_AUDIO_DRIVER=dummy") && push(e, ec, RACE_ENVS, "SDL_AUDIODRIVER=dummy");
     if (ok) return 1;
@@ -118,7 +132,7 @@ static int write_file(const char *path, const char *text, size_t size, char *why
     return ok || refuse(why, cap, "cannot write %s: %s", path, strerror(errno));
 }
 
-int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int ticks,
+int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int ticks,
                       const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap)
 {
     if (job->state == LIGHT_PHOTO_RUNNING) light_photo_stop(job);
@@ -132,7 +146,7 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
         refuse(why, why_cap, "there is no light file to photograph");
     } else if (game == NULL || access(game, X_OK) != 0) {
         refuse(why, why_cap, "the game's program is not there: %s", game != NULL ? game : "(none)");
-    } else if (check_setup(track, letter, ticks, why, why_cap)) {
+    } else if (check_setup(track, letter, view, ticks, why, why_cap)) {
         char user[EXPORT_PATH], mods[EXPORT_PATH + 16], path[EXPORT_PATH + 64];
         job->temp[0] = '\0';
         if (car_race_temp(job->temp, sizeof job->temp, user, sizeof user, why, why_cap)) {
@@ -145,7 +159,7 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
                 snprintf(path, sizeof path, "%s/track", mods);
                 char file[EXPORT_PATH + 80];
                 snprintf(file, sizeof file, "%s/track_light/%s%c.txt", mods, track, letter);
-                const LightPhotoSetup setup = { game, cd, user, mods, { 0 }, letter, node, ticks, job->shot };
+                const LightPhotoSetup setup = { game, cd, user, mods, { 0 }, letter, node, view, ticks, job->shot };
                 LightPhotoSetup s = setup;
                 snprintf(s.track, sizeof s.track, "%s", track);
                 ok = mkdir(path, 0777) == 0 && write_file(file, file_text, file_size, why, why_cap);
@@ -167,6 +181,7 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
     snprintf(job->track, sizeof job->track, "%s", track);
     job->letter = letter;
     job->node = node;
+    job->view = view;
     job->state = LIGHT_PHOTO_RUNNING;
     return 1;
 }

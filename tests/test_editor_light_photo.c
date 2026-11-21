@@ -85,7 +85,7 @@ static int has_env(const RaceCommand *c, const char *entry)
 
 static void test_command(void)
 {
-    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 4, "/s.ppm" };
+    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 4, "/s.ppm" };
     char *const base[] = { "HOME=/h", "TNFS_PERSON=1", "SDL_VIDEO_DRIVER=x11", "TNFS_LIGHT_TIME=day", NULL };
     RaceCommand c;
     char why[LIGHT_PHOTO_WHY];
@@ -97,7 +97,7 @@ static void test_command(void)
     CHECK(has_env(&c, "HOME=/h"));                                   // the person's other variables stay
     CHECK(!has_env(&c, "TNFS_PERSON=1") && !has_env(&c, "TNFS_LIGHT_TIME=day") && !has_env(&c, "SDL_VIDEO_DRIVER=x11"));   // their TNFS_* and SDL_* go
     CHECK(has_env(&c, "TNFS_LIGHT_TIME=night") && has_env(&c, "TNFS_START_NODE=70") && has_env(&c, "TNFS_AUTOPILOT=1") && has_env(&c, "TNFS_FRAMES=1") &&
-          has_env(&c, "TNFS_WEATHER=clear") && has_env(&c, "TNFS_VIEW=0") &&   /* the in-car view: the road ahead */
+          has_env(&c, "TNFS_WEATHER=clear") && has_env(&c, "TNFS_VIEW=1") &&   /* view 0, the bumper: no car in the picture */
            has_env(&c, "SDL_VIDEO_DRIVER=dummy") && has_env(&c, "SDL_AUDIO_DRIVER=dummy") && has_env(&c, "SDL_AUDIODRIVER=dummy"));
     car_race_command_free(&c);
     CHECK_EQ_INT(c.argc, 0);
@@ -107,9 +107,47 @@ static void test_command(void)
     (void)has_word;
 }
 
+static void test_views(void)
+{
+    const char *const names[LIGHT_VIEWS] = { "Bumper", "Dash", "Chase near", "Chase mid", "Chase far", "High" };
+    const int kinds[LIGHT_VIEWS] = { 1, 0, 2, 3, 4, 12 };   // the game's chase kinds: the bumper has no car, 12 is the highest eye
+    for (int v = 0; v < LIGHT_VIEWS; ++v) {
+        CHECK(strcmp(light_photo_view_name(v), names[v]) == 0);
+        CHECK_EQ_INT(light_photo_view_kind(v), kinds[v]);
+        CHECK_EQ_INT(light_photo_view_ticks(v), v >= 2 ? LIGHT_PHOTO_TICKS_CHASE : LIGHT_PHOTO_TICKS_DEFAULT);   // a chase camera glides to its place
+        CHECK_EQ_INT(light_photo_view_clamp(v), v);
+    }
+    CHECK(light_photo_view_name(-1) == NULL && light_photo_view_name(LIGHT_VIEWS) == NULL);
+    CHECK_EQ_INT(light_photo_view_kind(LIGHT_VIEWS), -1);
+    CHECK_EQ_INT(light_photo_view_clamp(-3), LIGHT_VIEW_DEFAULT);
+    CHECK_EQ_INT(light_photo_view_clamp(99), LIGHT_VIEW_DEFAULT);
+    CHECK_EQ_INT(LIGHT_VIEW_DEFAULT, 0);   // the bumper is what a first run shows
+    light_photo_view_pref_set(5);
+    CHECK_EQ_INT(light_photo_view_pref(), 5);
+    light_photo_view_pref_set(77);
+    CHECK_EQ_INT(light_photo_view_pref(), LIGHT_VIEW_DEFAULT);
+
+    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 4, "/s.ppm" };
+    RaceCommand c;
+    char why[LIGHT_PHOTO_WHY];
+    for (int v = 0; v < LIGHT_VIEWS; ++v) {
+        s.view = v;
+        s.ticks = light_photo_view_ticks(v);
+        CHECK(light_photo_command(&s, NULL, &c, why, sizeof why));
+        char want[24];
+        snprintf(want, sizeof want, "TNFS_VIEW=%d", kinds[v]);
+        CHECK(has_env(&c, want));
+        car_race_command_free(&c);
+    }
+    s.view = LIGHT_VIEWS;
+    CHECK(!light_photo_command(&s, NULL, &c, why, sizeof why) && why[0] != '\0');
+    s.view = -1;
+    CHECK(!light_photo_command(&s, NULL, &c, why, sizeof why));
+}
+
 static void test_command_refusals(void)
 {
-    const LightPhotoSetup good = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 4, "/s.ppm" };
+    const LightPhotoSetup good = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 4, "/s.ppm" };
     RaceCommand c;
     char why[LIGHT_PHOTO_WHY];
     LightPhotoSetup s = good;
@@ -151,7 +189,7 @@ static void test_job_done(void)
     setenv("FAKE_MODE", "", 1);
     setenv("TNFS_PERSON", "1", 1);
     setenv("KEEP_ME", "yes", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), PLACES, strlen(PLACES), why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), PLACES, strlen(PLACES), why, sizeof why));
     CHECK(job.state == LIGHT_PHOTO_RUNNING);
     char temp[EXPORT_PATH];
     snprintf(temp, sizeof temp, "%s", job.temp);
@@ -168,7 +206,7 @@ static void test_job_done(void)
     CHECK(strstr(rec, "CY1N.txt\n") != NULL);                                                            // the working copy is named as the game reads it
     CHECK(strstr(rec, NIGHT_FILE) != NULL && strstr(rec, "---\n# tnfs track places 1\ntrack CY1\ntunnel 10 20\n") != NULL);
     // a second photo, another time: the serial moves and the picture changes
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'B', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'B', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_DONE && job.serial == 2 && job.rgba != NULL && job.rgba[0] == 200);
     rec = read_all(record);
@@ -183,7 +221,7 @@ static void test_job_failures(void)
     memset(&job, 0, sizeof job);
     char why[LIGHT_PHOTO_WHY];
     setenv("FAKE_MODE", "fail", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
     char temp[EXPORT_PATH];
     snprintf(temp, sizeof temp, "%s", job.temp);
     run_to_end(&job);
@@ -192,24 +230,24 @@ static void test_job_failures(void)
     CHECK(stat(temp, &st) != 0);
     CHECK(job.rgba == NULL);
     setenv("FAKE_MODE", "none", 1);   // exits 0 and writes nothing
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_FAILED && strstr(job.why, "no picture") != NULL);
     // a good photo, then a failing one: the last good picture stays
     setenv("FAKE_MODE", "", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'A', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'A', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_DONE && job.rgba != NULL && job.rgba[0] == 30);
     setenv("FAKE_MODE", "fail", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'A', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'A', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_FAILED && job.rgba != NULL && job.rgba[0] == 30);
     // a game that is not there, and a track or time that is not one: refused before anything runs, no folder left
-    CHECK(!light_photo_start(&job, "/no/such/game", dir, "CY1", 'N', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why) && why[0] != '\0');
+    CHECK(!light_photo_start(&job, "/no/such/game", dir, "CY1", 'N', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why) && why[0] != '\0');
     CHECK(job.state == LIGHT_PHOTO_FAILED && job.temp[0] == '\0');
-    CHECK(!light_photo_start(&job, fake, dir, "cy1", 'N', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
-    CHECK(!light_photo_start(&job, fake, dir, "CY1", 'Q', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
-    CHECK(!light_photo_start(&job, fake, dir, "CY1", 'N', 70, 4, NULL, 0, NULL, 0, why, sizeof why));   // no file text
+    CHECK(!light_photo_start(&job, fake, dir, "cy1", 'N', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(!light_photo_start(&job, fake, dir, "CY1", 'Q', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(!light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 4, NULL, 0, NULL, 0, why, sizeof why));   // no file text
     light_photo_free(&job);
 }
 
@@ -219,7 +257,7 @@ static void test_job_stop(void)
     memset(&job, 0, sizeof job);
     char why[LIGHT_PHOTO_WHY];
     setenv("FAKE_MODE", "slow", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
     char temp[EXPORT_PATH];
     snprintf(temp, sizeof temp, "%s", job.temp);
     CHECK(light_photo_poll(&job));   // still running
@@ -227,10 +265,10 @@ static void test_job_stop(void)
     struct stat st;
     CHECK(job.state == LIGHT_PHOTO_FAILED && strstr(job.why, "stopped") != NULL && stat(temp, &st) != 0);
     // a new photo while one runs ends the first
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
     snprintf(temp, sizeof temp, "%s", job.temp);
     setenv("FAKE_MODE", "", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'B', 70, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'B', 70, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
     CHECK(stat(temp, &st) != 0);   // the first run's folder went with it
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_DONE);
@@ -250,6 +288,7 @@ int main(void)
     write_text(fake, FAKE, 1);
     test_time_words();
     test_command();
+    test_views();
     test_command_refusals();
     test_job_done();
     test_job_failures();

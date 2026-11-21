@@ -29,12 +29,12 @@ void light_compare_free(LightCompare *c);
 int light_compare_count(int mode);
 char light_compare_letter(int slot);
 
-/* What a picture shows, as a number that changes when the picture would: the track, time, node and the bytes of the light file and the places file it was made with.
+/* What a picture shows, as a number that changes when the picture would: the track, time, node, view and the bytes of the light file and the places file it was made with.
  * `file` and `places` may be NULL (none). Never 0. */
-uint64_t light_compare_key(const char *track, char letter, unsigned node, const char *file, size_t file_size, const char *places, size_t places_size);
+uint64_t light_compare_key(const char *track, char letter, unsigned node, int view, const char *file, size_t file_size, const char *places, size_t places_size);
 
-/* Every frame: takes the running game's output; when none runs and `main_busy` is 0, starts the first picture of the mode whose key is out of date. `node` is the window's
- * photo node. 1 while a game runs or a picture is still due, 0 when every picture is current (or the mode is off). The game and the CD data are the window's. */
-int light_compare_poll(LightCompare *c, const LightSession *s, int node, const char *game, const char *cd, int main_busy);
+/* Every frame: takes the running game's output; when none runs and `main_busy` is 0, starts the first picture of the mode whose key is out of date. `node` and `view` are the window's
+ * photo node and view. 1 while a game runs or a picture is still due, 0 when every picture is current (or the mode is off). The game and the CD data are the window's. */
+int light_compare_poll(LightCompare *c, const LightSession *s, int node, int view, const char *game, const char *cd, int main_busy);
 
 #endif

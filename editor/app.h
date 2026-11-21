@@ -322,6 +322,8 @@ int app_light_set_folder(App *a, const char *dir);
 int app_light_select(App *a, int track, int time);
 /* The photo's node, clamped to the file's road. */
 void app_light_set_node(App *a, long node);
+/* The photo's camera (light_photo_view_name), clamped; the person's choice for the next sessions too (light_photo_view_pref_set). */
+void app_light_set_view(App *a, int view);
 /* The window edited a->light.session.file (light_file_set_*): the photo is due. */
 void app_light_touch(App *a);
 /* Revert and Save of the file (light_session.h); Save says why it refused in light.error and the status. */
