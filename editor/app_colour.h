@@ -12,8 +12,9 @@ void app_set_colour_by(App *a, int mode);
 const uint8_t *app_colour_classes(App *a);
 
 /* the stretch of the road that holds `node` in the current mode, its points selected (the first to the last whose node is in it; a stretch with none
- * selects the point nearest it); 1 when it did, 0 in Limits mode, with no road or off the road. Says which points in the status line. */
-int app_select_stretch(App *a, int node);
+ * selects the point nearest it); 1 when it did, 0 in Limits mode, with no road or off the road. Says which points in the status line. With `add` (Shift or Cmd
+ * held on the double-click) the points are added to the selection, which stays; else they are the selection. */
+int app_select_stretch(App *a, int node, int add);
 
 /* the run-length summary --steps print-classes prints: "classes curve: straight 0-39, right 40-79 ..." */
 void app_colour_summary(App *a, char *out, size_t cap);

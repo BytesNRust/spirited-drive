@@ -242,8 +242,8 @@ void handle_mouse(App *a, const ImVec2 &origin)
         const SelClick how = click_kind(io);
         collapse = -1;
         const int road = pick < 0 && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && a->colour_by != TRACE_COLOUR_LIMITS ? node_near(Canvas{ origin, nullptr }, *a, mx, my) : -1;
-        if (road >= 0 && app_select_stretch(a, road)) g_box.on = false;   // a double-click on the road: its stretch (Colour by), not a box
-        else if (pick < 0) g_box = { true, io.KeyShift, mx, my };
+        if (road >= 0 && app_select_stretch(a, road, io.KeyShift || io.KeyCtrl)) g_box.on = false;   // a double-click on the road: its stretch (Colour by), added with Shift or Cmd, not a box
+        else if (pick < 0) g_box = { true, io.KeyShift || io.KeyCtrl, mx, my };   // Shift or Cmd: the box adds to the set
         else if (how == SEL_ONE && sel_has(&a->sel, pick) && app_sel_count(a) > 1) a->selected = pick, collapse = pick;   // the set stays for a drag
         else app_sel_click(a, pick, how);
         dragged = pick >= 0 && sel_has(&a->sel, pick) ? pick : -1;

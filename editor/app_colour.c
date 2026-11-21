@@ -23,7 +23,7 @@ const uint8_t *app_colour_classes(App *a)
     return a->node_class;
 }
 
-int app_select_stretch(App *a, int node)
+int app_select_stretch(App *a, int node, int add)
 {
     const uint8_t *classes = app_colour_classes(a);
     int first, last;
@@ -44,10 +44,16 @@ int app_select_stretch(App *a, int node)
         if (best < 0) return 0;
         lo = hi = best;
     }
-    app_sel_click(a, lo, SEL_ONE);
-    if (hi > lo) app_sel_click(a, hi, SEL_RANGE);
-    if (hi > lo) snprintf(a->status, sizeof a->status, "stretch selected: points %d to %d", lo, hi);
-    else snprintf(a->status, sizeof a->status, "stretch selected: point %d", lo);
+    if (add) {   // one more stretch: its points join the set (Cmd's toggle only for those not in it yet)
+        for (int i = lo; i <= hi; ++i)
+            if (!sel_has(&a->sel, i)) app_sel_click(a, i, SEL_TOGGLE);
+    } else {
+        app_sel_click(a, lo, SEL_ONE);
+        if (hi > lo) app_sel_click(a, hi, SEL_RANGE);
+    }
+    const char *how = add ? "added" : "selected";
+    if (hi > lo) snprintf(a->status, sizeof a->status, "stretch %s: points %d to %d", how, lo, hi);
+    else snprintf(a->status, sizeof a->status, "stretch %s: point %d", how, lo);
     return 1;
 }
 
