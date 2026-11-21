@@ -1756,7 +1756,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME car_texture_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_texture.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:blender_like_tool>)
         add_test(NAME car_kit_cli COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_kit_cli.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
         set_tests_properties(car_kit_cli PROPERTIES TIMEOUT 300)
-        add_test(NAME car_export_kits COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_export_kits.sh $<TARGET_FILE:car_export_kits> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+        add_test(NAME car_export_kits COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_export_kits.sh $<TARGET_FILE:car_export_kits> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs-studio>)
         set_tests_properties(car_export_kits PROPERTIES TIMEOUT 300)
     endif()
     # port: the job pool and the row splitter of the render bands

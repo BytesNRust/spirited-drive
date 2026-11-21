@@ -55,6 +55,13 @@ static void test_stems(void)
     for (size_t i = 0; i < sizeof OK / sizeof OK[0]; i++) CHECK_EQ_INT(car_piece_stem_ok(OK[i]), 1);
     for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) CHECK_EQ_INT(car_piece_stem_ok(BAD[i]), 0);
     CHECK_EQ_INT(car_piece_stem_ok(NULL), 0);
+    CHECK_EQ_INT(car_piece_stem_is_original("P911"), 1);   /* an original's stem: the CD's cars, the traffic ones, the police car, and the 'M' of each */
+    CHECK_EQ_INT(car_piece_stem_is_original("wagon"), 1);
+    CHECK_EQ_INT(car_piece_stem_is_original("COPMUST"), 1);
+    CHECK_EQ_INT(car_piece_stem_is_original("MP911"), 1);
+    CHECK_EQ_INT(car_piece_stem_is_original("KITCAR"), 0);
+    CHECK_EQ_INT(car_piece_stem_is_original(""), 0);
+    CHECK_EQ_INT(car_piece_stem_is_original(NULL), 0);
 }
 
 static void test_paths(void)

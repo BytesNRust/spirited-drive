@@ -40,6 +40,8 @@ int car_piece_assist(const char *key, const uint8_t *pbs, size_t size, size_t of
 /* 1 when `stem` may name an added car's files: 1..8 of A-Z 0-9, not a stem of the CD's cars, traffic or police (slots.h, and P911T, the
  * race's ninth), not 'M' + one (the reduced model's), whatever the case */
 int car_piece_stem_ok(const char *stem);
+/* 1 when `stem` is an original car's (the CD's cars, the traffic cars, the police car, or 'M' + one): a piece may not take it, and a kit that has it is an exported original */
+int car_piece_stem_is_original(const char *stem);
 /* the three files of the car `stem`, as paths below the piece's root: its CFM, its PDN, its PBS */
 void car_piece_paths(const char *stem, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH]);
 /* port (dep59 step 3): 1 when `rel` is one of a car piece's own pictures, by these names in lower case as the game reads them:

@@ -211,14 +211,19 @@ static int piece_files(const char *kit, const ModInfo *info, const CarKitBuilt *
     return ok && add_tree(kit, car_kit_path(CAR_KIT_PHOTOS), out, "", err);
 }
 
-/* build/piece/ written again from `files` and zipped as build/<id>.zip (mod pack: validated, the installation's own check) */
+/* build/piece/ written again from `files` and zipped as build/<id>.zip (mod pack: validated, the installation's own check); for an original's stem only build/piece/ */
 static int write_build(const char *kit, const ModInfo *info, const FileSet *files, int verbose, ExchangeError *err)
 {
+    const int original = car_piece_stem_is_original(info->stem);   /* an exported original: its car file for the Preview, and no package (nothing to validate or install) */
     char dir[PATH_MAX], zip[PATH_MAX];
     joined(dir, sizeof dir, kit, car_kit_path(CAR_KIT_BUILD_PIECE));
     snprintf(zip, sizeof zip, "%s/%s/%s.zip", kit, car_kit_path(CAR_KIT_BUILD), info->id[0] != '\0' ? info->id : info->stem);
     if (fsio_exists(dir) && !fsio_remove_tree(dir)) { exchange_fail(err, "cannot empty %s", dir); return 0; }
     if (!fsio_write_tree(dir, files, 0, err)) return 0;
+    if (original) {
+        if (verbose) printf("built %s: the car's files only, an original car has no package\n", dir);
+        return 1;
+    }
     char *pack[] = { "mod", "pack", dir, zip, "--force" };
     if (!mod_command(5, pack, err)) return 0;
     if (verbose) printf("built %s and %s\n", dir, zip);

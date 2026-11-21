@@ -59,6 +59,16 @@ static int names(const char *stem, const char *own)
     return strcasecmp(stem, own) == 0 || ((stem[0] == 'M' || stem[0] == 'm') && strcasecmp(stem + 1, own) == 0);
 }
 
+int car_piece_stem_is_original(const char *stem)
+{
+    if (stem == NULL || stem[0] == '\0') return 0;
+    for (const char *const *s = slot_stems(SLOT_CAR); *s != NULL; s++)
+        if (names(stem, *s)) return 1;
+    for (const char *const *s = RACE_ONLY_STEMS; *s != NULL; s++)
+        if (names(stem, *s)) return 1;
+    return 0;
+}
+
 int car_piece_stem_ok(const char *stem)
 {
     if (stem == NULL) return 0;
