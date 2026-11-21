@@ -1,7 +1,7 @@
 #!/bin/sh
 # TNFS_NO_HUD=1 (game/viewer/drive_wide.c, env only, for the Track light window's photo): outside the car the picture is the 3D alone. On a CD track (TR5, day, the chase
 # camera behind the car) against the same shot without it: the top bar is black, the tach and the map are gone, and the sky, road and car are the very same pixels; in the dash
-# view (the dash is the car) nothing changes; the bumper view has no mirror (the radar's LEDs and the mirror are the bumper extras').
+# view (the dash is the car) its top band and map go and the dash itself is as it was; the bumper view has no mirror (the radar's LEDs and the mirror are the bumper extras').
 # Needs the CD's data (original/): the test is only registered when it is there. usage: no_hud_shot.sh TNFS REPO WORK [DATA]
 set -u
 TNFS=$1 REPO=$2 WORK=$3 DATA=${4:-$2/original}
@@ -46,7 +46,11 @@ assert equal(box(hud, w, h, *MAP), box(no, w, h, *MAP)) < 0.5, "the map is still
 for name, b in (("sky", SKY), ("road", ROAD), ("car", CAR)):
     assert equal(box(hud, w, h, *b), box(no, w, h, *b)) > 0.99, "the 3D's %s changed with TNFS_NO_HUD" % name
 _, _, a = rd("hud0.ppm"); _, _, b = rd("no0.ppm")
-assert a == b, "the dash view changed with TNFS_NO_HUD (the dash is the car)"
+DASH_TOP, DASH_MAP, WHEEL, DASH_LEFT = (0, 0, 1, 0.06), (0.81, 0.64, 0.99, 0.93), (0.28, 0.6, 0.55, 0.95), (0, 0.7, 0.2, 0.98)
+assert equal(box(a, w, h, *DASH_TOP), box(b, w, h, *DASH_TOP)) < 0.2, "the dash view's top band (the bar, the start lights) is still there"
+assert equal(box(a, w, h, *DASH_MAP), box(b, w, h, *DASH_MAP)) < 0.3, "the dash view's map is still there"
+for name, bx in (("wheel", WHEEL), ("left of the dash", DASH_LEFT)):   # the dash itself (the car) stays as it is
+    assert equal(box(a, w, h, *bx), box(b, w, h, *bx)) > 0.99, "the dash's %s changed with TNFS_NO_HUD" % name
 _, _, a = rd("hud1.ppm"); _, _, b = rd("no1.ppm")
 MIRROR = (0.67, 0.06, 0.99, 0.2)
 assert equal(box(a, w, h, *MIRROR), box(b, w, h, *MIRROR)) < 0.5, "the bumper's mirror is still there without the HUD"

@@ -35,6 +35,8 @@ static int tinted_time(void) { return drive_light_time_tinted(); }   /* kept at 
 
 /* port (dev, env only): TNFS_NO_HUD=1 leaves the 3D picture alone outside the car, for judging the track's light (the Track light window's photo): no top bar, tach, map, keys or mirror.
  * It takes the wide path (the 3D in a buffer of its own under the 2D layer), where the 2D layer is left empty. Unset, nothing changes. */
+static uint8_t empty[SCREEN_W * SCREEN_H];   /* the 2D layer's copy that TNFS_NO_HUD draws instead of the frame */
+
 int drive_wide_no_hud(void)
 {
     const char *v = getenv("TNFS_NO_HUD");
@@ -699,7 +701,6 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
 {
     place_count = 0;
     WideFrame w = wide_frame_start(race, frame);
-    static uint8_t empty[SCREEN_W * SCREEN_H];
     if (drive_wide_no_hud() && !w.in_car && !w.police) {   /* the 2D layer empty: the 3D shows through everywhere */
         memset(empty, LAYER_KEY, sizeof empty);
         frame = empty;
@@ -712,6 +713,16 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
      * is a piece at its size and anchor with the map, or with the gate; with neither it is the continuous dash. */
     w.map_on = drive_hud.keys.use_parts != 0;
     w.box_on = dash_box_shown((DashBox)drive_hud.dash_box, drive_hud.keys.use_parts, drive_hud.gate_state, w.in_car);
+    if (drive_wide_no_hud() && w.in_car) {   /* the dash stays (it is the car); its top band (the bar, the start lights) and its map go: the dash's own art where the map was */
+        memcpy(empty, frame, sizeof empty);
+        memset(empty, LAYER_KEY, (size_t)SCREEN_W * HUD_BAR_HEIGHT);
+        const uint8_t *art = drive_hud.cockpit_ready ? dash_art_layer(&drive_hud.cockpit) : NULL;   /* the map's place in the frame: the dash's own art (the frame as it is with the map off) */
+        for (int y = DRIVE_MAP_Y; y < DRIVE_MAP_Y + DRIVE_MAP_H && y < SCREEN_H; y++)
+            for (int x = DRIVE_MAP_X; x < DRIVE_MAP_X + DRIVE_MAP_W && x < SCREEN_W; x++) empty[(size_t)y * SCREEN_W + x] = art != NULL ? art[(size_t)y * SCREEN_W + x] : LAYER_KEY;
+        frame = empty;
+        w.lights = 0, w.map_on = 0;
+        w.box_on = 0;
+    }
     const int n = wide_pieces(&w, pieces);
     if (w.police && drive_hud.rgb != NULL) {  /* 004214e4's screen over its darkened, enlarged copy, as the menus */
         static uint8_t screen[SCREEN_W * SCREEN_H];
