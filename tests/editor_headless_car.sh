@@ -141,6 +141,17 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     "$editor" "$work/real/p911-original" --paint 3 --frames 14 --shot "$work/preview-paint.png" >"$work/log" 2>&1 || fail "Preview of the real 911 in a paint: $(cat "$work/log")"
     cmp -s "$work/preview-file.png" "$work/preview-paint.png" && fail "a paint did not change the Preview"
     ls "${TMPDIR:-/tmp}" | grep -q '^studio-preview-' && fail "a scratch folder of the Preview was left behind"
+    # «Use as card photo» (the Model window): card.png of 309 x 166, opaque, in the project's piece; the step is the button's own code
+    "$editor" "$work/real/p911-original" --paint 3 --steps card-photo,status --frames 14 >"$work/log" 2>&1 || fail "Use as card photo: $(cat "$work/log")"
+    grep -q "status: card.png made" "$work/log" || fail "no word that card.png was made: $(cat "$work/log")"
+    card=$(find "$work/real/p911-original" -name card.png | head -1)
+    [ -n "$card" ] || fail "no card.png in the project after Use as card photo"
+    [ ! -e "$card.tmp" ] || fail "a staged card.png.tmp was left behind"
+    python3 -c "
+import sys
+d = open(sys.argv[1], 'rb').read()
+assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 309 and int.from_bytes(d[20:24], 'big') == 166 and d[25] == 6
+" "$card" || fail "card.png is not a 309x166 RGBA PNG"
     # the night view: Day, Night with the lights off and Night with the headlights each show another picture of the front texture
     "$editor" "$work/real/p911-original" --view day --preview-tex frnt --frames 20 --shot "$work/night-day.png" >"$work/log" 2>&1 || fail "Preview by day: $(cat "$work/log")"
     "$editor" "$work/real/p911-original" --view night --lights none --preview-tex frnt --frames 20 --shot "$work/night-dark.png" >"$work/log" 2>&1 || fail "Preview at night, lights off: $(cat "$work/log")"

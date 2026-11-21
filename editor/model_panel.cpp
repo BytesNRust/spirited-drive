@@ -12,6 +12,7 @@
 extern "C" {
 #include "formats/police_flash.h"
 #include "model_scene.h"
+#include "card_photo.h"
 }
 #include "car_export.h"
 #include "car_race.h"
@@ -195,7 +196,44 @@ void keys()
     if (ImGui::IsKeyPressed(ImGuiKey_Home, false)) orbit_home(&g.orbit), g.dirty = true;
 }
 
-void toolbar()
+// «Use as card photo»: the picture as it is on screen (the Model's camera, the Preview's paint and light) at the card's 309 x 166 over a plain backdrop, in the
+// card.png of the car's piece; asks before it replaces one
+int use_as_card_photo(App *a)
+{
+    static const uint8_t BACKDROP[3] = { 24, 28, 36 };   // a plain dark blue-grey: the car's colours stand out from it
+    char why[APP_MSG];
+    const CarNightState night = night_settings_state(&a->night, 0);
+    char dir[APP_PATH];
+    car_project_card_dir(&a->car, dir, sizeof dir);   // the kit's own card.png (the build puts it in the piece), not build/piece's
+    const int ok = card_photo_write(g.scene, &g.orbit, &night, BACKDROP, dir, why, sizeof why);
+    if (ok) snprintf(a->status, sizeof a->status, "card.png made from the Model's view (309 x 166)");
+    else snprintf(a->status, sizeof a->status, "card photo: %s", why);
+    return ok;
+}
+
+void card_photo_button(App *a)
+{
+    ImGui::BeginDisabled(g.scene == nullptr || a->car.masks_only);
+    if (ImGui::Button("Use as card photo")) {
+        char dir[APP_PATH];
+        car_project_card_dir(&a->car, dir, sizeof dir);
+        if (card_photo_exists(dir)) ImGui::OpenPopup("Replace the card photo?");
+        else use_as_card_photo(a);
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("Make the car's card picture (card.png, 309 x 166, Control Central's) from this view: the camera, the paint and the light as shown.%s",
+                          a->car.masks_only ? "\nA masks project has no card." : "");
+    if (ImGui::BeginPopupModal("Replace the card photo?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextUnformatted("The car already has a card.png. The new picture replaces it.");
+        if (ImGui::Button("Replace")) use_as_card_photo(a), ImGui::CloseCurrentPopup();
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+}
+
+void toolbar(App *a)
 {
     if (ImGui::Button("Front")) orbit_view(&g.orbit, ORBIT_FRONT), g.dirty = true;
     ImGui::SameLine();
@@ -217,6 +255,7 @@ void toolbar()
     ImGui::SameLine();
     if (ImGui::Button("Reload")) g.loaded[0] = 0;   // the file again: after Rehacer or a new bank
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Read the car file again");
+    card_photo_button(a);
 }
 
 void turn_and_zoom()
@@ -235,6 +274,15 @@ void model_panel_shine(bool on)
 {
     g.shine = on;
     g.shine_asked = true;
+}
+
+int model_panel_card_photo(App *a)
+{
+    if (g.scene == nullptr || a->kind != APP_KIND_CAR || a->car.masks_only) {
+        snprintf(a->status, sizeof a->status, "card photo: there is no car in the Model window to take it from");
+        return 0;
+    }
+    return use_as_card_photo(a);
 }
 
 void model_panel_preset(double yaw, double pitch, int dist)
@@ -258,7 +306,7 @@ void model_panel(App *a, SDL_Renderer *ren)
         if (g.scene == nullptr) {
             ImGui::TextWrapped("%s", g.why[0] != 0 ? g.why : "No car is open.");
         } else {
-            toolbar();
+            toolbar(a);
             keys();
             if (g.shine_asked && !busy) set_shine(a, rgb), g.dirty = true;   // after a stroke: the draft is of the masks as they are
             const ImVec2 size = ImGui::GetContentRegionAvail();

@@ -102,6 +102,9 @@ static void check_kit(void)
     car_project_masks_dir(&c, dir, sizeof dir);
     path_in(want, sizeof want, "kit/car_masks", "");
     CHECK(strcmp(dir, want) == 0);
+    car_project_card_dir(&c, dir, sizeof dir);   /* the card's own files (mod.ini, card.png) are the kit's, not build/piece's (disposable) */
+    path_in(want, sizeof want, "kit", "");
+    CHECK(strcmp(dir, want) == 0);
 }
 
 /* what Export original car makes of a car you drive (and a `car new` piece): mod.ini and SIMDATA at the top, masks under car_masks/<folder>/. It opens as it always did */
@@ -122,6 +125,8 @@ static void check_exported_original_shape(void)
     CHECK(c.legacy && !c.masks_only && c.built && !c.has_model);
     path_in(want, sizeof want, "orig", "");
     CHECK(strcmp(c.root, want) == 0 && strcmp(c.piece, want) == 0);   /* nothing is built: the piece is the folder itself */
+    car_project_card_dir(&c, dir, sizeof dir);
+    CHECK(strcmp(dir, want) == 0);   /* and it holds the card's files */
     CHECK(strstr(c.cfm, "orig/SIMDATA/CARFAMS/C84.CFM") != NULL && strcmp(c.folder, "C84") == 0);
     CHECK(c.has_masks_dir && c.mask_count == 2);
     car_project_masks_dir(&c, dir, sizeof dir);

@@ -3,6 +3,7 @@
  * their fixed colours, only with the switches that light them. A synthetic car (a box with a textured side, mesh_build/shpi_build/cfm_build: no game data) and a
  * mask with head and brake lights; with the CD's P911 in original/ (skipped without) the same from its own masks, and TNFS_MODEL_SHOTS=DIR writes the pictures. */
 #include "model_scene.h"
+#include "card_photo.h"
 #include "formats/car_brake_lamp.h"
 #include "formats/car_mask_codec.h"
 #include "formats/car_night.h"
@@ -547,11 +548,70 @@ static void test_the_cds_brake_lamps(void)
     CHECK(cars >= 30);
 }
 
+/* W6: «Use as card photo»: the Model's view at 309 x 166 over a plain backdrop, card.png RGBA with no transparency, written whole or not at all */
+static void test_the_card_photo(void)
+{
+    char dir[400], masks[400], path[500], card[500], why[300] = "";
+    snprintf(dir, sizeof dir, "%s/cardcar", base), snprintf(masks, sizeof masks, "%s/cardmasks", base);
+    mkdir(dir, 0777), mkdir(masks, 0777);
+    size_t len = 0;
+    uint8_t *cfm = make_cfm(&len);
+    CHECK(cfm != NULL);
+    if (cfm == NULL) return;
+    snprintf(path, sizeof path, "%s/BOX.CFM", dir);
+    CHECK(write_file(path, cfm, len));
+    free(cfm);
+    CHECK(make_mask(masks));
+    PreviewIn in;
+    memset(&in, 0, sizeof in);
+    in.cfm = path, in.stem = "BOX", in.masks_dir = masks, in.added = 1;
+    ModelScene *m = model_scene_open_painted(&in, why, sizeof why);
+    CHECK(m != NULL);
+    if (m == NULL) return;
+    Orbit o;
+    orbit_init(&o, model_scene_radius(m));
+    orbit_set(&o, 60 * 16, 30 * 16);
+    snprintf(card, sizeof card, "%s/card.png", dir);
+    CHECK(!card_photo_exists(dir));
+    const uint8_t back[3] = { 20, 40, 60 };
+    CHECK(card_photo_write(m, &o, NULL, back, dir, why, sizeof why));
+    CHECK(card_photo_exists(dir));
+    FILE *f = fopen(card, "rb");
+    CHECK(f != NULL);
+    if (f != NULL) {
+        static uint8_t data[1 << 20];
+        const size_t n = fread(data, 1, sizeof data, f);
+        fclose(f);
+        PngImage img;
+        CHECK(png_read(data, n, &img) == PNG_OK);
+        CHECK(img.width == CARD_PHOTO_W && img.height == CARD_PHOTO_H && !img.indexed);   /* 309 x 166, as PIECE.CARD wants */
+        int car = 0, clear = 0;
+        for (size_t i = 0; i < (size_t)CARD_PHOTO_W * CARD_PHOTO_H; ++i) {
+            const uint8_t *px = img.pixels + 4 * i;
+            if (px[3] != 255) clear++;   /* never transparent: the card has a backdrop */
+            if (px[0] != back[0] || px[1] != back[1] || px[2] != back[2]) car++;
+        }
+        CHECK_EQ_INT(clear, 0);
+        CHECK(car > 500 && car < CARD_PHOTO_W * CARD_PHOTO_H);   /* the car over the backdrop, which shows round it */
+        CHECK(img.pixels[0] == back[0] && img.pixels[1] == back[1] && img.pixels[2] == back[2]);   /* the corner is the backdrop's */
+        png_free(img.pixels);
+    }
+    char tmp[600];
+    snprintf(tmp, sizeof tmp, "%s.tmp", card);
+    CHECK(access(tmp, F_OK) != 0);   /* staged, then renamed */
+    char nowhere[500];
+    snprintf(nowhere, sizeof nowhere, "%s/no-such-folder", base);
+    CHECK(!card_photo_write(m, &o, NULL, back, nowhere, why, sizeof why) && why[0] != '\0');
+    CHECK(!card_photo_write(NULL, &o, NULL, back, dir, why, sizeof why));
+    model_scene_close(m);
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/model_scene_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
     if (mkdtemp(base) == NULL) return 2;
     test_a_synthetic_car();
+    test_the_card_photo();
     test_the_body_shine();
     test_the_cds_911();
     test_a_texture_with_no_mask_keeps_its_colours();

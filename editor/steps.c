@@ -8,6 +8,7 @@
 #include "app_select.h"
 #include "app_colour.h"
 #include "app_sheet.h"
+#include "ui.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -213,6 +214,7 @@ static int at_once(App *a, const char *name, const double *arg)
         return 1;
     }
     if (strcmp(name, "print") == 0) return a->kind == APP_KIND_TRACK ? (print_points(a), 1) : 0;
+    if (strcmp(name, "card-photo") == 0) return ui_card_photo(a);   /* the Model window's button (its panel has drawn by the time steps run) */
     if (strcmp(name, "status") == 0) return fprintf(stdout, "status: %s\n", a->status), 1;
     if (strcmp(name, "copy") == 0) return app_copy_points(a);   /* each is one step to undo (app_points.h) */
     if (strcmp(name, "paste") == 0) return app_paste_points(a);

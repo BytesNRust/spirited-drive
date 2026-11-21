@@ -91,6 +91,11 @@ static int g_win_w = 960, g_win_h = 600;   // the window's default size (ui_wind
 static int g_reset_in, g_save_in;   // frames until Reset layout rebuilds the dock (the window's new size in first), and until the layout file is rewritten
 enum { RESET_AFTER_FRAMES = 3, SAVE_AFTER_FRAMES = 2 };
 
+int ui_card_photo(App *a)
+{
+    return model_panel_card_photo(a);
+}
+
 void ui_double_click_by_frames(void)
 {
     ImGui::GetIO().MouseDoubleClickTime = 30.0f;
