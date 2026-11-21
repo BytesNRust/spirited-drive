@@ -133,6 +133,24 @@ int main(void)
     unlink(gone);
     CHECK(original_track_publish_plan(dir, data, &plan, why, sizeof why) && plan.added == 1, "new when data/ has none: %d", plan.added);
 
+    /* the acceptance check: a track made by hand through the same code path differs from the migrated one only in the mask folders */
+    {
+        char migrated[400], report[2048] = "";
+        original_track_dir(ws, "CL1", migrated, sizeof migrated);
+        int n = original_track_acceptance(migrated, "CL1", data, report, sizeof report, why, sizeof why);
+        CHECK(n == 0 && strstr(report, "files compared") != NULL, "CL1 is as made by hand: %d %s %s", n, report, why);
+        put("data/track/AL1.txt", "places\n");   // the file the test removed above
+        original_track_dir(ws, "AL1", migrated, sizeof migrated);
+        n = original_track_acceptance(migrated, "AL1", data, report, sizeof report, why, sizeof why);
+        CHECK(n == 0, "AL1 has PSDs and its masks folders are not compared: %d %s", n, report);   // its light file was published back equal above
+        put("ws/tracks/AL1/light/track_light/AL1A.txt", "retouched\n");
+        put("ws/tracks/AL1/notes.txt", "extra\n");
+        put("ws/tracks/AL1/art-source/masks/more.psd", "psd");   // in the mask folder: allowed
+        n = original_track_acceptance(migrated, "AL1", data, report, sizeof report, why, sizeof why);
+        CHECK(n == 2 && strstr(report, "light/track_light/AL1A.txt: differs") != NULL && strstr(report, "notes.txt: missing in the hand-made folder") != NULL, "two differences named: %d %s", n, report);
+        CHECK(original_track_acceptance(migrated, "ZZ9", data, report, sizeof report, why, sizeof why) == -1 && why[0] != '\0', "a stem that is not a track: %s", why);
+    }
+
     printf("test_editor_original_track: %s\n", g_fail == 0 ? "ok" : "FAILED");
     return g_fail != 0;
 }

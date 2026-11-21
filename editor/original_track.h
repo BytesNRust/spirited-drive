@@ -40,6 +40,15 @@ int original_track_add(const char *workspace, const char *stem, const char *data
 /* All sixteen; a track whose light files are missing stops it with `why` (what was added before stays). */
 int original_track_add_all(const char *workspace, const char *data_dir, const char *psd_root, OriginalAdd *out, char *why, size_t cap);
 
+/* The acceptance check of a migration: folder `a` and folder `b` of the same track (one migrated, one made by hand through original_track_add) hold the same files with the same bytes,
+ * except what is derived from the owner's PSDs: art-source/masks/ and art-generated/track_masks/. Returns how many files differ, are missing or are extra OUTSIDE those two; `report` gets
+ * one line for each (up to its size) and the totals "N files compared, M in the mask folders". */
+int original_track_compare(const char *a, const char *b, char *report, size_t cap);
+
+/* Makes the track `stem` by hand in a scratch folder (original_track_add from `data_dir`, no PSDs) and compares it with the migrated `dir` as original_track_compare does; the scratch folder is removed.
+ * Returns the differences found, or -1 with `why`. */
+int original_track_acceptance(const char *dir, const char *stem, const char *data_dir, char *report, size_t cap, char *why, size_t why_cap);
+
 typedef enum { OT_SAME = 0, OT_CHANGED, OT_NEW } OriginalState;
 
 typedef struct {

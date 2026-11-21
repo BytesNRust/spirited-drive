@@ -8,7 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ftw.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static const char *const STEMS[OT_STEMS] = { "AL1", "AL2", "AL3", "CL1", "CL2", "CL3", "CY1", "CY2", "CY3", "TR1", "TR2", "TR3", "TR4", "TR5", "TR6", "TR7" };
 static const char LETTERS[] = "ABCN";
@@ -298,4 +300,107 @@ void original_track_publish_text(const OriginalPublish *p, const char *stem, cha
         else if (it->state == OT_NEW) n += (size_t)snprintf(out + n, cap - n, "\n  %s new", it->file);
     }
     if (n < cap) snprintf(out + n, cap - n, "\n  %d unchanged", p->same);
+}
+
+/* ---- acceptance check ---- */
+
+typedef struct { char path[600]; size_t size; } Entry;
+typedef struct { Entry *v; int n, cap; } Entries;
+
+static int collect_entries(const char *root, const char *rel, Entries *out)
+{
+    char dir[1400];
+    snprintf(dir, sizeof dir, "%s/%s", root, rel);
+    DIR *d = opendir(dir);
+    if (d == NULL) return 1;
+    for (struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0 || strcmp(e->d_name, ".DS_Store") == 0) continue;
+        char sub[600], full[2100];
+        snprintf(sub, sizeof sub, "%s%s%s", rel, rel[0] != '\0' ? "/" : "", e->d_name);
+        snprintf(full, sizeof full, "%s/%s", root, sub);
+        struct stat st;
+        if (stat(full, &st) != 0) continue;
+        if (S_ISDIR(st.st_mode)) { collect_entries(root, sub, out); continue; }
+        if (out->n == out->cap) {
+            out->cap = out->cap != 0 ? out->cap * 2 : 64;
+            out->v = realloc(out->v, (size_t)out->cap * sizeof *out->v);
+            if (out->v == NULL) return closedir(d), 0;
+        }
+        snprintf(out->v[out->n].path, sizeof out->v[out->n].path, "%s", sub);
+        out->v[out->n++].size = (size_t)st.st_size;
+    }
+    closedir(d);
+    return 1;
+}
+
+static int derived(const char *path)
+{
+    return strncmp(path, "art-source/masks/", 17) == 0 || strncmp(path, "art-generated/track_masks/", 26) == 0;
+}
+
+static int entry_cmp(const void *x, const void *y) { return strcmp(((const Entry *)x)->path, ((const Entry *)y)->path); }
+
+static int same_bytes(const char *a_root, const char *b_root, const char *rel)
+{
+    char pa[1400], pb[1400];
+    snprintf(pa, sizeof pa, "%s/%s", a_root, rel);
+    snprintf(pb, sizeof pb, "%s/%s", b_root, rel);
+    size_t la, lb;
+    unsigned char *ba = slurp(pa, &la), *bb = slurp(pb, &lb);
+    const int same = ba != NULL && bb != NULL && la == lb && memcmp(ba, bb, la) == 0;
+    free(ba), free(bb);
+    return same;
+}
+
+int original_track_compare(const char *a, const char *b, char *report, size_t cap)
+{
+    Entries ea = { NULL, 0, 0 }, eb = { NULL, 0, 0 };
+    int bad = 0, compared = 0, in_masks = 0;
+    size_t n = 0;
+    if (cap > 0) report[0] = '\0';
+    collect_entries(a, "", &ea);
+    collect_entries(b, "", &eb);
+    for (int i = 0; i < ea.n; ++i) if (derived(ea.v[i].path)) ++in_masks;
+    for (int i = 0; i < eb.n; ++i) if (derived(eb.v[i].path)) ++in_masks;
+    qsort(ea.v, (size_t)ea.n, sizeof *ea.v, entry_cmp);
+    qsort(eb.v, (size_t)eb.n, sizeof *eb.v, entry_cmp);
+    for (int i = 0; i < ea.n; ++i) {
+        if (derived(ea.v[i].path)) continue;
+        const Entry *other = eb.v != NULL ? bsearch(&ea.v[i], eb.v, (size_t)eb.n, sizeof *eb.v, entry_cmp) : NULL;
+        const char *what = other == NULL ? "missing in the hand-made folder" : !same_bytes(a, b, ea.v[i].path) ? "differs" : NULL;
+        ++compared;
+        if (what == NULL) continue;
+        ++bad;
+        if (n < cap) n += (size_t)snprintf(report + n, cap - n, "  %s: %s\n", ea.v[i].path, what);
+    }
+    for (int i = 0; i < eb.n; ++i) {
+        if (derived(eb.v[i].path) || (ea.v != NULL && bsearch(&eb.v[i], ea.v, (size_t)ea.n, sizeof *ea.v, entry_cmp) != NULL)) continue;
+        ++bad;
+        if (n < cap) n += (size_t)snprintf(report + n, cap - n, "  %s: extra in the hand-made folder\n", eb.v[i].path);
+    }
+    if (n < cap) snprintf(report + n, cap - n, "%d files compared, %d in the mask folders (not compared)\n", compared, in_masks);
+    free(ea.v), free(eb.v);
+    return bad;
+}
+
+static int remove_entry(const char *path, const struct stat *st, int flag, struct FTW *ftw)
+{
+    (void)st, (void)flag, (void)ftw;
+    return remove(path);
+}
+
+int original_track_acceptance(const char *dir, const char *stem, const char *data_dir, char *report, size_t cap, char *why, size_t why_cap)
+{
+    char scratch[1024], tmpl[1024];
+    const char *base = getenv("TMPDIR");
+    snprintf(tmpl, sizeof tmpl, "%s/original_accept_XXXXXX", base != NULL && base[0] != '\0' ? base : "/tmp");
+    snprintf(scratch, sizeof scratch, "%s", tmpl);
+    if (mkdtemp(scratch) == NULL) return fail(why, why_cap, "cannot make a scratch folder: %s", tmpl), -1;
+    OriginalAdd add = { 0 };
+    char handmade[1100];
+    int result = -1;
+    if (original_track_add(scratch, stem, data_dir, NULL, &add, why, why_cap) && original_track_dir(scratch, stem, handmade, sizeof handmade))
+        result = original_track_compare(dir, handmade, report, cap);
+    nftw(scratch, remove_entry, 8, FTW_DEPTH | FTW_PHYS);
+    return result;
 }

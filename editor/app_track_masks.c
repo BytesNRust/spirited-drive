@@ -146,7 +146,8 @@ int app_original_copy(App *a)
 
 int app_original_check_all(App *a, char *out, size_t cap)
 {
-    int tracks = 0, masks = 0, equal = 0, differ = 0, added = 0, failed = 0;
+    int tracks = 0, masks = 0, equal = 0, differ = 0, added = 0, failed = 0, accept_bad = 0;
+    char detail[1024] = "";
     char why[OT_WHY] = "";
     if (a->workspace[0] == '\0' || app_repo_data(a)[0] == '\0') return snprintf(out, cap, "originals: needs a workspace and the game's data folder"), 0;
     for (int i = 0; i < OT_STEMS; ++i) {
@@ -160,9 +161,15 @@ int app_original_check_all(App *a, char *out, size_t cap)
         if (!track_masks_scan(dir, NULL, 0, &m, why, sizeof why)) continue;   // no masks in that folder
         if (!track_masks_generate(dir, &m, &written, why, sizeof why) || !track_masks_publish_plan(dir, app_repo_data(a), original_track_stem(i), &plan, why, sizeof why)) ++failed;
         masks += plan.count, equal += plan.same, differ += plan.changed, added += plan.added;
+        char report[1024] = "";   // the acceptance check: a track made by hand through the same code path may differ only in the mask folders
+        const int bad = original_track_acceptance(dir, original_track_stem(i), a->data_dir, report, sizeof report, why, sizeof why);
+        if (bad < 0) ++failed;
+        else if (bad > 0 && detail[0] == '\0') snprintf(detail, sizeof detail, " %s:\n%s", original_track_stem(i), report);
+        accept_bad += bad > 0 ? bad : 0;
     }
-    snprintf(out, cap, "originals: %d tracks, %d masks: %d equal, %d differ, %d new in the workspace%s%s", tracks, masks, equal, differ, added, failed > 0 ? "; failed: " : "", failed > 0 ? why : "");
-    return differ == 0 && failed == 0;
+    snprintf(out, cap, "originals: %d tracks, %d masks: %d equal, %d differ, %d new in the workspace; acceptance: %d differences outside art-source/masks%s%s%s", tracks, masks, equal, differ, added, accept_bad,
+             failed > 0 ? "; failed: " : "", failed > 0 ? why : "", detail);
+    return differ == 0 && failed == 0 && accept_bad == 0;
 }
 
 int app_track_masks_poll(App *a)
