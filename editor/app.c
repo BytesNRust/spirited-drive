@@ -535,6 +535,7 @@ int app_close_project(App *a)
     app_free(a);
     *a = *next;
     free(next);
+    app_workspace_refresh(a);   /* what came into the workspace while the project was open (the window's list is from before) */
     return 1;
 }
 

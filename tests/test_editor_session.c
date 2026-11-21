@@ -1048,7 +1048,21 @@ static void check_kinds(void)
     app_answer(a, APP_ANSWER_DISCARD);
     CHECK_EQ_INT(a->go, APP_ACT_MAIN);
     a->go = APP_ACT_NONE;
+    /* a car that came into the workspace's cars/ while a project was open is in the hub's list on arriving there (the list was scanned before it came) */
+    char ws[600], ws_cars[700], ws_link[800];
+    path_in(ws, sizeof ws, "hubws");
+    snprintf(ws_cars, sizeof ws_cars, "%s/cars", ws);
+    snprintf(ws_link, sizeof ws_link, "%s/came-later", ws_cars);
+    mkdir(ws, 0777);
+    CHECK(app_workspace_set(a, ws));
+    CHECK_EQ_INT(a->workspace_list.cars, 0);
+    CHECK(symlink(kit, ws_link) == 0);                       /* a folder of its own in cars/ (a link to the kit keeps the test short) */
+    CHECK_EQ_INT(a->workspace_list.cars, 0);                 /* the list is as it was scanned */
     CHECK(app_close_project(a));
+    CHECK_EQ_INT(a->workspace_list.cars, 1);                 /* the hub scans it again */
+    CHECK(a->workspace_list.cars == 1 && strcmp(a->workspace_list.car[0], "came-later") == 0);
+    unlink(ws_link);
+    app_workspace_clear(a);
     CHECK_EQ_INT(a->kind, APP_KIND_NONE);
     CHECK_EQ_INT(app_room(a), APP_ROOM_HUB);
     CHECK_EQ_INT(a->recent.count, recent_before);

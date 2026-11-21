@@ -282,6 +282,8 @@ static void window_event(App *a, const SDL_Event *ev)
 {
     if (ev->type == SDL_EVENT_QUIT) {
         app_ask(a, APP_ACT_QUIT, "");
+    } else if (ev->type == SDL_EVENT_WINDOW_FOCUS_GAINED && a->kind == APP_KIND_NONE) {
+        app_workspace_refresh(a);   /* back from the Finder: what was copied into the workspace meanwhile is listed */
     } else if (ev->type == SDL_EVENT_KEY_DOWN && ev->key.key == SDLK_ESCAPE && !ev->key.repeat) {
         if (a->confirm != APP_ACT_NONE) app_answer(a, APP_ANSWER_CANCEL);
         else if (ui_popup_open()) return;   /* with a menu open Escape closes the menu, nothing more */
