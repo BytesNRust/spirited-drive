@@ -12,6 +12,7 @@
 extern "C" {
 #include "formats/police_flash.h"
 #include "model_scene.h"
+#include "card_central.h"
 #include "card_photo.h"
 }
 #include "car_export.h"
@@ -40,6 +41,11 @@ struct Model {
     bool painted = false;
     Orbit orbit = {};
     bool auto_rotate = false, dirty = true;
+    bool card_view = false;       // the picture is the card's: 309 x 166 over the card's backdrop, as card.png would be saved
+    bool as_card = false;         // and put in Control Central's palette as the game draws it (card_central.h)
+    uint8_t cpal[768] = {};       // Central's palette, read from the game's files (cpal_cd says where from)
+    bool cpal_ok = false;
+    char cpal_cd[APP_PATH] = "", cpal_why[240] = "";
     bool shine = true;            // the body shine, on: the owner checks the shine and matte masks with it
     bool shines = false;          // the car has texels the shine reaches
     bool shine_asked = false;     // the box (or the command line) changed it: set when the window is next drawn
@@ -168,7 +174,16 @@ bool make_target(SDL_Renderer *ren, int w, int h)
 void draw_picture(const App *a, int phase, int w, int h)
 {
     const CarNightState night = night_settings_state(&a->night, phase * POLICE_FLASH_TICKS);
-    if (model_scene_render(g.scene, &g.orbit, w, h, &night, g.rgba)) SDL_UpdateTexture(g.tex, nullptr, g.rgba, w * 4);
+    const bool made = g.card_view ? card_photo_render(g.scene, &g.orbit, &night, CARD_PHOTO_BACKDROP, g.rgba) : model_scene_render(g.scene, &g.orbit, w, h, &night, g.rgba);
+    if (made && g.card_view && g.as_card && g.cpal_ok) {   // what Central makes of it: the same dither into the same palette
+        uint8_t *drawn = static_cast<uint8_t *>(malloc(static_cast<size_t>(w) * h * 4));
+        if (drawn != nullptr) {
+            card_central_as_drawn(g.rgba, w, h, g.cpal, drawn);
+            memcpy(g.rgba, drawn, static_cast<size_t>(w) * h * 4);
+            free(drawn);
+        }
+    }
+    if (made) SDL_UpdateTexture(g.tex, nullptr, g.rgba, w * 4);
     g.key_night = a->night, g.key_phase = phase;
     g.dirty = false;
 }
@@ -200,15 +215,40 @@ void keys()
 // card.png of the car's piece; asks before it replaces one
 int use_as_card_photo(App *a)
 {
-    static const uint8_t BACKDROP[3] = { 24, 28, 36 };   // a plain dark blue-grey: the car's colours stand out from it
     char why[APP_MSG];
     const CarNightState night = night_settings_state(&a->night, 0);
     char dir[APP_PATH];
     car_project_card_dir(&a->car, dir, sizeof dir);   // the kit's own card.png (the build puts it in the piece), not build/piece's
-    const int ok = card_photo_write(g.scene, &g.orbit, &night, BACKDROP, dir, why, sizeof why);
+    const int ok = card_photo_write(g.scene, &g.orbit, &night, CARD_PHOTO_BACKDROP, dir, why, sizeof why);
     if (ok) snprintf(a->status, sizeof a->status, "card.png made from the Model's view (309 x 166)");
     else snprintf(a->status, sizeof a->status, "card photo: %s", why);
     return ok;
+}
+
+// Control Central's palette from the game's files, read again when the files' place changes
+void central_palette_of(const App *a)
+{
+    static bool read = false;   // (a place of "" is a place too: its reason is said)
+    if (read && strcmp(g.cpal_cd, a->export_src.cd) == 0) return;
+    read = true, g.dirty = true;   // the picture is made again with the palette
+    snprintf(g.cpal_cd, sizeof g.cpal_cd, "%s", a->export_src.cd);
+    g.cpal_why[0] = '\0';
+    g.cpal_ok = a->export_src.cd[0] != '\0' && card_central_palette(a->export_src.cd, g.cpal, g.cpal_why, sizeof g.cpal_why);
+    if (!g.cpal_ok && g.cpal_why[0] == '\0') snprintf(g.cpal_why, sizeof g.cpal_why, "The game's files were not found: start the editor with --cd DIR or Locate game.");
+}
+
+void card_view_controls(const App *a)
+{
+    central_palette_of(a);
+    if (ImGui::Checkbox("Card view", &g.card_view)) g.dirty = true;
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("The picture at the card's 309 x 166 proportions over the card's backdrop: what Use as card photo saves. The shaded corner is where Control Central writes the car's name.");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!g.card_view || !g.cpal_ok);
+    if (ImGui::Checkbox("As on the card", &g.as_card)) g.dirty = true;
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("%s", !g.cpal_ok ? g.cpal_why : !g.card_view ? "Needs Card view." : "The picture in Control Central's palette, dithered as the game does it when it draws the card.");
 }
 
 void card_photo_button(App *a)
@@ -256,6 +296,8 @@ void toolbar(App *a)
     if (ImGui::Button("Reload")) g.loaded[0] = 0;   // the file again: after Rehacer or a new bank
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Read the car file again");
     card_photo_button(a);
+    ImGui::SameLine();
+    card_view_controls(a);
 }
 
 void turn_and_zoom()
@@ -274,6 +316,13 @@ void model_panel_shine(bool on)
 {
     g.shine = on;
     g.shine_asked = true;
+}
+
+int model_panel_card_view(App *a, bool card, bool as_card)
+{
+    if (g.scene == nullptr || a->kind != APP_KIND_CAR) return 0;
+    g.card_view = card, g.as_card = as_card, g.dirty = true;
+    return 1;
 }
 
 int model_panel_card_photo(App *a)
@@ -313,7 +362,8 @@ void model_panel(App *a, SDL_Renderer *ren)
             const int lines = g.shine && !g.shines ? 2 : 1;   // the words under the picture: the state, and "no shine" when Shine has nothing to show
             const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - lines * static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
             int w = 0, h = 0;   // the picture fills the area (car_scene keeps its pixels square, the car whole in the smaller side)
-            if (picture_size(area_w, area_h, &w, &h) && make_target(ren, w, h)) {
+            const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : picture_size(area_w, area_h, &w, &h);
+            if (sized && make_target(ren, w, h)) {
                 if (g.auto_rotate) {
                     const int step = static_cast<int>(roundf(ImGui::GetIO().DeltaTime * AUTO_DEG_PER_SECOND * 16.0f));
                     orbit_drag(&g.orbit, -step / ORBIT_DRAG - (step % ORBIT_DRAG != 0), 0);   // at least a step a frame: the yaw moves by 1/16 degrees
@@ -324,7 +374,19 @@ void model_panel(App *a, SDL_Renderer *ren)
                 const ImVec2 at = ImGui::GetCursorScreenPos(), area(static_cast<float>(area_w), static_cast<float>(area_h));
                 ImGui::InvisibleButton("##orbit", area);
                 turn_and_zoom();
-                ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(g.tex), at, ImVec2(at.x + area.x, at.y + area.y));
+                ImVec2 from = at, to(at.x + area.x, at.y + area.y);
+                if (g.card_view) {   // the card's proportions, as large as the area lets them be, in the middle (nearest texels: the picture is 309 x 166)
+                    const float k = fminf(area.x / CARD_PHOTO_W, area.y / CARD_PHOTO_H);
+                    const float fw = CARD_PHOTO_W * k, fh = CARD_PHOTO_H * k;
+                    from = ImVec2(at.x + (area.x - fw) / 2, at.y + (area.y - fh) / 2), to = ImVec2(from.x + fw, from.y + fh);
+                }
+                ImDrawList *draw = ImGui::GetWindowDrawList();
+                draw->AddImage(reinterpret_cast<ImTextureID>(g.tex), from, to);
+                if (g.card_view) {   // where Control Central writes the name (measured on the game's own card, bottom left)
+                    const float k = (to.x - from.x) / CARD_PHOTO_W;
+                    draw->AddRectFilled(ImVec2(from.x, from.y + 142 * k), ImVec2(from.x + 112 * k, to.y), IM_COL32(0, 0, 0, 70));
+                    draw->AddRect(from, to, IM_COL32(255, 255, 255, 60));
+                }
                 // the Preview's words: a paint chosen is the race's; none (or a car the paint cannot be made for) is the base texture
                 ImGui::TextDisabled("%s", g.painted && rgb != nullptr ? "As the race paints it." : "Base texture (no colour).");
                 ImGui::SameLine();

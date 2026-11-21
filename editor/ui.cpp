@@ -96,6 +96,11 @@ int ui_card_photo(App *a)
     return model_panel_card_photo(a);
 }
 
+int ui_card_view(App *a, int card, int as_card)
+{
+    return model_panel_card_view(a, card != 0, as_card != 0);
+}
+
 void ui_double_click_by_frames(void)
 {
     ImGui::GetIO().MouseDoubleClickTime = 30.0f;

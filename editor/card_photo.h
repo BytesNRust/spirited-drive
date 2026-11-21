@@ -10,6 +10,13 @@
 
 enum { CARD_PHOTO_W = 309, CARD_PHOTO_H = 166 };   /* CAR_PIECE_CARD_W / H (formats/car_piece.h) */
 
+/* The backdrop of the card photo: a plain dark blue-grey, the car's colours stand out from it */
+extern const uint8_t CARD_PHOTO_BACKDROP[3];
+
+/* The card picture itself: the scene as `o` sees it (in the light `night` says, NULL: day) at 309 x 166 over `backdrop` (RGB), into `rgba` (309 x 166, all opaque).
+ * 1, or 0 when the car cannot be drawn at that size. */
+int card_photo_render(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t backdrop[3], uint8_t *rgba);
+
 /* 1 when <piece>/card.png is there (a file): the panel asks before it is replaced */
 int card_photo_exists(const char *piece);
 

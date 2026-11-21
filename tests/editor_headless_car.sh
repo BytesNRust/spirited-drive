@@ -152,6 +152,12 @@ import sys
 d = open(sys.argv[1], 'rb').read()
 assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 309 and int.from_bytes(d[20:24], 'big') == 166 and d[25] == 6
 " "$card" || fail "card.png is not a 309x166 RGBA PNG"
+    # the Model window's Card view and «As on the card» (Central's palette, from the game's files): three other pictures of the same car
+    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --frames 14 --shot "$work/model-plain.png" >"$work/log" 2>&1 || fail "the Model window: $(cat "$work/log")"
+    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps card-view:1,0 --frames 14 --shot "$work/model-card.png" >"$work/log" 2>&1 || fail "Card view: $(cat "$work/log")"
+    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps card-view:1,1 --frames 14 --shot "$work/model-card-central.png" >"$work/log" 2>&1 || fail "As on the card: $(cat "$work/log")"
+    cmp -s "$work/model-plain.png" "$work/model-card.png" && fail "Card view did not change the Model window"
+    cmp -s "$work/model-card.png" "$work/model-card-central.png" && fail "As on the card did not change the Card view"
     # the night view: Day, Night with the lights off and Night with the headlights each show another picture of the front texture
     "$editor" "$work/real/p911-original" --view day --preview-tex frnt --frames 20 --shot "$work/night-day.png" >"$work/log" 2>&1 || fail "Preview by day: $(cat "$work/log")"
     "$editor" "$work/real/p911-original" --view night --lights none --preview-tex frnt --frames 20 --shot "$work/night-dark.png" >"$work/log" 2>&1 || fail "Preview at night, lights off: $(cat "$work/log")"

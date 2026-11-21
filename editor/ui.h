@@ -16,6 +16,8 @@ extern "C" {
 void ui_double_click_by_frames(void);
 /* the Model window's «Use as card photo» (the step card-photo), without the question about a card.png that is there: 1 when card.png was made */
 int ui_card_photo(App *a);
+/* the Model window's Card view and As on the card boxes (the step card-view): 1 when the car is open to show them */
+int ui_card_view(App *a, int card, int as_card);
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap);
 void ui_close(void);
 /* the editor's settings the ini had (ui_open reads it), into `a`: the car Test drive gives the player. Before the first frame, so a headless run has them too. */

@@ -17,6 +17,19 @@ static int fail(char *why, size_t cap, const char *what, const char *detail)
     return 0;
 }
 
+const uint8_t CARD_PHOTO_BACKDROP[3] = { 24, 28, 36 };
+
+int card_photo_render(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t backdrop[3], uint8_t *rgba)
+{
+    if (!model_scene_render(scene, o, CARD_PHOTO_W, CARD_PHOTO_H, night, rgba)) return 0;
+    for (size_t i = 0; i < (size_t)CARD_PHOTO_W * CARD_PHOTO_H; ++i) {   /* the car where it is drawn (alpha 0 is the clear background), else the backdrop; the card is opaque */
+        uint8_t *px = rgba + 4 * i;
+        if (px[3] == 0) memcpy(px, backdrop, 3);
+        px[3] = 255;
+    }
+    return 1;
+}
+
 int card_photo_exists(const char *piece)
 {
     char path[CARD_PATH];
@@ -33,14 +46,9 @@ int card_photo_write(ModelScene *scene, const Orbit *o, const CarNightState *nig
     const size_t pixels = (size_t)CARD_PHOTO_W * CARD_PHOTO_H;
     uint8_t *rgba = malloc(pixels * 4);
     if (rgba == NULL) return fail(why, why_cap, "out of memory", NULL);
-    if (!model_scene_render(scene, o, CARD_PHOTO_W, CARD_PHOTO_H, night, rgba)) {
+    if (!card_photo_render(scene, o, night, backdrop, rgba)) {
         free(rgba);
         return fail(why, why_cap, "the car cannot be drawn at the card's size", NULL);
-    }
-    for (size_t i = 0; i < pixels; ++i) {   /* the car where it is drawn (alpha 0 is the clear background), else the backdrop; the card is opaque */
-        uint8_t *px = rgba + 4 * i;
-        if (px[3] == 0) memcpy(px, backdrop, 3);
-        px[3] = 255;
     }
     uint8_t *png = NULL;
     size_t len = 0;
