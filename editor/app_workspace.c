@@ -42,7 +42,7 @@ int app_workspace_set(App *a, const char *dir)
     a->workspace_put_aside = 0;
     workspace_scan(a->workspace, present, &a->workspace_list);
     keep(a);
-    snprintf(a->status, sizeof a->status, "workspace: %s (%d cars, %d tracks)", dir, a->workspace_list.cars, a->workspace_list.tracks);
+    snprintf(a->status, sizeof a->status, "%d cars, %d tracks in the workspace", a->workspace_list.cars, a->workspace_list.tracks);
     return 1;
 }
 

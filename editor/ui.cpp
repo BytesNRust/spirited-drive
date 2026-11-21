@@ -406,8 +406,8 @@ static int file_items(const App *a, FileItem out[12])
     const AppRoom room = app_room(a);
     if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_RECENT;
     if (room == APP_ROOM_CARS) out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
-    out[n++] = FILE_WORKSPACE;
-    out[n++] = FILE_SEPARATOR;
+    if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE;   // the workspace is for both rooms: its menu is the main menu's, not a room's
+    if (room == APP_ROOM_HUB) out[n++] = FILE_SEPARATOR;
     if (room != APP_ROOM_HUB) out[n++] = FILE_SAVE, out[n++] = FILE_MAIN;
     out[n++] = FILE_QUIT;
     return n;

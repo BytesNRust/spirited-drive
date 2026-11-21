@@ -1,6 +1,7 @@
 // The start screen and the car's panels (panels.h): what Studio shows with nothing open, and what it shows of an open car (read only for now).
 #include "panels.h"
 #include "help_marker.h"
+#include "path_elide.h"
 #include "sheet_ui.h"
 
 #include "imgui.h"
@@ -69,7 +70,11 @@ static void workspace_row(App *a)
     ImGui::Dummy(ImVec2(0, 8));
     ImGui::TextDisabled("Workspace");
     ImGui::SameLine();
-    muted_wrapped("%s", leaf(a->workspace));
+    const float room = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Change...").x - 3 * ImGui::GetStyle().ItemSpacing.x - 2 * ImGui::GetStyle().FramePadding.x;
+    const float glyph = ImGui::CalcTextSize("M").x;
+    char shown[APP_PATH];
+    path_elide(a->workspace, glyph > 0 ? (int)(room / glyph) : 40, shown, sizeof shown);   // the whole path, cut in the middle when it does not fit; the tooltip has all of it
+    ImGui::TextUnformatted(shown);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", a->workspace);
     ImGui::SameLine();
     if (ImGui::SmallButton("Change...")) app_workspace_pick(a);

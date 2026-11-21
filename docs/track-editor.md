@@ -130,8 +130,8 @@ kind (up to eight in all; a folder that is gone is greyed). A normal run with no
 in the layout file.
 
 Inside a room, the **File** menu holds that room's actions only, New before Open: in Tracks New track..., Open track..., Track light..., Open recent (tracks);
-in Cars Open car..., Export original car..., Open recent (cars); in both Workspace, Save, **Main menu** (Cmd+W on a Mac, Ctrl+W elsewhere) and Quit. Main menu
-closes the project and goes back to the hub, asking once about unsaved changes; the recent list and the workspace stay. **Window** lists the room's panels, each a
+in Cars Open car..., Export original car..., Open recent (cars); in both Save, **Main menu** (Cmd+W on a Mac, Ctrl+W elsewhere) and Quit. Main menu
+closes the project and goes back to the hub, asking once about unsaved changes; the recent list and the workspace stay. The workspace is chosen on the hub only (its File menu and the row at the top, which shows the whole path, cut in the middle when it is long, with all of it on hover). **Window** lists the room's panels, each a
 toggle: ticked when the panel is open, a click closes it or opens it again where it was (kept between runs; Reset layout opens them all).
 
 With a workspace set, New track asks only for a **name**: the id is made from it (lower case, a-z, 0-9 and '-'; shown, and you may type over it), the project is
