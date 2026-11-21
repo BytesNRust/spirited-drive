@@ -12,7 +12,7 @@ const char *const PANEL_LIGHT_COMPARE = "Light compare";
 namespace {
 
 // one picture as wide as the cell leaves room for; `caption` above it
-void picture(const char *caption, const LightPhotoJob &job, ImTextureID tex, float width, bool running)
+void picture(const char *caption, const LightPhotoJob &job, ImTextureID tex, float width, bool running, bool missing)
 {
     ImGui::TextUnformatted(caption);
     if (running) {
@@ -20,7 +20,7 @@ void picture(const char *caption, const LightPhotoJob &job, ImTextureID tex, flo
         ImGui::TextDisabled("refreshing...");
     }
     if (tex == 0 || job.rgba == nullptr) {
-        ImGui::TextDisabled(running ? "" : "no picture yet");
+        ImGui::TextDisabled(running ? "" : missing ? "no light file in the folder" : "no picture yet");
         return;
     }
     const float pw = static_cast<float>(job.w), ph = static_cast<float>(job.h);
@@ -54,7 +54,7 @@ void light_compare_panel(App *a, const ImTextureID photos[LIGHT_COMPARE_SLOTS])
         if (c.mode == LIGHT_COMPARE_BEFORE) {
             char caption[64];
             snprintf(caption, sizeof caption, "Before: saved %s%c, node %u", ui.session.track, ui.session.letter, c.job[0].node);
-            picture(caption, c.job[0], photos[0], room, c.running == 0);
+            picture(caption, c.job[0], photos[0], room, c.running == 0, c.missing[0] != 0);
         } else if (c.mode == LIGHT_COMPARE_FOUR) {
             const float cell = (room - ImGui::GetStyle().ItemSpacing.x) / 2.0f;
             for (int t = 0; t < LIGHT_COMPARE_SLOTS; ++t) {
@@ -62,7 +62,7 @@ void light_compare_panel(App *a, const ImTextureID photos[LIGHT_COMPARE_SLOTS])
                 const bool editing = light_compare_letter(t) == ui.session.letter;
                 snprintf(caption, sizeof caption, "%s%s", light_ui_time_name(t), editing ? " (your changes)" : "");
                 ImGui::BeginGroup();
-                picture(caption, c.job[t], photos[t], cell, c.running == t);
+                picture(caption, c.job[t], photos[t], cell, c.running == t, c.missing[t] != 0);
                 ImGui::EndGroup();
                 if (t % 2 == 0) ImGui::SameLine();
             }

@@ -18,6 +18,7 @@ typedef struct {
     uint64_t shown[LIGHT_COMPARE_SLOTS];       /* the key of the picture each job holds, 0 for none */
     uint64_t started[LIGHT_COMPARE_SLOTS];     /* the key the job in flight was started for */
     int running;                               /* the slot whose game runs, -1 for none */
+    int missing[LIGHT_COMPARE_SLOTS];          /* 1: the light folder has no file for that slot's time (a picture cannot be made) */
     char why[LIGHT_PHOTO_WHY];                 /* the last refusal or failure, "" for none */
 } LightCompare;
 

@@ -115,6 +115,7 @@ static int start_slot(LightCompare *c, const LightSession *s, int slot, int node
             snprintf(why, sizeof why, "there is no light file for %s at %c", s->track, letter);
             say(c, why);
             c->shown[slot] = key;
+            c->missing[slot] = 1;
             result = -1;
         } else if (!light_photo_start(&c->job[slot], game, cd, s->track, letter, (unsigned)node, LIGHT_PHOTO_TICKS_DEFAULT, text, size, places, places_size, why, sizeof why)) {
             say(c, why);
@@ -122,6 +123,7 @@ static int start_slot(LightCompare *c, const LightSession *s, int slot, int node
             result = -1;
         } else {
             c->started[slot] = key;
+            c->missing[slot] = 0;
             c->running = slot;
             c->why[0] = '\0';
             result = 1;

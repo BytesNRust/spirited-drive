@@ -42,6 +42,7 @@ enum {
     WINDOW_H = WINDOW_LEAST_H,
     WINDOW_MIN_W = 640, WINDOW_MIN_H = 400, WINDOW_MAX_W = 3840, WINDOW_MAX_H = 2160,   /* --window's range */
     FRAME_MS = 16,
+    LIGHT_WAIT_FRAMES = 20000,   /* a headless Track light run waits this many frames at most for its pictures (5 minutes) */
     TEST_DRIVE_WAIT_MS = 60000   /* --test-drive waits this long for the game's line on the track */
 };
 
@@ -673,7 +674,7 @@ static int run(App *a, const Options *o)
         app_dash_poll(a);
         app_race_poll(a);
         app_card_watch(a, SDL_GetTicks() / 1000.0);   /* mod.ini, the car file and the textures */
-        app_light_poll(a, SDL_GetTicks() / 1000.0);   /* the Track light photo: its output, and the next one when a change has settled */
+        const int light_busy = app_light_poll(a, SDL_GetTicks() / 1000.0);   /* the Track light photo: its output, and the next one when a change has settled */
         app_mask_watch(a, SDL_GetTicks() / 1000.0);   /* masks changed on disk by another program: about once a second */
         app_sheet_poll(a);
         app_recompute(a);
@@ -683,7 +684,8 @@ static int run(App *a, const Options *o)
         if (o->steps != NULL) steps_frame(&steps, a, win);
         set_title(win, a);
         ++frame;
-        if (headless && frame >= o->frames && !steps_running(&steps)) {   /* a headless run waits for its steps */
+        /* a headless run waits for its steps, and for the Track light pictures in the making (bounded: a game that never ends cannot hold it) */
+        if (headless && frame >= o->frames && !steps_running(&steps) && !(light_busy && frame < o->frames + LIGHT_WAIT_FRAMES)) {
             if (o->shot != NULL) {
                 char why[APP_MSG];
                 if (!capture_save_png(ren, o->shot, why, sizeof why)) {
