@@ -12,7 +12,7 @@ set -eu
 bin=$1
 original=$2
 data=${3:-$(dirname "$0")/../data}
-tracks=${TRACKS:-"AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR6 TR7"}
+tracks=${TRACKS:-"AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7"}
 mkdir -p "$data/track_light" "$data/track"
 new=$(mktemp -d "${TMPDIR:-/tmp}/tnfs_light_new.XXXXXX")
 mods=$(mktemp -d "${TMPDIR:-/tmp}/tnfs_light_mods.XXXXXX")

@@ -67,9 +67,9 @@ static void test_repo_files(const char *repo)
 {
     char dir[1024];
     snprintf(dir, sizeof dir, "%s/data/track_light", repo);
-    CHECK(round_trip_folder(dir, 0) >= 60);   // 15 tracks x 4 times
+    CHECK(round_trip_folder(dir, 0) >= 64);   // 16 tracks x 4 times
     snprintf(dir, sizeof dir, "%s/data/track", repo);
-    CHECK(round_trip_folder(dir, 1) >= 15);
+    CHECK(round_trip_folder(dir, 1) >= 16);
 }
 #else
 static void test_repo_files(const char *repo) { (void)repo; }
