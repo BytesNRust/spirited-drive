@@ -205,6 +205,24 @@ save or open) ask "Save the changes to <project> before quitting?" with **Save**
 the same before they go on (the folder is asked for after the answer). A save that fails keeps the question open with the reason. Build and Install
 use what is on screen, not the file, as before.
 
+## Original tracks: light and reflective masks
+
+The game's 16 tracks are projects of the workspace (File > **Open original track...** in the Tracks room, or the button on the main menu). With a workspace and the game's `data/` known
+(`--port-data DIR`, or the source tree the program was built from), **Add the 16 original tracks** makes `<workspace>/tracks/<TRACK>/` for each: `original.ini` (what marks it), `light/` (the
+track's light files, the layout the Track light window works on), `art-source/masks/` (the owner's mask PSDs, copied from the art folder, `--art-dir DIR`, never moved; backups with a second dot in
+the name are skipped) and `art-generated/track_masks/`. Nothing that is already there is overwritten.
+
+An original track opens in the Track light window on its own `light/` folder with the track fixed (its time of day still changes), and a **Track masks** panel beside the comparison: a row for each
+texture with a mask, its size, the texels it marks and its state, and the picked mask over the game's texture (read from the game's files, as the game does; without them the mask is shown alone). The PSDs make the
+PNGs the game reads, in C (the rule of `tools/track_mask_from_psd.py`: the layer named `mask`, alpha 128 or more and not black is reflective, yellow is a lamp's mark; grey PNG without lamps, RGBA with), when the track opens
+and when a PSD is newer than its PNG. States: **ok**, **new**, **stale**, **edited by hand** (the PNG differs from the PSD's and is newer: kept as it is until *Regenerate from PSD*), **PNG is the source** (a PNG with
+no PSD), **no mask painted in the PSD** (an empty mask layer is never a source: a PNG next to it is kept, and none is made from it), **unreadable PSD**.
+
+**Publish to the game...** (File menu, only when `data/` is known) lists what would change in `data/` (each light file by lines, each mask PNG by texels gained and lost, compared as marks) and copies the changed and new
+ones into `data/track_light`, `data/track` and `data/track_masks/<TRACK>/`. `tools/track_mask_fill_psd.py <workspace>/tracks data/track_masks` is the one-time migration step for PSDs whose mask layer is empty: it fills the layer
+of the workspace copy from the PNG the game uses today (other layers byte for byte); `--steps check-originals` compares every original's generated PNGs with `data/track_masks`. Steps: `add-originals`, `open-original:I`,
+`masks-print`, `mask-select:I`, `mask-regen`, `publish-ask`, `publish`, `print-original`, `check-originals`.
+
 ## Metres and the Node window
 
 One track unit is one metre (`TRACE_METRES_PER_UNIT` in `core/formats/track_trace.h` says where that comes from), and the editor writes every distance in metres.
