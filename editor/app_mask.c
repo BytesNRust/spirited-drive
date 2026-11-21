@@ -127,7 +127,7 @@ int app_mask_open(App *a, int index)
     m->generation++;
     if (!mask_edit_size_note(&m->me, m->note, sizeof m->note)) m->note[0] = '\0';
     texture_file_of(a->car.root, m->tex[index].level, m->tex[index].name, m->tex_file, sizeof m->tex_file);
-    snprintf(a->status, sizeof a->status, "editing %s: Save writes this mask only", m->tex[index].file);
+    snprintf(a->status, sizeof a->status, "showing %s over its texture", m->tex[index].file);
     return 1;
 }
 
