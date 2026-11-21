@@ -10,6 +10,12 @@ const char *const PANEL_TRACK_MASKS = "Track masks";
 
 namespace {
 
+// a size from the room the window leaves, kept between lo and hi; a window not laid out yet can report an infinite or no room, and ImGui's own sums would turn that into NaN
+float bounded(float v, float lo, float hi)
+{
+    return v > lo ? (v < hi ? v : hi) : lo;
+}
+
 ImVec4 state_colour(TrackMaskState s)
 {
     if (s == TM_EDITED || s == TM_BAD) return ImVec4(1.0f, 0.75f, 0.25f, 1.0f);
@@ -47,7 +53,7 @@ void track_masks_panel(App *a, ImTextureID picture)
         ImGui::End();
         return;
     }
-    if (ImGui::BeginTable("##trackmasks", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp, ImVec2(0, ImGui::GetContentRegionAvail().y * 0.42f))) {
+    if (ImGui::BeginTable("##trackmasks", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Borders, ImVec2(0, bounded(ImGui::GetContentRegionAvail().y * 0.42f, 120.0f, 600.0f)))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Texture");
         ImGui::TableSetupColumn("Size");
@@ -82,7 +88,7 @@ void track_masks_panel(App *a, ImTextureID picture)
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes this PNG again from its PSD; a PNG edited by hand is replaced");
         }
         if (picture != 0 && a->tmask_w > 0) {
-            const float room = ImGui::GetContentRegionAvail().x;
+            const float room = bounded(ImGui::GetContentRegionAvail().x, 16.0f, 4096.0f);
             const float scale = room / static_cast<float>(a->tmask_w);
             const float w = scale > 4.0f ? 4.0f * static_cast<float>(a->tmask_w) : room;   // a small board is not blown up past 4x
             ImGui::Image(picture, ImVec2(w, w * static_cast<float>(a->tmask_h) / static_cast<float>(a->tmask_w)));
