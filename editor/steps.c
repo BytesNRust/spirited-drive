@@ -15,8 +15,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -236,7 +236,8 @@ static int at_once(App *a, const char *name, const double *arg)
         app_colour_summary(a, text, sizeof text);
         return fprintf(stdout, "%s\n", text), 1;
     }
-    if (strncmp(name, "dblclick-road:", 14) == 0) return 2;   /* by_frames: the mouse goes in */
+    if (strncmp(name, "dblclick-road:", 14) == 0 || strncmp(name, "strip-dblclick:", 15) == 0) return 2;   /* by_frames: the mouse goes in */
+    if (strcmp(name, "print-view") == 0) return fprintf(stdout, "view: %.1f %.1f %.2f\n", a->view.cx, a->view.cz, a->view.scale), 1;   /* the top view's centre (x z) and pixels per metre */
     if (strcmp(name, "print-sel") == 0) {
         if (a->kind != APP_KIND_TRACK) return 0;
         char which[256];
@@ -359,6 +360,15 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
             view_to_screen(&a->view, arg[0], arg[1], &sx, &sy);
             s->from_x = a->canvas_x + (float)sx, s->from_y = a->canvas_y + (float)sy;
         }
+        if (p == 0) mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x, s->from_y);
+        if (p == 1) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y, 1);
+        if (p == 2) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_UP, s->from_x, s->from_y, 1);
+        if (p == 3) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y, 2);
+        if (p == 4) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_UP, s->from_x, s->from_y, 2);
+        return p < 5;
+    }
+    if (strncmp(name, "strip-dblclick:", 15) == 0) {   /* strip-dblclick:I: a double click on point I's mark in the strip's profile */
+        if (p == 0 && !mark_at(a, (int)arg[0], &s->from_x, &s->from_y)) return s->failed = 1, 0;
         if (p == 0) mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x, s->from_y);
         if (p == 1) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y, 1);
         if (p == 2) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_UP, s->from_x, s->from_y, 1);

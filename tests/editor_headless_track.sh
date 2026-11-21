@@ -272,6 +272,16 @@ grep -q "^status: curve added" "$work/log" || fail "Add curve does not work with
 # a road that goes straight 300 m, turns right round a U and comes back south: curve mode finds straight, (the corner's wobble to the left), right, straight
 mkdir "$work/cs"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0,0],[0,100],[0,200],[0,300],[30,390],[100,430],[190,420],[260,360],[280,260],[280,160],[280,60]]\n}\n' > "$work/cs/trace.json"
+# a double-click on a mark in the strip's profile takes the top view to that point (point 4 of this road is at 30, 390) and zooms in, never out; a click alone moves nothing
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 8 --steps strip,print-view,strip-dblclick:4,print-view >"$work/log" 2>&1 || fail "strip double-click: $(cat "$work/log")"
+python3 - "$work/log" <<'PY' || fail "the strip's double-click did not centre the top view on point 4 at a working scale: $(grep '^view' "$work/log")"
+import sys
+v = [l.split()[1:] for l in open(sys.argv[1]) if l.startswith("view:")]
+assert len(v) == 2, v
+before, after = [[float(x) for x in r] for r in v]
+assert before != after
+assert abs(after[0] - 30) < 3 and abs(after[1] - 390) < 3 and after[2] >= 1.0, after   # a mark is a few px wide: the place under the press is near the point
+PY
 # the Distance strip's profile line is coloured by the same classes (the right turn orange); in Limits it is not (their own --user: the saved window layout of a 960x1200 run would move the 1280x960 runs' clicks)
 "$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 8 --steps colour-by:1 --shot "$work/profile-curve.png" >"$work/log" 2>&1 || fail "profile in Colour by curve: $(cat "$work/log")"
 png_check "$work/profile-curve.png" profile-curve

@@ -33,6 +33,14 @@ void view_to_world(const View *v, double sx, double sy, double *x, double *z)
     *z = v->cz - (sy - v->height / 2.0) / v->scale;
 }
 
+void view_centre_on(View *v, double x, double z, double min_scale)
+{
+    v->cx = x;
+    v->cz = z;
+    if (v->scale < min_scale) v->scale = min_scale;
+    v->scale = fmin(fmax(v->scale, VIEW_SCALE_MIN), VIEW_SCALE_MAX);
+}
+
 int view_pick(const View *v, const TracePoint *points, int count, double sx, double sy, double reach)
 {
     int best = -1;

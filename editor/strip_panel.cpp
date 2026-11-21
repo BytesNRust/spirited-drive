@@ -172,6 +172,13 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
     ImGui::SetCursorScreenPos(origin);
     ImGui::InvisibleButton("##profile", ImVec2(width, PROFILE_H));
     const ImVec2 mouse = ImGui::GetIO().MousePos;
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {   // the top view comes to this place on the road
+        double frac;
+        const double at = std::min(std::max((mouse.x - origin.x) / width * total, 0.0), total);
+        const int seg = segment_at(metres, at, &frac);
+        view_centre_on(&a->view, points[seg].x + frac * (points[seg + 1].x - points[seg].x), points[seg].z + frac * (points[seg + 1].z - points[seg].z), VIEW_FOCUS_SCALE);
+        snprintf(a->status, sizeof a->status, "top view centred %.0f m along the road", at);
+    }
     if (ImGui::IsItemActivated()) {   // pressed: the nearest mark within reach is held, else the point nearest along the road is only selected
         int near_i = -1;
         float best = PICK_PX * PICK_PX;
