@@ -9,6 +9,9 @@
 
 #include <stddef.h>
 
+/* The folder the kit of car `index` goes in: its stem in lower case ("p911", "wagon"): what Studio's «Export original car…» and the migration both name it */
+void car_export_kit_folder(int index, char *out, size_t cap);
+
 /* Makes the kit of car `index` in `kit`, a folder that is not there yet: made beside as "<kit>.exporting" and renamed when whole. 1 when made; 0 with `why`. */
 int car_export_kit(const ExportSource *src, int index, const char *kit, char *why, size_t why_cap);
 

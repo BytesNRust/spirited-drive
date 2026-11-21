@@ -1102,8 +1102,10 @@ static int remove_entry(const char *path, const struct stat *st, int flag, struc
     return remove(path);
 }
 
-/* Export original car through the app: each kind opens as the project it is, a refusal leaves the open project as it was, a masks project has no card */
-static void check_export(void)
+/* Export original car through the app (dep100): the car is made a KIT in the current layout, the shape the migration of the originals makes, and opened. A refusal leaves the open
+ * project as it was and nothing behind. The fixture game's car files are not real CFMs, so what needs a real one (the kit made, opened, its Build and Install refused with
+ * words, the photo, the second export refused) runs on the repository's original/ and data/ when they are given (`real_cd`, `real_data`), as the tests that need the game do */
+static void check_export(const char *real_cd, const char *real_data)
 {
     char dirs[][40] = { "ex", "ex/cd", "ex/cd/SIMDATA", "ex/cd/SIMDATA/CARFAMS", "ex/cd/SIMDATA/CARSPECS", "ex/data", "ex/data/car_masks", "ex/data/car_masks/Wagon",
                         "ex/data/car_masks/P911", "ex/out" };
@@ -1147,61 +1149,109 @@ static void check_export(void)
         if (strcmp(car_export_car(i)->folder, "Wagon") == 0) a->export_pick = i;
     }
     a->export_dialog = 1;
-    CHECK(app_export_car(a, out));                                    /* a traffic car: a masks project, opened */
-    CHECK_EQ_INT(a->kind, APP_KIND_CAR);
-    CHECK(a->car.masks_only && strcmp(a->car.folder, "Wagon") == 0 && a->car.mask_count == 1 && !a->export_dialog);
-    CHECK(strstr(a->status, "do not share") != NULL);
-    CHECK(a->recent.count == 1 && a->recent.kind[0] == RECENT_CAR);
-    CHECK(strcmp(a->export_src.data, data) == 0 && a->export_pick >= 0);   /* where the game's files are stays with the window */
-    CHECK(!app_modified(a));
-    CHECK(strcmp(car_race_track(a->race_track)->stem, "CL1") == 0);   /* a traffic car starts on a stage: the circuits have no traffic */
-    snprintf(a->game, sizeof a->game, "%s", "/nonexistent/tnfs");
-    CHECK(!app_race_busy(a) && !app_race(a, 1) && strstr(a->status, "game's program") != NULL);   /* no game where Studio looked */
-    {   /* In-game photo through the app, against a fake game */
-        char fake[700];
-        path_in(fake, sizeof fake, "ex/fake-tnfs");
-        put("ex/fake-tnfs", "#!/bin/sh\nuser=; shot=\nwhile [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done\n"
-                            "printf 'race car: slot 0 is TSupra\\nrace car: slot 3 is Wagon\\n' > \"$user/spirited-drive.log\"\n"
-                            "printf 'P6\\n640 480\\n255\\n' > \"$shot\"; head -c 921600 /dev/zero >> \"$shot\"\n");
-        chmod(fake, 0755);
-        snprintf(a->game, sizeof a->game, "%s", fake);
-        a->race_night = 1;
-        const int started = app_race(a, 1);
-        if (!started) fprintf(stderr, "app_race: %s\n", a->status);
-        CHECK(started && app_race_busy(a));
-        app_ask(a, APP_ACT_NEW, "");                                  /* nothing else is opened while the game runs */
-        CHECK_EQ_INT(a->go, APP_ACT_NONE);
-        CHECK(strstr(a->status, "race is running") != NULL || strstr(a->status, "photo") != NULL);
-        for (int i = 0; i < 2000 && app_race_poll(a); ++i) usleep(5000);
-        CHECK(!app_race_busy(a) && a->race.ok && a->race.photo != NULL && strstr(a->status, "slot 3") != NULL);
-        a->race_track = car_race_track_find("TR5");
-        CHECK(!app_race(a, 1) && strstr(a->status, "no traffic") != NULL);   /* a circuit has none */
-        CHECK(!app_race_busy(a));
+    CHECK(!app_export_car(a, out));                                   /* a car file that is not a CFM: refused with the reason, nothing opened, nothing left */
+    CHECK(strstr(a->open_error, "Could not export Wagon") != NULL);
+    CHECK_EQ_INT(a->kind, APP_KIND_NONE);
+    CHECK(a->export_dialog);   /* the dialog stays, to choose again */
+    {
+        char left[700];
+        snprintf(left, sizeof left, "ls %s | grep -q .", out);
+        CHECK(system(left) != 0);   /* out/ is empty: no wagon, wagon.exporting, wagon.project or wagon.piece */
     }
-    CHECK(!app_save(a) && strstr(a->status, "no card") != NULL);
-    char masks_dir[700];
-    snprintf(masks_dir, sizeof masks_dir, "%s/wagon-masks", out);
-    CHECK(!recent_is_project(masks_dir) && recent_present(masks_dir, RECENT_CAR) && car_project_present(masks_dir));
-    CHECK(!app_open_project(a, masks_dir));                           /* it is not a track project, whatever the file is called */
-    a->open_error[0] = '\0';
-    CHECK(!app_export_car(a, out));                                   /* the same car into the same parent again: refused, the project stays open */
-    CHECK(strstr(a->open_error, "already there") != NULL);
-    CHECK(a->kind == APP_KIND_CAR && a->car.masks_only);
-    a->open_error[0] = '\0';
-    CHECK(app_open_any(a, masks_dir, "./tnfs", "", NULL) && a->kind == APP_KIND_CAR && a->car.masks_only);   /* the command line opens it as a car */
-    for (int i = 0; car_export_car(i) != NULL; ++i) {
-        if (strcmp(car_export_car(i)->folder, "P911") == 0) a->export_pick = i;
-    }
-    app_set_export_source(a, &src);
-    CHECK(app_export_car(a, out));                                    /* a car you drive: a car project with a card to edit */
-    CHECK(!a->car.masks_only && strcmp(a->car.info.id, "p911-original") == 0 && a->car.mask_count == 1);
-    CHECK(strcmp(car_race_track(a->race_track)->stem, "TR5") == 0 && car_race_original_of(&a->car) == car_export_car(a->export_pick));   /* Rusty Springs, the car's own entry */
-    CHECK(!app_modified(a) && car_edit_set_by_text(&a->edit, "year=1995") && app_modified(a));
     app_free(a);
     free(a);
+    if (real_cd != NULL && real_data != NULL) {
+        char real_out[700];
+        dir_in("exr");
+        dir_in("exr/out");
+        path_in(real_out, sizeof real_out, "exr/out");
+        a = calloc(1, sizeof *a);
+        CHECK(a != NULL);
+        if (a == NULL) return;
+        app_begin(a, "./tnfs", "", NULL);
+        snprintf(src.cd, sizeof src.cd, "%s", real_cd);
+        snprintf(src.data, sizeof src.data, "%s", real_data);
+        app_set_export_source(a, &src);
+        for (int i = 0; car_export_car(i) != NULL; ++i) {
+            if (strcmp(car_export_car(i)->folder, "Wagon") == 0) a->export_pick = i;
+        }
+        a->export_dialog = 1;
+        CHECK(app_export_car(a, real_out));                           /* a traffic car: a kit, opened (it is no longer a masks project) */
+        CHECK_EQ_INT(a->kind, APP_KIND_CAR);
+        CHECK(!a->car.masks_only && !a->car.legacy && strcmp(a->car.info.stem, "WAGON") == 0 && a->car.mask_count > 0 && !a->export_dialog);
+        CHECK(app_car_is_kit(a) && car_piece_stem_is_original(a->car.info.stem));
+        CHECK(strstr(a->status, "do not share") != NULL);
+        CHECK(a->recent.count == 1 && a->recent.kind[0] == RECENT_CAR);
+        CHECK(strcmp(a->export_src.data, real_data) == 0 && a->export_pick >= 0);   /* where the game's files are stays with the window */
+        CHECK(!app_modified(a));
+        CHECK(car_race_original_of(&a->car) == car_export_car(a->export_pick));      /* the kit's stem finds its original, of any kind */
+        CHECK(strcmp(car_race_track(a->race_track)->stem, "CL1") == 0);   /* a traffic car starts on a stage: the circuits have no traffic */
+        for (int i = 0; i < 4000 && app_car_building(a); ++i) {          /* the car file for the Preview: made as it opens, with no package */
+            app_car_build_poll(a);
+            usleep(2000);
+        }
+        CHECK(!app_car_building(a));
+        {
+            char car_file[900], zip[900];
+            snprintf(car_file, sizeof car_file, "%s/wagon/build/piece/SIMDATA/CARFAMS/WAGON.CFM", real_out);
+            snprintf(zip, sizeof zip, "%s/wagon/build", real_out);
+            CHECK(access(car_file, R_OK) == 0);
+            CHECK(a->car.built || access(car_file, R_OK) == 0);
+            char cmd[1000];
+            snprintf(cmd, sizeof cmd, "ls %s/*.zip >/dev/null 2>&1", zip);
+            CHECK(system(cmd) != 0);                                  /* no package */
+        }
+        CHECK(!app_build(a) && strstr(a->status, "original car") != NULL && !app_car_building(a));   /* Build and Install are refused for it, with words */
+        snprintf(a->game, sizeof a->game, "%s", "/bin/sh");
+        CHECK(!app_install(a) && strstr(a->status, "original car") != NULL);
+        snprintf(a->game, sizeof a->game, "%s", "/nonexistent/tnfs");
+        CHECK(!app_race_busy(a) && !app_race(a, 1) && strstr(a->status, "game's program") != NULL);   /* no game where Studio looked */
+        {   /* In-game photo through the app, against a fake game: the kit's masks are staged for it */
+            char fake[700];
+            path_in(fake, sizeof fake, "ex/fake-tnfs");
+            put("ex/fake-tnfs", "#!/bin/sh\nuser=; shot=\nwhile [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done\n"
+                                "printf 'race car: slot 0 is TSupra\\nrace car: slot 3 is Wagon\\n' > \"$user/spirited-drive.log\"\n"
+                                "printf 'P6\\n640 480\\n255\\n' > \"$shot\"; head -c 921600 /dev/zero >> \"$shot\"\n");
+            chmod(fake, 0755);
+            snprintf(a->game, sizeof a->game, "%s", fake);
+            a->race_night = 1;
+            const int started = app_race(a, 1);
+            if (!started) fprintf(stderr, "app_race: %s\n", a->status);
+            CHECK(started && app_race_busy(a));
+            app_ask(a, APP_ACT_NEW, "");                              /* nothing else is opened while the game runs */
+            CHECK_EQ_INT(a->go, APP_ACT_NONE);
+            CHECK(strstr(a->status, "race is running") != NULL || strstr(a->status, "photo") != NULL);
+            for (int i = 0; i < 2000 && app_race_poll(a); ++i) usleep(5000);
+            CHECK(!app_race_busy(a) && a->race.ok && a->race.photo != NULL && strstr(a->status, "slot 3") != NULL);
+            a->race_track = car_race_track_find("TR5");
+            CHECK(!app_race(a, 1) && strstr(a->status, "no traffic") != NULL);   /* a circuit has none */
+            CHECK(!app_race_busy(a));
+        }
+        char kit_dir[700];
+        snprintf(kit_dir, sizeof kit_dir, "%s/wagon", real_out);
+        CHECK(car_project_present(kit_dir));
+        a->open_error[0] = '\0';
+        CHECK(!app_export_car(a, real_out));                          /* the same car into the same parent again: refused, the kit stays open */
+        CHECK(strstr(a->open_error, "already there") != NULL);
+        CHECK(a->kind == APP_KIND_CAR && !a->car.masks_only);
+        a->open_error[0] = '\0';
+        CHECK(app_open_any(a, kit_dir, "./tnfs", "", NULL) && a->kind == APP_KIND_CAR && app_car_is_kit(a));   /* the command line opens it as a car */
+        for (int i = 0; car_export_car(i) != NULL; ++i) {
+            if (strcmp(car_export_car(i)->folder, "P911") == 0) a->export_pick = i;
+        }
+        app_set_export_source(a, &src);
+        CHECK(app_export_car(a, real_out));                           /* a car you drive: a kit with its specs */
+        CHECK(!a->car.masks_only && strcmp(a->car.info.stem, "P911") == 0 && a->car.mask_count > 0);
+        CHECK(car_race_original_of(&a->car) == car_export_car(a->export_pick));
+        CHECK(!app_modified(a));
+        app_free(a);
+        free(a);
+    }
     char scratch[700];
     path_in(scratch, sizeof scratch, "ex");
     nftw(scratch, remove_entry, 16, FTW_DEPTH | FTW_PHYS);   /* what this check made, and only it */
+    path_in(scratch, sizeof scratch, "exr");
+    nftw(scratch, remove_entry, 16, FTW_DEPTH | FTW_PHYS);
 }
 
 /* app_free of an app that never ran a race must not close descriptor 0 (an all-zero runner holds fd 0) */
@@ -1423,7 +1473,7 @@ static void check_kit_builds_on_open(void)
     if (system(cmd) != 0) fprintf(stderr, "could not clean up\n");
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     const char *tmp = getenv("TMPDIR");
     snprintf(root, sizeof root, "%s/tnfs-editor-session-XXXXXX", tmp != NULL && tmp[0] != '\0' ? tmp : "/tmp");
@@ -1445,7 +1495,7 @@ int main(void)
     check_recent_kinds();
     check_kinds();
     check_kit_builds_on_open();
-    check_export();
+    check_export(argc > 2 ? argv[1] : NULL, argc > 2 ? argv[2] : NULL);
     check_mask_app();
     check_mask_texture_file();
     check_track_undo_title();

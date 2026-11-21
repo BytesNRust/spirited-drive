@@ -6,8 +6,9 @@
 . "$(dirname "$0")/editor_headless_common.sh"
 
 # ==== Export original car ====
-# Export original car: a fixture game folder (a synthetic car file, masks that are PNG headers); a traffic car becomes a masks project, a refused car and a second
-# export into the same folder say why and write nothing; the window of the choice draws
+# Export original car makes a kit (the real-original blocks below). With a fixture game folder (a synthetic car file, masks that are PNG headers) it is refused in
+# words and writes nothing: the car file is not a car model. A car with no masks is refused too. The masks project the exporter made before kits is still opened,
+# raced and sheeted (old exports are there): the fixture one is written here by hand, in the shape car_export made it.
 mkdir -p "$work/game/cd/SIMDATA/CARFAMS" "$work/game/data/car_masks/Wagon" "$work/exports"
 printf 'cfm' > "$work/game/cd/SIMDATA/CARFAMS/WAGON.CFM"
 printf 'cfm' > "$work/game/cd/SIMDATA/CARFAMS/PROBE.CFM"
@@ -16,20 +17,20 @@ import sys, struct
 open(sys.argv[1], 'wb').write(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sIIBB', 13, b'IHDR', 100, 50, 8, 0) + bytes(20))
 " "$work/game/data/car_masks/Wagon/side_mask.png"
 export_opts="--cd $work/game/cd --port-data $work/game/data"
-"$editor" --export-car Wagon --into "$work/exports" $export_opts --frames 3 --shot "$work/export.png" >"$work/log" 2>&1 || fail "export of a traffic car: $(cat "$work/log")"
-grep -q "do not share" "$work/log" || fail "no word that the files are the game's: $(cat "$work/log")"
-grep -q '^kind=masks$' "$work/exports/wagon-masks/project.ini" && grep -q '^redistributable=0$' "$work/exports/wagon-masks/project.ini" || fail "the masks project's project.ini"
-cmp -s "$work/game/data/car_masks/Wagon/side_mask.png" "$work/exports/wagon-masks/car_masks/Wagon/side_mask.png" || fail "the exported mask is not the game's file"
-[ -s "$work/export.png" ] || fail "no PNG of an exported masks project"
-"$editor" --export-car Wagon --into "$work/exports" $export_opts --frames 2 >"$work/log" 2>&1 && fail "a second export into the same folder went"
-grep -q "already there" "$work/log" || fail "no word about the folder that is there: $(cat "$work/log")"
+"$editor" --export-car Wagon --into "$work/exports" $export_opts --frames 3 >"$work/log" 2>&1 && fail "a car file that is not a car model was exported"
+grep -q "not a car model" "$work/log" || fail "no word why the export was refused: $(cat "$work/log")"
+[ -z "$(ls "$work/exports")" ] || fail "a refused export left files: $(ls "$work/exports")"
 "$editor" --export-car probe --into "$work/exports" $export_opts --frames 2 >"$work/log" 2>&1 && fail "a car with no masks was exported"
-[ ! -e "$work/exports/probe-masks" ] && [ ! -e "$work/exports/probe-masks.exporting" ] || fail "a refused export left files"
-"$editor" "$work/exports/wagon-masks" --frames 3 --shot "$work/masksproject.png" >"$work/log" 2>&1 || fail "a masks project did not open: $(cat "$work/log")"
-[ ! -e "$work/exports/wagon-masks/trace.json" ] || fail "a masks project was made a track project"
+[ -z "$(ls "$work/exports")" ] || fail "a refused export left files: $(ls "$work/exports")"
+mkdir -p "$work/exports/wagon-masks/original" "$work/exports/wagon-masks/car_masks/Wagon"
+cp "$work/game/cd/SIMDATA/CARFAMS/WAGON.CFM" "$work/exports/wagon-masks/original/WAGON.CFM"
+cp "$work/game/data/car_masks/Wagon/side_mask.png" "$work/exports/wagon-masks/car_masks/Wagon/side_mask.png"
+printf '# made by Export original car\nid=wagon\nname=Wagon masks\nkind=masks\nmasks=Wagon\ncfm=original/WAGON.CFM\nexport_sizes=side_mask.png:100x50\nredistributable=0\n' > "$work/exports/wagon-masks/project.ini"
 "$editor" --ask export --pick Wagon $export_opts --frames 4 --shot "$work/exportdialog.png" >"$work/log" 2>&1 || fail "the export window did not draw: $(cat "$work/log")"
 [ -s "$work/exportdialog.png" ] || fail "no PNG of the export window"
 "$editor" --pick nosuchcar --frames 2 $export_opts >/dev/null 2>&1 && fail "--pick took a car that is not in the list"
+"$editor" "$work/exports/wagon-masks" --frames 3 --shot "$work/masksproject.png" >"$work/log" 2>&1 || fail "a masks project did not open: $(cat "$work/log")"
+[ ! -e "$work/exports/wagon-masks/trace.json" ] || fail "a masks project was made a track project"
 
 # ==== Open: the start screen, a car's kit, a card that is not a car ====
 # no PROJECT: the start screen (nothing is made anywhere); a car's kit (the current layout) opens as a car and writes nothing; an old coche/ + modelo/ kit and a card
@@ -162,34 +163,39 @@ repo=$(cd "$(dirname "$0")/.." && pwd)
 if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then
     mkdir "$work/real"
     "$editor" --export-car Wagon --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real Wagon: $(cat "$work/log")"
-    m="$work/real/wagon-masks/car_masks/Wagon/side_mask.png"
-    "$editor" "$work/real/wagon-masks" --mask side --frames 8 --shot "$work/mask-before.png" >"$work/log" 2>&1 || fail "mask view of the real Wagon: $(cat "$work/log")"
+    [ -f "$work/real/wagon/mod.ini" ] && [ -f "$work/real/wagon/art-generated/car_masks/side_mask.png" ] || fail "the real Wagon's export is not a kit: $(ls "$work/real/wagon")"
+    grep -q "do not share" "$work/log" || fail "no word that the files are the game's: $(cat "$work/log")"
+    [ ! -e "$work/real/wagon-masks" ] && [ ! -e "$work/real/wagon.exporting" ] && [ ! -e "$work/real/wagon.project" ] || fail "the export left a masks project or a scratch folder: $(ls "$work/real")"
+    "$editor" --export-car Wagon --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 && fail "a second export into the same folder went"
+    grep -q "already there" "$work/log" || fail "no word about the folder that is there: $(cat "$work/log")"
+    m="$work/real/wagon/art-generated/car_masks/side_mask.png"
+    "$editor" "$work/real/wagon" --mask side --view night --lights head --preview-tex side --frames 14 --shot "$work/mask-before.png" >"$work/log" 2>&1 || fail "mask view of the real Wagon: $(cat "$work/log")"
     cmp -s "$m" "$repo/data/car_masks/Wagon/side_mask.png" || fail "opening a mask changed the file"
     python3 -I "$(dirname "$0")/mask_poke.py" "$m" 142 26 8 5 248 || fail "the outside change of the mask"
     cp "$m" "$work/mask-poked.png"
-    "$editor" "$work/real/wagon-masks" --mask side --frames 8 --shot "$work/mask-after.png" >"$work/log" 2>&1 || fail "mask view of the changed mask: $(cat "$work/log")"
+    "$editor" "$work/real/wagon" --mask side --view night --lights head --preview-tex side --frames 14 --shot "$work/mask-after.png" >"$work/log" 2>&1 || fail "mask view of the changed mask: $(cat "$work/log")"
     cmp -s "$m" "$work/mask-poked.png" || fail "the mask view wrote the mask file"
-    ls "$work/real/wagon-masks/car_masks/Wagon" | grep -q "saving" && fail "a temporary file of a save was left behind"
+    ls "$work/real/wagon/art-generated/car_masks" | grep -q "saving" && fail "a temporary file of a save was left behind"
     cmp -s "$work/mask-before.png" "$work/mask-after.png" && fail "the change made from outside did not change the picture"
     [ -s "$work/mask-after.png" ] || fail "no PNG of the mask view"
-    "$editor" "$work/real/wagon-masks" --mask nosuch --frames 2 >"$work/log" 2>&1 && fail "a texture the car has not was opened"
-    "$editor" "$work/real/wagon-masks" --mask side --mask-rect 1,2,3,4,5 --frames 2 >"$work/log" 2>&1 && fail "--mask-rect was taken: masks are no longer painted in Studio"
+    "$editor" "$work/real/wagon" --mask nosuch --frames 2 >"$work/log" 2>&1 && fail "a texture the car has not was opened"
+    "$editor" "$work/real/wagon" --mask side --mask-rect 1,2,3,4,5 --frames 2 >"$work/log" 2>&1 && fail "--mask-rect was taken: masks are no longer painted in Studio"
     grep -q "^usage: " "$work/log" || fail "an option that is gone was not refused with the usage: $(cat "$work/log")"
-    "$editor" "$work/real/wagon-masks" --mask side --mask-save --frames 2 >"$work/log" 2>&1 && fail "--mask-save was taken: masks are no longer saved by Studio"
+    "$editor" "$work/real/wagon" --mask side --mask-save --frames 2 >"$work/log" 2>&1 && fail "--mask-save was taken: masks are no longer saved by Studio"
     grep -q "^usage: " "$work/log" || fail "an option that is gone was not refused with the usage: $(cat "$work/log")"
 fi
 
 # ==== Preview: a paint, Day and Night ====
 if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then
     "$editor" --export-car P911 --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real 911: $(cat "$work/log")"
-    "$editor" "$work/real/p911-original" --frames 14 --shot "$work/preview-file.png" >"$work/log" 2>&1 || fail "Preview of the real 911: $(cat "$work/log")"
-    "$editor" "$work/real/p911-original" --paint 3 --frames 14 --shot "$work/preview-paint.png" >"$work/log" 2>&1 || fail "Preview of the real 911 in a paint: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --frames 14 --shot "$work/preview-file.png" >"$work/log" 2>&1 || fail "Preview of the real 911: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --paint 3 --frames 14 --shot "$work/preview-paint.png" >"$work/log" 2>&1 || fail "Preview of the real 911 in a paint: $(cat "$work/log")"
     cmp -s "$work/preview-file.png" "$work/preview-paint.png" && fail "a paint did not change the Preview"
     ls "${TMPDIR:-/tmp}" | grep -q '^studio-preview-' && fail "a scratch folder of the Preview was left behind"
     # «Use as card photo» (the Model window): card.png of 309 x 166, opaque, in the project's piece; the step is the button's own code
-    "$editor" "$work/real/p911-original" --paint 3 --steps card-photo,status --frames 14 >"$work/log" 2>&1 || fail "Use as card photo: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --paint 3 --steps card-photo,status --frames 14 >"$work/log" 2>&1 || fail "Use as card photo: $(cat "$work/log")"
     grep -q "status: card.png made" "$work/log" || fail "no word that card.png was made: $(cat "$work/log")"
-    card=$(find "$work/real/p911-original" -name card.png | head -1)
+    card=$(find "$work/real/p911" -name card.png | head -1)
     [ -n "$card" ] || fail "no card.png in the project after Use as card photo"
     [ ! -e "$card.tmp" ] || fail "a staged card.png.tmp was left behind"
     python3 -c "
@@ -198,9 +204,9 @@ d = open(sys.argv[1], 'rb').read()
 assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 309 and int.from_bytes(d[20:24], 'big') == 166 and d[25] == 6
 " "$card" || fail "card.png is not a 309x166 RGBA PNG"
     # the Model window's Card view and «As on the card» (Central's palette, from the game's files): three other pictures of the same car
-    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --frames 14 --shot "$work/model-plain.png" >"$work/log" 2>&1 || fail "the Model window: $(cat "$work/log")"
-    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps card-view:1,0 --frames 14 --shot "$work/model-card.png" >"$work/log" 2>&1 || fail "Card view: $(cat "$work/log")"
-    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps card-view:1,1 --frames 14 --shot "$work/model-card-central.png" >"$work/log" 2>&1 || fail "As on the card: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --cd "$repo/original" --paint 3 --frames 14 --shot "$work/model-plain.png" >"$work/log" 2>&1 || fail "the Model window: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --cd "$repo/original" --paint 3 --steps card-view:1,0 --frames 14 --shot "$work/model-card.png" >"$work/log" 2>&1 || fail "Card view: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --cd "$repo/original" --paint 3 --steps card-view:1,1 --frames 14 --shot "$work/model-card-central.png" >"$work/log" 2>&1 || fail "As on the card: $(cat "$work/log")"
     cmp -s "$work/model-plain.png" "$work/model-card.png" && fail "Card view did not change the Model window"
     cmp -s "$work/model-card.png" "$work/model-card-central.png" && fail "As on the card did not change the Card view"
     # the card photo's backdrop: a plain colour, a gradient and the person's own picture each give another Card view, and Use as card photo saves the one on screen
@@ -212,34 +218,32 @@ def chunk(t, d): return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zl
 open(sys.argv[1], 'wb').write(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
 " "$work/backdrop.png" || fail "could not write the backdrop picture"
     for kind in "plain:card-backdrop:0,200,40,40" "gradient:card-backdrop:1,200,40,40,card-bd-bottom:20,20,200"; do
-        "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps "card-view:1,0,${kind#*:}" --frames 14 --shot "$work/model-${kind%%:*}.png" >"$work/log" 2>&1 || fail "backdrop ${kind%%:*}: $(cat "$work/log")"
+        "$editor" "$work/real/p911" --cd "$repo/original" --paint 3 --steps "card-view:1,0,${kind#*:}" --frames 14 --shot "$work/model-${kind%%:*}.png" >"$work/log" 2>&1 || fail "backdrop ${kind%%:*}: $(cat "$work/log")"
     done
-    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --card-backdrop "$work/backdrop.png" --steps card-view:1,0 --frames 14 --shot "$work/model-picture.png" >"$work/log" 2>&1 || fail "backdrop picture: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --cd "$repo/original" --paint 3 --card-backdrop "$work/backdrop.png" --steps card-view:1,0 --frames 14 --shot "$work/model-picture.png" >"$work/log" 2>&1 || fail "backdrop picture: $(cat "$work/log")"
     cmp -s "$work/model-card.png" "$work/model-plain.png" && fail "a backdrop did not change the Card view"
     cmp -s "$work/model-card.png" "$work/model-gradient.png" && fail "a gradient did not change the Card view"
     cmp -s "$work/model-gradient.png" "$work/model-picture.png" && fail "a backdrop picture did not change the Card view"
     cp "$card" "$work/card-before.png"
-    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps card-backdrop:0,200,40,40,card-photo,status --frames 14 >"$work/log" 2>&1 || fail "Use as card photo on a backdrop: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --cd "$repo/original" --paint 3 --steps card-backdrop:0,200,40,40,card-photo,status --frames 14 >"$work/log" 2>&1 || fail "Use as card photo on a backdrop: $(cat "$work/log")"
     cmp -s "$card" "$work/card-before.png" && fail "the backdrop did not reach card.png"
     # the night view: Day, Night with the lights off and Night with the headlights each show another picture of the front texture
-    "$editor" "$work/real/p911-original" --view day --preview-tex frnt --frames 20 --shot "$work/night-day.png" >"$work/log" 2>&1 || fail "Preview by day: $(cat "$work/log")"
-    "$editor" "$work/real/p911-original" --view night --lights none --preview-tex frnt --frames 20 --shot "$work/night-dark.png" >"$work/log" 2>&1 || fail "Preview at night, lights off: $(cat "$work/log")"
-    "$editor" "$work/real/p911-original" --view night --lights head --preview-tex frnt --frames 20 --shot "$work/night-head.png" >"$work/log" 2>&1 || fail "Preview at night, headlights: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --view day --preview-tex frnt --frames 20 --shot "$work/night-day.png" >"$work/log" 2>&1 || fail "Preview by day: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --view night --lights none --preview-tex frnt --frames 20 --shot "$work/night-dark.png" >"$work/log" 2>&1 || fail "Preview at night, lights off: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --view night --lights head --preview-tex frnt --frames 20 --shot "$work/night-head.png" >"$work/log" 2>&1 || fail "Preview at night, headlights: $(cat "$work/log")"
     cmp -s "$work/night-day.png" "$work/night-dark.png" && fail "Night did not change the Preview"
     cmp -s "$work/night-dark.png" "$work/night-head.png" && fail "the headlights did not light"
-    "$editor" "$work/real/p911-original" --view night --lights head --night-tint 0.9,0.3,0.2 --preview-tex frnt --frames 20 --shot "$work/night-tint.png" >"$work/log" 2>&1 || fail "Preview at night with a tint: $(cat "$work/log")"
+    "$editor" "$work/real/p911" --view night --lights head --night-tint 0.9,0.3,0.2 --preview-tex frnt --frames 20 --shot "$work/night-tint.png" >"$work/log" 2>&1 || fail "Preview at night with a tint: $(cat "$work/log")"
     cmp -s "$work/night-head.png" "$work/night-tint.png" && fail "the tint did not change the night picture"
 
-    # the exported-original flow, as the owner works it (old shape: mod.ini + SIMDATA + car_masks/P911/): open the export, change a mask from outside, then race it. Nothing of the
-    # kit layout (build, model/) may touch it: no build/ appears, the mask stays in car_masks/P911/, and the race is given that folder
-    p911="$work/real/p911-original"
-    m="$p911/car_masks/P911/frnt_mask.png"
-    [ -f "$m" ] || fail "the exported 911 has no car_masks/P911/frnt_mask.png"
+    # the exported-original flow, as the owner works it (a kit): open the export, change a mask from outside, then race it with the game's own car
+    p911="$work/real/p911"
+    m="$p911/art-generated/car_masks/frnt_mask.png"
+    [ -f "$m" ] || fail "the exported 911 has no art-generated/car_masks/frnt_mask.png"
     cp "$m" "$work/frnt-before.png"
     python3 -I "$(dirname "$0")/mask_poke.py" "$m" 4 4 6 6 200 || fail "the outside change of the exported 911's mask"
     "$editor" "$p911" --mask frnt --frames 8 >"$work/log" 2>&1 || fail "mask view on the exported 911: $(cat "$work/log")"
     cmp -s "$m" "$work/frnt-before.png" && fail "the outside change of the exported 911's mask was not written"
-    [ ! -e "$p911/build" ] && [ ! -e "$p911/model" ] || fail "opening an exported original made a build/ or a model/ in it"
     cat > "$work/fake-tnfs-911" <<'FAKE911'
 #!/bin/sh
 user=; shot=
@@ -404,7 +408,7 @@ ls "${TMPDIR:-/tmp}" | grep -q '^studio-race-' && fail "a scratch folder of a sh
 "$editor" "$work/exports/wagon-masks" --cd "$work/game/cd" --port-data "$work/game/data" --changes --frames 2 >"$work/log" 2>&1 || fail "--changes of the fixture's Wagon: $(cat "$work/log")"
 grep -q "car_masks/Wagon: 0 changed, 0 new, 0 missing, 1 unchanged" "$work/log" || fail "an unchanged export is told as changed: $(cat "$work/log")"
 if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then
-    "$editor" "$work/real/wagon-masks" --cd "$repo/original" --port-data "$repo/data" --changes --frames 2 >"$work/log" 2>&1 || fail "--changes of the real Wagon: $(cat "$work/log")"
+    "$editor" "$work/real/wagon" --cd "$repo/original" --port-data "$repo/data" --changes --frames 2 >"$work/log" 2>&1 || fail "--changes of the real Wagon: $(cat "$work/log")"
     grep -q "side_mask.png" "$work/log" || fail "the edited mask is not in the changes: $(cat "$work/log")"
     grep -q "1 changed" "$work/log" || fail "no count of changes: $(cat "$work/log")"
     grep -q "headlight +40" "$work/log" || fail "no word of the texels' classes: $(cat "$work/log")"

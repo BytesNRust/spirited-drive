@@ -50,8 +50,7 @@ int main(int argc, char **argv)
             printf("skipped %s: %s\n", car_export_car(i)->folder, why);
             continue;
         }
-        snprintf(name, sizeof name, "%s", car_export_car(i)->file);   /* the folder is the car's stem, lower case */
-        for (char *c = name; *c != '\0'; ++c) *c = (char)tolower((unsigned char)*c);
+        car_export_kit_folder(i, name, sizeof name);   /* the folder is the car's stem, lower case: the one Studio's Export original car makes */
         snprintf(dir, sizeof dir, "%s/%s", argv[3], name);
         if (!car_export_kit(&src, i, dir, why, sizeof why)) {
             printf("FAILED %s: %s\n", car_export_car(i)->folder, why), ++failed;

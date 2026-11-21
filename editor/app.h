@@ -268,7 +268,7 @@ int app_test_drive(App *a);
 
 /* Where the game's files are, for Export original car; also remembered across the projects opened from this window. */
 void app_set_export_source(App *a, const ExportSource *src);
-/* Makes the project of the exported car a->export_pick in a folder named for it inside `parent` and opens it (car_export): the window stays as it was, with
+/* Makes the kit of the exported car a->export_pick (car_export_kit: the current layout, the migration's own shape) in a folder named for its stem inside `parent` and opens it: the window stays as it was, with
  * open_error saying why, when it cannot. 1 when it is open. */
 int app_export_car(App *a, const char *parent);
 

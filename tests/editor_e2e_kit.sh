@@ -12,9 +12,10 @@ studio_cli=$5
 runs=0
 studio() { runs=$((runs + 1)); "$editor" "$@" --user "$work/player$runs" >"$work/log" 2>&1; }
 
-# 1. a kit of a car you drive: the game's 911 laid out as sources (export, then car kit), with a card of its own
+# 1. a kit of a car you drive: the game's 911 exported as a kit, copied, with a card of its own (an original car's stem is not allowed for a package)
 studio --export-car P911 --into "$work/cars" --cd "$orig" --port-data "$data" --frames 1 || fail "Export original car: $(cat "$work/log")"
-"$studio_cli" car kit "$work/cars/p911-original" "$work/kit" >"$work/log" 2>&1 || fail "car kit: $(cat "$work/log")"
+cp -R "$work/cars/p911" "$work/kit" || fail "no copy of the export"
+python3 -c 'import shutil,sys; shutil.rmtree(sys.argv[1], ignore_errors=True)' "$work/kit/build"   # the export was opened once: its preview build is not part of the kit
 [ -f "$work/kit/mod.ini" ] && [ -d "$work/kit/model/near/bank" ] || { fail "no kit was made"; exit "$failures"; }
 sed 's/^stem=.*/stem=FLOW911/; s/^id=.*/id=flow911/' "$work/kit/mod.ini" > "$work/mod.ini.new" && mv "$work/mod.ini.new" "$work/kit/mod.ini"
 kit="$work/kit"

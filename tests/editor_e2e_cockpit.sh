@@ -10,11 +10,11 @@ data=$4
 [ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ] && [ -d "$data/dash_masks/P911" ] || { echo "skip: no game files in $orig"; exit 0; }
 runs=0
 studio() { runs=$((runs + 1)); "$editor" "$@" --user "$work/player$runs" >"$work/log" 2>&1; }
-car="$work/cars/p911-original"
+car="$work/cars/p911"
 photo() { out=$1; shift; studio "$car" --game "$tnfs" --cd "$orig" --race-photo --night --race-png "$out" --frames 4 "$@"; }
 
 studio --export-car P911 --into "$work/cars" --cd "$orig" --port-data "$data" --frames 1 || fail "Export original car of the 911: $(cat "$work/log")"
-[ -d "$car/dash_masks" ] || fail "the export carries no dash_masks/: the cockpit photo has no dash to light"
+[ -d "$car/art-generated/dash_masks" ] || fail "the export carries no art-generated/dash_masks/: the cockpit photo has no dash to light"
 
 photo "$work/follow.png" || fail "Race photo at night, following: $(cat "$work/log")"
 photo "$work/cockpit5.png" --race-view cockpit --gauge-light 5 || fail "Cockpit photo, gauge light 5: $(cat "$work/log")"

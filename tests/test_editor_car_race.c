@@ -439,6 +439,12 @@ static void test_kit_masks(void)
     run_job(&job);
     CHECK(job.ok && strstr(job.log, "saw=side_mask.png") != NULL && strstr(job.log, "dashsaw=\n") != NULL);   /* a traffic car has no dash masks: TNFS_DASH_MASKS is not set (an unset one in the fake's ls was the whole root, which filled the log) */
     CHECK(stat(path, &st) == 0 && !temps_left());
+    /* Test drive (a race, not a photo) of the same kit: the game's own car with the same staged masks, the scratch folder gone at the end, the kit's files as they were */
+    CHECK(car_race_start_race(&job, game, "/cd", kit, p911, "TR2", 0, NULL, why, sizeof why));
+    run_job(&job);
+    CHECK(job.ok && strstr(job.log, "saw=side_mask.png") != NULL && strstr(job.log, "dashsaw=dash_mask.png") != NULL);
+    CHECK(strstr(job.log, "/kitproj/") == NULL && strstr(job.log, "studio-race-") != NULL);
+    CHECK(job.temp[0] == '\0' && !temps_left() && stat(path, &st) == 0 && st.st_size == 9);
     car_race_free(&job);
 }
 
@@ -569,8 +575,10 @@ static void test_original_of(void)
     snprintf(c.folder, sizeof c.folder, "%s", "NOPE");
     CHECK(car_race_original_of(&c) == NULL);
     c.masks_only = 0;
-    snprintf(c.info.stem, sizeof c.info.stem, "%s", "WAGON");   /* a traffic car's stem in a car project is not an original: they have no PBS */
-    CHECK(car_race_original_of(&c) == NULL);
+    snprintf(c.info.stem, sizeof c.info.stem, "%s", "WAGON");   /* a traffic car's kit (Export original car makes one now): its stem finds its original, of any kind */
+    CHECK(car_race_original_of(&c) == car_export_car(index_of("Wagon")));
+    snprintf(c.info.stem, sizeof c.info.stem, "%s", "COPMUST");
+    CHECK(car_race_original_of(&c) == car_export_car(index_of("COPMUST")));
 }
 
 /* Test drive of a track piece (the track editor's Drive window): the menu's cars in its order, and the command, a time trial on the piece the run installed */

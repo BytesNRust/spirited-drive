@@ -61,6 +61,13 @@ static int shape_piece(const ExportCar *car, FileSet *all, FileSet *out, char *w
     return fileset_find(out, paths[0]) != NULL ? 1 : bad(why, cap, "the car's CFM is not in its export", car->file);
 }
 
+void car_export_kit_folder(int index, char *out, size_t cap)
+{
+    const ExportCar *car = car_export_car(index);
+    snprintf(out, cap, "%s", car != NULL ? car->file : "");
+    for (char *p = out; *p != '\0'; ++p) *p = (char)tolower((unsigned char)*p);
+}
+
 int car_export_kit(const ExportSource *src, int index, const char *kit, char *why, size_t why_cap)
 {
     const ExportCar *car = car_export_car(index);

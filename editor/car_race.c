@@ -407,7 +407,7 @@ const ExportCar *car_race_original_of(const CarProject *c)
 {
     for (int i = 0; car_export_car(i) != NULL; ++i) {
         const ExportCar *car = car_export_car(i);
-        if (c->masks_only ? strcasecmp(c->folder, car->folder) == 0 : (car->kind == EXPORT_DRIVABLE && strcasecmp(c->info.stem, car->file) == 0)) return car;
+        if (c->masks_only ? strcasecmp(c->folder, car->folder) == 0 : strcasecmp(c->info.stem, car->file) == 0) return car;   /* a kit of an original (any kind) or a piece folder of one */
     }
     return NULL;
 }

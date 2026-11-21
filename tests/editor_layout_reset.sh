@@ -74,13 +74,14 @@ printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "
 printf 'x' > "$work/kit/art-generated/car_masks/rsid_mask.png"
 check car "$work/kit" Car Model Preview Masks
 
-mkdir -p "$work/game/cd/SIMDATA/CARFAMS" "$work/game/data/car_masks/Wagon" "$work/exports"
-printf 'cfm' > "$work/game/cd/SIMDATA/CARFAMS/WAGON.CFM"
+# a masks project, as car_export made them before kits (old exports still open): written by hand
+mkdir -p "$work/exports/wagon-masks/original" "$work/exports/wagon-masks/car_masks/Wagon"
+printf 'cfm' > "$work/exports/wagon-masks/original/WAGON.CFM"
 python3 -c "
 import sys, struct
 open(sys.argv[1], 'wb').write(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sIIBB', 13, b'IHDR', 100, 50, 8, 0) + bytes(20))
-" "$work/game/data/car_masks/Wagon/side_mask.png"
-"$editor" --export-car Wagon --into "$work/exports" --cd "$work/game/cd" --port-data "$work/game/data" --frames 2 >"$work/log" 2>&1 || fail "export of a masks project: $(cat "$work/log")"
+" "$work/exports/wagon-masks/car_masks/Wagon/side_mask.png"
+printf '# made by Export original car\nid=wagon\nname=Wagon masks\nkind=masks\nmasks=Wagon\ncfm=original/WAGON.CFM\nexport_sizes=side_mask.png:100x50\nredistributable=0\n' > "$work/exports/wagon-masks/project.ini"
 check masks "$work/exports/wagon-masks" Masks Car Preview Masks
 
 [ "$failures" -eq 0 ] && echo "editor_layout_reset: ok"

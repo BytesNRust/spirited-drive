@@ -2,6 +2,8 @@
 
 #include "build.h"
 #include "game_find.h"
+#include "car_export_kit.h"
+#include "formats/car_piece.h"
 
 #include <sys/stat.h>
 #include <limits.h>
@@ -189,14 +191,14 @@ int app_export_car(App *a, const char *parent)
 {
     char name[96], dir[APP_PATH], why[APP_MSG];
     const ExportCar *car = car_export_car(a->export_pick);
-    car_export_folder_name(a->export_pick, name, sizeof name);
+    car_export_kit_folder(a->export_pick, name, sizeof name);
     const size_t n = strlen(parent);
     if (car == NULL || snprintf(dir, sizeof dir, "%s%s%s", parent, n > 0 && parent[n - 1] == '/' ? "" : "/", name) >= (int)sizeof dir) {
         set_status(a, "no car was chosen to export");
         snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
         return 0;
     }
-    if (!car_export(&a->export_src, a->export_pick, dir, why, sizeof why)) {
+    if (!car_export_kit(&a->export_src, a->export_pick, dir, why, sizeof why)) {   /* the kit in the current layout: the migration of the originals makes the same */
         snprintf(a->open_error, sizeof a->open_error, "Could not export %s: %s", car->label, why);
         set_status(a, a->open_error);
         return 0;
@@ -631,6 +633,7 @@ static int car_zip_path(const App *a, char *out, size_t cap)
 static int build_car(App *a)
 {
     char why[APP_MSG];
+    if (car_piece_stem_is_original(a->car.info.stem)) return set_status(a, "build: an original car is the game's own: it has no package to build (its car file is made for the Preview when it opens); Install does not take it either"), 0;
     if (app_install_busy(a) || car_race_installing(&a->race)) return set_status(a, "build: the game is installing the package: wait for it to end"), 0;   /* it reads the zip */
     if (car_edit_modified(&a->edit)) return set_status(a, "build: mod.ini has changes that are not saved: save them first"), 0;
     if (!car_build_job_start(&a->car_build, a->car.root, why, sizeof why)) {
@@ -720,6 +723,7 @@ int app_install(App *a)
     struct stat st;
     if (!car_kit_open(a) && !track_open(a)) return 0;
     if (!game_there(a)) return game_missing_status(a, "install: ");
+    if (car_kit_open(a) && car_piece_stem_is_original(a->car.info.stem)) return set_status(a, "install: an original car is the game's own: it is not installed (look at it, retouch its masks, take a photo)"), 0;
     if (car_kit_open(a)) {   /* the kit's package is the one its last build made; it is there from an earlier session too */
         if (car_build_job_busy(&a->car_build)) return set_status(a, "install: the car is being built: wait for it to end"), 0;
         if (!car_zip_path(a, a->zip, sizeof a->zip) || stat(a->zip, &st) != 0) {
