@@ -912,6 +912,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     confirm_popup(a);
     new_track_popup(a);
     open_error_popup(a);
+    if (ImGui::GetCurrentContext()->DebugDrawIdConflictsId != 0) imgui_error(nullptr, nullptr, "two items share an ID (ImGui's red box): a row of a list needs its own PushID");   // only for the item under the mouse: the scan step moves it over the window
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);
 }

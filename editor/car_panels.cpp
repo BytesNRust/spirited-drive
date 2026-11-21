@@ -231,10 +231,13 @@ void photos_section(App *a, const CarEditProblem *problems, int count)
     const int n = car_photos_split(a->edit.now.value[CE_PHOTOS], names, MOD_INI_PHOTOS_MAX);
     char photos_dir[APP_PATH];
     app_photos_dir(a, photos_dir, sizeof photos_dir);
-    ImGui::SeparatorText("Showcase photos");
+    ImGui::PushID("showcase_photos");   // the rows' ids must not meet the Colors rows' (both number their rows from 0)
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Showcase photos");
     ImGui::SameLine();
     help_marker("The pictures of this car in the game's Car Showcase, in this order. Add photo... copies a PNG (100x60 to 1280x960; 450x254 fits the page) into the car's folder "
                 "under a safe name and lists it on the card (photos=). Save writes the line, and removes the copies you took off the list.");
+    ImGui::Separator();
     if (n == 0) muted_wrapped("None: the showcase shows only the card photo.");
     for (int i = 0; i < n; ++i) {
         uint32_t w = 0, h = 0;
@@ -267,11 +270,13 @@ void photos_section(App *a, const CarEditProblem *problems, int count)
     if (ImGui::Button("Add photo...")) a->photo_dialog = 1;
     ImGui::EndDisabled();
     if (full && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("A card keeps up to %d photos", MOD_INI_PHOTOS_MAX);
+    ImGui::PopID();
 }
 
 void colors_section(App *a, const CarEditProblem *problems, int count)
 {
     CarEditState &s = a->edit.now;
+    ImGui::PushID("colors");
     ImGui::SeparatorText("Colors");
     if (s.paint_count == 0) muted_wrapped("No colors of its own: the game offers its standard ones.");
     for (int i = 0; i < s.paint_count; ++i) {
@@ -316,6 +321,7 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
     }
     ImGui::EndDisabled();
     if (full && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("A card keeps up to %d colors", MOD_INI_PAINTS_MAX);
+    ImGui::PopID();
 }
 
 }   // namespace

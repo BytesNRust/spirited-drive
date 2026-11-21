@@ -283,9 +283,13 @@ void light_panel(App *a)
             file_buttons(a);
             if (ui.error[0] != '\0') bad_text(ui.error);
             ImGui::SeparatorText("Brightness");
+            ImGui::PushID("brightness");   // each list numbers its rows from 0 in this one window: its own ID scope, or two Remove buttons share an ID
             brightness_rows(a);
+            ImGui::PopID();
             if (ui.session.letter == 'N') {
+                ImGui::PushID("lamps");
                 lamp_rows(a);
+                ImGui::PopID();
             }
             ImGui::SeparatorText("Tunnels");
             tunnel_tone_row(a);
