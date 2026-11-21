@@ -323,6 +323,7 @@ void light_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow(PANEL_LIGHT, left);
     ImGui::DockBuilderDockWindow(PANEL_LIGHT_PHOTO, photo);
     ImGui::DockBuilderDockWindow(PANEL_LIGHT_COMPARE, compare);
+    ImGui::DockBuilderDockWindow(PANEL_TRACK_MASKS, compare);   // a tab beside the comparison (only an original track draws it)
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -385,9 +386,10 @@ int mode_panels(const App *a, const char *out[], int cap)
         return n < cap ? n : cap;
     }
     if (a->kind == APP_KIND_LIGHT) {
-        const char *const light[] = { PANEL_LIGHT, PANEL_LIGHT_PHOTO, PANEL_LIGHT_COMPARE };
-        for (int i = 0; i < 3 && i < cap; ++i) out[i] = light[i];
-        return cap < 3 ? cap : 3;
+        const char *const light[] = { PANEL_LIGHT, PANEL_LIGHT_PHOTO, PANEL_LIGHT_COMPARE, PANEL_TRACK_MASKS };
+        const int n = a->original_dir[0] != '\0' ? 4 : 3;   // the masks are an original track's
+        for (int i = 0; i < n && i < cap; ++i) out[i] = light[i];
+        return cap < n ? cap : n;
     }
     if (a->kind != APP_KIND_CAR) return 0;
     const char *const all[] = { PANEL_CAR, PANEL_MODEL, PANEL_RACE, PANEL_PREVIEW, PANEL_MASKS };
@@ -646,7 +648,8 @@ void publish_popup(App *a)
     ImGui::TextUnformatted("Copies the changed light files into the game's data/:");
     ImGui::TextDisabled("%s", a->data_dir);
     ImGui::Spacing();
-    ImGui::TextUnformatted(a->publish_text);
+    if (ImGui::BeginChild("##publishlist", ImVec2(560.0f, 220.0f), ImGuiChildFlags_Borders)) ImGui::TextUnformatted(a->publish_text);   // many new masks: it scrolls
+    ImGui::EndChild();
     ImGui::Spacing();
     if (ImGui::Button("Publish")) app_original_publish(a);
     ImGui::SameLine();
@@ -815,6 +818,25 @@ static ImTextureID job_texture(SDL_Renderer *ren, bool on, const LightPhotoJob &
     return reinterpret_cast<ImTextureID>(tex);
 }
 
+// the picked track mask over its texture as a texture: made again when a new picture was made (a->tmask_serial)
+static ImTextureID track_mask_texture(SDL_Renderer *ren, const App *a)
+{
+    static SDL_Texture *tex = nullptr;
+    static unsigned serial = 0;
+    if (a->tmask_rgba == nullptr) {
+        if (tex != nullptr) SDL_DestroyTexture(tex), tex = nullptr;
+        serial = 0;
+        return 0;
+    }
+    if (tex == nullptr || serial != a->tmask_serial) {
+        if (tex != nullptr) SDL_DestroyTexture(tex);
+        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, a->tmask_w, a->tmask_h);
+        if (tex != nullptr) SDL_UpdateTexture(tex, nullptr, a->tmask_rgba, a->tmask_w * 4);
+        serial = a->tmask_serial;
+    }
+    return reinterpret_cast<ImTextureID>(tex);
+}
+
 // the sheet as a texture: made again when a cell changed (a->sheet_serial)
 static ImTextureID sheet_texture(SDL_Renderer *ren, const App *a)
 {
@@ -966,6 +988,10 @@ void ui_frame(SDL_Renderer *ren, App *a)
         ImTextureID compare[LIGHT_COMPARE_SLOTS];
         light_compare_textures(ren, a, compare);
         if (panel_open(PANEL_LIGHT_COMPARE)) light_compare_panel(a, compare);
+        if (a->original_dir[0] != '\0') {
+            app_track_masks_load(a);   // the masks of an original track: scanned and made from the PSDs once per open
+            if (panel_open(PANEL_TRACK_MASKS)) track_masks_panel(a, track_mask_texture(ren, a));
+        }
     } else {
         start_screen(a);
     }

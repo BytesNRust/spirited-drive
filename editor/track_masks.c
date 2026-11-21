@@ -254,6 +254,78 @@ int track_masks_regenerate(const char *dir, const char *name, char *why, size_t 
     return write_png(dir, name, why, why_cap);
 }
 
+int track_masks_load(const char *dir, const char *name, unsigned char **marks, unsigned *w, unsigned *h)
+{
+    char psd[1100], png[1100];
+    paths(dir, name, psd, png, sizeof psd);
+    Marks m = { NULL, 0, 0 };
+    if (!png_marks(png, &m)) return 0;
+    *marks = m.marks, *w = m.w, *h = m.h;
+    return 1;
+}
+
+static int is_mask_item(const OriginalPublishItem *it) { return strncmp(it->file, "track_masks/", 12) == 0; }
+
+int track_masks_publish_plan(const char *dir, const char *data_dir, const char *stem, OriginalPublish *plan, char *why, size_t why_cap)
+{
+    char gen[1100];
+    snprintf(gen, sizeof gen, "%s/art-generated/track_masks", dir);
+    DIR *d = opendir(gen);
+    if (d == NULL) return 1;   /* no masks: nothing to publish */
+    for (struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
+        if (!is_png(e->d_name)) continue;
+        if (plan->count >= OT_PUBLISH_MAX) return closedir(d), say(why, why_cap, "%s: too many masks to publish", stem), 0;
+        OriginalPublishItem *it = &plan->item[plan->count];
+        memset(it, 0, sizeof *it);
+        snprintf(it->file, sizeof it->file, "track_masks/%s/%s", stem, e->d_name);
+        char mine[1200], theirs[1200];
+        snprintf(mine, sizeof mine, "%s/%s", gen, e->d_name);
+        snprintf(theirs, sizeof theirs, "%s/%s", data_dir, it->file);
+        Marks a = { NULL, 0, 0 }, b = { NULL, 0, 0 };
+        if (!png_marks(mine, &a)) { closedir(d); return say(why, why_cap, "%s does not read as a PNG", mine), 0; }
+        if (!png_marks(theirs, &b)) it->state = OT_NEW, ++plan->added;
+        else if (same(&a, &b)) it->state = OT_SAME, ++plan->same;
+        else {
+            it->state = OT_CHANGED, ++plan->changed;
+            if (a.w == b.w && a.h == b.h) {
+                for (size_t i = 0; i < (size_t)a.w * a.h; ++i) {
+                    if (a.marks[i] == b.marks[i]) continue;   // a texel that changes class (reflective to lamp) counts as the old mark lost and the new one gained
+                    it->lines_added += a.marks[i] != TRACK_MASK_NONE;
+                    it->lines_removed += b.marks[i] != TRACK_MASK_NONE;
+                }
+            }
+        }
+        free(a.marks), free(b.marks);
+        ++plan->count;
+    }
+    closedir(d);
+    return 1;
+}
+
+int track_masks_publish(const char *dir, const char *data_dir, const OriginalPublish *plan, int *written, char *why, size_t why_cap)
+{
+    for (int i = 0; i < plan->count; ++i) {
+        const OriginalPublishItem *it = &plan->item[i];
+        if (!is_mask_item(it) || it->state == OT_SAME) continue;
+        char mine[1200], theirs[1200], folder[1200];
+        snprintf(mine, sizeof mine, "%s/art-generated/track_masks/%s", dir, strrchr(it->file, '/') + 1);
+        snprintf(theirs, sizeof theirs, "%s/%s", data_dir, it->file);
+        snprintf(folder, sizeof folder, "%s/track_masks", data_dir);
+        mkdir(folder, 0777);
+        snprintf(folder, sizeof folder, "%s/%.*s", data_dir, (int)(strrchr(it->file, '/') - it->file), it->file);
+        mkdir(folder, 0777);
+        size_t len;
+        uint8_t *b = slurp(mine, &len);
+        FILE *f = b != NULL ? fopen(theirs, "wb") : NULL;
+        const int ok = f != NULL && fwrite(b, 1, len, f) == len;
+        if (f != NULL) fclose(f);
+        free(b);
+        if (!ok) return say(why, why_cap, "cannot write %s into the game's data", it->file), 0;
+        ++*written;
+    }
+    return 1;
+}
+
 const char *track_mask_state_text(TrackMaskState s)
 {
     switch (s) {

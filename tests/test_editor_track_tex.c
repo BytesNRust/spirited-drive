@@ -6,7 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "formats/chunk.h"
 #include "formats/psd_read.h"
+#include "game/race/track_art.h"
 #include "track_tex.h"
 
 static int g_fail;
@@ -23,6 +25,46 @@ static uint8_t *slurp(const char *path, size_t *len)
     *len = b != NULL && fread(b, 1, (size_t)n, f) == (size_t)n ? (size_t)n : 0;
     fclose(f);
     return b;
+}
+
+/* the Studio's reader (on the core alone) against the game's own loader, on all sixteen tracks: the same textures, sizes and pixels */
+static void against_the_game(const char *cd)
+{
+    static const char *const T[] = { "AL1", "AL2", "AL3", "CL1", "CL2", "CL3", "CY1", "CY2", "CY3", "TR1", "TR2", "TR3", "TR4", "TR5", "TR6", "TR7" };
+    static TrackArt art;
+    int compared = 0;
+    for (size_t t = 0; t < sizeof T / sizeof T[0]; ++t) {
+        char path[1024], why[200] = "";
+        snprintf(path, sizeof path, "%s/SIMDATA/ETRACKFM/%s_001.FAM", cd, T[t]);
+        size_t len = 0;
+        uint8_t *fam = slurp(path, &len);
+        Chunk root;
+        CHECK(fam != NULL && chunk_open(&root, fam, len) == CHUNK_OK && track_art_load(&art, &root) && art.has_palette, "%s: the game's loader reads it", T[t]);
+        TrackTexSet *set = track_tex_open(cd, T[t], why, sizeof why);
+        CHECK(set != NULL, "%s: %s", T[t], why);
+        int expect = 0;
+        for (int i = 0; fam != NULL && set != NULL && i < TRACK_TEXTURE_SLOTS + TRACK_SCENERY_TEXTURES; ++i) {
+            const int slot = i < TRACK_TEXTURE_SLOTS;
+            const TrackTexture *tx = slot ? &art.slots[i][0] : &art.scenery[i - TRACK_TEXTURE_SLOTS];
+            if (!tx->present) continue;
+            char name[32];
+            snprintf(name, sizeof name, slot ? "slot_%02d" : "scenery_%02d", slot ? i : i - TRACK_TEXTURE_SLOTS);
+            int w = 0, h = 0;
+            uint8_t *rgba = NULL;
+            CHECK(track_tex_rgba(set, name, &w, &h, &rgba) && w == tx->bitmap.width && h == tx->bitmap.height, "%s/%s: the Studio's reader has it, the same size", T[t], name);
+            for (int k = 0; rgba != NULL && k < w * h; ++k) {
+                const uint8_t v = tx->bitmap.payload[k];
+                if (memcmp(rgba + 4 * k, art.palette + 3 * v, 3) != 0 || rgba[4 * k + 3] != (v == 255 ? 0 : 255)) { CHECK(0, "%s/%s: texel %d differs", T[t], name, k); break; }
+            }
+            free(rgba);
+            ++expect;
+            ++compared;
+        }
+        CHECK(set != NULL && track_tex_count(set) == expect, "%s: %d textures, the game's loader %d", T[t], track_tex_count(set), expect);
+        track_tex_close(set);
+        free(fam);
+    }
+    printf("track_tex: %d textures equal to the game's loader\n", compared);
 }
 
 static void sizes_of_psds(const char *cd, const char *art)
@@ -92,6 +134,7 @@ int main(int argc, char **argv)
         track_tex_close(set);
     }
     CHECK(track_tex_open(argv[1], "ZZ9", why, sizeof why) == NULL && strstr(why, "ZZ9") != NULL, "a track with no file says so: %s", why);
+    against_the_game(argv[1]);
     if (argc > 2) sizes_of_psds(argv[1], argv[2]);
     printf("test_editor_track_tex: %s\n", g_fail == 0 ? "ok" : "FAILED");
     return g_fail != 0;

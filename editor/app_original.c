@@ -70,27 +70,3 @@ int app_original_can_publish(const App *a)
 {
     return a->kind == APP_KIND_LIGHT && a->original_dir[0] != '\0' && a->data_dir[0] != '\0' && !app_light_in_bundle(a->data_dir);
 }
-
-int app_original_publish_ask(App *a)
-{
-    OriginalPublish plan;
-    char why[OT_WHY] = "", stem[16];
-    if (!app_original_can_publish(a)) return snprintf(a->status, sizeof a->status, "publish: Studio has no game data folder (--port-data)"), 0;
-    if (app_modified(a)) return snprintf(a->status, sizeof a->status, "publish: Save the light file first"), 0;
-    if (!original_track_publish_plan(a->original_dir, a->data_dir, &plan, why, sizeof why)) return snprintf(a->status, sizeof a->status, "publish: %s", why), 0;
-    original_track_stem_of(a->original_dir, stem, sizeof stem);
-    original_track_publish_text(&plan, stem, a->publish_text, sizeof a->publish_text);
-    a->publish_dialog = 1;
-    return 1;
-}
-
-int app_original_publish(App *a)
-{
-    char why[OT_WHY] = "";
-    int written = 0;
-    a->publish_dialog = 0;
-    if (!app_original_can_publish(a)) return 0;
-    if (!original_track_publish(a->original_dir, a->data_dir, &written, why, sizeof why)) return snprintf(a->status, sizeof a->status, "publish: %s", why), 0;
-    snprintf(a->status, sizeof a->status, "published to the game: %d light file%s written into %s", written, written == 1 ? "" : "s", a->data_dir);
-    return 1;
-}

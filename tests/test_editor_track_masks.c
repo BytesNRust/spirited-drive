@@ -178,6 +178,43 @@ int main(void)
     CHECK(track_masks_scan(g_dir, NULL, 0, &m, why, sizeof why) && row(&m, "slot_20")->state == TM_BAD && row(&m, "slot_20")->note[0] != '\0', "a bad PSD says why");
     CHECK(strcmp(track_mask_state_text(TM_EDITED), "edited by hand") == 0, "words");
 
+    /* publish: every PNG against data/track_masks/<STEM>, compared as marks */
+    {
+        char data[300], plan_text[2048];
+        snprintf(data, sizeof data, "%s/data", g_dir);
+        mkdir(data, 0777);
+        OriginalPublish plan;
+        memset(&plan, 0, sizeof plan);
+        CHECK(track_masks_publish_plan(g_dir, data, "CL1", &plan, why, sizeof why), "publish plan: %s", why);
+        CHECK(plan.count == 6 && plan.added == 6 && plan.changed == 0, "the 6 PNGs are new: %d items, %d new", plan.count, plan.added);
+        int n = 0;
+        CHECK(track_masks_publish(g_dir, data, &plan, &n, why, sizeof why) && n == 6, "published %d: %s", n, why);
+        char copy[400];
+        snprintf(copy, sizeof copy, "%s/track_masks/CL1/slot_02.png", data);
+        CHECK(access(copy, F_OK) == 0, "the PNG is in data/track_masks/CL1");
+        memset(&plan, 0, sizeof plan);
+        CHECK(track_masks_publish_plan(g_dir, data, "CL1", &plan, why, sizeof why) && plan.same == 6 && plan.added == 0, "a second plan: all the same (%d)", plan.same);
+        /* data/ has another mask for slot_01: the game's is texel 1 only; ours has 0 and 2 -> +2 -1 */
+        {
+            uint8_t grey[4] = { 0, 255, 0, 0 }, *png = NULL;
+            size_t len = 0;
+            png_write_grey(grey, 4, 1, &png, &len);
+            snprintf(copy, sizeof copy, "%s/track_masks/CL1/slot_01.png", data);
+            FILE *f = fopen(copy, "wb");
+            if (f != NULL) fwrite(png, 1, len, f), fclose(f);
+            png_free(png);
+        }
+        memset(&plan, 0, sizeof plan);
+        CHECK(track_masks_publish_plan(g_dir, data, "CL1", &plan, why, sizeof why) && plan.changed == 1 && plan.same == 5, "one changed: %d", plan.changed);
+        int at = -1;
+        for (int i = 0; i < plan.count; ++i) if (plan.item[i].state == OT_CHANGED) at = i;
+        CHECK(at >= 0 && strcmp(plan.item[at].file, "track_masks/CL1/slot_01.png") == 0 && plan.item[at].lines_added == 2 && plan.item[at].lines_removed == 1, "+%d -%d texels", at >= 0 ? plan.item[at].lines_added : -1, at >= 0 ? plan.item[at].lines_removed : -1);
+        original_track_publish_text(&plan, "CL1", plan_text, sizeof plan_text);
+        CHECK(strstr(plan_text, "slot_01.png changed (+2 -1 texels)") != NULL && strstr(plan_text, "5 unchanged") != NULL, "text: %s", plan_text);
+        n = 0;
+        CHECK(track_masks_publish(g_dir, data, &plan, &n, why, sizeof why) && n == 1, "only the changed one is written: %d", n);
+    }
+
     /* a folder with neither */
     char other[300];
     snprintf(other, sizeof other, "%s/art-source", g_dir);
