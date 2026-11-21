@@ -9,6 +9,7 @@
 #ifndef TNFS_STUDIO_CAR_KIT_H
 #define TNFS_STUDIO_CAR_KIT_H
 
+#include "formats/car_kit_check.h"
 #include "formats/exchange.h"
 
 /* car build, without the talk: build/piece/ and build/<id>.zip made again from the kit's sources (the Studio window's Build runs it in a thread). `verbose`
@@ -18,5 +19,9 @@ int car_kit_build_dir(const char *kit, int verbose, ExchangeError *err);
 /* argv[0] is "car", argv[1] "kit" or "build". 0 with `err` filled on failure. */
 int car_kit_command(int argc, char **argv, ExchangeError *err);
 int car_build_command(int argc, char **argv, ExchangeError *err);
+/* tnfs-studio car check KIT_DIR: the kit's problems, one line each ("error|warning ID: text"), then the counts; fails when there is an error.
+ * car_kit_check_dir is the same check for a caller that shows them itself (the Studio's Problems panel): 0 with `err` when the kit cannot be read. */
+int car_check_command(int argc, char **argv, ExchangeError *err);
+int car_kit_check_dir(const char *kit, KitProblems *out, ExchangeError *err);
 
 #endif

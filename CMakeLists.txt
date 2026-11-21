@@ -75,6 +75,7 @@ add_library(tnfs_core STATIC
     core/formats/car_texture.c
     core/formats/car_import.c
     core/formats/car_kit.c
+    core/formats/car_kit_check.c
     core/formats/car_import_bank.c
     core/formats/car_import_mesh.c
     core/formats/car_import_tables.c
@@ -1137,7 +1138,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build shpi_flat cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_kit car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_height track_trace_profile track_trace_fence track_trace_stretch track_trace_strip)
+    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build shpi_flat cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_kit car_kit_check car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_height track_trace_profile track_trace_fence track_trace_stretch track_trace_strip)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})

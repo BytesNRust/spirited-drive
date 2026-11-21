@@ -203,3 +203,39 @@ int car_build_command(int argc, char **argv, ExchangeError *err)
     if (argc != 3) { exchange_fail(err, "usage: tnfs-studio car build KIT_DIR"); return 0; }
     return car_kit_build_dir(argv[2], 1, err);
 }
+
+int car_kit_check_dir(const char *kit, KitProblems *out, ExchangeError *err)
+{
+    char obj[PATH_MAX];
+    snprintf(obj, sizeof obj, "%s/%s/%s", kit, car_kit_path(CAR_KIT_NEAR_MESH), car_kit_path(CAR_KIT_MESH_OBJ));
+    if (!fsio_exists(obj)) { exchange_fail(err, "%s is not a car kit: it has no %s/%s (tnfs-studio car kit makes one)", kit, car_kit_path(CAR_KIT_NEAR_MESH), car_kit_path(CAR_KIT_MESH_OBJ)); return 0; }
+    size_t size = 0;
+    uint8_t *data = fsio_read_file(obj, &size, err);
+    if (data == NULL) return 0;
+    ObjModel model;
+    const int read = obj_read(data, size, NULL, 0, &model, err);
+    free(data);
+    if (!read) return 0;
+    const int ok = car_kit_check_wheels(&model, out);
+    obj_free(&model);
+    if (!ok) exchange_fail(err, "out of memory");
+    return ok;
+}
+
+int car_check_command(int argc, char **argv, ExchangeError *err)
+{
+    if (argc != 3) { exchange_fail(err, "usage: tnfs-studio car check KIT_DIR"); return 0; }
+    KitProblems problems;
+    kit_problems_init(&problems);
+    int ok = car_kit_check_dir(argv[2], &problems, err);
+    for (size_t i = 0; ok && i < problems.count; ++i)
+        printf("%s %s: %s\n", problems.item[i].severity == KIT_ERROR ? "error" : "warning", problems.item[i].id, problems.item[i].text);
+    if (ok) printf("%zu error%s, %zu warning%s\n", kit_problems_errors(&problems), kit_problems_errors(&problems) == 1 ? "" : "s",
+                   problems.count - kit_problems_errors(&problems), problems.count - kit_problems_errors(&problems) == 1 ? "" : "s");
+    if (ok && kit_problems_errors(&problems) > 0) {
+        exchange_fail(err, "the kit has errors: fix them before building");
+        ok = 0;
+    }
+    kit_problems_free(&problems);
+    return ok;
+}
