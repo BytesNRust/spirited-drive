@@ -712,7 +712,7 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet)
             char note[500];   // Test in race: who drives what, and where a traffic car is
             car_race_note(car, now != nullptr ? now->stem : "", note, sizeof note);
             char help[800];   // the detail, behind the (?) beside the buttons: no loose explanation in the panel
-            const int n = snprintf(help, sizeof help, "The game runs on a scratch player folder, with this project's masks.%s%s%s",
+            const int n = snprintf(help, sizeof help, "The game runs on a scratch player folder, with this project's masks. The car wears the colour chosen in Preview when the game's catalogue has it; then, in a Test drive, the rivals wear the game's own liveries too (the photo has no rivals).%s%s%s",
                                    traffic ? " A traffic or police car: City, Coastal or Alpine stages only." : "", note[0] != '\0' ? "\n\nTest drive: " : "", note);
             if (n < 0 || static_cast<size_t>(n) >= sizeof help) snprintf(help + sizeof help - 4, 4, "...");
             ImGui::BeginDisabled(busy);
