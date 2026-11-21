@@ -247,7 +247,7 @@ static void test_not_a_light_folder(void)
 
 /* the packaged app has no source tree: the window opens saying no folder is set, Choose... (app_light_set_folder) refuses what is no light folder and what would drop
  * unsaved edits, then takes the folder and keeps it; the game's own data folder is the default when it has track_light/ */
-static void test_choose_folder(void)
+static void test_choose_folder(const char *repo)
 {
     char pack[EXPORT_PATH + 64], dir[EXPORT_PATH + 64], found[EXPORT_PATH + 128];
     snprintf(pack, sizeof pack, "%s/pack", root);
@@ -268,21 +268,67 @@ static void test_choose_folder(void)
     CHECK(app_light_default_dir(program, found, sizeof found) && strstr(found, "Contents/MacOS/../Resources/data") != NULL);
     CHECK(!app_light_default_dir("", found, sizeof found) && !app_light_default_dir(NULL, found, sizeof found) && !app_light_default_dir("tnfs", found, sizeof found));
 
+    // inside an app bundle: no default, and Save refuses
+    CHECK(app_light_in_bundle("/Applications/X.app/Contents/Resources/data") && app_light_in_bundle("/a/X.app") && !app_light_in_bundle("/a/X.apple/data") && !app_light_in_bundle("/a/app/data") && !app_light_in_bundle(NULL));
+    char bundle[EXPORT_PATH + 64], saved[EXPORT_PATH + 64];
+    snprintf(bundle, sizeof bundle, "%s/Game.app", root);
+    mkdir(bundle, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents", bundle);
+    mkdir(dir, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents/MacOS", bundle);
+    mkdir(dir, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents/Resources", bundle);
+    mkdir(dir, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents/Resources/data", bundle);
+    mkdir(dir, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents/Resources/data/track_light", bundle);
+    mkdir(dir, 0777);
+    snprintf(program, sizeof program, "%s/Contents/MacOS/tnfs", bundle);
+    CHECK(!app_light_default_dir(program, found, sizeof found));   // the data has track_light/, but it is in a bundle
+    char keep[EXPORT_PATH + 64];
+    snprintf(keep, sizeof keep, "%s", light);
+    snprintf(light, sizeof light, "%s/Contents/Resources/data", bundle);
+    copy_repo_file(repo, "AL1B.txt");
+    snprintf(light, sizeof light, "%s", keep);
+    App *b = calloc(1, sizeof *b);
+    CHECK(b != NULL);
+    if (b == NULL) return;
+    app_begin(b, program, "", NULL);
+    CHECK(app_open_light(b) && !b->light.open && strstr(b->light.error, "Choose a light folder") != NULL && b->light_dir[0] == '\0');
+    snprintf(dir, sizeof dir, "%s/Contents/Resources/data", bundle);
+    CHECK(app_light_set_folder(b, dir) && b->light.open);   // looking at it is allowed
+    snprintf(saved, sizeof saved, "%s/Contents/Resources/data/track_light/AL1B.txt", bundle);
+    size_t n0 = 0;
+    char *before = read_file(saved, &n0);
+    CHECK(before != NULL);
+    const LightBrightness e = { 0, b->light.session.file.nodes - 1, 40 };
+    char reason[200];
+    CHECK(light_file_set_brightness(&b->light.session.file, -1, &e, reason, sizeof reason));
+    app_light_touch(b);
+    CHECK(!app_light_save(b) && strstr(b->light.error, "app bundle") != NULL);
+    size_t n1 = 0;
+    char *after = read_file(saved, &n1);
+    CHECK(after != NULL && n1 == n0 && before != NULL && memcmp(before, after, n0) == 0);   // the file was not touched
+    free(before);
+    free(after);
+    app_free(b);
+    free(b);
+
     App *a = calloc(1, sizeof *a);
     CHECK(a != NULL);
     if (a == NULL) return;
     app_begin(a, fake, "", NULL);   // a game with no data folder beside it, and no folder set
     CHECK(a->light_dir[0] == '\0');
-    CHECK(app_open_light(a) && a->kind == APP_KIND_LIGHT && !a->light.open && strstr(a->light.error, "No light folder") != NULL && a->light_dir[0] == '\0');
+    CHECK(app_open_light(a) && a->kind == APP_KIND_LIGHT && !a->light.open && strstr(a->light.error, "Choose a light folder") != NULL && a->light_dir[0] == '\0');
     CHECK(!app_modified(a) && !app_light_select(a, 1, 1) && !app_light_photo(a) && !app_light_busy(a));
     app_light_revert(a);   // nothing open: harmless
     CHECK(!app_light_set_folder(a, root) && !a->light.open && a->light.error[0] != '\0' && a->light_dir[0] == '\0');   // root has no track_light/
     CHECK(app_light_set_folder(a, light) && a->light.open && strcmp(a->light_dir, light) == 0 && a->light.error[0] == '\0');
     CHECK(strcmp(light_ui_track(a->light.track), "AL1") == 0 && a->light.time == 1);
     // unsaved edits: another folder is refused until they are saved or reverted
-    const LightBrightness b = { 0, a->light.session.file.nodes - 1, 40 };
+    const LightBrightness br = { 0, a->light.session.file.nodes - 1, 40 };
     char why[200];
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &b, why, sizeof why));
+    CHECK(light_file_set_brightness(&a->light.session.file, -1, &br, why, sizeof why));
     app_light_touch(a);
     CHECK(app_modified(a) && !app_light_set_folder(a, light) && strstr(a->light.error, "unsaved") != NULL);
     app_light_revert(a);
@@ -310,7 +356,7 @@ int main(int argc, char **argv)
     snprintf(record, sizeof record, "%s/record", root);
     test_flow();
     test_not_a_light_folder();
-    test_choose_folder();
+    test_choose_folder(repo);
     car_race_temp_remove(root);
     if (argc > 3) test_real_game(repo, argv[2], argv[3]);
     return TEST_REPORT();

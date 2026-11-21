@@ -55,6 +55,14 @@ static int open_session(LightUi *ui, const char *dir, int track, int time, char 
     return 1;
 }
 
+int app_light_in_bundle(const char *path)
+{
+    if (path == NULL) return 0;
+    for (const char *p = strstr(path, ".app"); p != NULL; p = strstr(p + 1, ".app"))
+        if (p[4] == '/' || p[4] == '\0') return 1;   /* a folder named *.app, anywhere on the way */
+    return 0;
+}
+
 int app_light_default_dir(const char *game, char *out, size_t cap)
 {
     if (game == NULL || game[0] == '\0' || cap == 0) return 0;
@@ -69,7 +77,7 @@ int app_light_default_dir(const char *game, char *out, size_t cap)
         snprintf(dir, sizeof dir, WHERE[i], base);
         snprintf(probe, sizeof probe, "%s/track_light", dir);
         struct stat st;
-        if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) {
+        if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode) && !app_light_in_bundle(dir)) {   /* never a default inside an app bundle: Save would break its signature */
             snprintf(out, cap, "%s", dir);
             return 1;
         }
@@ -100,7 +108,7 @@ int app_light_set_folder(App *a, const char *dir)
     return 1;
 }
 
-static const char *const NO_FOLDER = "No light folder is set: choose the folder that holds track_light/ (the game's data folder)";
+static const char *const NO_FOLDER = "Choose a light folder: none is set (pick a folder that holds track_light/ and is not inside an app)";
 
 int app_open_light(App *a)
 {
@@ -182,6 +190,12 @@ int app_light_save(App *a)
 {
     char why[APP_MSG];
     why[0] = '\0';
+    char where[LIGHT_SESSION_PATH];
+    light_session_path(&a->light.session, where, sizeof where);
+    if (app_light_in_bundle(where) || app_light_in_bundle(a->light_dir)) {
+        set_error(a, "not saved: this light file is inside an app bundle (*.app), and writing there breaks the app's signature: choose another light folder");
+        return 0;
+    }
     if (!light_session_save(&a->light.session, why, sizeof why)) {
         set_error(a, why);
         return 0;

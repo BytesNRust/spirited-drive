@@ -273,6 +273,8 @@ void app_set_light_dir(App *a, const char *dir);
 int app_open_light(App *a);
 /* The game's own light folder: <program's folder>/../Resources/data (a packaged app) or <program's folder>/data, the first that holds a track_light/ folder; 1 and its
  * path in `out`, else 0. A packaged Studio has no source tree to tune, so this is what it offers until a folder is chosen. */
+/* 1 when a path runs through a folder named *.app (Save refuses those; no default is taken there) */
+int app_light_in_bundle(const char *path);
 int app_light_default_dir(const char *game, char *out, size_t cap);
 /* The window on another light folder (the Choose... button): refused, with light.error and the status, while the working copy has unsaved changes or when the folder
  * is no light folder (light_session_open's reason); then nothing changes. 1 when it is on the folder, kept as a->light_dir for the rest of the session. */
