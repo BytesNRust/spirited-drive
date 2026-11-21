@@ -41,8 +41,8 @@ void picker(App *a)
         ImGui::EndCombo();
     }
     ImGui::SameLine();
-    help_marker("The CD's tracks, as the game's files name them. Their light files are the repo's data/track_light; TR5 has none: its light is made in code, so there is "
-                "nothing to edit for it. Changing track or time asks for Save or Revert first.");
+    help_marker("The CD's tracks, as the game's files name them. Their light files are the repo's data/track_light, one per time of day. Changing track or time asks for "
+                "Save or Revert first.");
     for (int t = 0; t < LIGHT_UI_TIMES; ++t) {
         if (t > 0) ImGui::SameLine();
         if (ImGui::RadioButton(light_ui_time_name(t), ui.time == t) && ui.time != t) app_light_select(a, ui.track, t);
