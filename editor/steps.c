@@ -15,8 +15,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -42,7 +42,7 @@ int steps_read(Steps *s, const char *text)
         snprintf(word, sizeof word, "%.*s", (int)strcspn(item, ":"), item);
         const int which = known(word);
         if (which < 0 || s->count == STEPS_MAX) {
-            fprintf(stderr, "--steps %s: edit, undo, redo, save, title, print, key:NAME, click:I, drag:I,DX,DY, drag-near:I,J,M, width:I,M, bank:I,DEG, height:I,M, problems, build, shift-click:I, cmd-click:I, box:X0,Z0,X1,Z1, row:I, shift-row:I, cmd-row:I, rotate:DEG, print-sel, print-profile, race, race-log or race-stop expected\n", item);
+            fprintf(stderr, "--steps %s: edit, undo, redo, save, title, print, key:NAME, click:I, drag:I,DX,DY, drag-near:I,J,M, width:I,M, bank:I,DEG, height:I,M, strip, profile-drag:I,DY, print-height:I, problems, build, shift-click:I, cmd-click:I, box:X0,Z0,X1,Z1, row:I, shift-row:I, cmd-row:I, rotate:DEG, print-sel, print-profile, race, race-log or race-stop expected\n", item);
             return 0;
         }
         snprintf(s->name[s->count], sizeof s->name[0], "%s", item);   /* "key:N", "click:2": the first number is after the colon */
@@ -73,6 +73,20 @@ static int point_at(const App *a, int i, float *x, float *y)
     double sx, sy;
     view_to_screen(&a->view, a->trace.points[i].x, a->trace.points[i].z, &sx, &sy);
     *x = a->canvas_x + (float)sx, *y = a->canvas_y + (float)sy;
+    return 1;
+}
+
+/* where in the window point i's mark in the Distance strip's profile is, as the strip drew it last frame; 0 when it is not on screen */
+static int mark_at(const App *a, int i, float *x, float *y)
+{
+    const double span = a->profile_drawn.hi - a->profile_drawn.lo;
+    if (a->kind != APP_KIND_TRACK || !a->profile_drawn.drawn || i < 0 || i >= a->trace.count || a->trace.count < 2 || !(span > 0)) return 0;
+    double *metres = malloc(sizeof *metres * (size_t)a->trace.count);
+    if (metres == NULL) return 0;
+    track_trace_point_distances(a->trace.points, a->trace.count, metres);
+    *x = a->profile_drawn.x + (float)(metres[i] / a->profile_drawn.total) * a->profile_drawn.width;
+    *y = a->profile_drawn.top + (float)((a->profile_drawn.hi - a->trace.points[i].h) / span) * (a->profile_drawn.bottom - a->profile_drawn.top);
+    free(metres);
     return 1;
 }
 
@@ -270,6 +284,11 @@ static int at_once(App *a, const char *name, const double *arg)
         app_set_point_width(a, point, arg[1]);
         return 1;
     }
+    if (strncmp(name, "print-height", 12) == 0) {   /* "height: I H": point I's height in metres */
+        const int point = (int)arg[0];
+        if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return 0;
+        return fprintf(stdout, "height: %d %.1f\n", point, a->trace.points[point].h), 1;
+    }
     if (strncmp(name, "height", 6) == 0) {   /* a point's height, as the Points window's h cell and the profile in the Distance strip set it */
         const int point = (int)arg[0];
         if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return 0;
@@ -377,11 +396,17 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x, s->from_y);
         return 1;
     }
+    if (strcmp(name, "strip") == 0) {   /* the Distance strip's tab to the front: set now, drawn by the next frame, which this step waits for */
+        if (p == 0) a->focus_strip = 1;
+        return p < 2;
+    }
     /* drag:I,DX,DY: to the point, down, DRAG_MOVES moves, up; drag-near:I,J,M the same to M metres before point J on the way from I */
     if (p == 0) {
-        if (!point_at(a, (int)arg[0], &s->from_x, &s->from_y)) return s->failed = 1, 0;
-        if (strncmp(name, "drag-near", 9) == 0 && !near_point(a, (int)arg[0], (int)arg[1], arg[2], s)) return s->failed = 1, 0;
-        if (strncmp(name, "drag-near", 9) != 0) s->to_x = s->from_x + (float)arg[1], s->to_y = s->from_y + (float)arg[2];
+        const int profile = strncmp(name, "profile-drag", 12) == 0;   /* profile-drag:I,DY: point I's mark in the strip's profile, dragged DY pixels (down is lower) */
+        if (!(profile ? mark_at(a, (int)arg[0], &s->from_x, &s->from_y) : point_at(a, (int)arg[0], &s->from_x, &s->from_y))) return s->failed = 1, 0;
+        if (profile) s->to_x = s->from_x, s->to_y = s->from_y + (float)arg[1];
+        else if (strncmp(name, "drag-near", 9) == 0 && !near_point(a, (int)arg[0], (int)arg[1], arg[2], s)) return s->failed = 1, 0;
+        if (!profile && strncmp(name, "drag-near", 9) != 0) s->to_x = s->from_x + (float)arg[1], s->to_y = s->from_y + (float)arg[2];
         mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x, s->from_y);
     } else if (p == 1) {
         mouse(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y);

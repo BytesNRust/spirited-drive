@@ -156,6 +156,12 @@ typedef struct {
     TraceKey *clip_keys;
     int clip_key_count;
     int dirty;                   /* the trace changed since the road was computed */
+    struct {                     /* the height profile as the Distance strip drew it this frame (strip_panel.cpp); drawn 0 while its tab is not on screen: --steps profile-drag */
+        int drawn;
+        float x, width, top, bottom;   /* the curve's left edge and width in the window, the rows of its highest and lowest height */
+        double lo, hi, total;          /* the heights at those rows, the road's length in metres */
+    } profile_drawn;
+    int focus_strip;             /* set: the Distance strip's tab is brought to the front by the next frame (--steps strip) */
     int colour_by;               /* the Viewport's Colour by mode (TraceColourBy, 0 Limits); not saved with the project */
     uint8_t *node_class;         /* each node's class in colour_by, made by app_colour_classes; NULL until then and whenever the road is made again */
     int node_class_mode;

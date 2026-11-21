@@ -32,6 +32,9 @@
  *   width:I,M      a road key's width on point I set to M metres, as the Points window sets it
  *   bank:I,DEG     a road key's bank on point I set to DEG degrees, as the Road profile's bank cell sets it
  *   height:I,M     point I's height set to M metres, as the Points window's h cell and the profile in the Distance strip set it (dep95)
+ *   strip          the Distance strip's tab brought to the front (a hidden tab draws nothing)
+ *   profile-drag:I,DY   point I's mark in the strip's profile pressed, moved DY pixels (down is lower) in four moves, let go: the height it means (needs strip first)
+ *   print-height:I      point I's height printed ("height: 2 12.3")
  *   problems       what Problems shows first: "problems: refusal TEXT" (Build's words), "problems: red node N" or "problems: none"
  *   build          Build, as its button: what it says printed ("build: built ID.zip" or "build: build refused: ...")
  *   race           a car's Test in race, as its button: the game's command line printed ("race: ...") and its TNFS_ environment ("race env: ...")

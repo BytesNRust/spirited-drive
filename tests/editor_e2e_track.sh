@@ -66,6 +66,19 @@ t = json.load(open(sys.argv[1]))
 sys.exit(0 if t['version'] < 5 and all(len(q) == 2 for q in t['points']) else 1)" \
     "$work/hill/trace.json" || fail "a flat project is not saved as before heights: $(cat "$work/hill/trace.json")"
 
+# 2c3. The profile as a user drags it (dep95): the Distance strip's tab to the front, a press on point 2's mark, a move 24 pixels up, a release: the height has
+# changed (up is higher), it is one step to undo (the undo gives the height back exactly) and a redo gives the drag back
+"$editor" "$work/hill2" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (hill2): $(cat "$work/log")"
+"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:2,10,strip,print-height:2,profile-drag:2,-24,print-height:2,undo,print-height:2,redo,print-height:2 \
+    >"$work/log" 2>&1 || fail "the profile's drag: $(cat "$work/log")"
+grep '^height: 2 ' "$work/log" | cut -d' ' -f3 > "$work/heights"
+[ "$(sed -n '$=' "$work/heights")" = 4 ] || fail "not every height came: $(cat "$work/heights")"
+h() { sed -n "${1}p" "$work/heights"; }
+[ "$(h 1)" = 10.0 ] || fail "the start height is not 10: $(h 1)"
+awk -v a="$(h 1)" -v b="$(h 2)" 'BEGIN { exit !(b > a) }' || fail "dragging the mark up did not raise the height: $(h 1) -> $(h 2)"
+[ "$(h 3)" = "$(h 1)" ] || fail "one undo did not give the height back: $(h 1) / $(h 3)"
+[ "$(h 4)" = "$(h 2)" ] || fail "redo did not give the drag back: $(h 2) / $(h 4)"
+
 # 2d. A point dragged too near the next (17 m before it, on a new project): the nodes bunch up with no red node; Problems says so in red in
 # Build's words before Build, and Build refuses with those words
 "$editor" "$work/near" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (near): $(cat "$work/log")"

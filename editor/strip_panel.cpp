@@ -20,6 +20,7 @@ namespace {
 
 const float ROW_H = 16.0f, LABEL_PAD = 8.0f, MIN_TICK_PX = 70.0f;
 const float PROFILE_H = 130.0f, HANDLE_R = 4.5f, PICK_PX = 9.0f;   // the profile's height, a point's mark and how near the mouse picks it
+const float LABEL_MIN_PX = 72.0f, LABEL_MAX_SHARE = 0.3f;   // the row names' column is at most this share of the window (never under the minimum)
 const int CURVE_STEPS = 12;                                         // line pieces per segment of the curve
 
 TraceGradeUnit grade_unit = TRACE_GRADE_PERCENT;   // the % / degrees switch, kept while the program runs
@@ -141,6 +142,7 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
     snprintf(text, sizeof text, "%.0f m", lo);
     draw->AddText(ImVec2(origin.x - label - LABEL_PAD, bottom - ImGui::GetFontSize() + 3), ink, text);
 
+    a->profile_drawn = { 1, origin.x, width, top, bottom, lo, hi, total };
     draw->PushClipRect(box0, box1, true);
     const ImU32 level = ImGui::GetColorU32(ImGuiCol_PlotLines), steep = IM_COL32(230, 70, 60, 255);
     for (int seg = 0; seg + 1 < count; ++seg) {
@@ -230,6 +232,11 @@ void strip_panel(App *a)
 {
     const ImGuiID beside = panels_limits_dock();
     if (beside != 0) ImGui::SetNextWindowDockID(beside, ImGuiCond_FirstUseEver);   // a tab beside Limits
+    a->profile_drawn.drawn = 0;
+    if (a->focus_strip) {
+        ImGui::SetNextWindowFocus();
+        a->focus_strip = 0;
+    }
     if (ImGui::Begin(PANEL_STRIP)) {
         const int count = a->trace.count;
         std::vector<double> metres((size_t)std::max(count, 0), 0.0);
@@ -244,6 +251,7 @@ void strip_panel(App *a)
             float label = 0;
             const std::vector<Channel> rows = channels();
             for (const Channel &row : rows) label = std::max(label, ImGui::CalcTextSize(row.label).x);
+            label = std::min(label, std::max(LABEL_MIN_PX, ImGui::GetContentRegionAvail().x * LABEL_MAX_SHARE));   // a narrow window keeps room for the bars: long names are cut
             const float width = std::max(ImGui::GetContentRegionAvail().x - label - LABEL_PAD - ImGui::GetStyle().ScrollbarSize, 60.0f);
             ImVec2 at = ImGui::GetCursorScreenPos();
             ruler(total, ImVec2(at.x + label + LABEL_PAD, at.y), width);
@@ -262,7 +270,9 @@ void strip_panel(App *a)
                 runs.assign((size_t)n, TraceStripRun{ 0, 0, 0 });
                 track_trace_strip_runs(a->trace.keys, a->trace.key_count, count, row.bit, runs.data(), n);
                 ImGui::AlignTextToFramePadding();
+                ImGui::PushClipRect(at, ImVec2(at.x + label, at.y + ROW_H), true);
                 ImGui::TextUnformatted(row.label);
+                ImGui::PopClipRect();
                 const ImVec2 origin(at.x + label + LABEL_PAD, at.y);
                 const int over = bars(runs, metres, total, origin, width);
                 ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + ROW_H + 2));
