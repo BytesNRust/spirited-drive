@@ -35,7 +35,7 @@ int app_dash_possible(const App *a, char *why, size_t why_cap)
     if (!app_psd_psd_dir(a, dir, sizeof dir)) return snprintf(why, why_cap, "No folder named %s in the PSD folder: the dash comes from its dash.psd", a->car.folder), 0;
     if (a->tools[0] == '\0') return snprintf(why, why_cap, "The converter scripts (the repository's tools folder) are not beside this program"), 0;
     if (!app_psd_python_ready(a)) return app_psd_python_note(a, why, why_cap), 0;
-    if (app_psd_busy(a) || car_race_busy(&a->race)) return snprintf(why, why_cap, "Wait for the run in progress"), 0;
+    if (app_psd_busy(a) || car_race_busy(&a->race) || a->sheet_active) return snprintf(why, why_cap, "Wait for the run in progress"), 0;
     return 1;
 }
 
