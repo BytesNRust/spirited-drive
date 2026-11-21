@@ -758,9 +758,7 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet)
             const ImVec2 room = ImGui::GetContentRegionAvail();
             const ImVec2 size = sheet_size(a);
             const float sw = size.x, sh = size.y;
-            float w = room.x < sw ? room.x : sw;
-            const float high = room.y - 90.0f > 120.0f ? room.y - 90.0f : 120.0f;
-            if (w * sh / sw > high) w = high * sw / sh;
+            const float w = room.x < sw ? room.x : sw;   // the pane's width, however low it is: a sheet is wide, the pane scrolls
             ImGui::Image(sheet, ImVec2(w, w * sh / sw));
         } else if (a->race.photo != nullptr && photo != 0) {   // the picture, as big as the window leaves room for beside the log's few lines
             const ImVec2 room = ImGui::GetContentRegionAvail();
