@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """One-time migration of the original tracks' mask PSDs (dep103): a PSD whose "mask" layer is empty (nothing painted, only the hidden "draft" layer is there) gets its "mask" layer
 filled from the mask PNG the game uses today (data/track_masks/<TRACK>/<name>.png: the auto-draft guess), so the PSD becomes a real source that reproduces that PNG.
-Every other layer of the PSD is copied byte for byte (tools/psd_edit.py). A PSD whose mask is painted is not touched. Never run it on the owner's art/ folder: it refuses a folder that is
-not a workspace's <TRACK>/art-source/masks (it writes in place, and the copies in the workspace are what it is for).
+Every other layer of the PSD is copied byte for byte (tools/psd_edit.py). A PSD whose mask is painted is not touched. It writes in place and only looks in <TRACK>/art-source/masks, a workspace's copies: the owner's art/ folder (flat <TRACK>/<name>.psd) is never read as a target.
 
 The filled layer is what track_mask_from_psd.py reads back: white opaque for a reflective texel, yellow (255, 255, 0) opaque for a lamp's mark, transparent elsewhere; the layer's own
 opacity (50% in the PSDs track_mask_psd.py writes) stays as it was.
