@@ -277,6 +277,16 @@ if [ -f "$p911" ]; then
     cmp -s "$work/m1.png" "$work/m4.png" && fail "the shine off drew the same window as on"
     "$editor" "$k911" --frames 2 --shine maybe >"$work/log" 2>&1 && fail "a bad --shine was accepted"
     grep -q "on or off" "$work/log" || fail "no word about --shine: $(cat "$work/log")"
+    # the Wheels (Still / Slow / Fast): three pictures, each the same every run (Slow shows its first frame headless); a bad --wheels is refused
+    for w in still slow fast; do
+        "$editor" "$work/k911" --frames 4 --orbit 270,0 --wheels $w --shot "$work/w_$w.png" >"$work/log" 2>&1 || fail "run on the 911 with the wheels $w: $(cat "$work/log")"
+    done
+    "$editor" "$work/k911" --frames 4 --orbit 270,0 --wheels slow --shot "$work/w_slow2.png" >"$work/log" 2>&1 || fail "run on the 911 with slow wheels again"
+    cmp -s "$work/w_still.png" "$work/w_slow.png" && fail "Wheels Still and Slow drew the same window"
+    cmp -s "$work/w_slow.png" "$work/w_fast.png" && fail "Wheels Slow and Fast drew the same window"
+    cmp -s "$work/w_still.png" "$work/w_fast.png" && fail "Wheels Still and Fast drew the same window"
+    cmp -s "$work/w_slow.png" "$work/w_slow2.png" || fail "headless Wheels Slow drew two different windows"
+    "$editor" "$work/k911" --frames 2 --wheels spinning >"$work/log" 2>&1 && fail "a bad --wheels was accepted"
     cmp -s "$work/m1.png" "$work/stub.png" && fail "the 911 looks like a car that cannot be drawn"
 fi
 

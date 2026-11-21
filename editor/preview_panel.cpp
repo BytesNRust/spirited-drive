@@ -193,6 +193,37 @@ void lights_header(App *a)
 
 }   // namespace
 
+// one of the four wheel frames (tyr1..tyr4 of the high bank): the race swaps between them by speed, so the window shows them side by side
+static bool is_wheel_frame(const PreviewTex &t)
+{
+    return t.info.level == 0 && memcmp(t.info.name, "tyr", 3) == 0 && t.info.name[3] >= '1' && t.info.name[3] <= '4';
+}
+
+// the wheel frames in a row, tyr1 to tyr4 (still, the slow pair, the blur), as big as fits the width; false when the car has none
+static bool wheel_row_draw(const CarPreview &p, float width)
+{
+    int at[4] = { -1, -1, -1, -1 };
+    for (int i = 0; i < p.count; ++i)
+        if (is_wheel_frame(p.tex[i])) at[p.tex[i].info.name[3] - '1'] = i;
+    int first = -1;
+    for (int k = 0; k < 4 && first < 0; ++k) first = at[k];
+    if (first < 0) return false;
+    const float tw = static_cast<float>(p.tex[first].info.width);
+    const float scale = fmaxf(1.0f, fminf(6.0f, floorf((width - 3 * 12.0f) / (4.0f * tw))));
+    bool any = false;
+    for (int k = 0; k < 4; ++k) {
+        const int i = at[k];
+        if (i < 0) continue;
+        if (any) ImGui::SameLine();
+        any = true;
+        ImGui::BeginGroup();
+        ImGui::Text("%s  %dx%d", p.tex[i].info.name, p.tex[i].info.width, p.tex[i].info.height);
+        if (shown.tex[i] != nullptr) ImGui::Image(reinterpret_cast<ImTextureID>(shown.tex[i]), ImVec2(p.tex[i].info.width * scale, p.tex[i].info.height * scale));
+        ImGui::EndGroup();
+    }
+    return any;
+}
+
 void preview_panel(App *a, SDL_Renderer *ren)
 {
     int &paint = a->preview_paint;   // the card's paint shown; -1 the car as its file has it
@@ -260,11 +291,14 @@ void preview_panel(App *a, SDL_Renderer *ren)
             ImGui::BeginChild("textures", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
             const float width = ImGui::GetContentRegionAvail().x;
             float x = 0;
+            const bool wheel_row = wheel_row_draw(p, width);
+            if (wheel_row) x = width;   // the rest starts on a line of its own
             for (int i = 0; i < p.count; ++i) {
                 const PreviewTex &t = p.tex[i];
+                if (is_wheel_frame(t)) continue;   // the wheel frames are drawn first, in one row
                 const float scale = fminf(6.0f, fmaxf(1.0f, floorf(260.0f / (float)t.info.width)));
                 const float w = fmaxf(t.info.width * scale, 120.0f);
-                if (i > 0 && x + w + 12 < width) ImGui::SameLine();
+                if (x > 0 && x + w + 12 < width) ImGui::SameLine();
                 else x = 0;
                 if (a->preview_focus[0] != '\0' && t.info.level == 0 && memcmp(t.info.name, a->preview_focus, 4) == 0) ImGui::SetScrollHereY(0.0f);
                 ImGui::BeginGroup();
