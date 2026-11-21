@@ -4,6 +4,7 @@
 // turns it by itself. Painted as the Preview window paints it (car_preview), in its Day / Night and lamps.
 #include "panels.h"
 #include "help_marker.h"
+#include "model_view.h"
 
 #include "imgui.h"
 
@@ -274,18 +275,27 @@ void central_palette_of(const App *a)
     if (!g.cpal_ok && g.cpal_why[0] == '\0') snprintf(g.cpal_why, sizeof g.cpal_why, "The game's files were not found: start the editor with --cd DIR or Locate game.");
 }
 
-void card_view_controls(const App *a)
+// the View: the car on its own, over the card's backdrop at the card's proportions (what Use as card photo saves), or in Control Central's palette as the game draws the card
+void view_controls(const App *a)
 {
     central_palette_of(a);
-    if (ImGui::Checkbox("Card view", &g.card_view)) g.dirty = true;
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("The picture at the card's 309 x 166 proportions over the card's backdrop: what Use as card photo saves. The shaded corner is where Control Central writes the car's name.");
+    ModelView view = model_view_of(g.card_view, g.as_card);
+    for (int v = 0; v < MODEL_VIEWS; ++v) {
+        if (v > 0) ImGui::SameLine();
+        const bool unusable = v == MODEL_VIEW_GAME && !g.cpal_ok;
+        ImGui::BeginDisabled(unusable);
+        if (ImGui::RadioButton(model_view_name(static_cast<ModelView>(v)), view == v)) {
+            int card = 0, as_card = 0;
+            model_view_flags(static_cast<ModelView>(v), &card, &as_card);
+            g.card_view = card != 0, g.as_card = as_card != 0, g.dirty = true;
+        }
+        ImGui::EndDisabled();
+        if (unusable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", g.cpal_why);
+    }
     ImGui::SameLine();
-    ImGui::BeginDisabled(!g.card_view || !g.cpal_ok);
-    if (ImGui::Checkbox("As on the card", &g.as_card)) g.dirty = true;
-    ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", !g.cpal_ok ? g.cpal_why : !g.card_view ? "Needs Card view." : "The picture in Control Central's palette, dithered as the game does it when it draws the card.");
+    help_marker("Model: the car on its own.\n"
+                "Card: the picture at the card's 309 x 166 proportions over the card's backdrop, what Use as card photo saves. The shaded corner is where Control Central writes the car's name.\n"
+                "As the game draws it: the card picture in Control Central's palette, dithered as the game does it.");
 }
 
 void backdrop_controls(App *a)
@@ -334,9 +344,9 @@ void backdrop_controls(App *a)
     }
 }
 
-void card_photo_button(App *a)
+void card_photo_button(App *a, bool model_only)
 {
-    ImGui::BeginDisabled(g.scene == nullptr || a->car.masks_only);
+    ImGui::BeginDisabled(g.scene == nullptr || a->car.masks_only || model_only);   // (the Model view makes no card picture: the Card row says so)
     if (ImGui::Button("Use as card photo")) {
         char dir[APP_PATH];
         car_project_card_dir(&a->car, dir, sizeof dir);
@@ -356,8 +366,17 @@ void card_photo_button(App *a)
     }
 }
 
+// the first word of a toolbar row: what the row is for
+void row_label(const char *text)
+{
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextDisabled("%s", text);
+    ImGui::SameLine(ImGui::CalcTextSize("Camera").x + ImGui::GetStyle().ItemSpacing.x * 3.0f);
+}
+
 void toolbar(App *a)
 {
+    row_label("Camera");
     if (ImGui::Button("Front")) orbit_view(&g.orbit, ORBIT_FRONT), g.dirty = true;
     ImGui::SameLine();
     if (ImGui::Button("Side")) orbit_view(&g.orbit, ORBIT_SIDE), g.dirty = true;
@@ -370,17 +389,17 @@ void toolbar(App *a)
     ImGui::SameLine();
     if (ImGui::Checkbox("Auto-rotate", &g.auto_rotate)) g.dirty = true;
     ImGui::SameLine();
+    help_marker(g.shine && g.shines ? "Drag to turn, wheel to zoom; keys F, S, R, T and Home for the views.\n"
+                                      "Shine: its tones come from the car's own colours (a race takes them from the screen's)."
+                                    : "Drag to turn, wheel to zoom; keys F, S, R, T and Home for the views.");
+
+    row_label("Look");
     if (ImGui::Checkbox("Shine", &g.shine)) g.shine_asked = true;
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("The body's shine as the race draws it, where the masks say paint or shine (matte texels stay as they are).\n"
                           "Its tones are taken from the car's own colours; in a race, from the screen's.%s",
                           g.envmap[0] != '\0' ? "\nThe kit's car_envmap.png is the sky it reflects." : "");
     ImGui::SameLine();
-    card_photo_button(a);
-    ImGui::SameLine();
-    card_view_controls(a);
-    backdrop_controls(a);
-    ImGui::SameLine(0.0f, ImGui::GetStyle().ItemSpacing.x * 3.0f);   // apart from the backdrop's swatch
     static const char *const WHEELS[] = { "Still", "Slow", "Fast" };
     ImGui::TextUnformatted("Wheels");
     ImGui::SameLine();
@@ -395,6 +414,21 @@ void toolbar(App *a)
                           "Still: the car at rest or crawling (tire1).\n"
                           "Slow: turning, tire2 and tire3 swapped at the game's pace (30 a second).\n"
                           "Fast: the blur (tire4), from the speed the race stops swapping.");
+
+    row_label("View");
+    view_controls(a);
+
+    row_label("Card");   // the backdrop and the card photo are the card's: with the View on the Model they are there, greyed, and say why
+    const bool model_only = !g.card_view;
+    ImGui::BeginDisabled(model_only);
+    backdrop_controls(a);
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    card_photo_button(a, model_only);
+    if (model_only) {
+        ImGui::SameLine();
+        help_marker("Pick View: Card to see the backdrop and to make the card photo.");
+    }
 }
 
 void turn_and_zoom()
@@ -515,11 +549,10 @@ void model_panel(App *a, SDL_Renderer *ren)
                     draw->AddRect(from, to, IM_COL32(255, 255, 255, 60));
                 }
                 // the Preview's words: a paint chosen is the race's; none (or a car the paint cannot be made for) is the base texture
-                ImGui::TextDisabled("%s", g.painted && rgb != nullptr ? "As the race paints it." : "Base texture (no colour).");
-                ImGui::SameLine();
-                help_marker(g.shine && g.shines ? "Drag to turn, wheel to zoom; keys F, S, R, T and Home for the views.\n"
-                                                  "Shine: its tones come from the car's own colours (a race takes them from the screen's)."
-                                                : "Drag to turn, wheel to zoom; keys F, S, R, T and Home for the views.");
+                char caption[96];
+                const bool painted = g.painted && rgb != nullptr;
+                model_paint_caption(painted ? a->edit.now.paints[paint].name : nullptr, painted, caption, sizeof caption);
+                ImGui::TextDisabled("%s", caption);
                 if (g.shine && !g.shines) ImGui::TextDisabled("Shine: no texel of this car shines (its masks mark none as paint or shine).");
             }
         }
