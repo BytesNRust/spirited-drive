@@ -567,7 +567,7 @@ static int run_requested(App *a, const Options *o)
             uint8_t *png = NULL;
             size_t len = 0;
             FILE *f = NULL;
-            made = png_write_rgba(a->race.photo, (uint32_t)a->race.photo_w, (uint32_t)a->race.photo_h, &png, &len) == PNG_OK && (f = fopen(o->race_png, "wb")) != NULL &&
+            made = png_write_rgba_fast(a->race.photo, (uint32_t)a->race.photo_w, (uint32_t)a->race.photo_h, &png, &len) == PNG_OK && (f = fopen(o->race_png, "wb")) != NULL &&
                    fwrite(png, 1, len, f) == len;
             if (f != NULL) fclose(f);
             free(png);

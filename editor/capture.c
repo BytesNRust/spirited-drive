@@ -18,7 +18,7 @@ static int save_rgba_png(SDL_Surface *surface, const char *path, char *why, size
         memcpy(tight + (size_t)row * w * 4, (const uint8_t *)surface->pixels + (size_t)row * (size_t)surface->pitch, (size_t)w * 4);
     uint8_t *png = NULL;
     size_t len = 0;
-    const int encoded = png_write_rgba(tight, w, h, &png, &len) == PNG_OK;
+    const int encoded = png_write_rgba_fast(tight, w, h, &png, &len) == PNG_OK;
     free(tight);
     if (!encoded) {
         snprintf(why, why_cap, "the picture does not encode");

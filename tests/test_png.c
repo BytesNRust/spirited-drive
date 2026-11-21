@@ -101,22 +101,82 @@ static void test_chunk_past_the_end(void)
 }
 
 /* An 8-bit indexed 2x2 image as an external encoder might write it: Paeth and Sub filters. */
-static void test_filters(void)
+/* a byte of the compressed data changed: the CRC no longer matches and the reader calls that corrupt (the writer compresses, so the bytes are not ours to edit by hand) */
+static void test_corrupt(void)
 {
-    /* Built with the writer, then rows re-encoded: filter 1 (Sub) on row 0 and 2 (Up) on row 1. */
     uint8_t pal[768] = {0};
     const uint8_t px[4] = { 10, 20, 15, 30 };
     uint8_t *file = NULL;
     size_t len = 0;
     CHECK_EQ_INT(png_write_indexed(px, 2, 2, pal, &file, &len), PNG_OK);
-    /* locate the stored data: IDAT body starts after sig(8)+IHDR(25)+PLTE(780)+len/type(8)+zlib hdr(2)+block hdr(5) */
-    uint8_t *raw = file + 8 + 25 + 780 + 8 + 2 + 5;
-    CHECK_EQ_INT(raw[0], 0);
-    raw[0] = 1; raw[1] = 10; raw[2] = 10;          /* Sub: 10, 10+10 */
-    raw[3] = 2; raw[4] = 5; raw[5] = 10;           /* Up: 10+5, 20+10 */
-    /* the CRC and Adler no longer match the edited bytes: the reader must call that corrupt */
+    file[8 + 25 + 780 + 8 + 3] ^= 0x55;   /* inside the IDAT body */
     PngImage img;
     CHECK_EQ_INT(png_read(file, len, &img), PNG_ERR_CORRUPT);
+    free(file);
+}
+
+/* the writer compresses and filters: a mask (flat areas, a few classes) comes out small, any picture reads back exactly, noise is not made much bigger, and the same
+ * picture is the same bytes twice */
+static uint32_t rng_state = 12345;
+static uint8_t rng(void)
+{
+    rng_state = rng_state * 1664525u + 1013904223u;
+    return (uint8_t)(rng_state >> 24);
+}
+
+static void test_compressed(void)
+{
+    enum { W = 300, H = 200 };
+    static uint8_t grey[W * H], rgba[W * H * 4], noise[W * H];
+    for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+            const uint8_t v = x < 100 ? 0 : (x < 200 ? 255 : (y < 100 ? 128 : 224));
+            grey[y * W + x] = v;
+            rgba[4 * (y * W + x)] = v, rgba[4 * (y * W + x) + 1] = (uint8_t)(255 - v), rgba[4 * (y * W + x) + 2] = (uint8_t)(x * y), rgba[4 * (y * W + x) + 3] = 255;
+            noise[y * W + x] = rng();
+        }
+    uint8_t *file = NULL, *again = NULL;
+    size_t len = 0, len2 = 0;
+    PngImage img;
+    CHECK_EQ_INT(png_write_grey(grey, W, H, &file, &len), PNG_OK);
+    CHECK(len < (size_t)(W * H) / 20);   /* stored, it was the raw size */
+    CHECK_EQ_INT(png_write_grey(grey, W, H, &again, &len2), PNG_OK);
+    CHECK(len == len2 && memcmp(file, again, len) == 0);
+    CHECK_EQ_INT(png_read(file, len, &img), PNG_OK);
+    CHECK(img.width == W && img.height == H);
+    CHECK(!img.indexed);   /* a grey picture comes back as RGBA */
+    for (int i = 0; i < W * H; ++i)
+        if (img.pixels[i * 4] != grey[i]) { CHECK(0); break; }
+    png_free(img.pixels);
+    free(file), free(again);
+
+    CHECK_EQ_INT(png_write_rgba(rgba, W, H, &file, &len), PNG_OK);
+    CHECK_EQ_INT(png_read(file, len, &img), PNG_OK);
+    CHECK(img.width == W && img.height == H && memcmp(img.pixels, rgba, sizeof rgba) == 0);
+    png_free(img.pixels);
+    free(file);
+
+    uint8_t pal[768];
+    for (int i = 0; i < 768; ++i) pal[i] = (uint8_t)(i * 7);
+    CHECK_EQ_INT(png_write_indexed(noise, W, H, pal, &file, &len), PNG_OK);
+    CHECK(len < (size_t)(W * H) + (size_t)(W * H) / 50 + 1200);   /* noise stays near its raw size */
+    CHECK_EQ_INT(png_read(file, len, &img), PNG_OK);
+    CHECK(img.indexed && img.width == W && img.height == H && memcmp(img.pixels, noise, sizeof noise) == 0 && memcmp(img.palette, pal, sizeof pal) == 0);
+    png_free(img.pixels);
+    free(file);
+
+    CHECK_EQ_INT(png_write_rgba_fast(rgba, W, H, &file, &len), PNG_OK);   /* the fast writer: the same picture, not compressed */
+    CHECK(len > (size_t)(W * H * 4));
+    CHECK_EQ_INT(png_read(file, len, &img), PNG_OK);
+    CHECK(img.width == W && img.height == H && memcmp(img.pixels, rgba, sizeof rgba) == 0);
+    png_free(img.pixels);
+    free(file);
+
+    const uint8_t one[1] = { 77 };   /* the smallest picture */
+    CHECK_EQ_INT(png_write_grey(one, 1, 1, &file, &len), PNG_OK);
+    CHECK_EQ_INT(png_read(file, len, &img), PNG_OK);
+    CHECK(img.width == 1 && img.height == 1);
+    png_free(img.pixels);
     free(file);
 }
 
@@ -126,6 +186,7 @@ int main(void)
     test_large_and_sizes();
     test_rgba();
     test_chunk_past_the_end();
-    test_filters();
+    test_corrupt();
+    test_compressed();
     return TEST_REPORT();
 }

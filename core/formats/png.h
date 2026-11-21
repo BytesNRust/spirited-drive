@@ -32,6 +32,9 @@ PngResult png_write_indexed(const uint8_t *indices, uint32_t width, uint32_t hei
 /* A grey 8-bit picture: `grey` is width x height bytes, one level a texel (the masks' format, data/car_masks). */
 PngResult png_write_grey(const uint8_t *grey, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len);
 PngResult png_write_rgba(const uint8_t *rgba, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len);
+/* The same as png_write_rgba but not compressed (stored blocks, no filter): for the pictures a headless run writes by the hundred (captures, photos), where
+ * packing a frame costs 100 ms and nobody keeps the file. The tools and the masks use the compressing writers above. */
+PngResult png_write_rgba_fast(const uint8_t *rgba, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len);
 PngResult png_read(const uint8_t *data, size_t len, PngImage *image);
 /* The width and height the PNG's header (IHDR, its first chunk) says, read without unpacking anything: what a reader that must bound the
  * pixels asks before png_read. PNG_ERR_FORMAT when there is no such header. */

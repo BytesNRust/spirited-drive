@@ -20,6 +20,9 @@
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #endif
 #include "../../third_party/stb_image.h"
+#define STB_IMAGE_WRITE_STATIC
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../../third_party/stb_image_write.h"   /* only its zlib compressor, stbi_zlib_compress, is used */
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
@@ -27,6 +30,7 @@
 enum {
     MAX_DIMENSION = 16384,
     STORED_BLOCK = 65535,
+    ZLIB_QUALITY = 9,   /* stb_image_write: the hash-chain depth of its compressor (8 is its default for PNG); a mask is small, so the deepest */
     COLOR_GREY = 0,
     COLOR_INDEXED = 3,
     COLOR_RGBA = 6
@@ -54,7 +58,44 @@ static uint8_t *chunk(uint8_t *at, const char type[4], const uint8_t *data, size
     return at + 12 + n;
 }
 
-/* zlib stream of stored blocks over `raw`. */
+/* the row `y` of `pixels` (rows of `row` bytes, `bpp` bytes a pixel) filtered by method `f` (0 none, 1 Sub, 2 Up, 3 Average, 4 Paeth) into out[0..row) */
+static int paeth(int a, int b, int c)
+{
+    const int p = a + b - c, pa = abs(p - a), pb = abs(p - b), pc = abs(p - c);
+    return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+}
+
+static void filter_row(const uint8_t *cur, const uint8_t *prev, size_t row, int bpp, int f, uint8_t *out)
+{
+    for (size_t i = 0; i < row; ++i) {
+        const int a = i >= (size_t)bpp ? cur[i - (size_t)bpp] : 0, b = prev != NULL ? prev[i] : 0, c = prev != NULL && i >= (size_t)bpp ? prev[i - (size_t)bpp] : 0;
+        const int guess = f == 0 ? 0 : f == 1 ? a : f == 2 ? b : f == 3 ? (a + b) / 2 : paeth(a, b, c);
+        out[i] = (uint8_t)(cur[i] - guess);
+    }
+}
+
+/* each row by the filter whose bytes, as signed, sum smallest in absolute value (libpng's heuristic: the one that leaves the most zeros and the least noise) */
+static void filter_image(const uint8_t *pixels, uint32_t w, uint32_t h, int bpp, uint8_t *raw)
+{
+    const size_t row = (size_t)w * (size_t)bpp;
+    uint8_t *best = malloc(row), *cand = malloc(row);
+    for (uint32_t y = 0; y < h; ++y) {
+        const uint8_t *cur = pixels + (size_t)y * row, *prev = y > 0 ? cur - row : NULL;
+        long best_sum = -1;
+        int best_f = 0;
+        for (int f = 0; f < 5 && best != NULL && cand != NULL; ++f) {
+            filter_row(cur, prev, row, bpp, f, cand);
+            long sum = 0;
+            for (size_t i = 0; i < row; ++i) sum += cand[i] < 128 ? cand[i] : 256 - cand[i];
+            if (best_sum < 0 || sum < best_sum) best_sum = sum, best_f = f, memcpy(best, cand, row);
+        }
+        raw[(size_t)y * (row + 1)] = (uint8_t)best_f;
+        if (best != NULL) memcpy(raw + (size_t)y * (row + 1) + 1, best, row);
+    }
+    free(best), free(cand);
+}
+
+/* zlib stream of stored blocks (no compression) over `raw`: `out` has room for 2 + n + 5 per 65535 + 4 */
 static size_t zlib_stored(const uint8_t *raw, size_t n, uint8_t *out)
 {
     size_t o = 0;
@@ -76,22 +117,34 @@ static size_t zlib_stored(const uint8_t *raw, size_t n, uint8_t *out)
 }
 
 static PngResult write_image(const uint8_t *pixels, uint32_t w, uint32_t h, int color, int bytes_per_pixel,
-                             const uint8_t *palette, uint8_t **out, size_t *out_len)
+                             const uint8_t *palette, int compress, uint8_t **out, size_t *out_len)
 {
     if (w == 0 || h == 0 || w > MAX_DIMENSION || h > MAX_DIMENSION) return PNG_ERR_SIZE;
-    const size_t row = 1 + (size_t)w * (size_t)bytes_per_pixel;
-    const size_t raw_len = row * h;
-    const size_t blocks = raw_len / STORED_BLOCK + 1;
-    const size_t z_len = 2 + raw_len + 5 * blocks + 4;
+    const size_t row = (size_t)w * (size_t)bytes_per_pixel;
+    const size_t raw_len = (row + 1) * h;
     uint8_t *raw = malloc(raw_len);
-    uint8_t *file = malloc(8 + 25 + (palette ? 12 + 768 : 0) + 12 + z_len + 12);
-    uint8_t *z = malloc(z_len);
-    if (raw == NULL || file == NULL || z == NULL) { free(raw); free(file); free(z); return PNG_ERR_MEMORY; }
-    for (uint32_t y = 0; y < h; ++y) {
-        raw[y * row] = 0;  /* filter: none */
-        memcpy(raw + y * row + 1, pixels + (size_t)y * w * (size_t)bytes_per_pixel, (size_t)w * (size_t)bytes_per_pixel);
+    if (raw == NULL) return PNG_ERR_MEMORY;
+    if (palette != NULL || bytes_per_pixel == 1 || !compress) {   /* a palette picture or a grey mask (a few classes) is left unfiltered: measured on the 205 masks of data/, "none" is the smallest */
+        for (uint32_t y = 0; y < h; ++y) {
+            raw[y * (row + 1)] = 0;
+            memcpy(raw + y * (row + 1) + 1, pixels + (size_t)y * row, row);
+        }
+    } else {
+        filter_image(pixels, w, h, bytes_per_pixel, raw);
     }
-    const size_t zn = zlib_stored(raw, raw_len, z);
+    int zn = 0;
+    uint8_t *z;
+    if (compress) {
+        z = (uint8_t *)stbi_zlib_compress(raw, (int)raw_len, &zn, ZLIB_QUALITY);   /* deterministic: the same picture is the same bytes */
+    } else {
+        const size_t room = 2 + raw_len + 5 * (raw_len / STORED_BLOCK + 1) + 4;
+        z = malloc(room);
+        if (z != NULL) zn = (int)zlib_stored(raw, raw_len, z);
+    }
+    free(raw);
+    if (z == NULL) return PNG_ERR_MEMORY;
+    uint8_t *file = malloc(8 + 25 + (palette ? 12 + 768 : 0) + 12 + (size_t)zn + 12);
+    if (file == NULL) { free(z); return PNG_ERR_MEMORY; }
     uint8_t ihdr[13];
     put_be32(ihdr, w);
     put_be32(ihdr + 4, h);
@@ -101,9 +154,8 @@ static PngResult write_image(const uint8_t *pixels, uint32_t w, uint32_t h, int 
     at += 8;
     at = chunk(at, "IHDR", ihdr, 13);
     if (palette) at = chunk(at, "PLTE", palette, 768);
-    at = chunk(at, "IDAT", z, zn);
+    at = chunk(at, "IDAT", z, (size_t)zn);
     at = chunk(at, "IEND", NULL, 0);
-    free(raw);
     free(z);
     *out = file;
     *out_len = (size_t)(at - file);
@@ -113,17 +165,22 @@ static PngResult write_image(const uint8_t *pixels, uint32_t w, uint32_t h, int 
 PngResult png_write_indexed(const uint8_t *indices, uint32_t width, uint32_t height, const uint8_t palette[768],
                             uint8_t **out, size_t *out_len)
 {
-    return write_image(indices, width, height, COLOR_INDEXED, 1, palette, out, out_len);
+    return write_image(indices, width, height, COLOR_INDEXED, 1, palette, 1, out, out_len);
 }
 
 PngResult png_write_grey(const uint8_t *grey, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len)
 {
-    return write_image(grey, width, height, COLOR_GREY, 1, NULL, out, out_len);
+    return write_image(grey, width, height, COLOR_GREY, 1, NULL, 1, out, out_len);
 }
 
 PngResult png_write_rgba(const uint8_t *rgba, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len)
 {
-    return write_image(rgba, width, height, COLOR_RGBA, 4, NULL, out, out_len);
+    return write_image(rgba, width, height, COLOR_RGBA, 4, NULL, 1, out, out_len);
+}
+
+PngResult png_write_rgba_fast(const uint8_t *rgba, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len)
+{
+    return write_image(rgba, width, height, COLOR_RGBA, 4, NULL, 0, out, out_len);
 }
 
 /* Undoes the PNG row filters in place; `raw` holds height rows of 1 filter byte + width bytes. */
