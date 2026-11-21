@@ -134,8 +134,7 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
     TracePoint *points = a->trace.points;
     double lo, hi;
     track_trace_profile_range(points, count, &lo, &hi);
-    SlopePlan plan;   // what the slope tool's Accept would make, drawn over the line when its fields are in use: the range takes it in, so it is not cut off
-    plan.points = nullptr;
+    SlopePlan plan{};   // what the slope tool's Accept would make, drawn over the line when its fields are in use: the range takes it in, so it is not cut off
     if (a->slope.preview) {
         app_slope_plan(a, &plan);
         if (plan.points != nullptr) {
@@ -180,14 +179,16 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
             from = to;
         }
     }
-    if (plan.points != nullptr) {   // the plan over the line: blue, red over the generator's limit
+    if (plan.points != nullptr) {   // the plan over the line: blue, amber where the slope's angle changes too fast, red over the generator's limit
         const TracePoint *next = plan.points;
         for (int seg = std::max(plan.first - 1, 0); seg < count - 1 && (seg <= plan.last || a->slope.keep_after); ++seg) {   // the road after the run follows it when kept
             const bool over = fabs(track_trace_segment_grade(next, metres.data(), count, seg, TRACE_GRADE_PERCENT)) > TRACK_GEN_GRADE_MAX_PERCENT;
             ImVec2 from(col_of(metres[(size_t)seg]), row_of(next[seg].h));
             for (int k = 1; k <= CURVE_STEPS; ++k) {
                 const ImVec2 to(col_of(metres_at(metres, seg, (double)k / CURVE_STEPS)), row_of(track_trace_height_at(next, count, seg, (double)k / CURVE_STEPS)));
-                draw->AddLine(from, to, over ? steep : IM_COL32(90, 170, 255, 255), 2.5f);
+                const int node = (int)lround(metres_at(metres, seg, ((double)k - 0.5) / CURVE_STEPS) / APP_SLOPE_NODE_M);
+                const bool warn = plan.node_amber != nullptr && node >= 0 && node < plan.nodes && plan.node_amber[node];
+                draw->AddLine(from, to, over ? steep : warn ? IM_COL32(255, 176, 32, 255) : IM_COL32(90, 170, 255, 255), 2.5f);
                 from = to;
             }
         }

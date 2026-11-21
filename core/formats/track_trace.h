@@ -59,6 +59,10 @@ double track_trace_profile_row_of_height(double h, double top, double bottom, do
 double track_trace_grade(double rise, double run, TraceGradeUnit unit);
 /* The same as text: "+4.2 %" or "-2.4\xc2\xb0", no sign when level, "-" when there is no run; cut to fit `cap`. */
 void track_trace_grade_text(double rise, double run, TraceGradeUnit unit, char *out, int cap);
+/* The nodes `step_m` apart along the curve (metres from point 0 to the last) where the slope's angle changes more than TRACE_GRADE_CHANGE_WARN_DEG from the node before (the
+ * amber rule of the generated road, on the height curve): out[k] is 1 for node k (the first is never). Returns how many nodes there are (floor(length / step_m) + 1), of which
+ * the first `cap` are written (cap 0 or out NULL just counts); 0 with fewer than 2 points or no step. `metres` is track_trace_point_distances'. */
+int track_trace_amber_nodes(const TracePoint *points, int count, const double *metres, double step_m, uint8_t *out, int cap);
 /* The slope of the segment from point `seg` to the next, over the curve's distances `metres` (track_trace_point_distances); 0 for a segment that is not there. */
 double track_trace_segment_grade(const TracePoint *points, const double *metres, int count, int seg, TraceGradeUnit unit);
 

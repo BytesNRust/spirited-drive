@@ -99,3 +99,28 @@ double track_trace_segment_grade(const TracePoint *points, const double *metres,
     if (points == NULL || metres == NULL || seg < 0 || seg + 1 >= count) return 0;
     return track_trace_grade(points[seg + 1].h - points[seg].h, metres[seg + 1] - metres[seg], unit);
 }
+
+/* the curve's height `m` metres along it (m is clamped to the road) */
+static double height_at_metres(const TracePoint *points, const double *metres, int count, double m)
+{
+    int seg = 0;
+    while (seg < count - 2 && m > metres[seg + 1]) ++seg;
+    const double run = metres[seg + 1] - metres[seg];
+    const double frac = run > 0 ? fmin(fmax((m - metres[seg]) / run, 0.0), 1.0) : 0.0;
+    return track_trace_height_at(points, count, seg, frac);
+}
+
+int track_trace_amber_nodes(const TracePoint *points, int count, const double *metres, double step_m, uint8_t *out, int cap)
+{
+    if (points == NULL || metres == NULL || count < 2 || !(step_m > 0)) return 0;
+    const int nodes = (int)floor(metres[count - 1] / step_m) + 1;
+    double before = 0;   /* the angle of the step from the node before to this one, degrees */
+    for (int k = 0; k < nodes && (out != NULL && k < cap); ++k) out[k] = 0;
+    for (int k = 0; k + 1 < nodes; ++k) {
+        const double rise = height_at_metres(points, metres, count, (k + 1) * step_m) - height_at_metres(points, metres, count, k * step_m);
+        const double angle = atan2(rise, step_m) * 180.0 / 3.14159265358979323846;
+        if (k > 0 && fabs(angle - before) > TRACE_GRADE_CHANGE_WARN_DEG + 1e-6 && out != NULL && k < cap) out[k] = 1;
+        before = angle;
+    }
+    return nodes;
+}

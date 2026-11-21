@@ -56,7 +56,14 @@ def band(rgb, y0, y1, tol=6):   # the Distance strip's profile box is in rows 47
     return sum(1 for row in rows[y0:y1]
                for r, g, b in zip(row[0::bpp], row[1::bpp], row[2::bpp])
                if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol)
-if mode == "profile-curve":   # Colour by curve: the profile's line takes the stretch colours (the right turn is orange), as the road does
+def teal(y0, y1):   # the slope tool's run over the road in the Viewport (a wide teal band): greens over the road's grey, the points' blue and the selection's yellow
+    return sum(1 for row in rows[y0:y1]
+               for r, g, b in zip(row[0::bpp], row[1::bpp], row[2::bpp]) if g > r + 25 and g > b + 5 and g > 70)
+if mode == "slope-run":   # the Viewport shows the run the slope tool is for
+    assert teal(40, 450) > 400, teal(40, 450)
+elif mode == "slope-none":   # no preview: no teal
+    assert teal(40, 450) == 0, teal(40, 450)
+elif mode == "profile-curve":   # Colour by curve: the profile's line takes the stretch colours (the right turn is orange), as the road does
     assert band((255, 150, 60), 470, 650) > 100, band((255, 150, 60), 470, 650)
 elif mode == "profile-limits":   # Limits: the profile's line is its own colour, no stretch colours
     assert band((255, 150, 60), 470, 650) == 0, band((255, 150, 60), 470, 650)

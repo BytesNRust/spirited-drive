@@ -13,6 +13,7 @@ extern "C" {
 #include "formats/track_gen.h"
 #include "formats/track_trace.h"
 #include "app_select.h"
+#include "app_slope.h"
 #include "app_colour.h"
 #include "interact.h"
 #include "point_ops.h"
@@ -116,6 +117,18 @@ void draw_tarmac(const Canvas &c, const App &a)
             }
             c.list->AddLine(ImVec2(a0.x + ox, a0.y + oy), ImVec2(b0.x + ox, b0.y + oy), TARMAC, 3);
         }
+    }
+}
+
+// the slope tool's run (points first..last) over the road, a wide teal line under the road's own: what the profile's preview is drawn for
+const ImU32 SLOPE_RUN = IM_COL32(120, 255, 200, 110);
+void draw_slope_run(const Canvas &c, const App &a, int first, int last)
+{
+    if (!a.road_made || a.node_count < 2) return;
+    const int from = app_nearest_node(&a, first), to = app_nearest_node(&a, last);
+    for (int i = from + 1; i <= to && i < a.node_count; ++i) {
+        const TrackGenNode &p = a.nodes[i - 1], &q = a.nodes[i];
+        c.list->AddLine(to_screen(c, a.view, p.position[0] / 65536.0, p.position[2] / 65536.0), to_screen(c, a.view, q.position[0] / 65536.0, q.position[2] / 65536.0), SLOPE_RUN, 11);
     }
 }
 
@@ -408,6 +421,8 @@ void viewport_panel(App *a)
             c.list->PushClipRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), true);
             c.list->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), BACKGROUND);
             draw_grid(c, a->view);
+            int run_first, run_last;
+            if (a->slope.preview && app_slope_run(a, &run_first, &run_last)) draw_slope_run(c, *a, run_first, run_last);
             draw_road(c, *a, app_colour_classes(a));
             draw_reach(c, a);
             draw_points(c, *a);

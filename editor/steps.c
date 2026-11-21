@@ -258,7 +258,7 @@ static int at_once(App *a, const char *name, const double *arg)
     if (strcmp(name, "print-panels") == 0) return ui_print_panels(a), 1;   /* the Window menu's panels, open or closed, drawn or not, and the ones drawn that it does not list */
     if (strncmp(name, "panel:", 6) == 0) return 2;   /* by_frames: a click on the I-th item of the Window menu, drawn by the next frame */
     if (strcmp(name, "print-view") == 0) return fprintf(stdout, "view: %.1f %.1f %.2f\n", a->view.cx, a->view.cz, a->view.scale), 1;   /* the top view's centre (x z) and pixels per metre */
-    if (strncmp(name, "slope-preview:", 14) == 0) return a->kind == APP_KIND_TRACK ? (app_slope_defaults(a), a->slope.preview_hold = arg[0] != 0, 1) : 0;   /* the profile draws what Accept would make, held (for a picture) */
+    if (strncmp(name, "slope-preview:", 14) == 0) return a->kind == APP_KIND_TRACK ? (app_slope_defaults(a), a->slope.preview_hold = arg[0] != 0, a->slope.grade_pct = arg[0] > 1 ? arg[0] : a->slope.grade_pct, a->slope.ease_in_m = arg[0] > 1 ? 0 : a->slope.ease_in_m, a->slope.ease_out_m = arg[0] > 1 ? 0 : a->slope.ease_out_m, 1) : 0;   /* the profile draws what Accept would make, held (for a picture) */
     if (strncmp(name, "slope", 5) == 0) {   /* slope:G,IN,OUT,KEEP / slope-rise:R,IN,OUT,KEEP: the Slope block's fields set, then Accept */
         if (a->kind != APP_KIND_TRACK) return 0;
         app_slope_defaults(a);

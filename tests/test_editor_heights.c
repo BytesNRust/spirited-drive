@@ -267,6 +267,15 @@ static void test_app_flow(void)
     a->slope.by_rise = 0, a->slope.grade_pct = 100, a->slope.keep_after = 1;
     const double h2_now = a->trace.points[2].h;
     CHECK(!app_slope_accept(a) && strstr(a->status, "not made") != NULL && a->trace.points[2].h == h2_now);
+    // 60 % with no easing is allowed (under 65 %) but the angle jumps at the run's first node: an amber warning, counted and said; 5 % eased in and out has none
+    a->slope.by_rise = 0, a->slope.grade_pct = 60, a->slope.ease_in_m = 0, a->slope.ease_out_m = 0;
+    app_slope_plan(a, &plan);
+    CHECK(plan.ok && plan.red == 0 && plan.amber >= 1 && strstr(plan.text, "amber node") != NULL && plan.node_amber != NULL && plan.nodes > 10);
+    app_slope_plan_free(&plan);
+    a->slope.grade_pct = 5, a->slope.ease_in_m = 60, a->slope.ease_out_m = 60;
+    app_slope_plan(a, &plan);
+    CHECK(plan.ok && plan.amber == 0 && strstr(plan.text, "amber") == NULL);
+    app_slope_plan_free(&plan);
     // fields out of range are refused with their words
     a->slope.grade_pct = 5, a->slope.ease_in_m = 150, a->slope.ease_out_m = 150;
     CHECK(!app_slope_accept(a) && strstr(a->status, "out of range") != NULL);

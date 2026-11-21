@@ -70,11 +70,42 @@ static void test_segment_grade(void)
     CHECK(near(track_trace_segment_grade(p, metres, 3, -1, TRACE_GRADE_PERCENT), 0));
 }
 
+/* the nodes where the slope's angle changes more than TRACE_GRADE_CHANGE_WARN_DEG from the node before, on the height curve at node spacing */
+static void test_amber_nodes(void)
+{
+    uint8_t amber[400];
+    double metres[4];
+    /* a gentle hill over 100 m steps: the angle changes a little at a time: no amber */
+    const TracePoint gentle[4] = { { 0, 0, 0 }, { 0, 100, 0 }, { 0, 200, 10 }, { 0, 300, 10 } };
+    track_trace_point_distances(gentle, 4, metres);
+    const int n = track_trace_amber_nodes(gentle, 4, metres, 6.0, amber, 400);
+    CHECK(n == 51);   /* nodes 6 m apart over 300 m: 0 .. 300 m is 50 steps and the start */
+    int count = 0;
+    for (int i = 0; i < n; ++i) count += amber[i];
+    CHECK(count == 0);
+    /* a step of 5 m in 10 m between points 10 m apart on a flat road: the angle jumps within a node or two */
+    const TracePoint sharp[4] = { { 0, 0, 0 }, { 0, 50, 0 }, { 0, 60, 5 }, { 0, 110, 5 } };
+    double m2[4];
+    track_trace_point_distances(sharp, 4, m2);
+    const int n2 = track_trace_amber_nodes(sharp, 4, m2, 6.0, amber, 400);
+    count = 0;
+    for (int i = 0; i < n2; ++i) count += amber[i];
+    CHECK(n2 > 10 && count >= 1 && amber[0] == 0);   /* the first node has no node before: never amber */
+    /* a flat road, and the refusals */
+    const TracePoint flat[3] = { { 0, 0, 3 }, { 0, 100, 3 }, { 0, 200, 3 } };
+    double m3[3];
+    track_trace_point_distances(flat, 3, m3);
+    CHECK(track_trace_amber_nodes(flat, 3, m3, 6.0, amber, 400) > 0 && amber[5] == 0);
+    CHECK(track_trace_amber_nodes(flat, 1, m3, 6.0, amber, 400) == 0 && track_trace_amber_nodes(flat, 3, m3, 0.0, amber, 400) == 0 && track_trace_amber_nodes(flat, 3, m3, 6.0, NULL, 0) == 34);   /* with no room it only counts */
+    CHECK(track_trace_amber_nodes(flat, 3, m3, 6.0, amber, 10) == 34 && amber[9] == 0);   /* more nodes than room: counted, the first written */
+}
+
 int main(void)
 {
     test_range();
     test_rows();
     test_grade();
     test_segment_grade();
+    test_amber_nodes();
     return TEST_REPORT();
 }

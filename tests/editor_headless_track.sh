@@ -282,6 +282,11 @@ before, after = [[float(x) for x in r] for r in v]
 assert before != after
 assert abs(after[0] - 30) < 3 and abs(after[1] - 390) < 3 and after[2] >= 1.0, after   # a mark is a few px wide: the place under the press is near the point
 PY
+# the slope tool's preview: the run it is for is a teal band over the road in the Viewport (nothing without the preview), and the profile draws the plan (blue)
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 14 --steps row:2,shift-row:6,strip,slope-preview:40 --shot "$work/slope-run.png" >"$work/log" 2>&1 || fail "slope preview: $(cat "$work/log")"
+png_check "$work/slope-run.png" slope-run
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 14 --steps row:2,shift-row:6,strip --shot "$work/slope-none.png" >"$work/log" 2>&1 || fail "no slope preview: $(cat "$work/log")"
+png_check "$work/slope-none.png" slope-none
 # the Distance strip's profile line is coloured by the same classes (the right turn orange); in Limits it is not (their own --user: the saved window layout of a 960x1200 run would move the 1280x960 runs' clicks)
 "$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 8 --steps colour-by:1 --shot "$work/profile-curve.png" >"$work/log" 2>&1 || fail "profile in Colour by curve: $(cat "$work/log")"
 png_check "$work/profile-curve.png" profile-curve

@@ -24,7 +24,19 @@ static double kept_height(double h)
 void app_slope_plan_free(SlopePlan *plan)
 {
     free(plan->points);
+    free(plan->node_amber);
     plan->points = NULL;
+    plan->node_amber = NULL;
+}
+
+int app_slope_run(App *a, int *first, int *last)
+{
+    if (a->kind != APP_KIND_TRACK) return 0;
+    app_sel_sync(a);
+    const int f = sel_first(&a->sel), l = sel_last(&a->sel), picked = sel_count(&a->sel);
+    if (picked < 2 || l - f + 1 != picked) return 0;
+    *first = f, *last = l;
+    return 1;
 }
 
 static void refuse(SlopePlan *plan, const char *why)
@@ -87,6 +99,16 @@ void app_slope_plan(App *a, SlopePlan *plan)
         if (g > TRACK_GEN_GRADE_MAX_PERCENT) plan->red++;
     }
     plan->steepest_pct = steepest;
+    // the amber nodes: the slope's angle changes over the warning from one node to the next, on the curve as the generator will make it
+    const int nodes = track_trace_amber_nodes(points, count, metres, APP_SLOPE_NODE_M, NULL, 0);
+    uint8_t *amber = nodes > 0 ? calloc((size_t)nodes, 1) : NULL;
+    if (amber != NULL) {
+        track_trace_amber_nodes(points, count, metres, APP_SLOPE_NODE_M, amber, nodes);
+        const double from = metres[first > 0 ? first - 1 : 0], to = metres[last + 1 < count && !a->slope.keep_after ? last + 1 : last];
+        for (int k = 0; k < nodes; ++k)
+            if (amber[k] && k * APP_SLOPE_NODE_M >= from && k * APP_SLOPE_NODE_M <= to) plan->amber++;
+        plan->node_amber = amber, plan->nodes = nodes;
+    }
     free(metres), free(dist), free(heights);
     plan->points = points;
     snprintf(plan->text, sizeof plan->text, "%s %.1f m over %.0f m, steepest %.0f %%", plan->rise_m >= 0 ? "rises" : "falls", fabs(plan->rise_m), plan->length_m, steepest);
@@ -94,6 +116,10 @@ void app_slope_plan(App *a, SlopePlan *plan)
         const size_t used = strlen(plan->text);
         snprintf(plan->text + used, sizeof plan->text - used, "; %d segment%s over %.0f %%: not made", plan->red, plan->red == 1 ? "" : "s", TRACK_GEN_GRADE_MAX_PERCENT);
         return;
+    }
+    if (plan->amber > 0) {
+        const size_t used = strlen(plan->text);
+        snprintf(plan->text + used, sizeof plan->text - used, ", %d amber node%s", plan->amber, plan->amber == 1 ? "" : "s");
     }
     plan->ok = 1;
 }
