@@ -43,10 +43,34 @@ cmp -s "$mask" "$work/mask-before.png" && fail "the saved mask is the file it wa
 preview "$work/preview-after.png" || fail "Preview of the edited kit: $(cat "$work/log")"
 cmp -s "$work/preview-before.png" "$work/preview-after.png" && fail "the Preview does not show the edit"
 
+# 4b. Use as card photo and Add photo on a kit: card.png is the KIT's (not build/piece's), the showcase pictures are in the kit's photos/; the next Build carries both
+cp "$kit/card.png" "$work/card-before.png"
+studio "$kit" --cd "$orig" --paint 3 --steps card-photo,status --frames 14 || fail "Use as card photo on a kit: $(cat "$work/log")"
+grep -q "status: card.png made" "$work/log" || fail "no word that card.png was made on the kit: $(cat "$work/log")"
+cmp -s "$kit/card.png" "$work/card-before.png" && fail "Use as card photo did not write the kit's card.png"
+python3 -c 'import sys,zlib,struct
+w,h,g=int(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4])
+def ch(t,d): return struct.pack(">I",len(d))+t+d+struct.pack(">I",zlib.crc32(t+d))
+raw=b"".join(b"\0"+bytes([g,g,g,255])*w for _ in range(h))
+open(sys.argv[1],"wb").write(b"\x89PNG\r\n\x1a\n"+ch(b"IHDR",struct.pack(">IIBBBBB",w,h,8,6,0,0,0))+ch(b"IDAT",zlib.compress(raw))+ch(b"IEND",b""))' "$work/Front Shot.png" 450 254 90 || fail "no showcase picture"
+python3 -c 'import sys,zlib,struct
+w,h,g=int(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4])
+def ch(t,d): return struct.pack(">I",len(d))+t+d+struct.pack(">I",zlib.crc32(t+d))
+raw=b"".join(b"\0"+bytes([g,g,g,255])*w for _ in range(h))
+open(sys.argv[1],"wb").write(b"\x89PNG\r\n\x1a\n"+ch(b"IHDR",struct.pack(">IIBBBBB",w,h,8,6,0,0,0))+ch(b"IDAT",zlib.compress(raw))+ch(b"IEND",b""))' "$work/Rear Shot.png" 300 200 200 || fail "no second showcase picture"
+studio "$kit" --add-photo "$work/Front Shot.png" --add-photo "$work/Rear Shot.png" --save --frames 4 || fail "Add photo on a kit: $(cat "$work/log")"
+grep -q '^photos=front-shot.png,rear-shot.png$' "$kit/mod.ini" || fail "photos= is not the two safe names: $(grep photos "$kit/mod.ini")"
+[ -s "$kit/photos/front-shot.png" ] && [ -s "$kit/photos/rear-shot.png" ] || fail "the pictures are not in the kit's photos/"
+[ ! -e "$kit/build/piece/front-shot.png" ] || fail "a photo was written into the disposable build/piece"
+
 # 5. Build: the package is made again from the sources, and carries the edit under the stem
 studio "$kit" --build --frames 2 || fail "Build: $(cat "$work/log")"
 [ -s "$kit/build/flow911.zip" ] || fail "Build made no build/flow911.zip: $(cat "$work/log")"
 cmp -s "$mask" "$kit/build/piece/car_masks/FLOW911/frnt_mask.png" || fail "the built piece does not carry the edited mask"
+cmp -s "$kit/card.png" "$kit/build/piece/card.png" || fail "the built piece does not carry the kit's new card.png"
+cmp -s "$kit/photos/front-shot.png" "$kit/build/piece/front-shot.png" && cmp -s "$kit/photos/rear-shot.png" "$kit/build/piece/rear-shot.png" || fail "the built piece does not carry the showcase photos: $(ls "$kit/build/piece")"
+unzip -l "$kit/build/flow911.zip" >"$work/zip.txt" 2>&1 || fail "cannot list the zip"
+grep -q "card.png" "$work/zip.txt" && grep -q "front-shot.png" "$work/zip.txt" && grep -q "rear-shot.png" "$work/zip.txt" || fail "the zip lacks card.png or the showcase photos: $(cat "$work/zip.txt")"
 
 # 6. Install: the game unpacks the package into the player folder
 "$editor" "$kit" --install --game "$tnfs" --frames 2 --user "$work/installed" >"$work/log" 2>&1 || fail "Install: $(cat "$work/log")"
