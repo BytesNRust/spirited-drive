@@ -18,7 +18,7 @@
       devShells = forAllSystems (pkgs: {
         # Native build of the port (macOS / Linux).
         default = pkgs.mkShell {
-          packages = with pkgs; [ cmake ninja pkg-config sdl3 lldb ];
+          packages = with pkgs; [ cmake ninja pkg-config sdl3 lldb imagemagick ];
         };
 
         # WebAssembly build of the port.
