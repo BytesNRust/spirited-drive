@@ -630,7 +630,9 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (!a->car.masks_only) textures_panel(a);   // nor textures: only its masks
         model_panel(a, ren);
         masks_panel(a);
-        race_panel(a, photo_texture(ren, a), sheet_texture(ren, a));
+        const ImTextureID photo = photo_texture(ren, a);
+        race_panel(a, photo, sheet_texture(ren, a));
+        photo_view_panel(a, photo);
         mask_edit_panel(a, mask_texture(ren, a));
         preview_panel(a, ren);
         if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script

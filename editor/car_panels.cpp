@@ -767,6 +767,8 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet)
             const float high = room.y - 90.0f > 120.0f ? room.y - 90.0f : 120.0f;
             if (w * ph / pw > high) w = high * pw / ph;
             ImGui::Image(photo, ImVec2(w, w * ph / pw));
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Click for a large view");
+            if (ImGui::IsItemClicked()) a->photo_view_open = 1;
         }
         ImGui::SeparatorText("The game's log");
         if (ImGui::BeginChild("racelog", ImVec2(0, 0), ImGuiChildFlags_Borders)) {

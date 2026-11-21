@@ -170,7 +170,7 @@ else
 fi
 FAKE
 chmod +x "$work/fake-tnfs"
-"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --night --race-png "$work/photo.png" --frames 4 --shot "$work/racepanel.png" >"$work/log" 2>&1 || fail "In-game photo with a fake game: $(cat "$work/log")"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --photo-view --night --race-png "$work/photo.png" --frames 4 --shot "$work/racepanel.png" >"$work/log" 2>&1 || fail "In-game photo with a fake game: $(cat "$work/log")"
 grep -q "Photo: the camera follows the Wagon (slot 3" "$work/log" || fail "no word about the slot followed: $(cat "$work/log")"
 python3 -c "
 import sys

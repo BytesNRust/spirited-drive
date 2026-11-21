@@ -1,5 +1,6 @@
 #include "car_race.h"
 
+#include "formats/car_paint.h"
 #include "formats/car_piece.h"
 
 #include <ctype.h>
@@ -12,6 +13,8 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#define CAR_PAINT_DIGITS 12   /* the game's CAR_PAINT_SLOTS (game/sys/port_extras.h): Studio links no game header */
 
 extern char **environ;
 
@@ -223,7 +226,7 @@ const char RACE_LOOK_ON[] = "body_shine=4\ncar_colours=1\ncar_soft_shadow=1\ntex
 
 RaceLook car_race_look_default(void)
 {
-    const RaceLook look = { 1, 1, 1, 1, 2, 0, 0, 0 };
+    const RaceLook look = { 1, 1, 1, 1, 2, 0, 0, 0, 0, 0 };
     return look;
 }
 
@@ -260,13 +263,32 @@ static int look_lines(const RaceLook *look, char *out, size_t cap)
     return m > 0 && (size_t)m < cap - used;
 }
 
+int car_race_paint_digit(const ExportCar *car, const uint8_t *rgb)
+{
+    if (car == NULL || rgb == NULL || car->model < 0 || car->model >= CAR_PAINT_DIGITS) return 0;
+    for (int k = 0; k < car_paint_count(car->model) && 2 + k <= 15; ++k) {
+        const CarPaint *p = car_paint(car->model, k);
+        if (p != NULL && memcmp(p->rgb, rgb, 3) == 0) return 2 + k;
+    }
+    return 0;
+}
+
 int car_race_user_files(const char *user, int night, const RaceLook *look, char *why, size_t why_cap)
 {
     char path[EXPORT_PATH + 32], mode[1024], lines[600];
     static const char PORT[] = "profile=restomod\n";
     const RaceLook fallback = car_race_look_default();
     if (!look_lines(look != NULL ? look : &fallback, lines, sizeof lines)) return refuse(why, why_cap, "the look's settings are too long");
-    const int n = snprintf(mode, sizeof mode, "%sextra_liveries=0\nlight_time=%s\n", lines, night ? "night" : "day");
+    const RaceLook *l = look != NULL ? look : &fallback;
+    char paint[CAR_PAINT_DIGITS + 16] = "";   /* Preview's colour: the game honours car_paint only with extra_liveries on */
+    if (l->paint > 0) {
+        if (l->paint_model < 0 || l->paint_model >= CAR_PAINT_DIGITS || l->paint > 15) return refuse(why, why_cap, "the paint %d of car %d is not one the game has", l->paint, l->paint_model);
+        memset(paint, '0', (size_t)l->paint_model + 1);
+        paint[l->paint_model] = "0123456789abcdef"[l->paint];
+        snprintf(paint + l->paint_model + 1, sizeof paint - (size_t)l->paint_model - 1, "\n");
+    }
+    const int n = l->paint > 0 ? snprintf(mode, sizeof mode, "%sextra_liveries=1\ncar_paint=%slight_time=%s\n", lines, paint, night ? "night" : "day")
+                               : snprintf(mode, sizeof mode, "%sextra_liveries=0\nlight_time=%s\n", lines, night ? "night" : "day");
     if (n < 0 || (size_t)n >= sizeof mode) return refuse(why, why_cap, "the look's settings are too long");
     const char *const parts[2] = { PORT, mode };
     const char *const names[2] = { "port.cfg", "restomod.cfg" };

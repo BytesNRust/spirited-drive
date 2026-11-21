@@ -98,6 +98,8 @@ typedef struct {
     int scale;            /* render_scale: 2 (1280 x 960, Restomod's) or 1 (640 x 480) */
     int cockpit;          /* a photo from the dash (dep98): 0 the follow view; ignored for a traffic or police car, which have no cockpit */
     int gauge_set, gauge_light;   /* gauge_set 1: the dash's gauge light is given as gauge_light 0..5 (a cockpit photo's night dash); 0: the profile's own */
+    int paint_model;      /* the car's race model 0..11 whose paint is chosen (with `paint` > 0) */
+    int paint;            /* the game's car_paint digit: 0 the project's own colours (nothing written), 2 + k the catalogue's paint k (Preview's colour) */
 } RaceLook;
 RaceLook car_race_look_default(void);
 /* what is off in `look`, for the summary: "Reflections, Texture filter off, 640x480"; "" when all is on at scale 2 */
@@ -106,8 +108,12 @@ void car_race_look_off(const RaceLook *look, char *out, size_t cap);
  * game's table), so a run is Restomod whole even if the table changes under a key the file names. */
 extern const char RACE_LOOK_ON[];
 
-/* the scratch player folder's files: port.cfg (profile=restomod) and restomod.cfg (the look's keys as `look` has them, NULL for the default; no extra liveries,
- * so the project's livery is the one shown; the time of day), into the existing folder `user`. Every other key is the Restomod table's. */
+/* The game's car_paint digit for a colour of the car's card (Preview's): 2 + k when the catalogue's paint k of the car's model has exactly these channels, 0 (the project's own
+ * colours) for NULL, a traffic car or a colour the catalogue does not have (the game can only paint with its own table). */
+int car_race_paint_digit(const ExportCar *car, const uint8_t *rgb);
+
+/* the scratch player folder's files: port.cfg (profile=restomod) and restomod.cfg (the look's keys as `look` has them, NULL for the default; no extra liveries unless `look` chooses a paint (then the game's colour
+ * logic is on for the whole field: the rivals may be painted from the seed too), so the project's livery is the one shown; the time of day), into the existing folder `user`. Every other key is the Restomod table's. */
 int car_race_user_files(const char *user, int night, const RaceLook *look, char *why, size_t why_cap);
 
 /* a scratch folder "<TMPDIR>/studio-race-XXXXXX" with a user/ folder in it: `temp` and `user` filled; 0 with `why` */

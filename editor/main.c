@@ -61,6 +61,7 @@ typedef struct {
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
     int convert_psd;          /* --convert-psd: Convert PSD before the first frame, waited for (a headless run); its exit status says how it ended */
+    int photo_view;           /* --photo-view (with --race-photo): the photo's large window open for the --shot */
     int race_photo, night;    /* --race-photo: take the race photo before the first frame (a headless run waits for it); --night: the Night preset */
     const char *track, *race_png;   /* --track STEM, --race-png FILE: the track and where the photo is also written */
     const char *race_off;   /* --race-off reflections,car_colours,soft_shadow,texture_filter: the Race look's switches off, for a headless photo */
@@ -88,7 +89,7 @@ static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
-                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
+                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
                     "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE]] [--steps STEP,...]\n");
     return 0;
@@ -148,6 +149,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--pick") == 0 && has_value) o->pick = argv[++i];
         else if (strcmp(argv[i], "--convert-psd") == 0) o->convert_psd = 1;
         else if (strcmp(argv[i], "--race-photo") == 0) o->race_photo = 1;
+        else if (strcmp(argv[i], "--photo-view") == 0) o->photo_view = 1;
         else if (strcmp(argv[i], "--night") == 0) o->night = 1;
         else if (strcmp(argv[i], "--orbit") == 0 && has_value) o->orbit = argv[++i];
         else if (strcmp(argv[i], "--shine") == 0 && has_value) o->shine = argv[++i];
@@ -498,6 +500,7 @@ static int run_requested(App *a, const Options *o)
         if (o->gauge_light != 0) a->race_look.gauge_set = 1, a->race_look.gauge_light = o->gauge_light - 1;
         int made = app_race(a, 1);
         while (made && app_race_poll(a)) SDL_Delay(20);
+        a->photo_view_open = o->photo_view;
         made = made && a->race.ok;
         if (made && o->race_png != NULL) {
             uint8_t *png = NULL;

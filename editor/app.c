@@ -69,6 +69,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     py_probe_init(&a->py, getenv("TNFS_PYTHON"));
     a->export_pick = -1;
     a->preview_paint = -1;
+    a->photo_view_open = 0;   /* the large photo belongs to the car that took it */
     a->night = night_settings_default();
     a->rehacer.run.fd = a->race.run.fd = -1;   /* no output pipe: a zero is a descriptor (stdin) */
     install_job_init(&a->race.install);
@@ -119,6 +120,7 @@ static int car_into(App *a, const char *dir)
     a->race_track = car_race_default_track(car_race_original_of(&a->car));
     a->mask.opacity = 0;
     a->preview_paint = -1;
+    a->photo_view_open = 0;   /* the large photo belongs to the car that took it */
     a->night = night_settings_default();
     app_mask_scan(a);
     app_card_arm(a);
@@ -147,8 +149,11 @@ int app_race(App *a, int photo)
     const RaceTrack *track = car_race_track(a->race_track);
     const ExportCar *car = car_race_original_of(&a->car);
     if (track == NULL || car == NULL) return set_status(a, "Test drive is for the game's own cars: export one with Export original car"), 0;
-    const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &a->race_look, why, sizeof why)
-                         : car_race_start_race(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &a->race_look, why, sizeof why);
+    RaceLook look = a->race_look;   /* Preview's colour, when the catalogue has it: the race shows the car painted as the Preview does */
+    const int p = a->preview_paint;
+    look.paint_model = car->model, look.paint = p >= 0 && p < a->edit.now.paint_count ? car_race_paint_digit(car, a->edit.now.paints[p].rgb) : 0;
+    const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &look, why, sizeof why)
+                         : car_race_start_race(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &look, why, sizeof why);
     if (!ok) return set_status(a, why), 0;
     if (photo) sheet_free(&a->sheet), a->sheet_serial++;   // a single photo replaces the sheet in the Race window
     set_status(a, photo ? "taking the in-game photo..." : "the game is running: close its window to end the test");

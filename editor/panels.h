@@ -39,6 +39,7 @@ void own_stack_tip(const char *what);   // the tooltip of a window's own Undo / 
 void textures_panel(App *a);
 void masks_panel(App *a);
 void race_panel(App *a, ImTextureID photo, ImTextureID sheet);   // Test in race and Race photo, the picture (a texture, 0 for none) and the game's log
+void photo_view_panel(App *a, ImTextureID photo);   // the photo in a large window of its own (a->photo_view_open)
 void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
 void model_panel_preset(double yaw, double pitch, int dist);
 void model_panel_shine(bool on);   // the body shine on or off (on by default)   // an orbit for the next car opened (degrees, degrees, model units; dist 0 keeps the home distance)

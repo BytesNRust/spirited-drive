@@ -2,6 +2,7 @@
  * files, the log's lines, the slot a car has, and the whole job run against a fake game (a shell script that writes the lines the real one does), so no game data is
  * needed. */
 #include "car_race.h"
+#include "formats/car_paint.h"
 #include "test.h"
 
 #include <ftw.h>
@@ -250,7 +251,7 @@ static void test_files_and_temp(void)
     look.scale = 1;   /* the scale alone */
     car_race_look_off(&look, off, sizeof off);
     CHECK(strcmp(off, "640x480") == 0);
-    look = (RaceLook){ 0, 0, 0, 0, 2, 0, 0, 0 };   /* every switch off: each key at 0, none read into another */
+    look = (RaceLook){ 0, 0, 0, 0, 2, 0, 0, 0, 0, 0 };   /* every switch off: each key at 0, none read into another */
     CHECK(car_race_user_files(user, 0, &look, why, sizeof why));
     read_all(path, text, sizeof text);
     CHECK(strstr(text, "body_shine=0\n") != NULL && strstr(text, "car_colours=0\n") != NULL && strstr(text, "car_soft_shadow=0\n") != NULL);
@@ -260,6 +261,29 @@ static void test_files_and_temp(void)
     char small[12];   /* a short buffer: cut, still a string */
     car_race_look_off(&look, small, sizeof small);
     CHECK(strlen(small) < sizeof small);
+    /* W5: Preview's colour: the catalogue paint of the car's model, the game's own digit (2 + k) at that model's place; none: the lines stay as they were */
+    look = car_race_look_default();
+    CHECK(look.paint == 0 && look.paint_model == 0);
+    const ExportCar *drivable = car_export_car(0);   /* the colour a card has is the digit the game knows it by; any other colour, a traffic car or none: own */
+    CHECK(drivable != NULL && drivable->model >= 0 && car_paint_count(drivable->model) > 1);
+    CHECK(car_race_paint_digit(drivable, car_paint(drivable->model, 0)->rgb) == 2);
+    const uint8_t odd[3] = { 1, 2, 3 };
+    CHECK(car_race_paint_digit(drivable, odd) == 0 && car_race_paint_digit(drivable, NULL) == 0 && car_race_paint_digit(NULL, odd) == 0);
+    CHECK(car_race_paint_digit(car_export_car(EXPORT_CARS - 1), car_paint(drivable->model, 0)->rgb) == 0);   /* the police car: no table */
+    look.paint_model = 5, look.paint = 2 + 3;
+    CHECK(car_race_user_files(user, 0, &look, why, sizeof why));
+    read_all(path, text, sizeof text);
+    CHECK(strstr(text, "extra_liveries=1\n") != NULL && strstr(text, "car_paint=000005\n") != NULL);   /* digit 5 at index 5 (the file's digits stop there) */
+    look.paint_model = 11, look.paint = 2 + 12;   /* the last car, a hex digit */
+    CHECK(car_race_user_files(user, 0, &look, why, sizeof why));
+    read_all(path, text, sizeof text);
+    CHECK(strstr(text, "car_paint=00000000000e\n") != NULL && strstr(text, "extra_liveries=1\n") != NULL && strstr(text, "extra_liveries=0\n") == NULL);
+    look.paint_model = 12, look.paint = 3;   /* out of the table: refused, nothing is half written */
+    CHECK(!car_race_user_files(user, 0, &look, why, sizeof why) && strstr(why, "paint") != NULL);
+    look.paint_model = 2, look.paint = 0;   /* own colour: as before */
+    CHECK(car_race_user_files(user, 0, &look, why, sizeof why));
+    read_all(path, text, sizeof text);
+    CHECK(strstr(text, "extra_liveries=0\n") != NULL && strstr(text, "car_paint") == NULL);
     CHECK(car_race_user_files(user, 0, NULL, why, sizeof why));   /* none: the default */
     read_all(path, text, sizeof text);
     CHECK(strstr(text, "render_scale=2\n") != NULL && strstr(text, "body_shine=4\n") != NULL);

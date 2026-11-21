@@ -117,6 +117,7 @@ typedef struct {
     RaceJob race;                /* Test in race / Race photo of the open original car (car_race.h), running or last run */
     int race_night;              /* the preset: 0 Day, 1 Night */
     int race_track;              /* the track chosen (car_race_track's index) */
+    int photo_view_open;         /* the In-game photo's large window (photo_view_panel) is asked for */
     RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
     PyProbe py;                  /* the python that has psd-tools, looked for once in the background (psd_job.h) */
     PsdJob psd;                  /* Convert PSD: the owner's PSDs of this car turned into its masks, in the background (psd_job.h, app_psd.c) */
