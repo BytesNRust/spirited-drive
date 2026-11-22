@@ -5,7 +5,7 @@
 set -u
 editor=$1 repo=$2 make_psd=$3
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+trap '[ -z "${poll_pid:-}" ] || kill -9 "$poll_pid" 2>/dev/null; rm -rf "$work"' EXIT
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
@@ -27,6 +27,7 @@ head -c 3686400 /dev/zero | LC_ALL=C tr '\000' '\100' >> "$shot"
 SH
 chmod +x "$work/fake_game"
 run() { "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 "$@"; }
+run_bg() { exec "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 "$@"; }   # the same, started in the background: exec makes $! the editor itself, so a kill reaches it (killing the function's subshell left the editor running)
 
 # the hub: the workspace is the hub's; adding makes the sixteen
 out=$(run --frames 4 --steps print-menu,add-originals,print-workspace 2>&1) || fail "add-originals: $out"
@@ -91,17 +92,17 @@ run --frames 4 --steps open-original:0,masks-print > /dev/null 2>&1
 # the window open: a PSD saved while the editor runs (no new run) is seen by the panel's poll: its status says so, the PNG is made again and so is the photo
 png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
 before_png=$(cksum < "$png")
-run --frames 100000 --steps open-original:0,poll-wait:90 > "$work/poll.out" 2>&1 &
+run_bg --frames 100000 --steps open-original:0,poll-wait:90 > "$work/poll.out" 2>&1 &
 poll_pid=$!
 for _ in $(seq 1 120); do grep -q '^poll: watching' "$work/poll.out" && break; sleep 0.5; done
-grep -q '^poll: watching' "$work/poll.out" || { kill "$poll_pid" 2>/dev/null; fail "the window did not start watching: $(cat "$work/poll.out")"; }
+grep -q '^poll: watching' "$work/poll.out" || { kill -9 "$poll_pid" 2>/dev/null; fail "the window did not start watching: $(cat "$work/poll.out")"; }
 sleep 2
 "$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" lamps   # saved again while the window is open
 for _ in $(seq 1 120); do
     [ "$(cksum < "$png")" != "$before_png" ] && grep -q '^poll: .*a PSD was saved again' "$work/poll.out" && grep -q "^scenery_00.png $(cksum < "$png")\$" "$work/record" && break
     sleep 0.5
 done
-kill "$poll_pid" 2>/dev/null; wait "$poll_pid" 2>/dev/null
+kill -9 "$poll_pid" 2>/dev/null; wait "$poll_pid" 2>/dev/null   # -9: the editor did not end on SIGTERM
 grep -q '^poll: .*a PSD was saved again' "$work/poll.out" || fail "the open window did not notice the saved PSD: $(cat "$work/poll.out")"
 [ "$(cksum < "$png")" != "$before_png" ] || fail "the open window did not make the PNG again"
 grep -q "^scenery_00.png $(cksum < "$png")\$" "$work/record" || fail "the open window's photo did not show the new PNG: $(cat "$work/record")"
