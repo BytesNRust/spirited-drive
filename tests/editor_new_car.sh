@@ -48,6 +48,11 @@ ws2="$ws/cars"
 [ "$(row "$ws2/car-supra/specs/specs.tsv" half_length)" = "$own_length" ] || fail "the model's size changed"
 [ "$(row "$ws2/car-supra/specs/pdn.tsv" body_0c)" = "$own_body" ] || fail "the collision body changed"
 ls "$supra" | grep -q '\.new$' && fail "Physics from left a scratch file: $(ls "$supra")"
+# TNFS_PERF: off by default (nothing printed); on, one line a second with the time of each phase (90 frames of 16 ms pass the second)
+out=$(run --frames 90 "$ws/cars/car-supra" 2>&1) || fail "a run with no TNFS_PERF: $out"
+echo "$out" | grep -q '^perf:' && fail "TNFS_PERF is off and Studio printed its perf line: $out"
+out=$(TNFS_PERF=1; export TNFS_PERF; run --frames 90 "$ws/cars/car-supra" 2>&1) || fail "a run with TNFS_PERF: $out"
+echo "$out" | grep -Eq '^perf: [0-9]+ frames in [0-9]+ ms \| dash .* poll .* watch .* recompute .* model .* masks .* preview .* ui .* present .* ms$' || fail "the perf line: $out"
 # no car open: refused in words
 out=$(run --frames 6 --steps physics-from:1 2>&1) && fail "Physics from with no car open worked: $out"
 echo "$out" | grep -q 'open a car kit' || fail "no word why: $out"

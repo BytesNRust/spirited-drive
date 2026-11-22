@@ -17,6 +17,7 @@ extern "C" {
 #include "help_marker.h"
 #include "new_car_popup.h"
 #include "export_track_popup.h"
+#include "perf.h"
 #include "physics_popup.h"
 #include "panels.h"
 #include "shortcut_keys.h"
@@ -1005,12 +1006,17 @@ void ui_frame(SDL_Renderer *ren, App *a)
         }
         if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
         if (panel_open(PANEL_CAR)) car_panel(a);
+        uint64_t perf = perf_begin();
         if (panel_open(PANEL_MODEL)) model_panel(a, ren);
+        perf_end(PERF_MODEL, perf), perf = perf_begin();
         if (panel_open(PANEL_MASKS)) masks_panel(a, mask_texture(ren, a));
+        perf_end(PERF_MASKS, perf);
         const ImTextureID photo = photo_texture(ren, a);
         if (panel_open(PANEL_RACE)) race_panel(a, photo, sheet_texture(ren, a));
         photo_view_panel(a, photo);
+        perf = perf_begin();
         if (panel_open(PANEL_PREVIEW)) preview_panel(a, ren);
+        perf_end(PERF_PREVIEW, perf);
     } else if (a->kind == APP_KIND_LIGHT) {   // the Track light window has a dock space of its own
         const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr("StudioLightDock"), ImGui::GetMainViewport());
         if (!light_laid_out || reset) {

@@ -12,6 +12,7 @@
  * exit status is 1 when a --save, --build or --install failed. Run it with SDL_VIDEO_DRIVER=dummy and SDL_AUDIO_DRIVER=dummy for a headless
  * run. */
 #include "app.h"
+#include "perf.h"
 #include "app_select.h"
 #include "app_dash.h"
 #include "app_sheet.h"
@@ -743,19 +744,27 @@ static int run(App *a, const Options *o)
             if (headless) a->go = APP_ACT_NONE;   /* a headless run ends by its frames: no dialog, no quit of its own */
             else if (run_go(win, a)) quit = 1;
         }
+        uint64_t t = perf_begin();
         app_car_build_poll(a);
         app_install_poll(a);
         app_psd_poll(a);
+        perf_end(PERF_POLL, t), t = perf_begin();
         app_dash_poll(a);
+        perf_end(PERF_DASH, t), t = perf_begin();
         app_race_poll(a);
+        perf_end(PERF_POLL, t), t = perf_begin();
         app_card_watch(a, SDL_GetTicks() / 1000.0);   /* mod.ini, the car file and the textures */
         const int light_busy = app_light_poll(a, SDL_GetTicks() / 1000.0);   /* the Track light photo: its output, and the next one when a change has settled */
         app_mask_watch(a, SDL_GetTicks() / 1000.0);   /* masks changed on disk by another program: about once a second */
+        perf_end(PERF_WATCH, t), t = perf_begin();
         app_sheet_poll(a);
+        perf_end(PERF_POLL, t), t = perf_begin();
         app_recompute(a);
+        perf_end(PERF_RECOMPUTE, t), t = perf_begin();
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
         SDL_RenderClear(ren);
         ui_frame(ren, a);
+        perf_end(PERF_UI, t);
         if (o->steps != NULL) steps_frame(&steps, a, win);
         set_title(win, a);
         ++frame;
@@ -773,7 +782,10 @@ static int run(App *a, const Options *o)
             SDL_RenderPresent(ren);
             break;
         }
+        t = perf_begin();
         SDL_RenderPresent(ren);
+        perf_end(PERF_PRESENT, t);
+        perf_frame();
         SDL_Delay(FRAME_MS);
     }
     if (headless && ui_error_count() > 0) {   /* a panel that breaks ImGui's rules draws a banner nobody reads in a test */
