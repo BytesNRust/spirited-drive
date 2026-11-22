@@ -119,6 +119,8 @@ int app_track_mask_regenerate(App *a)
 /* Copy to game repo (app.h): the preview is the light files and the masks' PNGs of the open original track against data/; the copy writes the changed and new ones */
 int app_original_copy_ask(App *a)
 {
+    if (a->kind == APP_KIND_CAR) return app_car_copy_ask(a);
+    a->publish_car = 0;
     OriginalPublish *plan = &a->publish_plan;
     char why[OT_WHY] = "", stem[16];
     if (!app_original_can_copy(a)) return snprintf(a->status, sizeof a->status, "copy to game repo: the game repo's data/ is not set (--port-data, or repo data in workspace.txt)"), 0;
@@ -134,6 +136,7 @@ int app_original_copy_ask(App *a)
 
 int app_original_copy(App *a)
 {
+    if (a->publish_car) return app_car_copy(a);
     char why[OT_WHY] = "";
     int written = 0;
     a->publish_dialog = 0;

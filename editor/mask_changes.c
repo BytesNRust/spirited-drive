@@ -142,6 +142,27 @@ int mask_changes_compare(const char *project, const char *game, MaskChanges *out
     return 1;
 }
 
+int mask_changes_publish(const char *project, const char *game, const MaskChanges *c, int *written, char *why, size_t why_cap)
+{
+    *written = 0;
+    for (int i = 0; i < c->count; i++) {
+        const MaskChange *m = &c->item[i];
+        if (m->kind != MC_CHANGED && m->kind != MC_NEW) continue;
+        char from[PATH], to[PATH];
+        snprintf(from, sizeof from, "%s/%s", project, m->file);
+        snprintf(to, sizeof to, "%s/%s", game, m->file);
+        size_t len = 0;
+        uint8_t *bytes = read_file(from, &len);
+        FILE *f = bytes != NULL ? fopen(to, "wb") : NULL;
+        const int ok = f != NULL && fwrite(bytes, 1, len, f) == len;
+        if (f != NULL && fclose(f) != 0) { free(bytes); snprintf(why, why_cap, "cannot write %s", to); return 0; }
+        free(bytes);
+        if (!ok) { snprintf(why, why_cap, "cannot copy %s into %s", m->file, game); return 0; }
+        ++*written;
+    }
+    return 1;
+}
+
 static void append(char *out, size_t cap, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 
 static void append(char *out, size_t cap, const char *fmt, ...)

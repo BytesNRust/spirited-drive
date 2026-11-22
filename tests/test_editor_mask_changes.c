@@ -114,5 +114,18 @@ int main(void)
     snprintf(nowhere, sizeof nowhere, "%s/nowhere", base);
     CHECK(!mask_changes_compare(proj, nowhere, &c, why, sizeof why) && strstr(why, "not there") != NULL);
     CHECK(!mask_changes_compare(nowhere, game, &c, why, sizeof why) && strstr(why, "Cannot read") != NULL);
+
+    /* Copy to game repo: the changed and the new are written into the game's folder, the unchanged and the missing are not, and the project is not touched */
+    int written = -1;
+    CHECK(mask_changes_compare(proj, game, &c, why, sizeof why));
+    CHECK(mask_changes_publish(proj, game, &c, &written, why, sizeof why));
+    CHECK_EQ_INT(written, 4);   /* edit, size_lo, odd (changed) and added */
+    CHECK(mask_changes_compare(proj, game, &c, why, sizeof why));
+    CHECK_EQ_INT(c.changed, 0);
+    CHECK_EQ_INT(c.added, 0);
+    CHECK_EQ_INT(c.missing, 1);   /* gone_mask.png is still only the game's: never deleted */
+    CHECK_EQ_INT(c.unchanged, 6);
+    CHECK(mask_changes_publish(proj, game, &c, &written, why, sizeof why) && written == 0);   /* nothing left: nothing written */
+    CHECK(!mask_changes_publish(proj, nowhere, &c, &written, why, sizeof why) || written == 0);   /* no changes listed: no file is opened in a folder that is not there */
     return TEST_REPORT();
 }

@@ -126,6 +126,7 @@ typedef struct {
     char tmask_note[200];        /* why there is no picture, or what Regenerate did */
     int original_dialog;         /* the Open original track window is up */
     int publish_dialog;          /* the Publish to the game window is up, with its preview in publish_text */
+    int publish_car;             /* ...and it is for a car's masks (app_car_copy), not a track's files */
     OriginalPublish publish_plan;   /* what the preview lists: the light files and the masks of the original track against data/ */
     char publish_text[4096];
     CarDisk cdisk;               /* mod.ini, the car file and the textures as the editor last saw them (app_card_watch) */
@@ -375,6 +376,12 @@ int app_open_original(App *a, const char *dir);
 int app_original_can_copy(const App *a);
 int app_original_copy_ask(App *a);
 int app_original_copy(App *a);
+/* Copy to game repo for one of the game's own cars (app_car_copy.c, editor only): the changed and new masks of its kit against data/car_masks/<folder>/ of the repo.
+ * app_car_copy_can: the car is one of the game's, has masks and the repo's data/ is set; app_car_copy_ask lists them in publish_text and puts the window up (publish_car);
+ * app_car_copy writes them. 1, or 0 with the reason in status. (app_original_copy_ask and app_original_copy do these for a car.) */
+int app_car_copy_can(const App *a);
+int app_car_copy_ask(App *a);
+int app_car_copy(App *a);
 /* The Masks panel of an original track (app_track_masks.c, editor only). app_track_masks_load scans the folder and makes the PNGs of the PSDs that need them (NEW and STALE), once
  * per open; app_track_masks_refresh scans again. app_track_mask_select puts row `i`'s picture in tmask_rgba; app_track_mask_regenerate makes the selected one's PNG from its PSD
  * again (after the warning: it replaces a PNG edited by hand). 1, or 0 with the reason in tmask_note. */

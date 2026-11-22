@@ -54,6 +54,25 @@ grep -q "^race env: TNFS_CAR_MASKS=$real_car/art-generated/car_masks\$" "$work/l
 grep -q '^race log: race car: slot 0 is ' "$work/log" || fail "the game's log has no car of the race: $(grep '^race' "$work/log")"
 grep -q '^race end: Stopped.' "$work/log" || fail "Stop did not end the game: $(grep '^race' "$work/log")"
 
+# 5b. Copy to game repo for the Wagon's kit: its changed mask (the poke of step 2) is listed against a copy of the game repo's masks, and Copy writes it there and nothing else;
+# asked again, there is nothing left to copy. A car that is not one of the game's has no such item (the refusal says so)
+repo="$work/repo"
+mkdir -p "$repo/car_masks" && cp -R "$data/car_masks/Wagon" "$repo/car_masks/Wagon" || fail "a copy of the repo's masks"
+studio "$car" --port-data "$repo" --frames 2 --steps repo-ask,print-publish >"$work/log" 2>&1 || fail "Copy to game repo, the list: $(cat "$work/log")"
+grep -q "^publish: window up for a car" "$work/log" && grep -q "^changed: side_mask.png" "$work/log" || fail "the Copy to game repo window does not list the changed mask: $(cat "$work/log")"
+grep -q "car_masks/Wagon: 1 changed, 0 new" "$work/log" || fail "the list has more than the one changed mask: $(cat "$work/log")"
+cmp -s "$repo/car_masks/Wagon/side_mask.png" "$data/car_masks/Wagon/side_mask.png" || fail "the preview wrote into the repo"
+studio "$car" --port-data "$repo" --frames 2 --steps repo-ask,repo-copy,status >"$work/log" 2>&1 || fail "Copy to game repo, the copy: $(cat "$work/log")"
+grep -q "^status: copied to the game repo: 1 mask written into $repo/car_masks/Wagon" "$work/log" || fail "Copy did not say what it wrote: $(cat "$work/log")"
+cmp -s "$repo/car_masks/Wagon/side_mask.png" "$mask" || fail "the repo's mask is not the kit's"
+for f in "$data"/car_masks/Wagon/*_mask.png; do
+    n=${f##*/}
+    [ "$n" = side_mask.png ] || cmp -s "$f" "$repo/car_masks/Wagon/$n" || fail "Copy changed $n, which was not changed"
+done
+studio "$car" --port-data "$repo" --frames 2 --steps repo-ask,status >"$work/log" 2>&1 && fail "Copy to game repo with nothing changed went on"
+grep -q "every mask is the game repo's own" "$work/log" || fail "the second ask does not say nothing is left: $(cat "$work/log")"
+cmp -s "$data/car_masks/Wagon/side_mask.png" "$mask" && fail "the game's own data/ was written"
+
 # 6. The same on a car you drive: its kit opens, its mask is edited in art-generated/car_masks/, the Preview and the Race photo show the edit, Build and Install are
 # refused in words (an original car has no package), and the Preview's car file is all the build writes
 if [ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ]; then

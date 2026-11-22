@@ -487,6 +487,7 @@ static int file_items(const App *a, FileItem out[12])
     if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_EXPORT_TRACK, out[n++] = FILE_RECENT;
     if (room == APP_ROOM_TRACKS && app_original_can_copy(a)) out[n++] = FILE_COPY;
     if (room == APP_ROOM_CARS) out[n++] = FILE_NEW_CAR, out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
+    if (room == APP_ROOM_CARS && app_car_copy_can(a)) out[n++] = FILE_COPY;
     if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE;   // the workspace is for both rooms: its menu is the main menu's, not a room's
     if (room == APP_ROOM_HUB) out[n++] = FILE_SEPARATOR;
     if (room != APP_ROOM_HUB) out[n++] = FILE_SAVE, out[n++] = FILE_MAIN;
@@ -651,10 +652,10 @@ void copy_popup(App *a)
         ImGui::EndPopup();
         return;
     }
-    ImGui::TextUnformatted("Copies the changed light files and mask PNGs into the game repo's data/ (nothing is committed):");
+    ImGui::TextUnformatted(a->publish_car ? "Copies the changed and new masks into the game repo's data/ (nothing is committed):" : "Copies the changed light files and mask PNGs into the game repo's data/ (nothing is committed):");
     ImGui::TextDisabled("%s", app_repo_data(a));
     ImGui::Spacing();
-    if (ImGui::BeginChild("##publishlist", ImVec2(560.0f, 220.0f), ImGuiChildFlags_Borders)) ImGui::TextUnformatted(a->publish_text);   // many new masks: it scrolls
+    if (ImGui::BeginChild("##publishlist", ImVec2(560.0f, 220.0f), ImGuiChildFlags_Borders)) ImGui::TextWrapped("%s", a->publish_text);   // many new masks: it scrolls
     ImGui::EndChild();
     ImGui::Spacing();
     if (ImGui::Button("Copy")) app_original_copy(a);

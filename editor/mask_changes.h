@@ -31,6 +31,10 @@ typedef struct {
  * comparison needs it). */
 int mask_changes_compare(const char *project, const char *game, MaskChanges *out, char *why, size_t why_cap);
 
+/* Copies the changed and the new masks of `c` (as mask_changes_compare listed them) from the folder `project` into the folder `game`, which must be there. `written` gets how many;
+ * the missing ones (only the game has them) are left alone. 1, or 0 with `why` (the files before the failing one are written). */
+int mask_changes_publish(const char *project, const char *game, const MaskChanges *c, int *written, char *why, size_t why_cap);
+
 /* The list for the owner to paste: the folder, then a line for each changed, new and missing file (a changed one with its texel count and the classes that gained and lost texels),
  * and how many are unchanged. `folder` names the car's masks folder, "Wagon". */
 void mask_changes_text(const MaskChanges *c, const char *folder, char *out, size_t cap);
