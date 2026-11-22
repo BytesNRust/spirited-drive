@@ -200,6 +200,12 @@ float track_node_light_road_light(const TrackNodeLight *light, uint32_t node)
     return ((float)light_at(light, node, 0) + (float)light_at(light, node, 1) + (float)light_at(light, node, 6)) / (3.0f * (float)TRACK_NODE_LIGHT_FULL);
 }
 
+double track_node_light_side(double ax, double az, double bx, double bz, double px, double pz)
+{
+    const double fx = bx - ax, fz = bz - az, len = sqrt(fx * fx + fz * fz);
+    return len > 0.0 ? ((px - ax) * fz - (pz - az) * fx) / len : 0.0;
+}
+
 float track_node_light_lane(const TrackNodeLight *light, uint32_t node, double side, double left_half, double right_half)
 {
     if (light == NULL || light->data == NULL) return 1.0f;

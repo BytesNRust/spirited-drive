@@ -507,6 +507,21 @@ static void test_car_lane(void)
     track_node_light_free(&l), track_light_file_free(&g);
 }
 
+/* port (cars read the row): the side of the road and the lane's light go together: a left strip darkens a car on the left, not the right (the sign was seen in a real run, TNFS_START_SIDE) */
+static void test_car_lane_side(void)
+{
+    CHECK(fabs(track_node_light_side(0, 0, 0, 6, 5, 1) - 5.0) < 1e-9);    /* the road runs on +z: +x is its right */
+    CHECK(fabs(track_node_light_side(0, 0, 0, 6, -4, 2) + 4.0) < 1e-9);
+    CHECK(fabs(track_node_light_side(0, 0, 6, 0, 1, 3) + 3.0) < 1e-9);     /* running on +x: +z is its left */
+    CHECK(track_node_light_side(1, 1, 1, 1, 5, 5) == 0.0);
+    TrackLightFile f = { 0 };
+    TrackNodeLight l = shade_light("brightness 5 6 30 left\n", &f);       /* the left side's points 30 %, the right's 100: the middle point counts for both */
+    const float left = track_node_light_lane(&l, 5, track_node_light_side(0, 0, 0, 6, -7, 1), 5.0, 9.0);
+    const float right = track_node_light_lane(&l, 5, track_node_light_side(0, 0, 0, 6, 7, 1), 5.0, 9.0);
+    CHECK(fabsf(left - 0.3f) < 0.01f && right > 0.8f && right < 0.9f);    /* the left edge's 30 %; 7 of 9 m toward the right edge's full light from the middle's 30 */
+    track_node_light_free(&l), track_light_file_free(&f);
+}
+
 /* Only shadows: the darkness the sun left (255 - v) is scaled by 100 / percent: a point in full light never changes, 100 changes nothing, less than 100 darkens, more lightens */
 static void test_brightness_only_shadows(void)
 {
@@ -641,6 +656,7 @@ int main(void)
     test_brightness_words_parse();
     test_brightness_side();
     test_car_lane();
+    test_car_lane_side();
     test_brightness_only_shadows();
     test_brightness_shade_before_plain();
     test_export_writes_lamps();

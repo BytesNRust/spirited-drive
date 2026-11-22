@@ -157,6 +157,9 @@ int track_node_light_car_pool(const TrackNodeLight *light, uint32_t node, float 
 /* port (cars read the row): the light 0..1 a car has from the row of `node` at `side` metres from the road's centre (positive to the right; `left_half`, `right_half` the road's half widths in metres):
  * the centre (point 0) at 0, the right edge (point 1) at the right half, the left edge (point 6) at the left half, linear between and held beyond. Without data 1. In a tunnel node the road's mean
  * is divided out (the tunnel's own look already has it: only the lateral difference remains, never above 1). */
+/* port (cars read the row): the metres a car at (px, pz) is to the right of the road's centre line at the node (ax, az), the road running on to the next node (bx, bz): the heading's right is (fz, -fx). Checked in a
+ * real run: TNFS_START_SIDE=-5 (left) reads about -5, +5 about +5. 0 when the two nodes are the same place. */
+double track_node_light_side(double ax, double az, double bx, double bz, double px, double pz);
 float track_node_light_lane(const TrackNodeLight *light, uint32_t node, double side, double left_half, double right_half);
 
 /* The intensity of terrain-row point `point` (0..10, TriRow order) of node `node` (taken modulo the nodes); the file's last

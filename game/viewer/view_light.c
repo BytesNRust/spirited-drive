@@ -212,8 +212,7 @@ static float car_lane_light(int32_t node, const double *xz)
     double side = 0.0, left = 0.0, right = 0.0;
     if (xz != NULL && shadow_race != NULL) {
         const TriNode at = race_node(shadow_race, node), next = race_node(shadow_race, node + 1);
-        const double fx = (double)next.position.x - at.position.x, fz = (double)next.position.z - at.position.z, len = sqrt(fx * fx + fz * fz);
-        if (len > 0.0) side = ((xz[0] - at.position.x / 65536.0) * fz - (xz[1] - at.position.z / 65536.0) * fx) / len;
+        side = track_node_light_side(at.position.x / 65536.0, at.position.z / 65536.0, next.position.x / 65536.0, next.position.z / 65536.0, xz[0], xz[1]);
         left = at.left_verge / 8.0, right = at.right_verge / 8.0;
     }
     return track_node_light_lane(light_effects, light_tint_ring_node(node, light_effects->nodes), side, left, right);
