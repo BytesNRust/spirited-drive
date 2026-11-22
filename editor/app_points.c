@@ -63,6 +63,30 @@ int app_copy_points(App *a)
     return 1;
 }
 
+int app_cut_points(App *a)
+{
+    int s, e;
+    if (!app_points_run(a, "Cut", &s, &e)) return 0;
+    if (!sel_can_remove(&a->sel, a->status, sizeof a->status)) return 0;
+    if (!app_copy_points(a)) return 0;
+    app_remove_selection(a);
+    app_track_commit(a);   /* one step to undo */
+    snprintf(a->status, sizeof a->status, "%d points cut (%d-%d)", a->clip_count, s, e);
+    return 1;
+}
+
+int app_select_all_points(App *a)
+{
+    if (a->kind != APP_KIND_TRACK || a->trace.count < 1) return 0;
+    app_sel_sync(a);
+    sel_clear(&a->sel);
+    sel_click(&a->sel, 0, SEL_ONE);
+    sel_click(&a->sel, a->trace.count - 1, SEL_RANGE);
+    a->selected = 0;
+    snprintf(a->status, sizeof a->status, "all %d points selected", a->trace.count);
+    return 1;
+}
+
 int app_paste_points(App *a)
 {
     if (a->kind != APP_KIND_TRACK) return 0;

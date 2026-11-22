@@ -10,6 +10,7 @@ enum { GIVE_UP_FRAMES = 6 };
 struct Last {
     ImGuiID id = 0;
     int select_start = 0, select_end = 0;
+    bool clicked_away = false;   // a click outside the menus came while the field was active: when it is not active next frame, it was left
 } last;
 
 struct Pending {
@@ -30,10 +31,23 @@ ImGuiKey shortcut_mod()
     return ImGui::GetIO().ConfigMacOSXBehaviors ? ImGuiMod_Super : ImGuiMod_Ctrl;
 }
 
+// a click on the menu bar or in a menu is how an Edit item is reached: it does not leave the field, a click anywhere else does
+bool click_outside_menus(const ImGuiContext &g)
+{
+    if (!ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsMouseClicked(ImGuiMouseButton_Right)) return false;
+    const ImGuiWindow *w = g.HoveredWindow;
+    return w == nullptr || !(w->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_ChildMenu));
+}
+
 void remember(ImGuiContext &g)
 {
     ImGuiInputTextState *st = ImGui::GetInputTextState(g.ActiveId);
-    if (st == nullptr) return;
+    const bool away = click_outside_menus(g);
+    if (st == nullptr) {
+        if (away || last.clicked_away) last = Last();   // left for something else: the Edit items are not for that field any more
+        return;
+    }
+    last.clicked_away = away;
     last.id = g.ActiveId;
     last.select_start = st->GetSelectionStart(), last.select_end = st->GetSelectionEnd();   // a cursor with no selection has both at its place
 }

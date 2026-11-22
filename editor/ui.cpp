@@ -444,6 +444,8 @@ void track_command_keys(App *a)
     else if (key == COMMAND_REDO) app_redo(a);
     else if (key == COMMAND_COPY) app_copy_points(a);
     else if (key == COMMAND_PASTE) app_paste_points(a);
+    else if (key == COMMAND_CUT) app_cut_points(a);
+    else if (key == COMMAND_SELECT_ALL) app_select_all_points(a);
 }
 
 // a track's edit is one step to undo once it is done: no field typed in, no point dragged, no arrow held
@@ -563,10 +565,16 @@ void main_menu(App *a)
         ImGui::Separator();
         static const struct { const char *label, *key; EditAction action; } CLIPBOARD[] = {
             { "Cut", "X", EDIT_CUT }, { "Copy", "C", EDIT_COPY }, { "Paste", "V", EDIT_PASTE }, { "Select all", "A", EDIT_SELECT_ALL } };
-        for (const auto &item : CLIPBOARD) {   // on the text field the user was in: it is given back, the chord typed for it
+        for (const auto &item : CLIPBOARD) {   // on the text field the user was in: it is given back, the chord typed for it; with none, on a track's points
             char keys[16];
             shortcut_label(keys, sizeof keys, SHORTCUT_MAC, item.key);
-            if (ImGui::MenuItem(item.label, keys, false, edit_clipboard_ready() && !edit_clipboard_busy())) edit_clipboard_do(item.action);
+            const bool field = edit_clipboard_ready() != 0, points = !field && a->kind == APP_KIND_TRACK && (item.action != EDIT_PASTE || a->clip_points != nullptr);
+            if (!ImGui::MenuItem(item.label, keys, false, (field && !edit_clipboard_busy()) || points)) continue;
+            if (field) edit_clipboard_do(item.action);
+            else if (item.action == EDIT_CUT) app_cut_points(a);
+            else if (item.action == EDIT_COPY) app_copy_points(a);
+            else if (item.action == EDIT_PASTE) app_paste_points(a);
+            else app_select_all_points(a);
         }
         ImGui::EndMenu();
     }

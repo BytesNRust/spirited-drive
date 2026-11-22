@@ -11,7 +11,7 @@ typedef enum { EDIT_CUT, EDIT_COPY, EDIT_PASTE, EDIT_SELECT_ALL } EditAction;
 /* every frame, before the frame's text fields are drawn: remembers the active text field, and carries a queued action one step on */
 void edit_clipboard_frame(void);
 /* 1 when a text field has been active: the items have something to act on */
-int edit_clipboard_ready(void);
+int edit_clipboard_ready(void);   /* a field was used and not left since: a click anywhere else but the menus forgets it */
 /* the action on that field, over the next few frames; ignored when none was active or an action is under way */
 void edit_clipboard_do(EditAction action);
 /* 1 while an action is under way (a test waits for it) */

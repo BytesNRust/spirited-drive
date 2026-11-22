@@ -16,6 +16,10 @@ extern "C" {
 int app_points_run(App *a, const char *what, int *s, int *e);
 /* the run copied, with its keys, into the editor's clipboard (kept until another copy, or another project is opened) */
 int app_copy_points(App *a);
+/* Copy, then the run removed (one step to undo); nothing is removed when the copy is refused or the road would be left too short (said in the status) */
+int app_cut_points(App *a);
+/* every point of the road selected */
+int app_select_all_points(App *a);
 /* the clipboard's points put in after the last selected point (the road's last with none selected): its first point on that point, the block going
  * on along the road's heading there, the points after it following; the pasted run (that point included) becomes the selection */
 int app_paste_points(App *a);

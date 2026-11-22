@@ -241,6 +241,14 @@ grep -q "^points: 8 0.000,0.000 60.000,0.000 140.000,30.000 160.000,120.000 110.
 grep -q "Copy wants a run of points without gaps" "$work/log" || fail "Copy's refusal of a gap does not say why: $(cat "$work/log")"
 "$editor" "$work/half" --window 960x1200 --user "$work/hu" --frames 2 --steps paste >"$work/log" 2>&1 && fail "Paste with nothing copied went"
 grep -q "copy a run of points first" "$work/log" || fail "Paste's refusal does not say why: $(cat "$work/log")"
+# Edit > Cut and Select all (and Cmd+X, Cmd+A): Cut is Copy and then the run removed, one step to undo, and Paste puts it back; Select all takes every point
+"$editor" "$work/half" --window 960x1200 --user "$work/hu" --frames 2 --steps row:2,shift-row:4,cut,status,print,undo,print,redo,row:0,paste,status,print,select-all,status,print-sel >"$work/log" 2>&1 \
+    || fail "cut and select all: $(cat "$work/log")"
+[ "$(grep '^status:' "$work/log" | tr '\n' '/')" = "status: 3 points cut (2-4)/status: 2 points pasted after point 0/status: all 7 points selected/" ] \
+    || fail "cut and select all did not say what they did: $(grep '^status:' "$work/log")"
+[ "$(grep '^points:' "$work/log" | cut -d' ' -f2 | tr '\n' ' ')" = "5 8 7 " ] || fail "cut did not remove the run and undo bring it back, paste put it in: $(grep '^points:' "$work/log" | cut -c1-40)"
+grep -q "^selected: 0-6$" "$work/log" || fail "Select all did not select every point: $(grep '^selected:' "$work/log")"
+"$editor" "$work/half" --window 960x1200 --user "$work/hu" --frames 2 --steps row:1,cut >"$work/log" 2>&1 && fail "Cut of one point went"
 # the last point dragged 2 m from the start lands on it; 40 m away it stays where it is let go
 "$editor" "$work/half" --window 960x1200 --user "$work/hu" --frames 2 --steps drag-near:7,0,2,print,undo,drag-near:7,0,40,print >"$work/log" 2>&1 || fail "dragging the end near the start: $(cat "$work/log")"
 [ "$(grep '^points:' "$work/log" | head -1 | awk '{print $NF}')" = "0.000,0.000" ] || fail "the end dragged 2 m from the start did not land on it: $(grep '^points:' "$work/log")"

@@ -11,5 +11,7 @@ CommandKey command_key(int text_input)
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal)) return COMMAND_UNDO;
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_C, ImGuiInputFlags_RouteGlobal)) return COMMAND_COPY;
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_V, ImGuiInputFlags_RouteGlobal)) return COMMAND_PASTE;
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_X, ImGuiInputFlags_RouteGlobal)) return COMMAND_CUT;
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_A, ImGuiInputFlags_RouteGlobal)) return COMMAND_SELECT_ALL;
     return COMMAND_NONE;
 }

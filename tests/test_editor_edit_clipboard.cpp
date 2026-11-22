@@ -25,6 +25,10 @@ static void frame()
     ImGui::Begin("W", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
     ImGui::InputText("##f", text, sizeof text);
     ImGui::End();
+    ImGui::SetNextWindowPos(ImVec2(0, 200));   // the menu bar's place: a click on it is how an Edit item is reached
+    ImGui::SetNextWindowSize(ImVec2(400, 200));
+    ImGui::Begin("M", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar);
+    ImGui::End();
     ImGui::EndFrame();
 }
 
@@ -110,6 +114,16 @@ static void run(bool mac_behaviour)
     act(io, EDIT_SELECT_ALL);
     act(io, EDIT_COPY);
     CHECK(clipboard == "XY world");
+
+    click(io, 40, 16);   // back into the field, then a click on nothing: the field is left, the items are not for it any more
+    CHECK(ImGui::GetActiveID() == id && edit_clipboard_ready());
+    click(io, 600, 450);
+    frames(2);
+    CHECK(!edit_clipboard_ready());
+    click(io, 40, 16);   // a click on the field again: it is the one again
+    frames(2);
+    click(io, 300, 300);   // on the menus: it stays
+    CHECK(edit_clipboard_ready());
     ImGui::DestroyContext(ctx);
 }
 

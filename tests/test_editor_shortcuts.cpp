@@ -111,6 +111,10 @@ static void check_command_keys()
     CHECK_EQ_INT(command_of(true, true, ImGuiKey_Z), COMMAND_REDO);
     CHECK_EQ_INT(command_of(true, false, ImGuiKey_Y), COMMAND_REDO);
     CHECK_EQ_INT(command_of(false, false, ImGuiKey_Z), COMMAND_NONE);
+    CHECK_EQ_INT(command_of(true, false, ImGuiKey_X), COMMAND_CUT);   // the track's points
+    CHECK_EQ_INT(command_of(true, false, ImGuiKey_A), COMMAND_SELECT_ALL);
+    CHECK_EQ_INT(command_of(false, false, ImGuiKey_X), COMMAND_NONE);   // X alone is Remove, not Cut
+    CHECK_EQ_INT(command_of(false, false, ImGuiKey_A), COMMAND_NONE);
 }
 
 int main()
