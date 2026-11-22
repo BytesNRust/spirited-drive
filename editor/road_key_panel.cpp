@@ -4,6 +4,7 @@
 // (both sides'): step 4's lanes and the fence step's height and picture (the game has one fence look for both sides); and each side's «Custom barrier»
 // (without it the barrier follows the fence).
 #include "panels.h"
+#include "value_help.h"
 
 extern "C" {
 #include "app_select.h"
@@ -76,6 +77,14 @@ float label_width()
     return widest;
 }
 
+// a row's label, with what the value is for on hover (owner feedback T9: the rows did not say what they were for)
+void row_label(const char *label, unsigned bit)
+{
+    ImGui::TextUnformatted(label);
+    const char *help = road_value_help(bit);
+    if (help != nullptr && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", help);
+}
+
 // the point's lanes, left + right (step 4): a combo 1+1 / 1+2 / 2+1 showing what the point has, dimmed when it holds from a key before; right-click on a
 // set one inherits again. Lanes are the whole road's, not a side's: a row of road_rows' table
 void lanes_row(App *a, int point, bool own, int shown)
@@ -86,7 +95,7 @@ void lanes_row(App *a, int point, bool own, int shown)
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
     ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("Lanes");
+    row_label("Lanes", TRACE_KEY_LANES);
     ImGui::TableSetColumnIndex(1);
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     ImGui::SetNextItemWidth(-FLT_MIN);
@@ -112,7 +121,7 @@ void road_row(App *a, int point, const char *label, unsigned bit, const char *co
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
     ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(label);
+    row_label(label, bit);
     ImGui::TableSetColumnIndex(1);
     ImGui::PushID(label);
     int choice = shown;
@@ -298,7 +307,7 @@ void side_rows(App *a, int point, const TraceKey *key, const double values[TRACE
     for (int field = 0; field < TRACE_SIDE_FIELDS; ++field) {
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted(LABELS[field]);
+        row_label(LABELS[field], TRACE_KEY_SIDE(field, 0));
         for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side) {
             ImGui::TableSetColumnIndex(1 + side);
             const bool own = key != nullptr && (key->has & TRACE_KEY_SIDE(field, side));
@@ -315,7 +324,7 @@ void side_rows(App *a, int point, const TraceKey *key, const double values[TRACE
         if (field != TRACE_SIDE_BARRIER) continue;
         ImGui::TableNextRow();   // the barrier's Custom, under it
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted(ROAD_LABELS[2]);
+        row_label(ROAD_LABELS[2], TRACE_KEY_BARRIER_CUSTOM(0));
         for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side) {
             ImGui::TableSetColumnIndex(1 + side);
             custom_cell(a, point, side, key != nullptr && (key->has & TRACE_KEY_BARRIER_CUSTOM(side)), fence.custom[side] != 0);
@@ -405,7 +414,7 @@ void road_key_panel(App *a)
         ImGui::TableHeadersRow();
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted(SURFACE_LABEL);
+        row_label(SURFACE_LABEL, TRACE_KEY_SHOULDER_SURFACE);
         const bool sets = key != nullptr && (key->has & TRACE_KEY_SHOULDER_SURFACE);
         ImGui::TableSetColumnIndex(1);
         surface_cell(a, point, TRACK_GEN_LEFT, sets ? key->shoulder_l_surface : TRACE_SURFACE_INHERIT, left[point]);

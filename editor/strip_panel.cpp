@@ -14,6 +14,7 @@ extern "C" {
 }
 
 #include "help_marker.h"
+#include "value_help.h"
 #include "imgui.h"
 
 #include <algorithm>
@@ -342,6 +343,7 @@ void strip_panel(App *a)
                 ImGui::AlignTextToFramePadding();
                 ImGui::PushClipRect(at, ImVec2(at.x + label, at.y + ROW_H), true);
                 ImGui::TextUnformatted(row.label);
+                if (ImGui::IsItemHovered() && road_value_help(row.bit) != nullptr) ImGui::SetTooltip("%s", road_value_help(row.bit));
                 ImGui::PopClipRect();
                 const ImVec2 origin(at.x + label + LABEL_PAD, at.y);
                 const int over = bars(runs, metres, total, origin, width);
