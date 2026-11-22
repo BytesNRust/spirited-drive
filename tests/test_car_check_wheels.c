@@ -98,6 +98,7 @@ static void test_a_good_car_and_each_break(void)
     car_init(&c);   /* one wheel a hand ahead of the other: the axle is not square */
     for (int k = 0; k < WHEEL; k++) c.v[c.right[k]].z += 200;
     CHECK(findings(&c, &l, "axle") == 1 && l.item[0].severity == CAR_CHECK_WARNING);
+    CHECK(strstr(l.item[0].text, "right_tu is 200 ahead of left_tur along the car") != NULL && strstr(l.item[0].text, "move right_tu 200 back") != NULL);
 
     car_init(&c);   /* the pair not mirrored about the middle */
     for (int k = 0; k < WHEEL; k++) c.v[c.right[k]].x = 200;

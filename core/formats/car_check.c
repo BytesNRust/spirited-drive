@@ -91,8 +91,15 @@ static int steered_wheels(const MeshDesc *m, CarCheckList *out)
     const double middle = (lo[1] + hi[1]) / 2;
     if (l.y >= middle || r.y >= middle)
         if (!car_check_add(out, CAR_CHECK_WARNING, "a front wheel is above the middle of the car: its height is %.0f of %.0f..%.0f", l.y >= middle ? l.y : r.y, lo[1], hi[1])) return 0;
-    if (fabs(l.y - r.y) > (hi[1] - lo[1]) * SQUARE_PERCENT / 100 || fabs(l.z - r.z) > (hi[2] - lo[2]) * SQUARE_PERCENT / 100)
-        if (!car_check_add(out, CAR_CHECK_WARNING, "the front axle is not square: the wheels are %.0f apart in height and %.0f along the car", fabs(l.y - r.y), fabs(l.z - r.z))) return 0;
+    if (fabs(l.y - r.y) > (hi[1] - lo[1]) * SQUARE_PERCENT / 100 || fabs(l.z - r.z) > (hi[2] - lo[2]) * SQUARE_PERCENT / 100) {
+        /* the move that squares it, said for the right wheel (the left stays): along the car is z (its front is +z), height y */
+        const double dz = r.z - l.z, dy = r.y - l.y;
+        char along[64] = "", height[64] = "";
+        if (fabs(dz) >= 1) snprintf(along, sizeof along, "%.0f %s", fabs(dz), dz > 0 ? "back" : "forward");
+        if (fabs(dy) >= 1) snprintf(height, sizeof height, "%.0f %s", fabs(dy), dy > 0 ? "down" : "up");
+        if (!car_check_add(out, CAR_CHECK_WARNING, "the front axle is not square: right_tu is %.0f %s left_tur along the car and %.0f %s it; to square it move right_tu %s%s%s (the model's units)",
+                           fabs(dz), dz > 0 ? "ahead of" : "behind", fabs(dy), dy > 0 ? "above" : "below", along, along[0] && height[0] ? " and " : "", height)) return 0;
+    }
     if (fabs(l.x + r.x) > (hi[0] - lo[0]) * MIRROR_PERCENT / 100)
         if (!car_check_add(out, CAR_CHECK_WARNING, "the front wheels do not mirror about the middle of the car: x %.0f and %.0f", l.x, r.x)) return 0;
     return 1;
