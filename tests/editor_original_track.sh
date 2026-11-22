@@ -31,7 +31,7 @@ run_bg() { exec "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work
 
 # the hub: the workspace is the hub's; adding makes the sixteen
 out=$(run --frames 4 --steps print-menu,add-originals,print-workspace 2>&1) || fail "add-originals: $out"
-echo "$out" | grep -q '^file: Workspace | Quit$' || fail "the hub's File menu: $out"
+echo "$out" | grep -q '^file: Workspace | Game repo folder... | Quit$' || fail "the hub's File menu: $out"
 echo "$out" | grep -q '^tracks: AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7$' || fail "the 16 originals are listed: $out"
 for f in light/track_light/CL1B.txt light/track/CL1.txt original.ini; do [ -f "$work/ws/tracks/CL1/$f" ] || fail "CL1 has no $f"; done
 [ -f "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" ] || fail "the PSD was not copied"
