@@ -557,6 +557,8 @@ int app_check(App *a);
 int app_car_building(const App *a);
 /* 1 when the open car is a kit in the current layout: the shape Build and Install are for (build_car: the build in a thread, then Install takes build/<id>.zip) */
 int app_car_is_kit(const App *a);
+/* the open car is one of the game's own (a kit of an original): Build and Install are off for it (the game has its package; look at it, retouch its masks, take a photo) */
+int app_car_is_original(const App *a);
 int app_install_busy(const App *a);
 /* Convert PSD (dep98): app_psd_setup finds the PSD folder (`root`, else TNFS_PSD_ROOT, else
  * ~/workspace/bytes-n-rust/art/tnfs-masks). app_psd_psd_dir gives this car's PSD folder (names match without case; 0 when there is none). app_psd_start converts

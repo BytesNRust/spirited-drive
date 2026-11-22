@@ -425,17 +425,19 @@ void car_panel(App *a)
         muted_wrapped("%s", c.root);
         ImGui::Spacing();
         if (app_car_is_kit(a)) {   // a kit in the current layout: its car is made from its sources, then installed in the game
-            ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
+            const bool own = app_car_is_original(a);   // the game's own car: nothing to build or install
+            static const char *const OWN = "An original car is the game's own: retouch its masks and copy them to the game repo; it is not installed";
+            ImGui::BeginDisabled(own || app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Build")) app_build(a);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", app_car_building(a) ? "The car is being built" : "Make the car from this kit's files: build/piece and build/<id>.zip (save what you changed first)");
+                ImGui::SetTooltip("%s", own ? OWN : app_car_building(a) ? "The car is being built" : "Make the car from this kit's files: build/piece and build/<id>.zip (save what you changed first)");
             ImGui::SameLine();
-            ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
+            ImGui::BeginDisabled(own || app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Install")) app_install(a);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", app_install_busy(a) ? "The game is installing the package" : "Install the last build in the game (Build first)");
+                ImGui::SetTooltip("%s", own ? OWN : app_install_busy(a) ? "The game is installing the package" : "Install the last build in the game (Build first)");
             ImGui::SameLine();
             ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Check")) app_check(a);

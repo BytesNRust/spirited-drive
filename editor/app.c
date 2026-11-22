@@ -654,6 +654,11 @@ static int car_zip_path(const App *a, char *out, size_t cap)
     return snprintf(out, cap, "%s/build/%s.zip", a->car.root, name) < (int)cap;
 }
 
+int app_car_is_original(const App *a)
+{
+    return app_car_is_kit(a) && car_piece_stem_is_original(a->car.info.stem);
+}
+
 /* Build on a kit: car build's work, in a thread; app_car_build_poll tells its end. The sources are read from disk, so what is not saved is saved first */
 static int build_car(App *a)
 {

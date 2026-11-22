@@ -46,6 +46,13 @@ printf 'x' > "$work/kit/model/near/bank/0010_rsid.png"
 [ -s "$work/kit.png" ] || fail "no PNG of the car"
 cmp -s "$work/kit.png" "$work/start.png" && fail "the car looks like the start screen"
 [ ! -e "$work/kit/project.ini" ] || fail "opening a car made track files in it"
+# the Cars room's Build and Install are on for a kit and off for one of the game's own cars (stem P911): the panel's test, not a message after the click
+"$editor" "$work/kit" --frames 4 --steps car-buttons >"$work/log" 2>&1 || fail "car-buttons on a kit: $(cat "$work/log")"
+grep -qx "car buttons: on" "$work/log" || fail "Build and Install are not on for a kit: $(cat "$work/log")"
+mkdir -p "$work/okit/model/near/bank"
+printf 'id=orig\nname=Orig\nversion=1\ntype=car\nstem=P911\n' > "$work/okit/mod.ini"
+"$editor" "$work/okit" --frames 4 --steps car-buttons >"$work/log" 2>&1 || fail "car-buttons on an original: $(cat "$work/log")"
+grep -qx "car buttons: off (original)" "$work/log" || fail "Build and Install are on for an original car: $(cat "$work/log")"
 # the Preview's Night light and tint (no track selector): the defaults are the old look (100 %, grey 0.72), the steps set what the slider and the picker set, the two Reset buttons
 # put each back, the editor keeps both in its ini for the next run, and the command line comes after the ini
 nightu="$work/night-user"
