@@ -158,6 +158,10 @@ void start_screen(App *a)
             if (ImGui::Button("Open original track...", ImVec2(half, 0))) a->original_dialog = 1;
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game");
+            ImGui::BeginDisabled(a->workspace[0] == '\0');
+            if (ImGui::Button("Export original track...", ImVec2(half, 0))) app_ask(a, APP_ACT_EXPORT_TRACK, "");
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Start a new track that follows the road of one of the CD's circuits; it goes in the workspace's tracks/ folder");
             ImGui::EndTable();
         }
         // what the workspace holds and what was opened lately: each heading once across both rooms, the lists in the columns of their room

@@ -56,6 +56,7 @@ typedef enum {
     APP_ACT_LIGHT_AT,    /* the folder that dialog gave, in the path: the window is on it (app_light_set_folder) */
     APP_ACT_MAIN,        /* back to the main menu (the hub): the project is closed (app_close_project), after the question about unsaved changes */
     APP_ACT_WORKSPACE_PICK, /* a workspace folder is asked for (main.c's dialog); the folder that dialog gives is the workspace at once (app_workspace_set), with no question about unsaved changes */
+    APP_ACT_EXPORT_TRACK,   /* the Export original track window (a->export_track_dialog) is asked for, after the question about unsaved changes */
     APP_ACT_NEW_CAR,    /* the New car window (a->new_car_dialog) is asked for, after the question about unsaved changes */
     APP_ACT_PHOTO_PICK, /* main.c's file dialog is on screen for a showcase photo (a->photo_dialog asks for it): the picture is copied into the car's folder when it comes back, so no question */
     APP_ACT_BACKDROP_PICK /* main.c's file dialog is on screen for the card photo's backdrop picture (a->backdrop_dialog asks for it): nothing in the project changes, so no question */
@@ -263,6 +264,12 @@ typedef struct {
     int new_car_id_typed;
     int new_car_template;
     char new_car_error[APP_MSG];   /* why Create was refused */
+    int export_track_dialog;     /* the Export original track window is up: a name, the id it makes (may be typed over), which original track (original_track_stem's index) */
+    char export_track_name[64];
+    char export_track_id[40];
+    int export_track_id_typed;
+    int export_track_pick;
+    char export_track_error[APP_MSG];   /* why Create was refused */
     int physics_dialog;          /* the Physics from question (what it overwrites) is up: Copy or Cancel */
     int physics_pick;            /* the car it names, 0..CAR_PHYSICS_WORDS-1 (editor/car_physics_from.h) */
     WorkspaceList workspace_list;  /* the projects in it, scanned when it is set and when the window starts */
@@ -460,6 +467,10 @@ int app_new_track_named(App *a, const char *name, const char *id);
 /* New car (dep102; app_new_car.c): a kit <workspace>/cars/<id> made from the car `template_word` (one of the eight you drive, viper, 911 ...) by car_new_kit, opened and listed. 1, or 0 with the
  * reason in new_car_error and the status and nothing written, when there is no workspace, the name or id is not usable, that folder exists, or the game's files are not found. A null `id` is made from the name. */
 int app_new_car_named(App *a, const char *name, const char *id, const char *template_word);
+/* Export original track (app_export_track.c): the CD track `stem` (TR1..TR7: the tracks the editor can build) becomes the track project <workspace>/tracks/<id>, its road (bends, hills, width, banking) taken from
+ * the game's TRI, the art Studio's own; opened and listed. 1, or 0 with the reason in export_track_error and the status and nothing written, when there is no workspace, the name or id is not usable, that folder
+ * exists, the game's files are not found or the track is too long. A null `id` is made from the name. */
+int app_export_original_track(App *a, const char *stem, const char *name, const char *id);
 /* Physics from (dep102; app_physics.c): the physics of `word`'s car (car_physics_words) copied into the open car kit's specs/specs.tsv and specs/pdn.tsv, as car_physics_from does. Refused
  * in the status, and nothing written, when the open car is not a kit in the current layout, is one of the game's own, or the files are not there. 1 when copied (the status says how many rows). Build makes the car with them. */
 int app_physics_from(App *a, const char *word);

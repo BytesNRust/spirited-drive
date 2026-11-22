@@ -16,6 +16,7 @@ extern "C" {
 }
 #include "help_marker.h"
 #include "new_car_popup.h"
+#include "export_track_popup.h"
 #include "physics_popup.h"
 #include "panels.h"
 #include "shortcut_keys.h"
@@ -456,7 +457,7 @@ bool track_edit_done()
 }
 
 // The File menu holds the actions of the room on screen only (Cars, Tracks, the main menu), New before Open: a car's room has no New track, a track's no Open car.
-enum FileItem { FILE_NEW_CAR, FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_COPY, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
+enum FileItem { FILE_NEW_CAR, FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_EXPORT_TRACK, FILE_COPY, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
 
 static const char *file_label(FileItem item)
 {
@@ -465,6 +466,7 @@ static const char *file_label(FileItem item)
     case FILE_NEW_TRACK: return "New track...";
     case FILE_OPEN_TRACK: return "Open track...";
     case FILE_LIGHT: return "Open original track...";
+    case FILE_EXPORT_TRACK: return "Export original track...";
     case FILE_COPY: return "Copy to game repo";
     case FILE_OPEN_CAR: return "Open car...";
     case FILE_EXPORT: return "Export original car...";
@@ -482,7 +484,7 @@ static int file_items(const App *a, FileItem out[12])
 {
     int n = 0;
     const AppRoom room = app_room(a);
-    if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_RECENT;
+    if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_EXPORT_TRACK, out[n++] = FILE_RECENT;
     if (room == APP_ROOM_TRACKS && app_original_can_copy(a)) out[n++] = FILE_COPY;
     if (room == APP_ROOM_CARS) out[n++] = FILE_NEW_CAR, out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
     if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE;   // the workspace is for both rooms: its menu is the main menu's, not a room's
@@ -546,6 +548,7 @@ void main_menu(App *a)
                 else if (item == FILE_NEW_TRACK) app_ask(a, APP_ACT_NEW, "");
                 else if (item == FILE_OPEN_TRACK) app_ask(a, APP_ACT_OPEN, "");
                 else if (item == FILE_LIGHT) a->original_dialog = 1;
+                else if (item == FILE_EXPORT_TRACK) app_ask(a, APP_ACT_EXPORT_TRACK, "");
                 else if (item == FILE_COPY) app_original_copy_ask(a);
                 else if (item == FILE_OPEN_CAR) app_ask(a, APP_ACT_OPEN_CAR, "");
                 else if (item == FILE_EXPORT) a->export_dialog = 1;
@@ -717,6 +720,7 @@ void confirm_popup(App *a)
         ++age;
         const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new track"
                                                                                                                               : a->confirm == APP_ACT_NEW_CAR ? "starting a new car"
+                                                                                                                              : a->confirm == APP_ACT_EXPORT_TRACK ? "exporting an original track"
                                                                                                                               : a->confirm == APP_ACT_LIGHT_AT ? "choosing another light folder"
                                                                                                                                                                : a->confirm == APP_ACT_MAIN ? "going to the main menu"
                                                                                                                                                                : "opening another project";
@@ -1031,6 +1035,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     confirm_popup(a);
     new_track_popup(a);
     new_car_popup(a);
+    export_track_popup(a);
     physics_popup(a);
     original_popup(a);
     copy_popup(a);
