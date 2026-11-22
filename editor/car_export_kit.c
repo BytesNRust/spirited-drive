@@ -51,11 +51,11 @@ static int shape_piece(const ExportCar *car, FileSet *all, FileSet *out, char *w
         }
         if (!ok) return bad(why, cap, "out of memory", car->file);
     }
-    if (car->kind != EXPORT_DRIVABLE) {
+    if (car->kind != EXPORT_DRIVABLE) {   /* traffic and police: sound_from=traffic, the one word that is not one of the eight, or the card shows a problem and Save is blocked */
         char id[48], card[512];
         snprintf(id, sizeof id, "%s-original", car->file);
         for (char *c = id; *c != '\0'; ++c) *c = (char)tolower((unsigned char)*c);
-        const int n = snprintf(card, sizeof card, "id=%s\nname=%s (original)\nversion=0.1\ntype=car\nstem=%s\nredistributable=0\n", id, car->label, car->file);
+        const int n = snprintf(card, sizeof card, "id=%s\nname=%s (original)\nversion=0.1\ntype=car\nstem=%s\nsound_from=traffic\nredistributable=0\n", id, car->label, car->file);
         if (n < 0 || (size_t)n >= sizeof card || !fileset_add(out, "mod.ini", (const uint8_t *)card, (size_t)n)) return bad(why, cap, "the card does not fit", car->file);
     }
     return fileset_find(out, paths[0]) != NULL ? 1 : bad(why, cap, "the car's CFM is not in its export", car->file);

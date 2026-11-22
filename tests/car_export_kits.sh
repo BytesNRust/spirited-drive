@@ -33,6 +33,9 @@ done
 cmp -s "$work/out/p911/art-generated/dash_masks/dash_mask.png" "$data/dash_masks/P911/dash_mask.png" || fail "p911's dash mask is not data/'s"
 [ -f "$work/out/p911/specs/specs.tsv" ] && [ ! -e "$work/out/wagon/specs/specs.tsv" ] || fail "specs: the 911 has them, the wagon has none"
 grep -q '^stem=WAGON$' "$work/out/wagon/mod.ini" && grep -q '^redistributable=0$' "$work/out/wagon/mod.ini" || fail "the wagon's minimal card"
+for stem in wagon copmust; do   # no engine of the eight to take the sound from: the game's traffic sound, so the card shows no problem
+    grep -q '^sound_from=traffic$' "$work/out/$stem/mod.ini" || fail "the $stem card has no sound_from=traffic"
+done
 for stem in p911 wagon copmust; do
     up=$(echo "$stem" | tr a-z A-Z)
     "$studio" car build "$work/out/$stem" >"$work/log3" 2>&1 || fail "car build of the original $stem: $(cat "$work/log3")"
