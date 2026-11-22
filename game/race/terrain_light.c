@@ -190,11 +190,43 @@ void terrain_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const ui
     }
 }
 
+/* SPIKE (TNFS_SUN_SHADOW=1): cast shadow by day. A point whose terrain horizon toward the sun is higher than the sun is darkened: the factor falls linearly from 1 when the sun is just
+ * at the horizon to SHADOW_LEVEL when it is SHADOW_RAMP below it. TNFS_SUN_AZIMUTH / TNFS_SUN_ELEVATION (degrees) override the sun, only while the shadow is on. */
+static const float SHADOW_LEVEL = 0.55f;
+static const float SHADOW_RAMP = 0.0873f;   /* 5 degrees */
+
+static int spike_shadow_on(void)
+{
+    const char *v = getenv("TNFS_SUN_SHADOW");
+    return v != NULL && v[0] == '1';
+}
+
+static float spike_env_degrees(const char *name, float fallback)
+{
+    const char *v = getenv(name);
+    return v != NULL && v[0] != '\0' ? (float)atof(v) * 3.14159265f / 180.0f : fallback;
+}
+
+static float spike_shadow_factor(float sun_tan, float sun_elevation)
+{
+    const float d = atanf(sun_tan) - sun_elevation;
+    if (!(d > 0.0f)) return 1.0f;
+    const float k = d >= SHADOW_RAMP ? 1.0f : d / SHADOW_RAMP;
+    return 1.0f - (1.0f - SHADOW_LEVEL) * k;
+}
+
 int terrain_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const TerrainLightSun *sun, uint8_t *data)
 {
     if (pts == NULL || data == NULL || count < 2 || time < LIGHT_SYNTH_DAWN || time > LIGHT_SYNTH_NIGHT) return 0;
     TerrainLightSun own;
     if (sun == NULL) terrain_light_sun_default(time, &own), sun = &own;
+    const int shadow = spike_shadow_on() && time != LIGHT_SYNTH_NIGHT;
+    TerrainLightSun spike = *sun;
+    if (shadow) {
+        spike.azimuth = spike_env_degrees("TNFS_SUN_AZIMUTH", spike.azimuth);
+        spike.elevation = spike_env_degrees("TNFS_SUN_ELEVATION", spike.elevation);
+        sun = &spike;
+    }
     float *light = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *light);
     if (light == NULL) return 0;
     for (uint32_t n = 0; n < count; n++)
@@ -202,6 +234,7 @@ int terrain_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, i
             float *out = &light[n * TRACK_NODE_LIGHT_POINTS + (uint32_t)p];
             if (is_road_point(p)) {
                 *out = 1.0f;
+                if (shadow) *out *= spike_shadow_factor(horizon_of(pts, count, ring, n, p, sun).sun_tan, sun->elevation);
                 continue;
             }
             if (time == LIGHT_SYNTH_NIGHT) {
@@ -210,10 +243,11 @@ int terrain_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, i
             }
             if (p == 5 || p == 10) {
                 *out = OUTER[time][p == 10];
-                continue;
+            } else {
+                const LightPos nm = normal_of(pts, count, ring, n, p);
+                *out = LAMBERT[time][0] + LAMBERT[time][1] * nm.y + LAMBERT[time][2] * nm.x;
             }
-            const LightPos nm = normal_of(pts, count, ring, n, p);
-            *out = LAMBERT[time][0] + LAMBERT[time][1] * nm.y + LAMBERT[time][2] * nm.x;
+            if (shadow) *out *= spike_shadow_factor(horizon_of(pts, count, ring, n, p, sun).sun_tan, sun->elevation);
         }
     if (time == LIGHT_SYNTH_NIGHT) terrain_light_smooth(light, count, ring);   /* the day's light follows each node's own normal, as the CD's does: smoothing it blurs what matches */
     for (size_t i = 0; i < (size_t)count * TRACK_NODE_LIGHT_POINTS; i++) data[i] = terrain_light_level(light[i]);
