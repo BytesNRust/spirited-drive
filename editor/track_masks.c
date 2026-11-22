@@ -181,7 +181,7 @@ int track_masks_scan(const char *dir, const TrackTexInfo *tex, int tex_count, Tr
     memset(out, 0, sizeof *out);
     snprintf(src, sizeof src, "%s/art-source/masks", dir);
     snprintf(gen, sizeof gen, "%s/art-generated/track_masks", dir);
-    if (!is_dir(src) && !is_dir(gen)) return say(why, why_cap, "%s has no art-source/masks or art-generated/track_masks", dir), 0;
+    if (!is_dir(src) && !is_dir(gen) && (tex == NULL || tex_count <= 0)) return say(why, why_cap, "%s has no art-source/masks or art-generated/track_masks", dir), 0;
     collect(src, 1, out);
     collect(gen, 0, out);
     qsort(out->row, (size_t)out->count, sizeof out->row[0], by_name);
@@ -193,6 +193,14 @@ int track_masks_scan(const char *dir, const TrackTexInfo *tex, int tex_count, Tr
         out->to_make += r->state == TM_NEW || r->state == TM_STALE;
         out->edited += r->state == TM_EDITED;
     }
+    for (int t = 0; tex != NULL && t < tex_count; ++t) {   /* the textures that have no mask: a row each, so the table lists the whole track */
+        int have = 0;
+        for (int i = 0; i < out->count && !have; ++i) have = strcmp(out->row[i].name, tex[t].name) == 0;
+        TrackMaskRow *r = have ? NULL : row_for(out, tex[t].name);
+        if (r == NULL) continue;
+        r->state = TM_NONE, r->width = tex[t].width, r->height = tex[t].height;
+    }
+    qsort(out->row, (size_t)out->count, sizeof out->row[0], by_name);
     return 1;
 }
 
@@ -354,6 +362,7 @@ const char *track_mask_state_text(TrackMaskState s)
     case TM_PNG_SOURCE: return "PNG is the source";
     case TM_EMPTY: return "no mask painted in the PSD";
     case TM_BAD: return "unreadable PSD";
+    case TM_NONE: return "no mask";
     }
     return "";
 }
