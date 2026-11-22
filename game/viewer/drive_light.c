@@ -23,6 +23,7 @@
 #include "game/race/light_synth.h"
 #include "game/race/track_light_fingerprint.h"
 #include "game/race/track_light_file.h"
+#include "game/race/track_light_track.h"
 #include "game/race/track_geometry.h"
 #include "game/race/track_objects.h"
 #include "game/sys/reverse_track.h"

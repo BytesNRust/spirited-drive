@@ -2,6 +2,7 @@
 # The fingerprint of the light the game makes for each of the 16 tracks at each of the 4 times of day (game/race/track_light_fingerprint.h), against tests/track_light_fingerprint.txt.
 # Any change of a light file, of the format or of the generator that changes a light shows here; one that is meant is written with  UPDATE=1 sh tests/track_light_fingerprint.sh ...
 # usage: tests/track_light_fingerprint.sh <tnfs binary> <original/ dir> [expected file]      (run from the repo's root: the game reads data/ from there)
+# CONVERT=1 reads the light from the one file a track that tools/track_light_convert.py makes from the old files (in a copy of data/): the same fingerprints.
 # Exit 77 (skipped) without the CD's data. TRACKS="CY1 TR3" restricts the tracks (the comparison then covers only them).
 set -u
 bin=$1
@@ -10,6 +11,14 @@ expected=${3:-tests/track_light_fingerprint.txt}
 tracks=${TRACKS:-"AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7"}
 [ -d "$original" ] || { echo "skipped: no $original"; exit 77; }
 work=$(mktemp -d "${TMPDIR:-/tmp}/tnfs_light_print.XXXXXX")
+if [ "${CONVERT:-0}" = 1 ]; then   # the game runs in a copy of the repo's data/ with the converted files in it (the one file of a track is read before the old ones)
+  here=$(pwd)
+  case $bin in /*) ;; *) bin=$here/$bin ;; esac
+  case $original in /*) ;; *) original=$here/$original ;; esac
+  case $expected in /*) ;; *) expected=$here/$expected ;; esac
+  cp -R data "$work/data" && python3 tools/track_light_convert.py data "$work/data/track_light" $tracks > /dev/null || { echo "FAIL: the conversion"; exit 1; }
+  cd "$work"
+fi
 mkdir -p "$work/user"
 printf 'profile=restomod\npsx_dir=\n' > "$work/user/port.cfg"
 run_track() {   # one track at its four times, into its own file (the tracks run side by side)

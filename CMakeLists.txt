@@ -1794,6 +1794,10 @@ if(NOT EMSCRIPTEN)
         add_test(NAME track_light_fingerprint COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
                  ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(track_light_fingerprint PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+        # the same, from the one file a track that tools/track_light_convert.py makes from the old files: converting changes no light
+        add_test(NAME track_light_convert COMMAND ${CMAKE_COMMAND} -E env CONVERT=1 sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
+                 ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+        set_tests_properties(track_light_convert PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         # dep59 step 5 (T7g): a whole race on an added track from the menus, to its results
         add_test(NAME edition_menus_trackrace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                  ${CMAKE_SOURCE_DIR}/original trackrace $<TARGET_FILE:tnfs-studio>)

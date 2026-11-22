@@ -99,7 +99,12 @@ static void test_a_brightness_strip_scales_its_points(void)
 }
 
 static void test_a_time_without_a_block_and_another_track(void)
-{
+{    {   /* no tunnel fact: no tunnel array (the rows decide) */
+        TrackLightFile n;
+        CHECK(parse("track CY1\ntunnel 5 9 lit\ntime A\n", 'A', &n, NULL));
+        CHECK(n.light.tunnel == NULL);
+        track_light_file_free(&n);
+    }
     TrackLightFile f;
     CHECK(parse(FILE_TEXT, 'C', &f, NULL));   /* no block: the facts only */
     CHECK(!f.sun.has && f.tweaks.lamp_count == 0 && f.light.tunnel[1100]);

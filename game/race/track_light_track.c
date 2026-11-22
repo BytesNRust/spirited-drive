@@ -208,7 +208,7 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
     places.tunnel = calloc(nodes, 1);
     int line_no = 0, header = 0, in_block = 0, active = 0, blocks_seen = 0;
     TrackLightTweaks *cur = &file.tweaks;
-    int halls[TRACK_LIGHT_MAX_BRIGHT][2], hall_count = 0, ok = 0;
+    int halls[TRACK_LIGHT_MAX_BRIGHT][2], hall_count = 0, tunnel_facts = 0, ok = 0;
     if (scratch == NULL || st.fact == NULL || file.row_set == NULL || file.light.data == NULL || places.tunnel == NULL) goto done;
     st.scratch = scratch;
     for (size_t at = 0; at < size;) {
@@ -261,7 +261,7 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
                 if (is_hall && hall_count >= TRACK_LIGHT_MAX_BRIGHT) goto bad;
                 for (unsigned node = a; node <= b; node++) st.fact[node] = is_hall ? 2 : 1;
                 if (is_hall) halls[hall_count][0] = (int)a, halls[hall_count][1] = (int)b, hall_count++;
-                else memset(places.tunnel + a, 1, b - a + 1);
+                else memset(places.tunnel + a, 1, b - a + 1), tunnel_facts = 1;
             } else if (strcmp(key, "snow") == 0) {
                 int on;
                 if (sscanf(rest, "%d", &on) != 1 || (on != 0 && on != 1)) goto bad;
@@ -299,7 +299,7 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
     (void)blocks_seen;
     if (!header) { line_no = 0; goto bad; }
     if (!track_light_tweaks_finish(&file.tweaks, &line_no)) goto bad;
-    file.light.tunnel = places.tunnel, places.tunnel = NULL;
+    if (tunnel_facts) file.light.tunnel = places.tunnel, places.tunnel = NULL;   /* a track with no tunnel has none: the rows decide, as with no places file's `present tunnel` */
     file.light.snow = places.snow;
     memcpy(file.light.snow_map, places.snow_map, sizeof file.light.snow_map);
     file.light.from_places = 1;
