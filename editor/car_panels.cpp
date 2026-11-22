@@ -15,6 +15,7 @@ extern "C" {
 #include "app_sheet.h"
 #include "car_photos.h"
 #include "formats/car_piece.h"
+#include "formats/car_paint.h"
 }
 
 #include <float.h>
@@ -343,7 +344,8 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
         if (bad != nullptr) problem_text(bad->text);
         if (i >= s.paint_count) break;   // the one just removed
     }
-    const bool full = s.paint_count >= MOD_INI_PAINTS_MAX;
+    const int most = app_car_is_original(a) ? CAR_PAINT_MAX : MOD_INI_PAINTS_MAX;   // the game offers up to 4 colors for one of its own cars
+    const bool full = s.paint_count >= most;
     ImGui::BeginDisabled(full);
     if (ImGui::Button("Add color")) {
         char name[sizeof s.paints[0].name];
@@ -352,7 +354,7 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
         car_edit_paint_add(&a->edit, name, grey);
     }
     ImGui::EndDisabled();
-    if (full && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("A card keeps up to %d colors", MOD_INI_PAINTS_MAX);
+    if (full && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip(most < MOD_INI_PAINTS_MAX ? "The game offers up to %d colors for one of its own cars" : "A card keeps up to %d colors", most);
     ImGui::PopID();
 }
 
@@ -433,11 +435,21 @@ void car_panel(App *a)
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", own ? OWN : app_car_building(a) ? "The car is being built" : "Make the car from this kit's files: build/piece and build/<id>.zip (save what you changed first)");
             ImGui::SameLine();
-            ImGui::BeginDisabled(own || app_car_building(a) || app_install_busy(a));
-            if (ImGui::Button("Install")) app_install(a);
-            ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", own ? OWN : app_install_busy(a) ? "The game is installing the package" : "Install the last build in the game (Build first)");
+            if (own) {   // the game's own car is not installed: what goes on is a copy of its masks and colors into the game repo
+                const bool repo_set = app_repo_data(a)[0] != '\0';
+                ImGui::BeginDisabled(repo_set && !app_car_copy_can(a));   // with no repo folder the button stays on: a click asks for it
+                if (ImGui::Button("Copy to game repo")) repo_set ? (void)app_car_copy_ask(a) : (void)app_repo_data_pick(a);
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("%s", !repo_set ? "Set the game repo folder first: File > Game repo folder..."
+                                                     : "Copy this car's changed masks into the game repo's data/ and its Colors into core/formats/car_paint.c (nothing is committed); the window lists what goes");
+            } else {
+                ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
+                if (ImGui::Button("Install")) app_install(a);
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("%s", app_install_busy(a) ? "The game is installing the package" : "Install the last build in the game (Build first)");
+            }
             ImGui::SameLine();
             ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Check")) app_check(a);
@@ -475,6 +487,14 @@ void car_panel(App *a)
         ImGui::Separator();
         const CarEditProblem *card = problem_for(problems, count, CE_CARD);
         if (card != nullptr) problem_text(card->text);
+        const bool own_card = app_car_is_original(a);   // the game's own car: its card is the game's, only the Colors go to the game repo
+        if (own_card) {
+            ImGui::TextUnformatted("Card: the game's own");
+            ImGui::SameLine();
+            help_marker("An original car's card is the game's own: it is shown, not edited, and it is not installed. Only its Colors travel: Copy to game repo writes them into this car's row of the colors table "
+                        "(core/formats/car_paint.c) of the game repo; the game then offers them in its Color box.");
+        }
+        ImGui::BeginDisabled(own_card);
         if (ImGui::BeginTable("mod.ini", 2, ImGuiTableFlags_RowBg)) {
             ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthFixed, 120);
             ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
@@ -489,8 +509,11 @@ void car_panel(App *a)
             ImGui::EndTable();
         }
         physics_row(a);
+        ImGui::EndDisabled();
         colors_section(a, problems, count);
+        ImGui::BeginDisabled(own_card);
         photos_section(a, problems, count);
+        ImGui::EndDisabled();
     }
     ImGui::End();
 }
