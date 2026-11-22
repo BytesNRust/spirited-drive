@@ -124,6 +124,7 @@ typedef struct {
     unsigned tmask_serial;       /* counts the pictures made, for the texture */
     double tmask_psd_seen;       /* the newest mask PSD time the scan saw; a PSD newer than this was saved again (app_track_masks_poll) */
     double tmask_check_at;       /* the clock of the last look at the PSDs */
+    double tmask_now;            /* the window's clock in seconds, set each frame by the track editor (the light window has its own: light.now) */
     char tmask_note[200];        /* why there is no picture, or what Regenerate did */
     int original_dialog;         /* the Open original track window is up */
     int publish_dialog;          /* the Publish to the game window is up, with its preview in publish_text */

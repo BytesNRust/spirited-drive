@@ -8,9 +8,38 @@
 #include "formats/psd_mask.h"
 #include "track_tex.h"
 
+/* The art source of what is open (dep103's TrackArtSource): the folder whose light/, art-source/masks and art-generated/track_masks the panel works on, the track's stem, and where its textures
+ * are read from. An original track (the Track light window) reads the CD's; an own track (the track editor) reads the project's own art FAM, art= of its project.ini. */
+typedef struct {
+    const char *root;
+    char stem[16];
+    char fam[APP_PATH];   /* "" for an original track: its textures are the CD's */
+} ArtSource;
+
+static int art_source(const App *a, ArtSource *out)
+{
+    memset(out, 0, sizeof *out);
+    if (a->kind == APP_KIND_LIGHT && a->original_dir[0] != '\0' && original_track_stem_of(a->original_dir, out->stem, sizeof out->stem)) return out->root = a->original_dir, 1;
+    if (a->kind != APP_KIND_TRACK || a->dir[0] == '\0') return 0;
+    snprintf(out->stem, sizeof out->stem, "%s", a->project.stem);
+    if (a->project.art[0] != '\0') {
+        if (a->project.art[0] == '/') snprintf(out->fam, sizeof out->fam, "%s", a->project.art);
+        else snprintf(out->fam, sizeof out->fam, "%s/%s", a->dir, a->project.art);
+    }
+    return out->root = a->dir, 1;
+}
+
 static int stem_of(const App *a, char *stem, size_t cap)
 {
-    return a->kind == APP_KIND_LIGHT && a->original_dir[0] != '\0' && original_track_stem_of(a->original_dir, stem, cap);
+    ArtSource src;
+    if (!art_source(a, &src)) return 0;
+    snprintf(stem, cap, "%s", src.stem);
+    return 1;
+}
+
+static double clock_of(const App *a)
+{
+    return a->kind == APP_KIND_LIGHT ? a->light.now : a->tmask_now;
 }
 
 static void drop_picture(App *a)
@@ -25,7 +54,15 @@ static void drop_picture(App *a)
 /* the textures of the track from the game's files, when they are there: for the sizes and the pictures */
 static TrackTexSet *textures(const App *a, const char *stem)
 {
+    ArtSource src;
+    if (art_source(a, &src) && src.fam[0] != '\0') return track_tex_open_fam(src.fam, NULL, 0);
     return a->export_src.cd[0] != '\0' ? track_tex_open(a->export_src.cd, stem, NULL, 0) : NULL;
+}
+
+static const char *root_of(const App *a)
+{
+    ArtSource src;
+    return art_source(a, &src) ? src.root : "";
 }
 
 int app_track_masks_refresh(App *a)
@@ -39,12 +76,12 @@ int app_track_masks_refresh(App *a)
     track_tex_close(set);
     drop_picture(a);
     a->tmask_note[0] = '\0';
-    if (!track_masks_scan(a->original_dir, info, n, &a->tmasks, why, sizeof why)) {
+    if (!track_masks_scan(root_of(a), info, n, &a->tmasks, why, sizeof why)) {
         memset(&a->tmasks, 0, sizeof a->tmasks);
         snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why);
         return a->tmasks_loaded = 1, 0;
     }
-    a->tmask_psd_seen = track_masks_newest_psd(a->original_dir);
+    a->tmask_psd_seen = track_masks_newest_psd(root_of(a));
     return a->tmasks_loaded = 1;
 }
 
@@ -55,7 +92,7 @@ int app_track_masks_load(App *a)
     int written = 0;
     char why[APP_MSG] = "";
     if (a->tmasks.to_make > 0) {
-        const int ok = track_masks_generate(a->original_dir, &a->tmasks, &written, why, sizeof why);
+        const int ok = track_masks_generate(root_of(a), &a->tmasks, &written, why, sizeof why);
         app_track_masks_refresh(a);
         if (!ok) snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why);
         else snprintf(a->status, sizeof a->status, "masks: %d PNG%s made from the PSDs", written, written == 1 ? "" : "s");
@@ -73,7 +110,7 @@ int app_track_mask_select(App *a, int i)
     const TrackMaskRow *row = &a->tmasks.row[i];
     unsigned char *marks = NULL;
     unsigned mw = 0, mh = 0;
-    if (!row->has_png || !track_masks_load(a->original_dir, row->name, &marks, &mw, &mh)) {
+    if (!row->has_png || !track_masks_load(root_of(a), row->name, &marks, &mw, &mh)) {
         snprintf(a->tmask_note, sizeof a->tmask_note, row->state == TM_EMPTY ? "nothing is painted in this PSD's mask layer, and there is no PNG" : "no PNG to show");
         a->tmask_sel = i;
         return 0;
@@ -108,7 +145,7 @@ int app_track_mask_regenerate(App *a)
     const int sel = a->tmask_sel;
     if (sel < 0 || sel >= a->tmasks.count) return snprintf(a->tmask_note, sizeof a->tmask_note, "pick a mask first"), 0;
     snprintf(name, sizeof name, "%s", a->tmasks.row[sel].name);
-    if (!track_masks_regenerate(a->original_dir, name, why, sizeof why)) return snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why), 0;
+    if (!track_masks_regenerate(root_of(a), name, why, sizeof why)) return snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why), 0;
     app_track_masks_refresh(a);
     for (int i = 0; i < a->tmasks.count; ++i)
         if (strcmp(a->tmasks.row[i].name, name) == 0) app_track_mask_select(a, i);
@@ -177,14 +214,17 @@ int app_original_check_all(App *a, char *out, size_t cap)
 
 int app_track_masks_poll(App *a)
 {
-    if (!a->tmasks_loaded || a->original_dir[0] == '\0' || a->light.now < a->tmask_check_at) return 0;
-    a->tmask_check_at = a->light.now + 1.0;
-    if (track_masks_newest_psd(a->original_dir) <= a->tmask_psd_seen) return 0;
+    const char *root = root_of(a);
+    if (!a->tmasks_loaded || root[0] == '\0' || clock_of(a) < a->tmask_check_at) return 0;
+    a->tmask_check_at = clock_of(a) + 1.0;
+    if (track_masks_newest_psd(root) <= a->tmask_psd_seen) return 0;
     a->tmasks_loaded = 0;   // a PSD was saved again: scan, make the PNGs, and show the photos again with them
     app_track_masks_load(a);
-    ++a->light.edit_serial;
-    a->light.edit_at = a->light.now;
-    memset(a->light.compare.shown, 0, sizeof a->light.compare.shown);
-    snprintf(a->status, sizeof a->status, "masks: a PSD was saved again: the PNGs and the photo are made again");
+    if (a->kind == APP_KIND_LIGHT) {
+        ++a->light.edit_serial;
+        a->light.edit_at = a->light.now;
+        memset(a->light.compare.shown, 0, sizeof a->light.compare.shown);
+    }
+    snprintf(a->status, sizeof a->status, a->kind == APP_KIND_LIGHT ? "masks: a PSD was saved again: the PNGs and the photo are made again" : "masks: a PSD was saved again: the PNGs are made again");
     return 1;
 }

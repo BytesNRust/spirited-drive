@@ -478,7 +478,7 @@ grep -q "\-\-window wants WxH" "$work/log" || fail "the refusal of --window does
 "$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"
 # ==== Window menu: every panel the frame draws is listed, each item closes and reopens it, the closed ones are kept in the ini ====
 panels=$("$editor" "$work/warn" --user "$work/u-win" --window 1280x960 --frames 6 --steps print-panels,panel:3,print-panels,panel:3,print-panels,panel:9 2>&1)
-[ "$(echo "$panels" | grep -c '^panel [0-9]*: .*: open, drawn, docked$')" = 29 ] || fail "the track's panels are not 10 open and drawn, 9 after closing one, 10 after opening it: $panels"
+[ "$(echo "$panels" | grep -c '^panel [0-9]*: .*: open, drawn, docked$')" = 32 ] || fail "the track's panels are not 11 open and drawn, 10 after closing one, 11 after opening it: $panels"
 [ "$(echo "$panels" | grep -c '^unlisted:$')" = 3 ] || fail "a panel is drawn that the Window menu does not list: $(echo "$panels" | grep '^unlisted')"
 echo "$panels" | grep -q '^panel 3: Points: closed, not drawn, docked$' || fail "Window > Points did not close the panel: $panels"
 echo "$panels" | grep -q '^panel 9: Drive: ' || fail "the Drive panel is not in the Window menu: $panels"

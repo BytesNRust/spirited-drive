@@ -18,6 +18,8 @@ typedef struct TrackTexSet TrackTexSet;
 
 /* Opens the track's art: NULL with `why` when the file is not there or does not read. `track` is a stem ("CL1"), `cd` the game's files. */
 TrackTexSet *track_tex_open(const char *cd, const char *track, char *why, size_t why_cap);
+/* The same on a FAM file of that layout wherever it is: an own track's art (the project's GENERIC.FAM, or one made by `tnfs-studio fam build`). */
+TrackTexSet *track_tex_open_fam(const char *path, char *why, size_t why_cap);
 void track_tex_close(TrackTexSet *set);
 
 /* the textures in order: the slots by number, then the boards by number */
