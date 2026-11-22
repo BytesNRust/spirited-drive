@@ -3,6 +3,7 @@
 
 #include "imgui.h"
 #include "stretch_colours.h"
+#include "help_marker.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,8 @@ extern "C" {
 #include "interact.h"
 #include "point_ops.h"
 #include "app_points.h"
+#include "shortcut_keys.h"
+#include "track_help.h"
 }
 
 namespace {
@@ -394,6 +397,16 @@ bool colour_by_combo(App *a, const ImVec2 &origin)
     return hovered;
 }
 
+// the help of the whole interface: one "(?)" over the canvas' top-right corner, the mouse and the keys; true while the mouse is on it
+bool help_corner(const ImVec2 &origin, const ImVec2 &size)
+{
+    char text[512];
+    track_help_text(text, sizeof text, SHORTCUT_MAC);
+    ImGui::SetCursorScreenPos(ImVec2(origin.x + size.x - ImGui::CalcTextSize("(?)").x - COMBO_MARGIN, origin.y + COMBO_MARGIN + ImGui::GetStyle().FramePadding.y));
+    help_marker(text);
+    return ImGui::IsItemHovered();
+}
+
 }   // namespace
 
 void viewport_panel(App *a)
@@ -431,7 +444,8 @@ void viewport_panel(App *a)
             c.list->PopClipRect();
             const bool over_canvas = ImGui::IsItemHovered();
             const bool over_combo = colour_by_combo(a, origin);
-            if (over_canvas && !over_combo) draw_tooltip(c, *a);
+            const bool over_help = help_corner(origin, size);
+            if (over_canvas && !over_combo && !over_help) draw_tooltip(c, *a);
         }
     }
     ImGui::End();
