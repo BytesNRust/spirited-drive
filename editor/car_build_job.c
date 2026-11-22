@@ -17,8 +17,9 @@ static void *build_thread(void *arg)
     CarBuildJob *job = arg;
     ExchangeError err;
     memset(&err, 0, sizeof err);
-    const int ok = job->check ? car_kit_check(job->kit, &job->list) || (exchange_fail(&err, "out of memory"), 0) : car_kit_build_dir(job->kit, 0, &err);
-    pthread_mutex_lock(&job->lock);
+    const int checked = car_kit_check(job->kit, &job->list);   /* a build checks first: its findings do not stop it (a model that does not build says so, and the build then says why) */
+    const int ok = job->check ? checked || (exchange_fail(&err, "out of memory"), 0) : car_kit_build_dir(job->kit, 0, &err);
+    job->check_ok = checked;    pthread_mutex_lock(&job->lock);
     job->ok = ok;
     snprintf(job->why, sizeof job->why, "%s", ok ? "" : err.message);
     job->running = 0;
@@ -42,7 +43,8 @@ static int start(CarBuildJob *job, const char *kit, int check, char *why, size_t
     }
     job->done = job->ok = 0;
     job->check = check;
-    if (check) car_check_free(&job->list), job->checked = 0;
+    car_check_free(&job->list);
+    job->checked = job->check_ok = 0;
     job->why[0] = '\0';
     job->running = 1;
     const int err = pthread_create(&job->thread, NULL, build_thread, job);
@@ -80,7 +82,7 @@ int car_build_job_poll(CarBuildJob *job)
     pthread_join(job->thread, NULL);
     job->started = 0;
     job->done = 1;
-    job->checked = job->check && job->ok;
+    job->checked = job->check ? job->ok : job->check_ok;
     return 0;
 }
 

@@ -464,7 +464,10 @@ int app_car_build_poll(App *a)
         return 0;
     }
     if (a->car_build.ok) {
+        const size_t errors = car_check_count(&a->car_build.list, CAR_CHECK_ERROR), warnings = car_check_count(&a->car_build.list, CAR_CHECK_WARNING);
         snprintf(a->status, sizeof a->status, "built the car: build/piece and the zip are made again");
+        if (errors + warnings > 0)
+            snprintf(a->status + strlen(a->status), sizeof a->status - strlen(a->status), "; the check found %zu error%s, %zu warning%s", errors, errors == 1 ? "" : "s", warnings, warnings == 1 ? "" : "s");
         if (!car_zip_path(a, a->zip, sizeof a->zip)) a->zip[0] = '\0';
     }
     else snprintf(a->status, sizeof a->status, "the car could not be built: %s", a->car_build.why);

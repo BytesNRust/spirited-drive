@@ -15,8 +15,9 @@ typedef struct {
     int running;               /* set by the thread's end: read under `lock` */
     int done;                  /* a build ran and was told by car_build_job_poll */
     int ok;
-    int check;                 /* the job that ran or runs is the kit's check (studio/car_kit_check.h), not a build */
-    CarCheckList list;         /* the findings of the last check; checked says there are some to show, even none */
+    int check;                 /* the job that ran or runs is the kit's check (studio/car_kit_check.h) alone; a build checks the kit first too */
+    int check_ok;              /* the check of a build ran (out of memory is the only way it does not) */
+    CarCheckList list;         /* the findings of the last check or build; checked says there are some to show, even none */
     int checked;
     char kit[4096];
     char why[300];
