@@ -102,6 +102,9 @@ static void check_kit(void)
     car_project_masks_dir(&c, dir, sizeof dir);
     path_in(want, sizeof want, "kit/art-generated/car_masks", "");
     CHECK(strcmp(dir, want) == 0);
+    car_project_edit_dir(&c, dir, sizeof dir);   /* what a person edits is the PSDs, not the PNGs Studio makes from them */
+    path_in(want, sizeof want, "kit/art-source/masks", "");
+    CHECK(strcmp(dir, want) == 0);
     car_project_card_dir(&c, dir, sizeof dir);   /* the card's own files (mod.ini, card.png) are the kit's, not build/piece's (disposable) */
     path_in(want, sizeof want, "kit", "");
     CHECK(strcmp(dir, want) == 0);
@@ -137,6 +140,8 @@ static void check_exported_original_shape(void)
     car_project_masks_dir(&c, dir, sizeof dir);
     path_in(want, sizeof want, "orig/car_masks/C84", "");
     CHECK(strcmp(dir, want) == 0);   /* the stem level, as the game's data/car_masks/<folder>/ */
+    car_project_edit_dir(&c, dir, sizeof dir);   /* a piece has no art-source: its PNGs are what is edited */
+    CHECK(strcmp(dir, want) == 0);
     path_in(dir, sizeof dir, "orig", "");
     CHECK_EQ_INT(car_project_present(dir), 1);
     make_dir("lone");   /* a piece with no masks */

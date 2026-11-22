@@ -226,3 +226,17 @@ const char *app_mask_state(const App *a, int index)
         }
     return a->mask.has_mask[index] ? "PNG only" : "no mask";
 }
+
+int app_reveal_masks(App *a)
+{
+    char dir[APP_PATH];
+    struct stat st;
+    if (a->kind != APP_KIND_CAR) return 0;
+    car_project_edit_dir(&a->car, dir, sizeof dir);
+    if (stat(dir, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        snprintf(a->status, sizeof a->status, "%s is not there yet: the masks are painted in PSDs kept in art-source/masks", dir);
+        return 0;
+    }
+    snprintf(a->reveal, sizeof a->reveal, "%s", dir);
+    return 1;
+}

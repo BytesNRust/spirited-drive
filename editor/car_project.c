@@ -307,3 +307,9 @@ void car_project_manifest(const CarProject *c, char *out, size_t cap)
     if (c->masks_only || c->legacy) snprintf(out, cap, "%s", "");
     else snprintf(out, cap, "%s/%s", c->root, car_kit_path(CAR_KIT_GEN_MANIFEST));
 }
+
+void car_project_edit_dir(const CarProject *c, char *out, size_t cap)
+{
+    if (c->masks_only || c->legacy) car_project_masks_dir(c, out, cap);   /* the PNGs are what is edited */
+    else snprintf(out, cap, "%s/%s", c->root, car_kit_path(CAR_KIT_SRC_MASKS));   /* a kit's masks are made from its PSDs: those are edited, the PNGs are Studio's */
+}

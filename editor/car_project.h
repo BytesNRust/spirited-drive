@@ -48,6 +48,8 @@ void car_project_masks_dir(const CarProject *c, char *out, size_t cap);
 void car_project_dash_dir(const CarProject *c, char *out, size_t cap);
 /* the manifest of the generated PNGs (psd_manifest.h): a kit's art-generated/.generated.tsv; "" for a project that has none */
 void car_project_manifest(const CarProject *c, char *out, size_t cap);
+/* the folder a person edits the masks in: a kit's art-source/masks (the PSDs; art-generated/car_masks is Studio's, never edited), else the same as car_project_masks_dir */
+void car_project_edit_dir(const CarProject *c, char *out, size_t cap);
 /* The folder that holds the card's own files (mod.ini, card.png): the kit's folder for a kit, the piece itself for the other shapes. Never build/piece: that is rebuilt. */
 void car_project_card_dir(const CarProject *c, char *out, size_t cap);
 /* Where the showcase's pictures (photos= names them) are: root/photos for a kit (the build copies them into the piece), the piece itself for the other shapes. */

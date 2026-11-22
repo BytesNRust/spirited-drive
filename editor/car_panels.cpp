@@ -509,9 +509,8 @@ void masks_panel(App *a, ImTextureID tex)
         const bool original = car_race_original_of(&c) != nullptr;   // an exported original car (or its masks): one of the game's own
         if (c.built || c.masks_only) ImGui::Text("Car file: %s", leaf(c.cfm));
         else ImGui::Text("Car file: %s (not built yet)", leaf(c.cfm));
-        char rel[CAR_PROJECT_NAME + 16], masks_path[APP_PATH];   // car_masks for a kit, car_masks/<folder> for the other shapes
+        char rel[CAR_PROJECT_NAME + 16];   // art-generated/car_masks for a kit, car_masks/<folder> for the other shapes
         car_project_masks_rel(&c, rel, sizeof rel);
-        car_project_masks_dir(&c, masks_path, sizeof masks_path);
         masks_changes_section(a);   // what the project's masks have changed from the game's: first, it is what a hand-over needs
         ImGui::Spacing();
         {   // the owner's PSDs of this car, turned into the masks above (the C reader, and the dash's when the folder has a dash.psd)
@@ -549,21 +548,28 @@ void masks_panel(App *a, ImTextureID tex)
             }
             ImGui::Spacing();
         }
-        if (!c.has_masks_dir) {
-            ImGui::Text("Masks of the car (%s): none yet", rel);
-        } else {
-            ImGui::Text("Masks of the car (%s): %d", rel, c.mask_count);
+        const bool kit = app_car_is_kit(a);   // a kit's masks are made from its PSDs: art-source/masks is edited, art-generated/car_masks is Studio's
+        if (!c.has_masks_dir) ImGui::Text("Masks of the car (%s): none yet", rel);
+        else ImGui::Text("Masks of the car (%s): %d", rel, c.mask_count);
+        if (kit) {
             ImGui::SameLine();
-            if (ImGui::Button("Reveal masks folder")) snprintf(a->reveal, sizeof a->reveal, "%s", masks_path);
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Show the folder in the Finder");
-            if (original) {   // only one of the game's own cars has its masks in the game's source tree; a mod car's stay in its mod
-                char repo[256];
-                car_export_repo_path(c.folder, repo, sizeof repo);
-                ImGui::SameLine();
-                char help[320];
-                snprintf(help, sizeof help, "In the game's source tree these files are %s:\ncopy them there to change the game's masks.", repo);
-                help_marker(help);
-            }
+            help_marker("These PNGs are made from the PSDs: do not edit them, a conversion replaces them.\n"
+                        "The PSDs are what you edit; Reveal masks folder shows them (art-source/masks).");
+        }
+        if (c.has_masks_dir || kit) {
+            ImGui::SameLine();
+            if (ImGui::Button("Reveal masks folder")) app_reveal_masks(a);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", kit ? "Show art-source/masks in the Finder: the PSDs you edit.\nart-generated/car_masks is made from them and is not edited."
+                                            : "Show the folder in the Finder");
+        }
+        if (c.has_masks_dir && original) {   // only one of the game's own cars has its masks in the game's source tree; a mod car's stay in its mod
+            char repo[256];
+            car_export_repo_path(c.folder, repo, sizeof repo);
+            ImGui::SameLine();
+            char help[320];
+            snprintf(help, sizeof help, "In the game's source tree these files are %s:\ncopy them there to change the game's masks.", repo);
+            help_marker(help);
         }
         ImGui::Spacing();
         mask_view_section(a, tex);

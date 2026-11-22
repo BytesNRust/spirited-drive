@@ -183,8 +183,40 @@ static void test_kit(void)
     free(a);
 }
 
+/* «Reveal masks folder» shows what a person edits: a kit's art-source/masks (the PSDs), never art-generated/car_masks (Studio's); a piece's own PNGs */
+static void test_reveal(void)
+{
+    App *a = open_kit();   /* a piece: its car_masks/<folder> are the PNGs */
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    CHECK(app_reveal_masks(a) && strstr(a->reveal, "kit/car_masks/C84") != NULL);
+    app_free(a);
+    free(a);
+    const char *dirs[] = { "kit3", "kit3/model", "kit3/art-generated", "kit3/art-generated/car_masks" };
+    for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) dir_of(dirs[i]);
+    CHECK(put("kit3/mod.ini", "id=kitcar\nname=Kit\nversion=1\ntype=car\nstem=C84\nsound_from=911\n"));
+    a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "./tnfs", "", NULL);
+    char kit[500];
+    path_of(kit, sizeof kit, "kit3");
+    CHECK(app_open_car(a, kit) && app_car_is_kit(a));
+    for (int i = 0; i < 4000 && car_build_job_busy(&a->car_build); i++) car_build_job_poll(&a->car_build), usleep(5000);
+    CHECK(!car_build_job_busy(&a->car_build));
+    CHECK(!app_reveal_masks(a) && a->reveal[0] == '\0' && strstr(a->status, "art-source/masks") != NULL);   /* no PSD folder yet: said, nothing shown */
+    dir_of("kit3/art-source");
+    dir_of("kit3/art-source/masks");
+    CHECK(app_reveal_masks(a) && strstr(a->reveal, "kit3/art-source/masks") != NULL && strstr(a->reveal, "art-generated") == NULL);
+    app_free(a);
+    free(a);
+}
+
 static void remove_tree(void)
 {
+    char cmd[700];   /* kit3 and what its build wrote: a tree, not a list */
+    snprintf(cmd, sizeof cmd, "find '%s/kit3' -depth -delete", root);
+    if (system(cmd) != 0) fprintf(stderr, "could not remove %s/kit3\n", root);
     const char *files[] = { "kit/mod.ini", "kit/SIMDATA/CARFAMS/C84.CFM", "kit/car_masks/C84/old_mask.png", "kit/car_masks/C84/side_mask.png", "kit/car_masks/C84/frnt_mask.png",
                             "psd/c84/side.psd", "psd/c84/frnt.psd", "psd/c84/rear.psd" };
     char p[700];
@@ -204,6 +236,7 @@ int main(void)
     }
     test_flows();
     test_kit();
+    test_reveal();
     remove_tree();
     return TEST_REPORT();
 }

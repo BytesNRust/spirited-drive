@@ -326,6 +326,8 @@ int app_can_redo(const App *a);
 const char *app_mask_state(const App *a, int index);
 /* the state of the dash's mask against its dash.psd, as app_mask_state words it; NULL when the car has no dash.psd to show (the Masks window's read-only row) */
 const char *app_mask_dash_state(const App *a);
+/* «Reveal masks folder»: asks the window to show the folder the masks are edited in (car_project_edit_dir: a kit's art-source/masks, not the generated PNGs); 0, with the status saying why, when it is not there */
+int app_reveal_masks(App *a);
 /* Masks changed on disk by another program (W4). app_mask_watch looks at the car's mask files when `now` (seconds, any clock that only grows) is a
  * second or more after its last look: a changed, new or removed file moves mask.generation (the Preview and the Model read the masks again) and
  * has_mask; the open mask is read again (closed when its file went). 1 when something changed. */
