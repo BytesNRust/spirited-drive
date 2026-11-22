@@ -30,6 +30,26 @@ def lines(path):
 FOREST = {"TR3": (852, 934, 8, 3, (0.40, 0.62))}
 
 
+# TR7's special cases of the code (the parking roof 465..470 under the deck, the airport approach 700..776 with its scenery at the open light): the rows the old files hold for those nodes, as
+# `rows` lines, in runs of equal rows (exact; the code makes neither any more).
+STORED_ROWS = {"TR7": ((465, 470), (700, 776))}
+
+
+def stored_rows(data, track, t, a, b):
+    rows = {}
+    for n, w in lines(os.path.join(data, "track_light", track + t + ".txt")):
+        if w[0] == "rows":
+            for node in range(int(w[1]), int(w[2]) + 1):
+                rows[node] = w[3:14]
+    out = []
+    for node in range(a, b + 1):
+        if out and out[-1][2] == rows[node] and out[-1][1] == node - 1:
+            out[-1][1] = node
+        else:
+            out.append([node, node, rows[node]])
+    return ["  rows %d %d %s" % (x, y, " ".join(r)) for x, y, r in out]
+
+
 def forest_lines(track):
     if track not in FOREST:
         return []
@@ -112,6 +132,8 @@ def convert(data, track):
     for t in TIMES:
         look, zones, lamps = blocks[t]
         forest = forest_lines(track)
+        for a, b in STORED_ROWS.get(track, ()):
+            forest += stored_rows(data, track, t, a, b)
         if look is None and not zones and not lamps and not forest:
             continue
         out.append("")

@@ -547,20 +547,8 @@ static void test_mine_track(void)
     CHECK(!light_synth_mine("TR7") && !light_synth_mine(NULL));
 }
 
-static void test_trans_closed_range(void)
+static void test_car_dim_span(void)
 {
-    uint32_t a = 0, b = 0, r = 0;
-    CHECK(light_synth_trans_closed("TR7", &a, &b, &r));
-    CHECK(a == 465 && b == 470 && r == 475);   /* just before the marked run, which starts at 471 */
-    CHECK(!light_synth_trans_closed("TR6", &a, &b, &r) && !light_synth_trans_closed(NULL, &a, &b, &r));
-}
-
-static void test_parking_dark(void)
-{
-    uint32_t a = 0, b = 0;
-    CHECK(light_synth_parking("TR7", &a, &b));
-    CHECK(a == 465 && b == 570);   /* the deck's first node to the hall's end, the exit tunnel's start is 571 */
-    CHECK(!light_synth_parking("TR6", &a, &b) && !light_synth_parking(NULL, &a, &b));
     uint8_t dim[8] = { 0, 1, 1, 1, 0, 0, 0, 0 }, tunnel[8] = { 0 };
     TrackNodeLight light = { 0 };
     light.nodes = 8, light.car_dim = dim, light.tunnel = tunnel;
@@ -574,28 +562,9 @@ static void test_parking_dark(void)
     CHECK(even[0] == 1.0f && odd[0] == 1.0f);   /* outside it, no tunnel: the open light */
 }
 
-static void test_cavern_range(void)
-{
-    uint32_t a = 0, b = 0;
-    CHECK(light_synth_cavern("TR6", &a, &b));
-    CHECK(a == 322 && b == 546);   /* after the mine tunnel's mouth, to the tunnel run's end */
-    CHECK(!light_synth_cavern("TR7", &a, &b) && !light_synth_cavern(NULL, &a, &b));
-}
-
-static void test_trans_ranges(void)
-{
-    uint32_t a = 0, b = 0;
-    CHECK(light_synth_trans("tr7", &a, &b));
-    CHECK(a == 700 && b == 776);
-    CHECK(!light_synth_trans("TR6", &a, &b) && !light_synth_trans(NULL, &a, &b));
-}
-
 int main(void)
 {
-    test_trans_ranges();
-    test_trans_closed_range();
-    test_parking_dark();
-    test_cavern_range();
+    test_car_dim_span();
     test_mine_track();
     test_runs_and_short_runs();
     test_hall_is_a_tunnel();

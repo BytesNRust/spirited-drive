@@ -70,23 +70,6 @@ int light_synth_track(const char *track);
  * terrain's own light, where a tunnel's rows darken them, so the car and the shadow there follow the scenery. */
 int light_synth_hall(const char *track, uint32_t *from, uint32_t *to);
 
-/* port (trans_shadows): Transtropolis' (TR7) airport approach to the open truss bridge, nodes 700..776: the terrain's walls shaded the scenery beside an open road in the made light.
- * 1 and the range (inclusive) for TR7, else 0. */
-int light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open_to);
-
-/* port (trans_shadows): Transtropolis' (TR7) closed parking, the other way round: its deck roofs the road from node 465 (the sky shows to 460, the facade 460..464) but the road property marks the tunnel only from 471
- * (to 609, where the road is open again), so nodes 465..470 under the deck got the open light. 1 and the range (inclusive) for TR7, else 0; `row_node` is a node inside
- * the marked run whose tunnel row is the interior shade the range takes. */
-int light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to, uint32_t *row_node);
-
-/* port (parking_dark): Transtropolis' (TR7) whole parking, from the deck's first node (465) to the node before the exit tunnel (570, the hall's end): the car keeps one dark tone there.
- * 1 and the range (inclusive) for TR7, else 0. */
-int light_synth_parking(const char *track, uint32_t *from, uint32_t *to);
-
-/* port (cavern_dark): Burnt Sienna's (TR6) cavern, from the node after the blue-lit mine tunnel's mouth (322) to the road's tunnel run's end (546, the canyon's property-16 stretch is 547..): the car keeps one dim tone
- * there. 1 and the range (inclusive) for TR6, else 0. */
-int light_synth_cavern(const char *track, uint32_t *from, uint32_t *to);
-
 /* port (made_tunnels): 1 for the track whose tunnel is the blue mine (TR6, Burnt Sienna), whose rock keeps its own hue under the made tunnel tables instead of the warm cast. */
 /* 1 for CY1, 2 for CY2 and CY3, 3 for TR3, 0 for any other track: the tunnels the CD's light colours orange or yellow */
 int light_synth_city_track(const char *track);

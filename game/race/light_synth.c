@@ -156,32 +156,6 @@ int light_synth(const Tri *tri, int time, TrackNodeLight *out)
     return light_synth_ex(tri, time, 0, out);
 }
 
-int light_synth_trans(const char *track, uint32_t *open_from, uint32_t *open_to)
-{
-    if (track == NULL || strcasecmp(track, "TR7") != 0) return 0;
-    if (open_from != NULL) *open_from = 700;
-    if (open_to != NULL) *open_to = 776;
-    return 1;
-}
-
-int light_synth_trans_closed(const char *track, uint32_t *from, uint32_t *to, uint32_t *row_node)
-{
-    if (track == NULL || strcasecmp(track, "TR7") != 0) return 0;
-    if (from != NULL) *from = 465;
-    if (to != NULL) *to = 470;
-    if (row_node != NULL) *row_node = 475;
-    return 1;
-}
-
-int light_synth_parking(const char *track, uint32_t *from, uint32_t *to)
-{
-    uint32_t closed_from = 0, hall_to = 0;
-    if (!light_synth_trans_closed(track, &closed_from, NULL, NULL) || !light_synth_hall(track, NULL, &hall_to)) return 0;
-    if (from != NULL) *from = closed_from;
-    if (to != NULL) *to = hall_to;
-    return 1;
-}
-
 int light_synth_city_track(const char *track)
 {
     if (track == NULL) return 0;
@@ -193,14 +167,6 @@ int light_synth_city_track(const char *track)
 int light_synth_mine(const char *track)
 {
     return track != NULL && strcasecmp(track, "TR6") == 0;
-}
-
-int light_synth_cavern(const char *track, uint32_t *from, uint32_t *to)
-{
-    if (!light_synth_mine(track)) return 0;
-    if (from != NULL) *from = 322;
-    if (to != NULL) *to = 546;
-    return 1;
 }
 
 int light_synth_track(const char *track)
