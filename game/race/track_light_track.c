@@ -175,7 +175,7 @@ static int rows(const char *rest, uint32_t nodes, TrackLightFile *out, int activ
 /* `sun AZ EL SHADOW`, each part a number or `-` */
 static int sun(const char *rest, TrackLightSun *sun_out)
 {
-    char w[3][32], extra[32];
+    char w[3][32], fourth[32], extra[32];
     const char *at = rest;
     double v[3] = { 0, 0, 0 };
     int has[3];
@@ -188,8 +188,16 @@ static int sun(const char *rest, TrackLightSun *sun_out)
             if (end == w[i] || *end != '\0') return 0;
         }
     }
+    int has_reach = 0;
+    double reach = 0.0;
+    if (next_word(&at, fourth, sizeof fourth)) {   /* an optional fourth word: the reach in units, `-` the generator's */
+        has_reach = strcmp(fourth, "-") != 0;
+        char *end = NULL;
+        if (has_reach) reach = strtod(fourth, &end);
+        if (has_reach && (end == fourth || *end != '\0' || reach < 1.0 || reach > 2000.0)) return 0;
+    }
     if (next_word(&at, extra, sizeof extra) || (has[2] && (v[2] < 0.0 || v[2] > 100.0)) || (has[1] && (v[1] < -90.0 || v[1] > 90.0))) return 0;
-    *sun_out = (TrackLightSun){ 1, has[0], has[1], has[2], v[0], v[1], v[2] };
+    *sun_out = (TrackLightSun){ 1, has[0], has[1], has[2], v[0], v[1], v[2], has_reach, reach };
     return 1;
 }
 

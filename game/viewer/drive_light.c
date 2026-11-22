@@ -408,7 +408,7 @@ static void made_hall_canyon(TrackNodeLight *made, TrackNodeLight *tunnels, cons
 static TerrainLightSun made_sun;
 static int made_sun_on;
 
-static void made_sun_set(const TrackLightTweaks *tweaks)
+static void made_sun_set(const TrackLightTweaks *tweaks, const TrackLightSun *file_sun)
 {
     made_sun_on = port_sun_shadow() && port_weather() == WEATHER_CLEAR && synth_time != LIGHT_SYNTH_NIGHT;
     if (!made_sun_on) return;
@@ -417,7 +417,14 @@ static void made_sun_set(const TrackLightTweaks *tweaks)
     if (tweaks != NULL && (tweaks->sun_set & TRACK_LIGHT_SUN_AZIMUTH)) made_sun.azimuth = tweaks->sun_azimuth * deg;
     if (tweaks != NULL && (tweaks->sun_set & TRACK_LIGHT_SUN_ELEVATION)) made_sun.elevation = tweaks->sun_elevation * deg;
     if (tweaks != NULL && (tweaks->sun_set & TRACK_LIGHT_SUN_SHADOW)) made_sun.shadow = tweaks->sun_shadow / 100.0f;
-    port_log("sun shadow: on, azimuth %.0f elevation %.0f shadow %.0f%%\n", made_sun.azimuth / deg, made_sun.elevation / deg, made_sun.shadow * 100.0f);
+    if (file_sun != NULL && file_sun->has) {   /* the one file of a track's `sun` line */
+        if (file_sun->has_azimuth) made_sun.azimuth = (float)file_sun->azimuth * deg;
+        if (file_sun->has_elevation) made_sun.elevation = (float)file_sun->elevation * deg;
+        if (file_sun->has_shadow) made_sun.shadow = (float)file_sun->shadow / 100.0f;
+        if (file_sun->has_reach) made_sun.reach = (float)file_sun->reach;
+    }
+    if (tweaks != NULL && (tweaks->sun_set & TRACK_LIGHT_SUN_REACH)) made_sun.reach = tweaks->sun_reach;
+    port_log("sun shadow: on, azimuth %.0f elevation %.0f shadow %.0f%% reach %.0f\n", made_sun.azimuth / deg, made_sun.elevation / deg, made_sun.shadow * 100.0f, made_sun.reach);
 }
 
 static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *out)
@@ -440,6 +447,7 @@ static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *ou
             const int beyond = point == 3 || point == 4 || point == 5 || point >= 8;   /* the points beyond the foot: the scenery's side */
             if (hall && node >= hall_from && node <= hall_to && beyond) continue;   /* port (hall_light): the hall keeps the terrain's light there */
             if (tunnels.data[i] < made.data[i]) made.data[i] = tunnels.data[i];
+            else if (made_sun_on && tunnels.tunnel != NULL && tunnels.tunnel[node] != 0) made.data[i] = tunnels.data[i];   /* the sun's shadow does not tread on a tunnel's own light */
         }
     }
     trans_closed_run(&made, &tunnels, track, trans);
@@ -696,7 +704,7 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
     const int files_on = port_settings_profile() == PROFILE_RESTOMOD && (off == NULL || off[0] != '0');
     const int from_track = files_on && track_light_track_load(track, light_letter, nodes, &file, path, sizeof path);   /* data/track_light/<TRACK>.txt: the one file of the track */
     const int have = from_track || (files_on && track_light_load(track, light_letter, nodes, flags, &file, path, sizeof path, why, sizeof why));   /* else the old files of the track: a file for each time and the places */
-    made_sun_set(have ? &file.tweaks : NULL);
+    made_sun_set(have ? &file.tweaks : NULL, have && from_track ? &file.sun : NULL);
     if (have && !from_track) write_rows_diff(tri, track, &file);
     if (have && from_track && !made_from_track_file(tri, track, &file, &made)) {
         track_light_file_free(&file);

@@ -91,16 +91,17 @@ typedef struct {
     int tunnel_lamp_count;
     int sun_set;                           /* the `sun AZIMUTH ELEVATION SHADOW` line (one a time; a word may be `-`, the generator's own): bit 0 the azimuth, 1 the elevation, 2 the shadow are given */
     float sun_azimuth, sun_elevation;      /* degrees: the azimuth in the world's axes (0 toward +x of the track's units, 90 toward +z), the elevation over the horizon */
+    float sun_reach;                       /* units, the fourth word (bit 3): how far the terrain shades a point from the sun; the generator's own when not given */
     float sun_shadow;                      /* percent of light left in full shadow (100: no shadow) */
 } TrackLightTweaks;
-enum { TRACK_LIGHT_SUN_AZIMUTH = 1, TRACK_LIGHT_SUN_ELEVATION = 2, TRACK_LIGHT_SUN_SHADOW = 4 };
+enum { TRACK_LIGHT_SUN_AZIMUTH = 1, TRACK_LIGHT_SUN_ELEVATION = 2, TRACK_LIGHT_SUN_SHADOW = 4, TRACK_LIGHT_SUN_REACH = 8 };
 
 /* What the file says about the lamps of the tunnel at `node`: the bits of TRACK_LIGHT_TUNNEL_LAMP_* it gives, with *strength (percent), cast[3] and *reach (nodes) set for those bits only. The last
  * general line is the base, the last line over `node` replaces it for what it gives; 0 (nothing set) with no line: the caller keeps the values the code has. */
 int track_light_tunnel_lamp_at(const TrackLightTweaks *tweaks, uint32_t node, double *strength, float cast[3], double *reach);
 
 /* a time block's `sun AZ EL SHADOW`: degrees, degrees, percent of light left in full shadow; a part written `-` is not `has_*` (the generator's default) */
-typedef struct { int has, has_azimuth, has_elevation, has_shadow; double azimuth, elevation, shadow; } TrackLightSun;
+typedef struct { int has, has_azimuth, has_elevation, has_shadow; double azimuth, elevation, shadow; int has_reach; double reach; } TrackLightSun;   /* reach: the units the terrain can shade from (a fourth word, 1..2000; the generator's 400 when not given) */
 typedef struct {
     int base;                   /* 1: the file's flags are the ones asked and `light` holds its rows (owned); 0: only the tweaks count */
     uint32_t flags;             /* the flags the file was made with */

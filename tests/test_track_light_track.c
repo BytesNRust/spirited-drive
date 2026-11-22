@@ -16,7 +16,7 @@ static const char FILE_TEXT[] =
     "snow_map 3 4\n"
     "\n"
     "time A\n"
-    "  sun 150 20 55\n"
+    "  sun 150 20 55 700\n"
     "  tunnel_look 104 ff5a0d\n"
     "  tunnel_look 1064 1171 90 lamps 220 reach 2\n"
     "time N\n"
@@ -48,6 +48,7 @@ static void test_the_facts_and_a_time(void)
     CHECK(f.light.from_places);
     CHECK(f.sun.has && f.sun.has_azimuth && f.sun.has_elevation && f.sun.has_shadow);
     CHECK(f.sun.azimuth == 150.0 && f.sun.elevation == 20.0 && f.sun.shadow == 55.0);
+    CHECK(f.sun.has_reach && f.sun.reach == 700.0);   /* the optional fourth word */
     CHECK(f.tweaks.look_has_light && f.tweaks.look_light == 104.0 && f.tweaks.look_has_colour);
     int lit = 0, own = 0;
     for (int i = 0; i < f.tweaks.zone_count; i++) {
@@ -69,7 +70,7 @@ static void test_the_night_block(void)
 {
     TrackLightFile f;
     CHECK(parse(FILE_TEXT, 'N', &f, NULL));
-    CHECK(f.sun.has && !f.sun.has_azimuth && f.sun.has_elevation && f.sun.elevation == 10.0 && !f.sun.has_shadow);
+    CHECK(f.sun.has && !f.sun.has_azimuth && f.sun.has_elevation && f.sun.elevation == 10.0 && !f.sun.has_shadow && !f.sun.has_reach);
     CHECK(f.tweaks.look_has_light && f.tweaks.look_light == 115.0 && !f.tweaks.look_has_colour);
     CHECK_EQ_INT(f.tweaks.lamp_count, 1);
     CHECK_EQ_INT(f.tweaks.brightness_count, 2);

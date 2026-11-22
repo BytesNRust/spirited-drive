@@ -17,7 +17,17 @@ hash_of() {   # sun weather time
 }
 off=$(hash_of 0 clear dawn); on=$(hash_of 1 clear dawn); rain=$(hash_of 1 rain dawn)
 night_off=$(hash_of 0 clear night); night_on=$(hash_of 1 clear night)
+row_at() {   # sun node: the code-made rows (exported) of AL1's dawn at a node, the sun on or off
+  rm -rf "$work/ex$1"; mkdir -p "$work/ex$1"
+  TNFS_SUN_SHADOW=$1 TNFS_WEATHER=clear TNFS_LIGHT_TIME=dawn TNFS_TRACK_LIGHT_FILE=0 TNFS_EXPORT_TRACK_LIGHT="$work/ex$1" TNFS_AUTOPILOT=1 TNFS_FRAMES=1 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PREF_DIR="$work/pref" \
+    timeout -k 5 300 "$bin" --data "$original" --user "$work/user" --drive AL1 --node 30 --screenshot "$work/s.ppm" > /dev/null 2>&1
+  awk -v n="$2" '$1 == "rows" && $2 <= n && n <= $3 { $2 = ""; $3 = ""; print }' "$work/ex$1/AL1A.txt"
+}
 status=0
+t_off=$(row_at 0 1600); t_on=$(row_at 1 1600); o_off=$(row_at 0 700); o_on=$(row_at 1 700)
+[ -n "$t_off" ] || { echo "FAIL: no exported rows"; status=1; }
+[ "$t_on" = "$t_off" ] || { echo "FAIL: the sun's shadow changed a tunnel node's rows"; status=1; }
+[ "$o_on" != "$o_off" ] || { echo "FAIL: the sun's shadow changed no open node's rows"; status=1; }
 [ -n "$off" ] || { echo "FAIL: no fingerprint"; status=1; }
 [ "$on" != "$off" ] || { echo "FAIL: the sun's shadow changed nothing in a clear dawn"; status=1; }
 [ "$rain" = "$off" ] || { echo "FAIL: the rain's light is not the one without shadow"; status=1; }

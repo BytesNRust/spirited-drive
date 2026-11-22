@@ -536,14 +536,16 @@ static int sun_word(const char **at, double lo, double hi, double *out, int *giv
 
 static int parse_sun(const char *rest, TrackLightTweaks *tweaks)
 {
-    double az = 0, el = 0, shadow = 100;
-    int has_az, has_el, has_shadow;
+    double az = 0, el = 0, shadow = 100, reach = 0;
+    int has_az, has_el, has_shadow, has_reach = 0;
     if (tweaks->sun_set != 0 || !sun_word(&rest, -360, 360, &az, &has_az) || !sun_word(&rest, 1, 90, &el, &has_el) || !sun_word(&rest, 0, 100, &shadow, &has_shadow)) return 0;
     while (*rest == ' ' || *rest == '\t' || *rest == '\r') rest++;
-    if (*rest != '\0') return 0;   /* a fourth word */
-    if (!has_az && !has_el && !has_shadow) return 0;   /* nothing said: not a line */
-    tweaks->sun_set = (has_az ? TRACK_LIGHT_SUN_AZIMUTH : 0) | (has_el ? TRACK_LIGHT_SUN_ELEVATION : 0) | (has_shadow ? TRACK_LIGHT_SUN_SHADOW : 0);
-    tweaks->sun_azimuth = (float)az, tweaks->sun_elevation = (float)el, tweaks->sun_shadow = (float)shadow;
+    if (*rest != '\0' && !sun_word(&rest, 1, 2000, &reach, &has_reach)) return 0;   /* an optional fourth word: the reach in units */
+    while (*rest == ' ' || *rest == '\t' || *rest == '\r') rest++;
+    if (*rest != '\0') return 0;   /* a fifth word */
+    if (!has_az && !has_el && !has_shadow && !has_reach) return 0;   /* nothing said: not a line */
+    tweaks->sun_set = (has_az ? TRACK_LIGHT_SUN_AZIMUTH : 0) | (has_el ? TRACK_LIGHT_SUN_ELEVATION : 0) | (has_shadow ? TRACK_LIGHT_SUN_SHADOW : 0) | (has_reach ? TRACK_LIGHT_SUN_REACH : 0);
+    tweaks->sun_azimuth = (float)az, tweaks->sun_elevation = (float)el, tweaks->sun_shadow = (float)shadow, tweaks->sun_reach = (float)reach;
     return 1;
 }
 

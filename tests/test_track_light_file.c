@@ -248,14 +248,21 @@ static void test_the_sun_line(void)
     CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad));
     CHECK(f.tweaks.sun_set == TRACK_LIGHT_SUN_SHADOW && f.tweaks.sun_shadow == 60.0f);
     track_light_file_free(&f);
+    snprintf(text, sizeof text, "%ssun - - - 800\n", head);   /* only the reach (a fourth word, units) */
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad));
+    CHECK(f.tweaks.sun_set == TRACK_LIGHT_SUN_REACH && f.tweaks.sun_reach == 800.0f);
+    track_light_file_free(&f);
+    snprintf(text, sizeof text, "%ssun 150 20 55 -\n", head);   /* a `-` reach is the generator's */
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad) && !(f.tweaks.sun_set & TRACK_LIGHT_SUN_REACH));
+    track_light_file_free(&f);
     snprintf(text, sizeof text, "%sbrightness 1 2 90\n", head);   /* no line: nothing set */
     CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad) && f.tweaks.sun_set == 0);
     track_light_file_free(&f);
-    const char *bads[] = { "sun - - -\n", "sun 150 20\n", "sun 150 95 50\n", "sun 0 0 50\n", "sun 0 20 120\n", "sun 0 20 50 1\n", "sun 150 20 55\nsun 10 20 30\n", "sun x 20 50\n", "sun 15o 20 50\n" };
+    const char *bads[] = { "sun - - -\n", "sun 150 20\n", "sun 150 95 50\n", "sun 0 0 50\n", "sun 0 20 120\n", "sun 0 20 50 0\n", "sun 0 20 50 2001\n", "sun 0 20 50 100 1\n", "sun 150 20 55\nsun 10 20 30\n", "sun x 20 50\n", "sun 15o 20 50\n" };
     for (size_t i = 0; i < sizeof bads / sizeof bads[0]; i++) {
         snprintf(text, sizeof text, "%s%s", head, bads[i]);
         bad = 0;
-        CHECK(!track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad) && bad == 3 + (i == 6));
+        CHECK(!track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad) && bad == 3 + (i == 8));
     }
 }
 
