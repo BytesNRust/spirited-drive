@@ -562,6 +562,43 @@ static void test_export_writes_lamps(void)
     track_node_light_free(&none);
 }
 
+/* `tunnel_lamp [FROM TO] <strength> [colour] [reach]`: a general line and ranges, what a line leaves out inherited, the last line over a node replacing the earlier, the limits, and no line at all
+ * giving nothing (the code's values stay) */
+static void test_tunnel_lamp_lines(void)
+{
+    TrackLightFile f = { 0 };
+    int bad = 0;
+    double strength = -1.0, reach = -1.0;
+    float cast[3] = { 9, 9, 9 };
+    CHECK(parse_lamp_lines("tunnel 5 9\n", &f, &bad));
+    CHECK(track_light_tunnel_lamp_at(&f.tweaks, 7, &strength, cast, &reach) == 0 && strength == -1.0 && cast[0] == 9.0f && reach == -1.0);   /* no line: nothing set, the caller keeps the code's */
+    track_light_file_free(&f);
+    CHECK(parse_lamp_lines("tunnel_lamp 300 ffc880 1.8\ntunnel_lamp 10 20 220 ffffff 1.4\ntunnel_lamp 15 17 50\ntunnel_lamp 30 31 120 00ff00\n", &f, &bad));
+    const TrackLightTweaks *t = &f.tweaks;
+    CHECK(t->tunnel_lamp_count == 4 && t->tunnel_lamps[0].general && !t->tunnel_lamps[1].general && t->tunnel_lamps[1].from == 10 && t->tunnel_lamps[1].to == 20);
+    CHECK(track_light_tunnel_lamp_at(t, 2, &strength, cast, &reach) == 7 && strength == 300.0 && reach == 1.8 && cast[0] == 1.0f && fabsf(cast[1] - 200.0f / 255.0f) < 1e-6f);   /* the general line */
+    CHECK(track_light_tunnel_lamp_at(t, 12, &strength, cast, &reach) == 7 && strength == 220.0 && reach == 1.4 && cast[1] == 1.0f && cast[2] == 1.0f);   /* a range: all three */
+    CHECK(track_light_tunnel_lamp_at(t, 16, &strength, cast, &reach) == 7 && strength == 50.0 && reach == 1.8 && cast[0] == 1.0f && fabsf(cast[2] - 128.0f / 255.0f) < 1e-6f);   /* a later line replaces the earlier one on its nodes: 50, the colour and reach the general line's, not the range 10..20's */
+    CHECK(track_light_tunnel_lamp_at(t, 30, &strength, cast, &reach) == 7 && strength == 120.0 && cast[1] == 1.0f && cast[0] == 0.0f && reach == 1.8);
+    track_light_file_free(&f);
+    CHECK(parse_lamp_lines("tunnel_lamp 15 17 50\n", &f, &bad));   /* a range with no general line: the rest is the code's */
+    CHECK(track_light_tunnel_lamp_at(&f.tweaks, 16, &strength, cast, &reach) == TRACK_LIGHT_TUNNEL_LAMP_STRENGTH && strength == 50.0);
+    CHECK(track_light_tunnel_lamp_at(&f.tweaks, 14, &strength, cast, &reach) == 0);
+    track_light_file_free(&f);
+    CHECK(parse_lamp_lines("tunnel_lamp 300 123456 4\ntunnel_lamp 0\ntunnel_lamp 1000 0.5/0.25/1:50 0.5\n", &f, &bad) && f.tweaks.tunnel_lamp_count == 3);   /* a colour of 6 digits is a colour, not nodes; the limits; r/g/b */
+    CHECK(f.tweaks.tunnel_lamps[0].general && f.tweaks.tunnel_lamps[0].has_colour && f.tweaks.tunnel_lamps[0].reach == 4.0);
+    track_light_file_free(&f);
+    /* bad lines: nothing, a strength past 1000 or below 0, a reach of 0.4 or 4.1, two reaches, a colour after the reach, nodes the wrong way round or past the track, nodes with no strength, a word that is nothing, more words than the line has */
+    const char *bads[] = { "tunnel_lamp\n", "tunnel_lamp 1001\n", "tunnel_lamp -1\n", "tunnel_lamp 300 ffc880 0.4\n", "tunnel_lamp 300 ffc880 4.1\n", "tunnel_lamp 300 1.5 1.5\n", "tunnel_lamp 300 1.5 ffc880\n",
+                           "tunnel_lamp 20 10 100\n", "tunnel_lamp 10 40 100\n", "tunnel_lamp 10 20\n", "tunnel_lamp x\n", "tunnel_lamp 300 ffc880 1.8 7\n", "tunnel_lamp 10 20 100 ffc880 1.5 9\n", "tunnel_lamp 300 gg0000\n" };
+    for (size_t i = 0; i < sizeof bads / sizeof *bads; i++) CHECK(!parse_lamp_lines(bads[i], &f, &bad) && bad == 3);
+    /* the 65th line is refused */
+    char text[8192];
+    int n = snprintf(text, sizeof text, "%s", LAMP_HEAD);
+    for (int i = 0; i <= TRACK_LIGHT_MAX_TUNNEL_LAMPS; i++) n += snprintf(text + n, sizeof text - (size_t)n, "tunnel_lamp %d %d 100\n", i % 30, i % 30 + 1);
+    CHECK(!track_light_parse(text, (size_t)n, "CY1", 'N', NODES, 0x2, &f, &bad) && bad == 3 + TRACK_LIGHT_MAX_TUNNEL_LAMPS);
+}
+
 int main(void)
 {
     test_weather_closed_zones();
@@ -580,5 +617,6 @@ int main(void)
     test_brightness_only_shadows();
     test_brightness_shade_before_plain();
     test_export_writes_lamps();
+    test_tunnel_lamp_lines();
     return TEST_REPORT();
 }

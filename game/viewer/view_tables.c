@@ -133,8 +133,8 @@ static const float LAMP_BUCKET[LAMP_BUCKETS] = { 1.0f, 2.0f, 3.0f, 5.0f, 10.0f }
 typedef struct { uint8_t key[4]; uint32_t made; uint8_t tables[LAMP_STEPS][MODERN_FOG_LEVELS][256]; } LampSlot;
 static LampSlot lamp_cache[LAMP_CACHE];
 int lamp_cache_used, lamp_cache_next;
-/* port (tunnel_lamps): the same for a tunnel's polygons, whose lamp tables are the tunnel's own with the colour added (a few colours only: the tunnel's lamps are all one) */
-enum { TUNNEL_LAMP_CACHE = 8 };
+/* port (tunnel_lamps): the same for a tunnel's polygons, whose lamp tables are the tunnel's own with the colour added (a few colours: all one, or one a tunnel when the file has tunnel_lamp lines) */
+enum { TUNNEL_LAMP_CACHE = 24 };   /* a colour of its own for a tunnel (tunnel_lamp lines): each colour is up to 5 keys (the strength buckets) */
 static LampSlot tunnel_lamp_cache[TUNNEL_LAMP_CACHE];
 int tunnel_lamp_cache_used, tunnel_lamp_cache_next;
 

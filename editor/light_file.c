@@ -265,6 +265,41 @@ static int parse_zone(const char *line, unsigned nodes, LightZone *out)
     return 1;
 }
 
+// `tunnel_lamp [FROM TO] STRENGTH [colour] [reach]`: two whole numbers first, the second not a colour, are the nodes (a colour is six hex digits or r/g/b)
+static int parse_tunnel_lamp(const char *line, unsigned nodes, LightTunnelLamp *out)
+{
+    char word[TOKEN], t[6][TOKEN], extra[TOKEN];
+    const char *p = line;
+    LightTunnelLamp v;
+    memset(&v, 0, sizeof v);
+    if (next_token(&p, word) != 1 || strcmp(word, "tunnel_lamp") != 0) return 0;
+    int n = 0;
+    while (n < 6 && next_token(&p, t[n]) == 1) ++n;
+    if (next_token(&p, extra) != 0 || n == 0) return 0;
+    int at = 0;
+    unsigned a, b;
+    if (n >= 3 && is_unsigned(t[0], &a) && is_unsigned(t[1], &b) && !is_look_colour(t[1])) {
+        if (a > b || b >= nodes) return 0;
+        v.has_nodes = 1, v.from = a, v.to = b, at = 2;
+    }
+    char *end = NULL;
+    v.strength = strtod(t[at], &end);
+    if (end == t[at] || *end != '\0' || !(v.strength >= 0.0 && v.strength <= LIGHT_MAX_TUNNEL_LAMP_STRENGTH)) return 0;
+    for (++at; at < n; ++at) {
+        if (is_look_colour(t[at]) && !v.has_colour && !v.has_reach) {
+            if (strlen(t[at]) >= sizeof v.colour) return 0;
+            v.has_colour = 1;
+            memcpy(v.colour, t[at], strlen(t[at]) + 1);
+            continue;
+        }
+        const double reach = strtod(t[at], &end);
+        if (v.has_reach || end == t[at] || *end != '\0' || !(reach >= 0.5 && reach <= 4.0)) return 0;
+        v.has_reach = 1, v.reach = reach;
+    }
+    if (out != NULL) *out = v;
+    return 1;
+}
+
 static int parse_place(const char *line, LightPlace *out)
 {
     char word[TOKEN], a[TOKEN], b[TOKEN], extra[TOKEN];
@@ -351,6 +386,7 @@ static int classify(const LightFile *f, const char *text)
     if (strcmp(word, "tone") == 0) return parse_tone(text, f->nodes, NULL) ? LIGHT_KIND_TONE : LIGHT_KIND_BAD;
     if (strcmp(word, "car_tone") == 0) return parse_car_tone(text, f->nodes, NULL) ? LIGHT_KIND_CAR_TONE : LIGHT_KIND_BAD;
     if (strcmp(word, "tunnel") == 0) return parse_zone(text, f->nodes, NULL) ? LIGHT_KIND_ZONE : LIGHT_KIND_BAD;
+    if (strcmp(word, "tunnel_lamp") == 0) return parse_tunnel_lamp(text, f->nodes, NULL) ? LIGHT_KIND_TUNNEL_LAMP : LIGHT_KIND_BAD;
     return LIGHT_KIND_OTHER;
 }
 
@@ -451,6 +487,12 @@ int light_file_get_car_tone(const LightFile *f, int i, LightCarTone *out)
 {
     const int at = find_line(f, LIGHT_KIND_CAR_TONE, i);
     return at >= 0 && parse_car_tone(f->lines[at].text, f->nodes, out);
+}
+
+int light_file_get_tunnel_lamp(const LightFile *f, int i, LightTunnelLamp *out)
+{
+    const int at = find_line(f, LIGHT_KIND_TUNNEL_LAMP, i);
+    return at >= 0 && parse_tunnel_lamp(f->lines[at].text, f->nodes, out);
 }
 
 int light_file_get_zone(const LightFile *f, int i, LightZone *out)
@@ -630,6 +672,24 @@ int light_file_set_zone(LightFile *f, int i, const LightZone *v, char *why, size
     if (v->has_light) n += snprintf(text + n, sizeof text - (size_t)n, " %.10g", v->light);
     if (v->has_colour) snprintf(text + n, sizeof text - (size_t)n, " %s", v->colour);
     return put_line(f, LIGHT_KIND_ZONE, i, text) || fail(why, cap, "out of memory");
+}
+
+int light_file_set_tunnel_lamp(LightFile *f, int i, const LightTunnelLamp *v, char *why, size_t cap)
+{
+    if (f->letter == 0) return fail(why, cap, "a places file has no tunnel lamp lines");
+    if (i >= light_file_count(f, LIGHT_KIND_TUNNEL_LAMP) || i < -1) return fail(why, cap, "there is no such tunnel lamp line");
+    if (v->has_nodes && !check_run(f, v->from, v->to, why, cap)) return 0;
+    if (!(v->strength >= 0.0 && v->strength <= LIGHT_MAX_TUNNEL_LAMP_STRENGTH)) return fail(why, cap, "a tunnel lamp's strength is 0 to 1000 percent");
+    if (v->has_colour && !is_look_colour(v->colour)) return fail(why, cap, "a tunnel lamp's colour is six hex digits or r/g/b (three factors 0 to 1), then an optional :strength");
+    if (v->has_reach && !(v->reach >= 0.5 && v->reach <= 4.0)) return fail(why, cap, "a tunnel lamp's reach is 0.5 to 4 nodes");
+    if (i < 0 && light_file_count(f, LIGHT_KIND_TUNNEL_LAMP) >= LIGHT_MAX_TUNNEL_LAMPS) return fail(why, cap, "the game takes 64 tunnel lamp lines at most");
+    char text[TOKEN * 3];
+    int n = snprintf(text, sizeof text, "tunnel_lamp");
+    if (v->has_nodes) n += snprintf(text + n, sizeof text - (size_t)n, " %u %u", v->from, v->to);
+    n += snprintf(text + n, sizeof text - (size_t)n, " %.10g", v->strength);
+    if (v->has_colour) n += snprintf(text + n, sizeof text - (size_t)n, " %s", v->colour);
+    if (v->has_reach) snprintf(text + n, sizeof text - (size_t)n, " %.10g", v->reach);
+    return put_line(f, LIGHT_KIND_TUNNEL_LAMP, i, text) || fail(why, cap, "out of memory");
 }
 
 int light_file_set_place(LightFile *f, int i, const LightPlace *v, unsigned nodes, char *why, size_t cap)

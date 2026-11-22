@@ -50,6 +50,12 @@ enum {
 /* The names of the bits of `file` and `now` that differ, comma separated in `out` ("" when they are the same) */
 void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size);
 
+enum { TRACK_LIGHT_MAX_TUNNEL_LAMPS = 64 };
+/* a `tunnel_lamp [FROM TO] <strength> [colour] [reach]` line: the tunnels' lamps at this time (`general`: every tunnel; else nodes from..to), their strength in percent (0..1000, as written at any time of
+ * day), their colour as `tunnel_tone`'s (RRGGBB[:strength] or r/g/b: the factor on each channel, 0..1), and their reach across the road in nodes (0.5..4). What a line leaves out comes from the general line, and
+ * what that leaves out from the values the code has (track_light_tunnel_lamp_at). */
+typedef struct { uint32_t from, to; int general; double strength; int has_colour, has_reach; float cast[3]; double reach; } TrackLightTunnelLamp;
+enum { TRACK_LIGHT_TUNNEL_LAMP_STRENGTH = 1, TRACK_LIGHT_TUNNEL_LAMP_COLOUR = 2, TRACK_LIGHT_TUNNEL_LAMP_REACH = 4 };
 enum { TRACK_LIGHT_MAX_BRIGHT = 64, TRACK_LIGHT_MAX_LAMPS = 2048, TRACK_LIGHT_MAX_LAMP_RADIUS = 64, TRACK_LIGHT_MAX_LAMP_PERCENT = 1000 };
 /* a `brightness FROM TO PERCENT [left|right] [shade]` line: which side of the road's rows it acts on (the middle point counts for both: the right is points 1..5, the left 6..10) and, with `shade` (Only shadows),
  * whether it acts only on the darkness the sun left (see track_light_apply). A line with neither word is the line of before. */
@@ -79,7 +85,13 @@ typedef struct {
     int zone_count;
     TrackLightLamp lamps[TRACK_LIGHT_MAX_LAMPS];   /* lamp: in file order */
     int lamp_count;
+    TrackLightTunnelLamp tunnel_lamps[TRACK_LIGHT_MAX_TUNNEL_LAMPS];   /* tunnel_lamp: in file order */
+    int tunnel_lamp_count;
 } TrackLightTweaks;
+
+/* What the file says about the lamps of the tunnel at `node`: the bits of TRACK_LIGHT_TUNNEL_LAMP_* it gives, with *strength (percent), cast[3] and *reach (nodes) set for those bits only. The last
+ * general line is the base, the last line over `node` replaces it for what it gives; 0 (nothing set) with no line: the caller keeps the values the code has. */
+int track_light_tunnel_lamp_at(const TrackLightTweaks *tweaks, uint32_t node, double *strength, float cast[3], double *reach);
 
 typedef struct {
     int base;                   /* 1: the file's flags are the ones asked and `light` holds its rows (owned); 0: only the tweaks count */

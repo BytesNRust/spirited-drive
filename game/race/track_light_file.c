@@ -331,6 +331,67 @@ static int zone_slots(TrackLightTweaks *tweaks, int *bad_line)
     return 1;
 }
 
+static int parse_uint(const char *token, unsigned *out)
+{
+    char *end = NULL;
+    if (token[0] < '0' || token[0] > '9') return 0;
+    const unsigned long v = strtoul(token, &end, 10);
+    if (*end != '\0' || v > 0xffffffu) return 0;
+    *out = (unsigned)v;
+    return 1;
+}
+
+/* `tunnel_lamp [FROM TO] <strength> [colour] [reach]` (the second word is a colour or a number: a colour is 6 hex digits or r/g/b, so two whole numbers first are the nodes) */
+static int parse_tunnel_lamp(const char *rest, uint32_t nodes, TrackLightTweaks *tweaks)
+{
+    char token[6][48], extra[48];
+    int count = 0, used = 0;
+    if (tweaks->tunnel_lamp_count >= TRACK_LIGHT_MAX_TUNNEL_LAMPS) return 0;
+    while (count < 6 && sscanf(rest, "%47s%n", token[count], &used) == 1) rest += used, count++;
+    if (sscanf(rest, "%47s", extra) == 1 || count == 0) return 0;   /* nothing, or too many words */
+    TrackLightTunnelLamp line = { .from = 0, .to = nodes > 0 ? nodes - 1 : 0, .general = 1 };
+    unsigned a = 0, b = 0;
+    float colour[3];
+    int at = 0;
+    if (count >= 3 && parse_uint(token[0], &a) && parse_uint(token[1], &b) && !parse_colour(token[1], colour)) {
+        if (a > b || b >= nodes) return 0;
+        line.from = a, line.to = b, line.general = 0, at = 2;
+    }
+    char *end = NULL;
+    line.strength = strtod(token[at], &end);
+    if (end == token[at] || *end != '\0' || line.strength < 0.0 || line.strength > 1000.0) return 0;
+    for (++at; at < count; ++at) {
+        if (parse_colour(token[at], colour) && !line.has_colour && !line.has_reach) {
+            line.has_colour = 1, memcpy(line.cast, colour, sizeof line.cast);
+            continue;
+        }
+        const double v = strtod(token[at], &end);
+        if (line.has_reach || end == token[at] || *end != '\0' || v < 0.5 || v > 4.0) return 0;
+        line.has_reach = 1, line.reach = v;
+    }
+    tweaks->tunnel_lamps[tweaks->tunnel_lamp_count++] = line;
+    return 1;
+}
+
+int track_light_tunnel_lamp_at(const TrackLightTweaks *tweaks, uint32_t node, double *strength, float cast[3], double *reach)
+{
+    int general = -1, over = -1, set = 0;
+    for (int i = 0; i < tweaks->tunnel_lamp_count; i++) {
+        const TrackLightTunnelLamp *l = &tweaks->tunnel_lamps[i];
+        if (l->general) general = i;
+        else if (node >= l->from && node <= l->to) over = i;
+    }
+    const int lines[2] = { general, over };
+    for (int k = 0; k < 2; k++) {
+        if (lines[k] < 0) continue;
+        const TrackLightTunnelLamp *l = &tweaks->tunnel_lamps[lines[k]];
+        *strength = l->strength, set |= TRACK_LIGHT_TUNNEL_LAMP_STRENGTH;
+        if (l->has_colour) memcpy(cast, l->cast, sizeof l->cast), set |= TRACK_LIGHT_TUNNEL_LAMP_COLOUR;
+        if (l->has_reach) *reach = l->reach, set |= TRACK_LIGHT_TUNNEL_LAMP_REACH;
+    }
+    return set;
+}
+
 /* one line of the file into `light`; 0 when it is not well-formed. `seen` counts the node rows given. */
 static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks *tweaks, uint32_t *seen)
 {
@@ -414,6 +475,7 @@ static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks 
         return 1;
     }
     if (strcmp(key, "lamp") == 0) return parse_lamp(rest, nodes, tweaks);
+    if (strcmp(key, "tunnel_lamp") == 0) return parse_tunnel_lamp(rest, nodes, tweaks);
     if (strcmp(key, "car_tone") == 0) {
         unsigned from = 0, to = nodes > 0 ? nodes - 1 : 0, rgb = 0;
         int percent = 0;

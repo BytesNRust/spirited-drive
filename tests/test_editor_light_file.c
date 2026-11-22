@@ -413,6 +413,72 @@ static void test_refused_headers(void)
     light_file_free(&f);
 }
 
+// `tunnel_lamp [FROM TO] STRENGTH [colour] [reach]`: owned by the window, read as values, written back as written (the colour kept), the game's limits, a night's and a day's file alike; a file with
+// none is written as it was
+static void test_tunnel_lamp(void)
+{
+    static const char HEAD[] = "# tnfs track light 1\ntrack CY1 time B nodes 100 flags 1\nrows 0 99 255 255 255 255 255 255 255 255 255 255 255\n";
+    char text[512], why[LIGHT_WHY];
+    snprintf(text, sizeof text, "%stunnel_lamp 300 ffc880 1.8\ntunnel_lamp 10 20 220 0.5/1/0.25:80 1.4\ntunnel_lamp 30 40 50\ntunnel_lamp 7 12 xx\n", HEAD);
+    LightFile f = sample(text);
+    CHECK_EQ_INT(light_file_count(&f, LIGHT_KIND_TUNNEL_LAMP), 3);
+    CHECK_EQ_INT(light_file_count(&f, LIGHT_KIND_BAD), 1);   // a bad value is kept, listed, never rewritten
+    LightTunnelLamp l;
+    CHECK(light_file_get_tunnel_lamp(&f, 0, &l) && !l.has_nodes && l.strength == 300.0 && l.has_colour && strcmp(l.colour, "ffc880") == 0 && l.has_reach && l.reach == 1.8);
+    CHECK(light_file_get_tunnel_lamp(&f, 1, &l) && l.has_nodes && l.from == 10 && l.to == 20 && l.strength == 220.0 && strcmp(l.colour, "0.5/1/0.25:80") == 0 && l.reach == 1.4);
+    CHECK(light_file_get_tunnel_lamp(&f, 2, &l) && l.has_nodes && l.strength == 50.0 && !l.has_colour && !l.has_reach);
+    char *out = formatted(&f);
+    CHECK(out != NULL && strcmp(out, text) == 0);   // unchanged: the same bytes
+    free(out);
+    memset(&l, 0, sizeof l);
+    l.has_nodes = 1, l.from = 60, l.to = 70, l.strength = 120, l.has_colour = 1;
+    snprintf(l.colour, sizeof l.colour, "ffffff");
+    CHECK(light_file_set_tunnel_lamp(&f, -1, &l, why, sizeof why));   // a new line goes at the end
+    CHECK_EQ_INT(light_file_count(&f, LIGHT_KIND_TUNNEL_LAMP), 4);
+    l.strength = 90, l.has_reach = 1, l.reach = 2.5;
+    CHECK(light_file_set_tunnel_lamp(&f, 3, &l, why, sizeof why));   // an edit keeps the line's place
+    out = formatted(&f);
+    CHECK(out != NULL && strstr(out, "tunnel_lamp 60 70 90 ffffff 2.5\n") != NULL && strstr(out, "tunnel_lamp 7 12 xx") != NULL);
+    free(out);
+    CHECK(light_file_remove(&f, LIGHT_KIND_TUNNEL_LAMP, 3) && light_file_count(&f, LIGHT_KIND_TUNNEL_LAMP) == 3);
+    out = formatted(&f);
+    CHECK(out != NULL && strcmp(out, text) == 0);   // removed: the file is as it was
+    free(out);
+    // the game's limits, and the file is as it was after a refusal
+    LightTunnelLamp bad = { 0 };
+    bad.strength = 1001;
+    CHECK(!light_file_set_tunnel_lamp(&f, -1, &bad, why, sizeof why) && why[0] != '\0');
+    bad.strength = -1;
+    CHECK(!light_file_set_tunnel_lamp(&f, -1, &bad, why, sizeof why));
+    bad.strength = 100, bad.has_reach = 1, bad.reach = 0.4;
+    CHECK(!light_file_set_tunnel_lamp(&f, -1, &bad, why, sizeof why));
+    bad.reach = 4.1;
+    CHECK(!light_file_set_tunnel_lamp(&f, -1, &bad, why, sizeof why));
+    bad.reach = 4.0, bad.has_colour = 1;
+    snprintf(bad.colour, sizeof bad.colour, "gg0000");
+    CHECK(!light_file_set_tunnel_lamp(&f, -1, &bad, why, sizeof why));
+    bad.has_colour = 0, bad.has_nodes = 1, bad.from = 20, bad.to = 10;
+    CHECK(!light_file_set_tunnel_lamp(&f, -1, &bad, why, sizeof why));
+    bad.from = 90, bad.to = 100;
+    CHECK(!light_file_set_tunnel_lamp(&f, -1, &bad, why, sizeof why));   // past the road
+    CHECK(!light_file_set_tunnel_lamp(&f, 9, &l, why, sizeof why));
+    out = formatted(&f);
+    CHECK(out != NULL && strcmp(out, text) == 0);
+    free(out);
+    for (int i = 3; i < LIGHT_MAX_TUNNEL_LAMPS; ++i) {
+        LightTunnelLamp more = { 0 };
+        more.strength = i;
+        CHECK(light_file_set_tunnel_lamp(&f, -1, &more, why, sizeof why));
+    }
+    LightTunnelLamp over = { 0 };
+    over.strength = 5;
+    CHECK(!light_file_set_tunnel_lamp(&f, -1, &over, why, sizeof why));   // the 65th
+    light_file_free(&f);
+    LightFile places = sample("track CY1\ntunnel 5 9\n");
+    CHECK(!light_file_set_tunnel_lamp(&places, -1, &over, why, sizeof why));   // a places file has none
+    light_file_free(&places);
+}
+
 int main(int argc, char **argv)
 {
     const char *repo = argc > 1 ? argv[1] : ".";
@@ -426,6 +492,7 @@ int main(int argc, char **argv)
     test_odd_files();
     test_malformed_owned_lines();
     test_refused_headers();
+    test_tunnel_lamp();
     test_real_night_file(repo);
     test_repo_files(repo);
     return TEST_REPORT();

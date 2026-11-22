@@ -570,7 +570,7 @@ enum { TUNNEL_LAMPS_MAX = 1024, TUNNEL_LAMP_REACH_NODES = 3 };
 #define TUNNEL_LAMP_REACH_ALONG 1.3f   /* along the road a pool reaches 1.3 nodes (8 m): the lamps hang every 2 nodes (12 m), so half way to the next a pool has 5 % of its light and the tunnel alternates light and shadow (at 1.8 round the pools overlapped into one even band; at 1.0 the pools were dim slivers); across it keeps TUNNEL_LAMP_REACH, the walls */
 #define TUNNEL_LAMP_REACH 1.8f   /* a pool reaches 1.8 nodes (11 m at 6 m a node): CY1's lamp pair hangs 6 m apart in the middle of a 19 m tunnel (strips 4 and 9 are lanes, not walls), so at 1.2 the left wall was out of reach (7 m from its lamp) and only the right one (5.8 m) caught a sliver; at 1.8 both walls and the ceiling are lit and the road still has its gaps between lamps */
 
-static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *made)
+static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *made, const TrackLightTweaks *file)
 {
     static TunnelLamp found[TUNNEL_LAMPS_MAX];
     if (!port_tunnel_lamps() || tri == NULL || made->nodes == 0) return;
@@ -583,10 +583,15 @@ static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *
     for (size_t i = 0; i < n; i++) {
         TrackNodeLightLamp *const l = &list[(size_t)made->lamp_n + i];
         l->node = found[i].node, l->x = found[i].x, l->z = found[i].z;
-        l->reach = TUNNEL_LAMP_REACH * found[i].spacing;
-        l->reach_along = TUNNEL_LAMP_REACH_ALONG * found[i].spacing;
+        float reach = TUNNEL_LAMP_REACH, along = TUNNEL_LAMP_REACH_ALONG, own = strength, cast[3] = { 1.0f, 0.82f, 0.5f };   /* the amber of the street lamps' warm light, a little paler, 300 percent */
+        double written_strength = 0.0, written_reach = 0.0;
+        const int written = file != NULL ? track_light_tunnel_lamp_at(file, found[i].node, &written_strength, cast, &written_reach) : 0;   /* a `tunnel_lamp` line: as written at any time of day */
+        if (written & TRACK_LIGHT_TUNNEL_LAMP_STRENGTH) own = (float)(written_strength / 100.0);
+        if (written & TRACK_LIGHT_TUNNEL_LAMP_REACH) reach = (float)written_reach, along = reach * (TUNNEL_LAMP_REACH_ALONG / TUNNEL_LAMP_REACH);   /* across the road; along it the proportion stays */
+        l->reach = reach * found[i].spacing;
+        l->reach_along = along * found[i].spacing;
         l->along[0] = found[i].along[0], l->along[1] = found[i].along[1];
-        l->rgb[0] = strength, l->rgb[1] = 0.82f * strength, l->rgb[2] = 0.5f * strength;   /* the amber of the street lamps' warm light, a little paler, 300 percent */
+        l->rgb[0] = cast[0] * own, l->rgb[1] = cast[1] * own, l->rgb[2] = cast[2] * own;
         l->tunnel = 1;
     }
     const int total = made->lamp_n + (int)n;
@@ -658,9 +663,9 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
         track_light_apply(&file.tweaks, &made, port_light_effects() && light_letter == 'N', tri_is_circuit(tri));   /* a file's own retouches (the code's light has none); its `lamp` lines with track_light_lamp, at night only: the lamps do nothing in the dawn, day and dusk files */
         place_lamps(tri, &made);
     }
-    track_light_file_free(&file);
     apply_rules_file(track, &made);
-    add_tunnel_lamps(tri, track, &made);
+    add_tunnel_lamps(tri, track, &made, have ? &file.tweaks : NULL);   /* the file's tunnel_lamp lines (the tunnels' lamps: strength, colour, reach) */
+    track_light_file_free(&file);
     *out = made;
     return 1;
 }
