@@ -98,6 +98,23 @@ static int ini_value(const char *text, const char *key, char *out, size_t cap)
 
 const char *const PROJECT_EDGES[] = { "grass", "gravel", "sand", "snow", "dirt", "water", NULL };
 
+/* what each verge word does in the game (game/race/race_state.c, track_traits.c): grip, drag, sound and dust off the road; none changes the picture, which is the art's */
+const char *project_edge_help(const char *edge)
+{
+    static const char *const HELP[] = {
+        "Grass: off the road the car grips a little more than on it. No extra sound.",
+        "Gravel: off the road the car grips less and slows down; the gravel sound.",
+        "Sand: off the road the car slows down hard and kicks up dust.",
+        "Snow: off the road the car grips less and slows down.",
+        "Dirt: off the road the car grips little; how it drives depends on the race raced before.",
+        "Water: off the road the car grips as on grass; the water sound.",
+    };
+    if (edge == NULL) return NULL;
+    for (int i = 0; PROJECT_EDGES[i] != NULL; ++i)
+        if (strcmp(edge, PROJECT_EDGES[i]) == 0) return HELP[i];
+    return NULL;
+}
+
 static int edge_ok(const char *word)
 {
     for (int i = 0; PROJECT_EDGES[i] != NULL; ++i)

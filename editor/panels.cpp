@@ -455,9 +455,9 @@ void track_panel(App *a)
         // the verge's material, mod.ini's edge=: dirt is not offered, its third surface keeps the off-road flag of the race before (race_sim.c KEEP(surfaces)),
         // so it drives differently by what was raced first; a project.ini that already says dirt keeps showing it
         ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted("Verge");
+        ImGui::TextUnformatted("Off-road ground");
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::SetNextItemWidth(-(ImGui::CalcTextSize("(?)").x + ImGui::GetStyle().ItemSpacing.x));
         if (ImGui::BeginCombo("##edge", a->project.edge)) {
             for (int i = 0; PROJECT_EDGES[i] != NULL; ++i) {
                 const bool is_dirt = strcmp(PROJECT_EDGES[i], "dirt") == 0;
@@ -466,10 +466,13 @@ void track_panel(App *a)
                 if (ImGui::Selectable(PROJECT_EDGES[i], current) && !current) {
                     snprintf(a->project.edge, sizeof a->project.edge, "%s", PROJECT_EDGES[i]);
                 }
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", project_edge_help(PROJECT_EDGES[i]));
             }
             ImGui::EndCombo();
         }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("What lies off the road: the verge's look, sound and grip in the game.");
+        ImGui::SameLine();
+        help_marker("What the car drives on off the road: its grip and drag, the sound (gravel, water) and the dust (sand). It does not change how the track looks: "
+                    "the picture is the track's art. Hover a choice for what it does.");
     }
     ImGui::End();
 }

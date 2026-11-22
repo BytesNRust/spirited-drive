@@ -63,6 +63,18 @@ int main(void)
     /* the six words of the engine, in the engine's order (core/formats/track_piece.c) */
     CHECK(strcmp(PROJECT_EDGES[0], "grass") == 0 && strcmp(PROJECT_EDGES[5], "water") == 0 && PROJECT_EDGES[6] == NULL);
 
+    /* what each word does in the game (the owner could not tell what the Verge was for): every word has its line, it says what changes (grip, sound, dust),
+     * none of them promises a look (the picture is the art's), and an unknown word has none */
+    for (int i = 0; PROJECT_EDGES[i] != NULL; ++i) {
+        const char *help = project_edge_help(PROJECT_EDGES[i]);
+        CHECK(help != NULL && strlen(help) > 10);
+        CHECK(help == NULL || strstr(help, "look") == NULL);
+    }
+    CHECK(strstr(project_edge_help("gravel"), "sound") != NULL);
+    CHECK(strstr(project_edge_help("water"), "sound") != NULL);
+    CHECK(strstr(project_edge_help("sand"), "dust") != NULL);
+    CHECK(project_edge_help("lava") == NULL && project_edge_help(NULL) == NULL);
+
     /* write: the line is replaced in place or added, nothing else changes, and doing it again changes nothing */
     put("project.ini", "# note\nid=t\nname=t\nauthor=me\nstem=EDIT\nart=GENERIC.FAM\nredistributable=1\n");
     CHECK(project_set_edge(root, "snow", why, sizeof why));

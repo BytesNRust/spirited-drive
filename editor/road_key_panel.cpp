@@ -161,7 +161,7 @@ void surface_cell(App *a, int point, int side, TraceSurface set, TraceSurface sh
     if (!own) ImGui::PopStyleColor();
     road_reach_hover(a, point, TRACE_KEY_SHOULDER_SURFACE);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s%s\nAsphalt: grips as the road does.\nOff-road: the Verge material of the Track panel; the car loses grip "
+        ImGui::SetTooltip("%s%s\nAsphalt: grips as the road does.\nOff-road: the Off-road ground of the Track panel; the car loses grip "
                           "(the player's car; the rivals do not feel either).",
                           mix_note(APP_SEL_MIXED_SURFACE(side)), own ? "Set on this point. Right-click to let it inherit again." : "Inherited from the points before. Choose to set it on this point.");
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
