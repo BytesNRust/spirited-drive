@@ -764,6 +764,7 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
     }
     apply_rules_file(track, &made);
     add_tunnel_lamps(tri, track, &made, have ? &file.tweaks : NULL);   /* the file's tunnel_lamp lines (the tunnels' lamps: strength, colour, reach) */
+    if (!from_track && port_light_effects()) terrain_light_forest_apply(&made, track);   /* port (forest_dark): the made light's forest, here so the hash below holds it; a track file says its forest in its own lines */
     const char *const print = getenv("TNFS_LIGHT_FINGERPRINT");   /* a hash of the light made, appended to this file (tests/track_light_fingerprint.sh) */
     if (print != NULL && print[0] != '\0') {
         char hash[65];
@@ -807,7 +808,6 @@ static void lay_cd_pools(void)
  * has as the CD's has, the pools; `made` is taken */
 static void install_made(TrackNodeLight *made, const char *track, int tunnel_track)
 {
-    if (port_light_effects()) terrain_light_forest_apply(made, track);
     if (city_night3 && made->data != NULL) {   /* port (city_lift 3): the open rows darkened to the CD's; a tunnel's own light stays */
         const int share = city_made_scale(track);
         if (share < 256)
