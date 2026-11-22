@@ -54,6 +54,9 @@ typedef struct {
  * letter is not a time, the ticks are out of range. */
 int light_photo_command(const LightPhotoSetup *s, char *const *base, RaceCommand *out, char *why, size_t why_cap);
 
+/* the PNGs of the flat folder `from` copied to <to>/<track>/ (the scratch folder the game's TNFS_TRACK_MASKS points at; the test drive uses it too). 1, or 0 with `why`; a missing or empty folder is not a failure */
+int light_photo_copy_masks(const char *from, const char *to, const char *track, char *why, size_t cap);
+
 typedef enum { LIGHT_PHOTO_IDLE = 0, LIGHT_PHOTO_RUNNING, LIGHT_PHOTO_DONE, LIGHT_PHOTO_FAILED } LightPhotoState;
 
 typedef struct {

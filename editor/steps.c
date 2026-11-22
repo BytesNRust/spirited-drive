@@ -23,8 +23,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "export-open", "export-track", "print-publish" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "export-open", "export-track", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -326,6 +326,24 @@ static int at_once(App *a, const char *name, const double *arg)
     if (strcmp(name, "masks-poll") == 0) return app_track_masks_poll(a), 1;   /* the panel's look at the PSDs (once a second by the clock) */
     if (strncmp(name, "mask-select:", 12) == 0) return app_track_masks_load(a) && app_track_mask_select(a, (int)arg[0]);   /* the I-th mask shown over its texture */
     if (strcmp(name, "mask-regen") == 0) return app_track_mask_regenerate(a);   /* Regenerate from PSD on the shown mask */
+    if (strcmp(name, "light-drive") == 0) return app_light_drive(a);   /* the Track light window's Test drive button */
+    if (strcmp(name, "drive-stop") == 0) return app_light_drive_stop(a), 1;
+    if (strncmp(name, "light-weather:", 14) == 0) return app_light_set_weather(a, (int)arg[0]), 1;   /* light-weather:N: the test drive's weather (0 clear, 1 fog, 2 rain, 3 storm) */
+    if (strcmp(name, "print-drive") == 0) {   /* the test drive: its state, track, time, node, weather, the scratch folder's copy of the light file, the status */
+        const LightDriveJob *d = &a->light.drive;
+        static const char *const STATES[] = { "idle", "running", "ended", "failed" };
+        printf("drive: %s %s %c node %u %s\n", STATES[d->state], d->track, d->letter != '\0' ? d->letter : '-', d->node, light_drive_weather_word(d->weather));
+        char file[APP_PATH + 80];
+        snprintf(file, sizeof file, "%s/track_light/%s%c.txt", d->mods, d->track, d->letter);
+        FILE *f = d->state == LIGHT_DRIVE_RUNNING ? fopen(file, "rb") : NULL;
+        char line[256];
+        while (f != NULL && fgets(line, sizeof line, f) != NULL)
+            if (strncmp(line, "brightness", 10) == 0) printf("drive copy: %s", line);
+        if (f != NULL) fclose(f);
+        printf("drive why: %s\n", d->why);
+        printf("status: %s\n", a->status);
+        return 1;
+    }
     if (strcmp(name, "repo-ask") == 0) return app_original_copy_ask(a);   /* File > Copy to game repo: the preview in publish_text */
     if (strcmp(name, "repo-copy") == 0) return app_original_copy(a);          /* its Copy button */
     if (strcmp(name, "print-publish") == 0) return fprintf(stdout, "publish: %s for %s\n%s\n", a->publish_dialog ? "window up" : "no window", a->publish_car ? "a car" : "a track", a->publish_text), 1;   /* the Copy to game repo window and its list */

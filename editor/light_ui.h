@@ -4,6 +4,7 @@
 #define TNFS_EDITOR_LIGHT_UI_H
 
 #include "light_compare.h"
+#include "light_drive.h"
 #include "light_photo.h"
 #include "light_session.h"
 
@@ -33,6 +34,9 @@ typedef struct {
     double now;                  /* the clock of the last app_light_poll (seconds): a change is stamped with it */
     double edit_at;              /* the clock of the last change: a photo follows when the clock is LIGHT_UI_SETTLE past it */
     LightPhotoJob photo;         /* the photo's job, running or last run */
+    LightDriveJob drive;         /* the test drive's job (light_drive.h): the game in a window of its own, running or last run */
+    int weather;                 /* the test drive's weather, 0..LIGHT_DRIVE_WEATHERS-1: kept as light_drive_weather_pref */
+    unsigned drive_serial;       /* the edit_serial the running drive's copy was written for */
     char error[LIGHT_UI_MSG];    /* why the last Save, select or photo was refused, until the next try; "" for none */
     LightCompare compare;        /* part D: the Before picture or the four times of day beside the photo (light_compare.h) */
 } LightUi;

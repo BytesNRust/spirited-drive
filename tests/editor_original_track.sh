@@ -56,6 +56,23 @@ echo "$out" | grep -q '^status: copied to the game repo: 1 file written' || fail
 [ "$(grep -c brightness "$work/data/track_light/CL1B.txt")" = 0 ] || fail "an untouched file was changed"
 
 # the masks: PSDs make the PNGs when the track opens (never from an empty mask layer); the panel's rows say the state
+# the test drive in the Track light window (light tuning design, piece 1): the game in a window beside Studio, the working copy in front of the files, weather and stop
+cat > "$work/live_game" <<'SH'
+#!/bin/sh
+[ "$TNFS_LIGHT_EDIT" = 1 ] && echo "edit=$TNFS_LIGHT_EDIT time=$TNFS_LIGHT_TIME weather=$TNFS_WEATHER video=$SDL_VIDEO_DRIVER" > "$LIVE_RECORD"   # the drive, not the photos the window also takes
+sleep 30
+SH
+chmod +x "$work/live_game"
+export LIVE_RECORD="$work/live_record"
+rm -f "$LIVE_RECORD"
+out=$(run --game "$work/live_game" --frames 40 --steps open-original:0,light-weather:2,light-drive,poll-wait:8,print-drive,drive-stop,print-drive 2>&1) || fail "test drive: $out"
+echo "$out" | grep -q '^drive: running AL1 B node 0 rain$' || fail "the drive did not run on AL1, day, node 0, rain: $(echo "$out" | grep '^drive:')"
+echo "$out" | grep -q '^drive: failed AL1 B node 0 rain$' || fail "Stop did not end the drive: $(echo "$out" | grep '^drive:')"
+echo "$out" | grep -q '^drive why: $' || fail "a Stop was reported as a failure: $(echo "$out" | grep '^drive why')"
+grep -q 'edit=1 time=day weather=rain video=$' "$LIVE_RECORD" || fail "the game was not started with the light editor, the day and the rain (and a real window): $(cat "$LIVE_RECORD" 2>&1)"
+out=$(run --game /no/such/game --frames 10 --steps open-original:0,light-drive 2>&1) && fail "a drive started without a game: $out"
+echo "$out" | grep -q "the game's program is not there" || fail "no game: the refusal does not say so: $out"
+
 # the laptop's 854 px window, a fresh layout: the three panels share the width, none squeezed (the masks table's columns are checked in the captures)
 out=$(run --window 854x560 --reset-layout --frames 30 --steps open-original:0,poll-wait:6,print-panels 2>&1) || fail "854 px layout: $out"
 masks_w=$(echo "$out" | grep '^widths:' | sed -n 's/.*\[Track masks \([0-9]*\)\].*/\1/p')

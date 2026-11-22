@@ -62,6 +62,7 @@ static int open_session(LightUi *ui, const char *dir, int track, int time, char 
     ui->track = track;
     ui->time = time;
     ui->view = light_photo_view_pref();
+    ui->weather = light_drive_weather_pref();
     ui->hud = light_photo_hud_pref();
     return 1;
 }
@@ -258,6 +259,75 @@ int app_light_busy(const App *a)
     return a->light.photo.state == LIGHT_PHOTO_RUNNING;
 }
 
+int app_light_drive_running(const App *a)
+{
+    return a->light.drive.state == LIGHT_DRIVE_RUNNING;
+}
+
+int app_light_drive(App *a)
+{
+    LightUi *ui = &a->light;
+    if (!ui->open || !ui->session.has_file) return set_error(a, "there is no light file to drive with: this track's light is made in code"), 0;
+    if (a->game[0] == '\0') return set_error(a, "the game's program is not known: the test drive is the game in a window"), 0;
+    if (a->export_src.cd[0] == '\0') return set_error(a, "the game's files (the CD data) are not known: the test drive needs them"), 0;
+    if (ui->photo.state == LIGHT_PHOTO_RUNNING) light_photo_stop(&ui->photo);   /* one game at a time: the photo is made again after the drive */
+    size_t size = 0, places_size = 0;
+    char *text = light_session_text(&ui->session, &size);
+    char *places = light_session_places_text(&ui->session, &places_size);   /* NULL without a places file: the game's own is used */
+    if (text == NULL) {
+        free(places);
+        return set_error(a, "out of memory"), 0;
+    }
+    char why[LIGHT_DRIVE_WHY];
+    set_masks(a);
+    snprintf(ui->drive.masks, sizeof ui->drive.masks, "%s", ui->photo.masks);
+    const int ok = light_drive_start(&ui->drive, a->game, a->export_src.cd, ui->session.track, ui->session.letter, (unsigned)ui->node, ui->weather, text, size, places, places_size, why, sizeof why);
+    free(places);
+    free(text);
+    if (!ok) return set_error(a, why), 0;
+    ui->drive_serial = ui->edit_serial;
+    ui->error[0] = '\0';
+    snprintf(a->status, sizeof a->status, "test drive: %s, %s, node %u: the game's window follows every edit (F10 holds the car, F11 copies a brightness line)", ui->session.track,
+             light_ui_time_name(ui->time), (unsigned)ui->node);
+    return 1;
+}
+
+void app_light_drive_stop(App *a)
+{
+    light_drive_stop(&a->light.drive);
+    a->light.drive.why[0] = '\0';   /* a stop the person asked for is not a failure to report */
+    a->light.photo_serial = a->light.edit_serial - 1;   /* the photo is made again now that the game is free */
+}
+
+void app_light_set_weather(App *a, int weather)
+{
+    a->light.weather = light_drive_weather_clamp(weather);
+    light_drive_weather_pref_set(a->light.weather);
+    changed(a);   /* a running drive restarts with it, once it settles */
+}
+
+/* the running drive follows the panel: another track, time, node or weather restarts it once the change has settled; an edit of the file is written into its copy at once */
+static void drive_follow(App *a, double now)
+{
+    LightUi *ui = &a->light;
+    const LightDriveJob *d = &ui->drive;
+    if (ui->edit_serial == ui->drive_serial) return;
+    const int moved = strcmp(d->track, ui->session.track) != 0 || d->letter != ui->session.letter || d->node != (unsigned)ui->node || d->weather != ui->weather;
+    if (moved && now - ui->edit_at < LIGHT_UI_SETTLE) return;
+    if (moved) {
+        app_light_drive(a);
+        return;
+    }
+    size_t size = 0, places_size = 0;
+    char *text = light_session_text(&ui->session, &size);
+    char *places = light_session_places_text(&ui->session, &places_size);
+    char why[LIGHT_DRIVE_WHY];
+    if (text == NULL || !light_drive_update(&ui->drive, text, size, places, places_size, why, sizeof why)) set_error(a, text == NULL ? "out of memory" : why);
+    free(places);
+    free(text);
+    ui->drive_serial = ui->edit_serial;
+}
+
 int app_light_photo(App *a)
 {
     LightUi *ui = &a->light;
@@ -301,6 +371,19 @@ int app_light_poll(App *a, double now)
     LightUi *ui = &a->light;
     ui->now = now;
     if (!ui->open) return 0;
+    if (ui->drive.state == LIGHT_DRIVE_RUNNING) {
+        if (light_drive_poll(&ui->drive)) {
+            drive_follow(a, now);
+            return 0;   /* a drive running is no picture in the making: a headless run does not wait for it, and no photo starts beside it */
+        }
+        if (ui->drive.state == LIGHT_DRIVE_FAILED && ui->drive.why[0] != '\0') {
+            set_error(a, ui->drive.why);
+            ui->drive.why[0] = '\0';   /* said once */
+        } else if (ui->drive.state == LIGHT_DRIVE_ENDED) {
+            snprintf(a->status, sizeof a->status, "test drive: the game's window was closed");
+        }
+        ui->photo_serial = ui->edit_serial - 1;   /* the photo is made again now that the game is free */
+    }
     if (ui->photo.state == LIGHT_PHOTO_RUNNING && light_photo_poll(&ui->photo)) return 1;
     if (ui->photo.state == LIGHT_PHOTO_FAILED && ui->photo.why[0] != '\0' && strcmp(ui->photo.why, "stopped") != 0) {
         set_error(a, ui->photo.why);
@@ -315,6 +398,7 @@ int app_light_poll(App *a, double now)
 
 void app_light_free(App *a)
 {
+    light_drive_free(&a->light.drive);
     light_photo_free(&a->light.photo);
     light_compare_free(&a->light.compare);
     if (a->light.open) light_session_close(&a->light.session);

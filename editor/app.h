@@ -417,6 +417,13 @@ int app_light_photo(App *a);
 int app_light_poll(App *a, double now);
 /* part D: what is shown beside the photo, LIGHT_COMPARE_OFF, _BEFORE (the files as they are on disk) or _FOUR (the four times of day); the pictures are made on the poll */
 void app_light_set_compare(App *a, int mode);
+/* The test drive (light_drive.h): the game in a window of its own on this track, time and node, the working copy in front of the real files; each edit rewrites the copy and the
+ * game reads it again without Save. A change of track, time, node or weather restarts it (once it settles), so the game never shows the old one. The photos wait while it runs
+ * (one game at a time). app_light_drive starts it (0 with the status saying why: the game, the files, another game running); app_light_drive_stop ends it. */
+int app_light_drive(App *a);
+void app_light_drive_stop(App *a);
+int app_light_drive_running(const App *a);
+void app_light_set_weather(App *a, int weather);
 int app_light_busy(const App *a);
 /* lets go of the window's session and photo (app_free) */
 void app_light_free(App *a);

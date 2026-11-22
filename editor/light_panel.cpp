@@ -90,6 +90,29 @@ void node_row(App *a)
     if (ImGui::InputInt("##lighttyped", &node, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue)) app_light_set_node(a, node);
 }
 
+// the test drive: the game in a window beside Studio on this track, time and node, following every edit; the weather is its own choice
+void drive_row(App *a)
+{
+    LightUi &ui = a->light;
+    const bool running = app_light_drive_running(a);
+    if (ImGui::Button(running ? "Stop test drive" : "Test drive")) {
+        if (running) app_light_drive_stop(a);
+        else app_light_drive(a);
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(ImGui::CalcTextSize("Storm").x + 2 * ImGui::GetStyle().FramePadding.x + ImGui::GetFrameHeight());
+    if (ImGui::BeginCombo("##driveweather", light_drive_weather_name(ui.weather))) {
+        for (int w = 0; w < LIGHT_DRIVE_WEATHERS; ++w)
+            if (ImGui::Selectable(light_drive_weather_name(w), w == ui.weather)) app_light_set_weather(a, w);
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    help_marker("Test drive opens the game in a window of its own on this track, time of day and node, with the car standing there. Every change here reaches it within a second, "
+                "without Save, and it restarts when you change the track, the time, the node or the weather. In the game's window: the + cross shows what the mouse points at, "
+                "F10 holds the car or lets it go, F11 copies a brightness line for the node. The photo waits while it runs.");
+    if (running) ImGui::TextDisabled("test drive running: %s, %s, node %u, %s", ui.drive.track, light_ui_time_name(ui.time), ui.drive.node, light_drive_weather_name(ui.drive.weather));
+}
+
 void file_buttons(App *a)
 {
     const LightUi &ui = a->light;
@@ -293,6 +316,7 @@ void light_panel(App *a)
         } else {
             node_row(a);
             file_buttons(a);
+            drive_row(a);
             if (ui.error[0] != '\0') bad_text(ui.error);
             ImGui::SeparatorText("Brightness");
             ImGui::PushID("brightness");   // each list numbers its rows from 0 in this one window: its own ID scope, or two Remove buttons share an ID

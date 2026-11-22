@@ -59,6 +59,13 @@ static const char FAKE[] =
     "printf 'P6\\n1280 960\\n255\\n' > \"$shot\"\n"
     "head -c 3686400 /dev/zero | LC_ALL=C tr '\\000' \"\\\\$o\" >> \"$shot\"\n";
 
+static const char LIVE[] =
+    "#!/bin/sh\n"
+    "mods=\n"
+    "while [ $# -gt 0 ]; do case $1 in --mods) mods=$2; shift;; esac; shift; done\n"
+    "echo \"edit=$TNFS_LIGHT_EDIT time=$TNFS_LIGHT_TIME start=$TNFS_START_NODE weather=$TNFS_WEATHER\" > \"$FAKE_RECORD\"\n"
+    "sleep 30\n";
+
 static int track_index(const char *name)
 {
     for (int i = 0; light_ui_track(i) != NULL; ++i)
@@ -338,6 +345,78 @@ static void test_choose_folder(const char *repo)
     free(a);
 }
 
+/* the test drive (light_drive.h) through the App: it starts on the open track, time, node and weather with the light editor on; an edit reaches its copy at once, without Save and
+ * without a photo (one game at a time); another node or weather restarts it once the change settles; Stop frees the game and the photo is made again */
+static void test_drive_flow(void)
+{
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    char live[EXPORT_PATH + 16];
+    snprintf(live, sizeof live, "%s/live-game", root);
+    write_file(live, LIVE, strlen(LIVE), 1);
+    app_begin(a, live, "", NULL);
+    app_set_light_dir(a, light);
+    snprintf(a->export_src.cd, sizeof a->export_src.cd, "%s", root);
+    setenv("FAKE_RECORD", record, 1);
+    CHECK(app_open_light(a));
+    const int cy1 = track_index("CY1");
+    CHECK(app_light_select(a, cy1, 3));
+    app_light_set_node(a, 70);
+    CHECK(!app_light_drive_running(a));
+    unlink(record);   // the photo flow's record is still there
+    CHECK(app_light_drive(a) && app_light_drive_running(a));
+    char scratch_file[EXPORT_PATH + 120];
+    for (int i = 0; i < 300 && access(record, F_OK) != 0; ++i) usleep(10000);
+    usleep(100000);
+    size_t n = 0;
+    char *rec = read_file(record, &n);
+    CHECK(rec != NULL && strstr(rec, "edit=1") != NULL && strstr(rec, "time=night") != NULL && strstr(rec, "start=70") != NULL && strstr(rec, "weather=clear") != NULL);
+    free(rec);
+    double now = 1;
+    // an edit reaches the drive's copy at once, with no Save and no photo
+    char why[LIGHT_WHY];
+    const LightBrightness b = { 120, 180, 70 };
+    CHECK(light_file_set_brightness(&a->light.session.file, -1, &b, why, sizeof why));
+    app_light_touch(a);
+    now += 0.05;
+    app_light_poll(a, now);
+    snprintf(scratch_file, sizeof scratch_file, "%s/track_light/CY1N.txt", a->light.drive.mods);
+    char *copy = read_file(scratch_file, &n);
+    CHECK(copy != NULL && strstr(copy, "brightness 120 180 70") != NULL);
+    free(copy);
+    CHECK(a->light.photo.state != LIGHT_PHOTO_RUNNING);
+    now += LIGHT_UI_SETTLE + 1;
+    CHECK(app_light_poll(a, now) == 0 && a->light.photo.state != LIGHT_PHOTO_RUNNING && app_light_drive_running(a));   // the photo waits for the game to be free
+    // another node: the drive keeps going until the change settles, then it restarts there
+    app_light_set_node(a, 90);
+    now += 0.05;
+    CHECK(app_light_poll(a, now) == 0 && a->light.drive.node == 70);
+    now += LIGHT_UI_SETTLE;
+    CHECK(app_light_poll(a, now) == 0 && app_light_drive_running(a) && a->light.drive.node == 90);
+    // the weather restarts it too
+    unlink(record);
+    app_light_set_weather(a, 2);
+    now += LIGHT_UI_SETTLE;
+    CHECK(app_light_poll(a, now) == 0 && a->light.drive.weather == 2);
+    for (int i = 0; i < 300 && access(record, F_OK) != 0; ++i) usleep(10000);
+    usleep(100000);
+    rec = read_file(record, &n);
+    CHECK(rec != NULL && strstr(rec, "weather=rain") != NULL && strstr(rec, "start=90") != NULL);
+    free(rec);
+    // Stop: the game is gone, nothing is reported as a failure, and the photo is made again
+    app_light_drive_stop(a);
+    CHECK(!app_light_drive_running(a) && a->light.drive.why[0] == '\0' && a->light.drive.temp[0] == '\0');
+    now += 0.1;
+    CHECK(app_light_poll(a, now) == 1 && a->light.photo.state == LIGHT_PHOTO_RUNNING);
+    light_photo_stop(&a->light.photo);
+    // nothing to drive with: refused in words, nothing runs
+    a->game[0] = '\0';
+    CHECK(!app_light_drive(a) && a->light.error[0] != '\0' && !app_light_drive_running(a));
+    app_free(a);
+    free(a);
+}
+
 int main(int argc, char **argv)
 {
     const char *repo = argc > 1 ? argv[1] : ".";
@@ -355,6 +434,7 @@ int main(int argc, char **argv)
     write_file(fake, FAKE, strlen(FAKE), 1);
     snprintf(record, sizeof record, "%s/record", root);
     test_flow();
+    test_drive_flow();
     test_not_a_light_folder();
     test_choose_folder(repo);
     car_race_temp_remove(root);

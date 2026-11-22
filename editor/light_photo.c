@@ -138,7 +138,7 @@ static int write_file(const char *path, const char *text, size_t size, char *why
 }
 
 /* the PNGs of `from` (a flat folder) copied to <to>/<track>/; a PNG that does not copy fails the photo, an empty or missing folder does not */
-static int copy_masks(const char *from, const char *to, const char *track, char *why, size_t cap)
+int light_photo_copy_masks(const char *from, const char *to, const char *track, char *why, size_t cap)
 {
     char dir[EXPORT_PATH + 40];
     snprintf(dir, sizeof dir, "%s/%s", to, track);
@@ -202,7 +202,7 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
                 masks[0] = '\0';
                 if (ok && job->masks[0] != '\0') {   // the track's masks of the workspace in front of the game's: <scratch>/masks/<TRACK>/<name>.png
                     snprintf(masks, sizeof masks, "%s/masks", job->temp);
-                    ok = copy_masks(job->masks, masks, track, why, why_cap);
+                    ok = light_photo_copy_masks(job->masks, masks, track, why, why_cap);
                     s.masks = masks;
                 }
                 ok = ok && car_race_user_files(user, letter == 'N', NULL, why, why_cap) && light_photo_command(&s, environ, &job->command, why, why_cap) &&
