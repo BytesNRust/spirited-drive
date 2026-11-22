@@ -41,7 +41,7 @@ out=$(run --frames 6 "$dir" --steps masks-print 2>&1) || fail "masks-print after
 [ "$(cksum < "$dir/art-generated/track_masks/slot_00.png")" != "$before" ] || fail "a PSD saved again did not make its PNG again: $out"
 
 # Create PSD on a texture with no PSD: the script (a fake of tools/track_mask_psd.py in a scratch tools folder) makes its PSD in art-source/masks; a second one never overwrites it
-mkdir -p "$work/tools"
+mkdir -p "$work/tools"; : > "$work/tools/car_mask_from_psd.py"   # a tools folder counts when it has the car converter
 cat > "$work/tools/track_mask_psd.py" <<'PY'
 import os, sys
 for stem in os.listdir(sys.argv[1]):
