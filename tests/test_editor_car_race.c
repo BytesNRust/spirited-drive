@@ -273,6 +273,49 @@ static void read_all(const char *path, char *out, size_t cap)
     }
 }
 
+static void write_text(const char *path, const char *text)
+{
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL && fputs(text, f) >= 0);
+    if (f != NULL) fclose(f);
+}
+
+/* the interactive runs show the game as the player set it up; the photos keep the fixed values; the player's files are not touched */
+static void test_player_options(void)
+{
+    char temp[1024], user[1100], mine[1100], why[300], text[600], path[1200], before[600];
+    CHECK(car_race_temp(temp, sizeof temp, user, sizeof user, why, sizeof why));
+    snprintf(mine, sizeof mine, "%s/player", temp);
+    CHECK(mkdir(mine, 0777) == 0);
+    snprintf(path, sizeof path, "%s/port.cfg", mine);
+    write_text(path, "profile=stock\nfullscreen=1\npsx_dir=/somewhere\nformat=16_9\nrefresh_hz=144\n");
+    snprintf(path, sizeof path, "%s/restomod.cfg", mine);
+    write_text(path, "fullscreen=1\nfov_adjust=10\nscale=fill\nrender_scale=3\nlight_effects=1\nlight_time=night\nweather=rain\nsome_other=7\n");
+    read_all(path, before, sizeof before);
+    RaceLook look = car_race_look_default();
+    CHECK(car_race_user_files(user, 0, &look, why, sizeof why));   /* a photo: the fixed values only, car_race_player_options is not called */
+    snprintf(path, sizeof path, "%s/restomod.cfg", user);
+    read_all(path, text, sizeof text);
+    CHECK(strstr(text, "fov_adjust=10") == NULL && strstr(text, "render_scale=2\n") != NULL);
+    car_race_set_player(mine);
+    CHECK(car_race_player_options(user, why, sizeof why));   /* an interactive run */
+    read_all(path, text, sizeof text);
+    CHECK(strstr(text, "fov_adjust=10\n") != NULL && strstr(text, "scale=fill\n") != NULL && strstr(text, "render_scale=3\n") != NULL && strstr(text, "render_scale=2\n") == NULL);   /* the player's value in place of the fixed one */
+    CHECK(strstr(text, "light_time=day\n") != NULL && strstr(text, "weather=rain") == NULL && strstr(text, "some_other") == NULL && strstr(text, "fullscreen=1") == NULL);   /* the run's own keys stay */
+    snprintf(path, sizeof path, "%s/port.cfg", user);
+    read_all(path, text, sizeof text);
+    CHECK(strstr(text, "format=16_9\n") != NULL && strstr(text, "refresh_hz=144\n") != NULL && strstr(text, "profile=restomod\n") != NULL && strstr(text, "fullscreen=0\n") != NULL);
+    CHECK(strstr(text, "profile=stock") == NULL && strstr(text, "psx_dir") == NULL && strstr(text, "fullscreen=1") == NULL);
+    snprintf(path, sizeof path, "%s/restomod.cfg", mine);
+    char after[600];
+    read_all(path, after, sizeof after);
+    CHECK(strcmp(before, after) == 0);   /* the player's file is as it was */
+    car_race_set_player("");
+    CHECK(car_race_player_options(user, why, sizeof why));   /* no player folder: nothing to do */
+    car_race_set_player(NULL);
+    CHECK(car_race_temp_remove(temp));
+}
+
 static void test_files_and_temp(void)
 {
     char temp[1024], user[1100], why[300], text[400], path[1200];
@@ -735,6 +778,7 @@ int main(void)
     test_installed_tracks_scan();
     test_tracks();
     test_files_and_temp();
+    test_player_options();
     test_log();
     test_ppm();
     test_original_of();

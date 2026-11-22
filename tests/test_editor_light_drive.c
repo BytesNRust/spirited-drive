@@ -124,6 +124,15 @@ static void test_job(void)
     unlink(record);
     unsetenv("FAKE_MODE");
     const char light[] = "# tnfs track light 1\ntrack CY1 time B nodes 10 flags 3ff\nbrightness 1 2 90\n", places[] = "tunnel 3 4\n";
+    char player[512];   /* the person's own settings: the drive shows the game as they set it up */
+    snprintf(player, sizeof player, "%s/drive_player_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
+    CHECK(mkdtemp(player) != NULL);
+    char player_cfg[560];
+    snprintf(player_cfg, sizeof player_cfg, "%s/restomod.cfg", player);
+    FILE *pf = fopen(player_cfg, "wb");
+    CHECK(pf != NULL && fputs("fov_adjust=10\nfullscreen=1\n", pf) >= 0);
+    if (pf != NULL) fclose(pf);
+    car_race_set_player(player);
     CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 77, 1, light, strlen(light), places, strlen(places), why, sizeof why));
     CHECK_EQ_INT(job.state, LIGHT_DRIVE_RUNNING);
     wait_record();
@@ -136,6 +145,12 @@ static void test_job(void)
     char file[EXPORT_PATH + 64], scratch[EXPORT_PATH];
     snprintf(scratch, sizeof scratch, "%s", job.temp);
     CHECK(scratch[0] != '\0' && access(scratch, F_OK) == 0);
+    char cfg[EXPORT_PATH + 64];
+    snprintf(cfg, sizeof cfg, "%s/user/restomod.cfg", scratch);
+    CHECK(strstr(read_all(cfg), "fov_adjust=10\n") != NULL && strstr(read_all(cfg), "fullscreen=1") == NULL);
+    car_race_set_player(NULL);
+    unlink(player_cfg);
+    rmdir(player);
     /* an edit: the copy is rewritten whole, the game sees it, nothing half written is left beside it */
     const char light2[] = "# tnfs track light 1\ntrack CY1 time B nodes 10 flags 3ff\nbrightness 1 2 50\n", places2[] = "tunnel 5 6\n";
     CHECK(light_drive_update(&job, light2, strlen(light2), places2, strlen(places2), why, sizeof why));

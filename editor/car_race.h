@@ -130,6 +130,14 @@ int car_race_paint_digit(const ExportCar *car, const uint8_t *rgb);
  * logic is on for the whole field: the rivals may be painted from the seed too), so the project's livery is the one shown; the time of day), into the existing folder `user`. Every other key is the Restomod table's. */
 int car_race_user_files(const char *user, int night, const RaceLook *look, char *why, size_t why_cap);
 
+/* The player's own folder (the one Studio was started with; "" or NULL when it is the game's default, which Studio does not know): where car_race_player_options reads their settings. */
+void car_race_set_player(const char *dir);
+/* An INTERACTIVE run (a test drive the person drives) shows the game as the person set it up: the graphics keys of the player's port.cfg and restomod.cfg (screen format, refresh,
+ * scaling, field of view, render scale and bands, view distance, texture filter, fog, light effects, shadows, lamps) replace the fixed ones car_race_user_files wrote into the scratch
+ * `user` folder. Never fullscreen, the profile or the PS1 folder; the player's files are only read. Photos do not call it: their values stay fixed (the pictures are compared). 1, also
+ * when there is no player folder or file; 0 with `why` when the scratch files cannot be written. */
+int car_race_player_options(const char *user, char *why, size_t why_cap);
+
 /* a scratch folder "<TMPDIR>/studio-race-XXXXXX" with a user/ folder in it: `temp` and `user` filled; 0 with `why` */
 int car_race_temp(char *temp, size_t temp_cap, char *user, size_t user_cap, char *why, size_t why_cap);
 /* removes a scratch folder car_race_temp made (only a folder whose last part starts "studio-race-"; links are not followed); 1 when it is gone */

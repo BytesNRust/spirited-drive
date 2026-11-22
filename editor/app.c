@@ -63,6 +63,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     memset(a, 0, sizeof *a);
     snprintf(a->game, sizeof a->game, "%s", game);
     snprintf(a->user, sizeof a->user, "%s", user);
+    car_race_set_player(user);   /* the interactive test drives show the game as this player set it up */
     snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
     a->selected = -1;
     sel_init(&a->sel);

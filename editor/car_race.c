@@ -309,6 +309,85 @@ int car_race_user_files(const char *user, int night, const RaceLook *look, char 
     return 1;
 }
 
+static char player_dir[EXPORT_PATH];
+
+void car_race_set_player(const char *dir)
+{
+    snprintf(player_dir, sizeof player_dir, "%s", dir != NULL ? dir : "");
+}
+
+static const char *const PLAYER_KEYS[] = { "format", "refresh_hz", "scale", "fov_adjust", "view_ultra", "perspective", "texture_filter", "fog", "f3_ultra", "render_scale", "render_bands",
+                                           "light_effects", "car_soft_shadow", "fog_sample", "sky_fill", "sky_fill_below", "body_shine", "lamp_flares", "lamp_halos", NULL };
+
+static int player_key(const char *line, size_t len)
+{
+    const char *eq = memchr(line, '=', len);
+    if (eq == NULL) return 0;
+    for (const char *const *k = PLAYER_KEYS; *k != NULL; ++k)
+        if (strlen(*k) == (size_t)(eq - line) && memcmp(*k, line, (size_t)(eq - line)) == 0) return 1;
+    return 0;
+}
+
+static char *slurp(const char *path, size_t *size)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return NULL;
+    fseek(f, 0, SEEK_END);
+    const long n = ftell(f);
+    rewind(f);
+    char *text = n >= 0 && n < (1 << 20) ? malloc((size_t)n + 1) : NULL;
+    if (text != NULL && fread(text, 1, (size_t)n, f) != (size_t)n) free(text), text = NULL;
+    fclose(f);
+    if (text != NULL) text[n] = '\0', *size = (size_t)n;
+    return text;
+}
+
+/* `from`'s lines whose key is a player option (keep = 1) or all the others (keep = 0), appended to `out` */
+static size_t pick_lines(const char *from, size_t size, int keep, char *out, size_t at)
+{
+    for (size_t pos = 0; pos < size;) {
+        const char *line = from + pos;
+        const char *end = memchr(line, '\n', size - pos);
+        size_t len = end != NULL ? (size_t)(end - line) : size - pos;
+        pos += len + 1;
+        if (len > 0 && line[len - 1] == '\r') len--;
+        if (len == 0 || player_key(line, len) != keep) continue;
+        memcpy(out + at, line, len), at += len;
+        out[at++] = '\n';
+    }
+    return at;
+}
+
+int car_race_player_options(const char *user, char *why, size_t why_cap)
+{
+    static const char *const NAMES[] = { "port.cfg", "restomod.cfg" };
+    if (player_dir[0] == '\0') return 1;
+    for (int i = 0; i < 2; ++i) {
+        char path[EXPORT_PATH + 32];
+        size_t psize = 0, ssize = 0;
+        if (snprintf(path, sizeof path, "%s/%s", player_dir, NAMES[i]) >= (int)sizeof path) continue;
+        char *mine = slurp(path, &psize);
+        if (mine == NULL) continue;
+        if (snprintf(path, sizeof path, "%s/%s", user, NAMES[i]) >= (int)sizeof path) {
+            free(mine);
+            return refuse(why, why_cap, "the path is too long: %s", user);
+        }
+        char *scratch = slurp(path, &ssize);
+        char *out = malloc(psize + ssize + 2);
+        int ok = out != NULL;
+        if (ok) {
+            size_t at = scratch != NULL ? pick_lines(scratch, ssize, 0, out, 0) : 0;
+            at = pick_lines(mine, psize, 1, out, at);
+            FILE *f = fopen(path, "wb");
+            ok = f != NULL && fwrite(out, 1, at, f) == at;
+            if (f != NULL && fclose(f) != 0) ok = 0;
+        }
+        free(out), free(scratch), free(mine);
+        if (!ok) return refuse(why, why_cap, "cannot write %s: %s", path, strerror(errno));
+    }
+    return 1;
+}
+
 int car_race_temp(char *temp, size_t temp_cap, char *user, size_t user_cap, char *why, size_t why_cap)
 {
     const char *base = getenv("TMPDIR");
@@ -562,7 +641,7 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
     j->setup.cockpit = look != NULL && look->cockpit, j->setup.gauge_set = look != NULL && look->gauge_set, j->setup.gauge_light = look != NULL ? look->gauge_light : 0;
     j->setup.car = car, j->setup.night = night, j->setup.photo_ticks = state == RACE_JOB_RACE ? 0 : state == RACE_JOB_PROBE ? 1 : car_race_photo_ticks(car);
     j->state = state;
-    if (!stage_kit_masks(j, car, project, why, why_cap) || !car_race_user_files(user, night, &j->look, why, why_cap) || !launch(j, why, why_cap)) return job_abandon(j);
+    if (!stage_kit_masks(j, car, project, why, why_cap) || !car_race_user_files(user, night, &j->look, why, why_cap) || (state == RACE_JOB_RACE && !car_race_player_options(user, why, why_cap)) || !launch(j, why, why_cap)) return job_abandon(j);
     return 1;
 }
 
@@ -579,7 +658,7 @@ int car_race_start_drive(RaceJob *job, const char *game, const char *cd, const c
     snprintf(job->piece, sizeof job->piece, "%s", piece);
     job->setup.car = car, job->setup.piece = job->piece;
     job->state = RACE_JOB_INSTALL;
-    if (!car_race_user_files(job->own[3], 0, &job->look, why, why_cap) || !install_job_start(&job->install, game, zip, job->own[3], why, why_cap)) return job_abandon(job);
+    if (!car_race_user_files(job->own[3], 0, &job->look, why, why_cap) || !car_race_player_options(job->own[3], why, why_cap) || !install_job_start(&job->install, game, zip, job->own[3], why, why_cap)) return job_abandon(job);
     job_say(job, "Test drive of %s: you drive the %s, a time trial. A scratch player folder: installing the track.\n", piece, car->label);
     return 1;
 }
