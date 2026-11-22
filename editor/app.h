@@ -165,7 +165,7 @@ typedef struct {
     unsigned psd_auto_sig;       /* the stale state (which PSDs, how, and when they were saved) Convert PSD was last started for by itself, when psd_auto_set: the same state is not tried again */
     int psd_auto_set;
     int psd_auto_fail;           /* a conversion failed: the next stale state seen is the one that is not tried again (blocked after failure) */
-    RaceSheet sheet;             /* the Race window's Sheet / Traffic sheet: the cells and their photos (app_sheet.h) */
+    RaceSheet sheet;             /* the Race window's Sheet: the cells and their photos (app_sheet.h) */
     int sheet_active, sheet_cur, sheet_stop, sheet_serial;   /* it runs; the cell being photographed (-1 none); it is being stopped; changes when a cell does */
     char sheet_saved[APP_PATH];  /* the PNG the last Save sheet wrote */
     char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder, or a file to show selected in its folder (main.c does it and clears this) */

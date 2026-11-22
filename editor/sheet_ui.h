@@ -8,7 +8,7 @@ extern "C" {
 #include "app.h"
 }
 
-// «Sheet», «Traffic sheet» and «Save sheet» with the progress and a «(?)» that says what each does; `busy` is a run in progress (they are dimmed)
+// «Sheet» and «Save sheet» with the progress and a «(?)» that says what each does; `busy` is a run in progress (they are dimmed)
 void sheet_row(App *a, bool busy);
 
 // the composed picture's size in pixels (the sheet's cells in their grid), for the Race window to fit it

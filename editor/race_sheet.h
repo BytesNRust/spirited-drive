@@ -1,4 +1,4 @@
-/* Sheets (dep98): several Race photos of one or more cars in one labelled picture, so a mask is judged day and night, or the traffic cars side by side, at a
+/* Sheets (dep98): several Race photos of a car in one labelled picture, so a mask is judged day and night, or the same car under other conditions, at a
  * glance. This file is the pure part: the cells of a sheet, the photos they get, and the grid they are laid out in (a label under each, in a built-in 5x7 font;
  * the editor has no other way to put text in a picture). race_sheet_run.h drives the photo job through the cells. A cell is a car, a project folder, a track and
  * a time of day; a later kind of cell (the cabin) adds fields here, not another type. */
