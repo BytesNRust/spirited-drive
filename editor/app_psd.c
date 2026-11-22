@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 #include <unistd.h>
 
 static int join(char *out, size_t cap, const char *a, const char *b)
@@ -24,6 +25,7 @@ void app_psd_stop(App *a)
 void app_psd_setup(App *a, const char *base, const char *root)
 {
     (void)base;
+    app_psd_forget_dir();
     a->psd_root[0] = '\0';
     const char *home = getenv("HOME"), *chosen = root != NULL ? root : getenv("TNFS_PSD_ROOT");
     if (chosen != NULL && chosen[0] != '\0') snprintf(a->psd_root, sizeof a->psd_root, "%s", chosen);
@@ -43,10 +45,47 @@ static int holds_psd(const char *dir)
     return found;
 }
 
-int app_psd_psd_dir(const App *a, char *out, size_t cap)
+static int psd_dir_look(const App *a, char *out, size_t cap)
 {
     if (a->kind == APP_KIND_CAR && app_car_is_kit(a) && snprintf(out, cap, "%s/%s", a->car.root, car_kit_path(CAR_KIT_SRC_MASKS)) < (int)cap && holds_psd(out)) return 1;   /* a kit keeps its PSDs */
     return a->kind == APP_KIND_CAR && a->car.folder[0] != '\0' && a->psd_root[0] != '\0' && psd_job_find(a->psd_root, a->car.folder, out, cap);
+}
+
+/* The PSD folder is asked for by the panels every frame (a button's state), and finding it opens a folder: on a network or synced workspace that is slow. The answer is kept for a
+ * second, per car and PSD folder; starting a conversion, a conversion ending and app_psd_setup forget it. */
+static struct {
+    char key[APP_PATH * 3];
+    char dir[APP_PATH];
+    int found;
+    double at;
+    int valid;
+} dir_cache;
+
+static double now_seconds(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+}
+
+void app_psd_forget_dir(void)
+{
+    dir_cache.valid = 0;
+}
+
+int app_psd_psd_dir(const App *a, char *out, size_t cap)
+{
+    char key[sizeof dir_cache.key];
+    snprintf(key, sizeof key, "%d|%d|%s|%s|%s", a->kind, a->car.masks_only, a->car.root, a->car.folder, a->psd_root);
+    const double now = now_seconds();
+    if (!dir_cache.valid || strcmp(key, dir_cache.key) != 0 || now - dir_cache.at >= 1.0) {
+        dir_cache.found = psd_dir_look(a, dir_cache.dir, sizeof dir_cache.dir);
+        snprintf(dir_cache.key, sizeof dir_cache.key, "%s", key);
+        dir_cache.at = now, dir_cache.valid = 1;
+    }
+    if (!dir_cache.found) return 0;
+    snprintf(out, cap, "%s", dir_cache.dir);
+    return 1;
 }
 
 int app_psd_busy(const App *a)
@@ -65,6 +104,7 @@ static int start(App *a, int force)
 {
     char masks[APP_PATH], dash[APP_PATH], manifest[APP_PATH];
     char dir[APP_PATH], why[APP_MSG];
+    app_psd_forget_dir();   /* a person asked: look at the folder now */
     if (a->kind != APP_KIND_CAR) return snprintf(a->status, sizeof a->status, "open a car first"), 0;
     if (psd_job_busy(&a->psd)) return snprintf(a->status, sizeof a->status, "Convert PSD is already running"), 0;
     if (!app_psd_psd_dir(a, dir, sizeof dir))
@@ -141,6 +181,7 @@ int app_psd_poll(App *a)
     if (psd_job_poll(&a->psd)) return 1;
     snprintf(a->status, sizeof a->status, "%s", a->psd.text);
     a->psd_auto_fail = !a->psd.ok;
+    app_psd_forget_dir();   /* the conversion may have made the folder's files */
     if (a->psd.ok) {
         app_car_reread(a);   /* the lists, and the masks read again (a mask that was open is closed: it was just remade) */
     }

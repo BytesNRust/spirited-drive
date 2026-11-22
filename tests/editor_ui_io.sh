@@ -8,7 +8,7 @@ editor=$1 make_psd=$2 dylib=$3
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
-MAX_TOTAL=60 MAX_OPEN=8   # 100 frames at rest: the file watches' own looks (about one a second), nothing per frame
+MAX_TOTAL=150 MAX_OPEN=8   # 100 frames at rest (about 8 s on the dummy driver): the watches (card, masks: once a second) and a manifest look a second; no per-frame work, no hashing of PNGs
 fail() { echo "FAIL: $*" >&2; exit 1; }
 [ "$(uname)" = Darwin ] || { echo "skip: DYLD_INSERT_LIBRARIES is macOS"; exit 0; }
 

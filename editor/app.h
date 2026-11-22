@@ -562,7 +562,8 @@ int app_install_busy(const App *a);
  * the PSDs (the C reader, in a thread) into a scratch folder and copies the PNGs into the project only when all were made.
  * app_psd_poll (every frame) tells the result in the status and reads the car's lists again (the open mask is closed: it was just remade). 1 while it runs. */
 void app_psd_setup(App *a, const char *base, const char *root);
-int app_psd_psd_dir(const App *a, char *out, size_t cap);
+int app_psd_psd_dir(const App *a, char *out, size_t cap);   /* kept for a second (the panels ask every frame) */
+void app_psd_forget_dir(void);
 int app_psd_start(App *a);
 /* The PNGs the masks have that were edited by hand since Studio made them (the manifest's hash is not theirs): how many, and their names ("frnt_mask.png, dash_mask.png"). Convert PSD keeps them. */
 int app_psd_edited(const App *a, char *names, size_t cap);
