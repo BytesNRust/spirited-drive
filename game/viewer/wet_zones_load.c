@@ -2,6 +2,7 @@
 #include "game/race/wet_zones.h"
 #include "game/platform/platform.h"
 #include "game/race/track_light_file.h"
+#include "game/race/track_light_track.h"
 #include "game/sys/data_path.h"
 #include "game/sys/port_log.h"
 
@@ -19,16 +20,10 @@ uint8_t *wet_zones_for_track(const Tri *tri, const char *name, int reversed)
     }
     TrackNodeLight places = { 0 };
     int have = 0;
-    char path[DATA_PATH_MAX];
-    if (tri->node_count != 0 && track_light_place_find(name, path, sizeof path)) {
-        size_t size = 0;
-        uint8_t *text = platform_read_file(path, &size);
-        if (text != NULL) {
-            places.nodes = tri->node_count;
-            places.reversed = reversed != 0;
-            have = track_light_place_parse((const char *)text, size, name, tri->node_count, &places, NULL);
-            platform_free_file(text);
-        }
+    if (tri->node_count != 0) {
+        places.nodes = tri->node_count;
+        places.reversed = reversed != 0;
+        have = track_light_track_places(name, tri->node_count, &places);
     }
     uint8_t *open = wet_zones_make(have ? &places : NULL, property, count, 1);
     if (have && open != NULL) {   /* the places file is the only source: say which runs of nodes the road roofs and it does not close (the rain now falls there) */
@@ -55,15 +50,10 @@ uint8_t *wet_zones_for_track(const Tri *tri, const char *name, int reversed)
 int track_snow_for(const Tri *tri, const char *name, uint8_t snow_map[TRACK_NODE_LIGHT_SNOW_SLOTS])
 {
     if (snow_map != NULL) memset(snow_map, 0, TRACK_NODE_LIGHT_SNOW_SLOTS);
-    char path[DATA_PATH_MAX];
-    if (tri == NULL || tri->node_count == 0 || !track_light_place_find(name, path, sizeof path)) return 0;
-    size_t size = 0;
-    uint8_t *text = platform_read_file(path, &size);
-    if (text == NULL) return 0;
+    if (tri == NULL || tri->node_count == 0) return 0;
     TrackNodeLight places = { 0 };
     places.nodes = tri->node_count;
-    const int have = track_light_place_parse((const char *)text, size, name, tri->node_count, &places, NULL);
-    platform_free_file(text);
+    const int have = track_light_track_places(name, tri->node_count, &places);
     const int snow = have && places.snow != 0;
     if (snow && snow_map != NULL) memcpy(snow_map, places.snow_map, TRACK_NODE_LIGHT_SNOW_SLOTS);
     track_node_light_free(&places);

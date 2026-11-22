@@ -1429,7 +1429,6 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     target_link_libraries(test_wet_zones PRIVATE tnfs_game)
     target_compile_options(test_wet_zones PRIVATE ${TNFS_WARNINGS})
     add_test(NAME wet_zones COMMAND test_wet_zones)
-    add_test(NAME export_keeps_edits COMMAND sh ${CMAKE_SOURCE_DIR}/tests/export_keeps_edits.sh)
     # port (emissive lamps): no tint, light table or fog table moves an emissive palette entry
     add_executable(test_palette_emissive tests/test_palette_emissive.c game/viewer/modern_road.c)
     target_include_directories(test_palette_emissive PRIVATE game)
@@ -1797,10 +1796,6 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(sun_shadow_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME sky_glow_heading COMMAND sh ${CMAKE_SOURCE_DIR}/tests/sky_glow_heading.sh $<TARGET_FILE:sky_glow> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(sky_glow_heading PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
-        # the same, from the one file a track that tools/track_light_convert.py makes from the old files: converting changes no light
-        add_test(NAME track_light_convert COMMAND ${CMAKE_COMMAND} -E env CONVERT=1 sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
-                 ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-        set_tests_properties(track_light_convert PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         # dep59 step 5 (T7g): a whole race on an added track from the menus, to its results
         add_test(NAME edition_menus_trackrace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                  ${CMAKE_SOURCE_DIR}/original trackrace $<TARGET_FILE:tnfs-studio>)

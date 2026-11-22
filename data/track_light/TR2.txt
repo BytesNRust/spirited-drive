@@ -1,0 +1,49 @@
+# tnfs track light 2
+track TR2
+tunnel 88 102
+
+time A
+  tunnel_look 67.333335 1/0.8/0.15
+
+time B
+  tunnel_look 100 1/0.8/0.15
+
+time C
+  tunnel_look 63.000005 1/0.8/0.15
+
+time N
+  tunnel_look 60 1/0.8/0.15
+  lamp 0 100
+  lamp 5 100
+  lamp 9 100
+  lamp 32 100
+  lamp 35 100
+  lamp 40 100
+  lamp 48 100
+  lamp 51 100
+  lamp 68 100
+  lamp 71 100
+  lamp 352 100
+  lamp 370 100
+  lamp 374 100
+  lamp 381 100
+  lamp 476 100
+  lamp 478 100
+  lamp 481 100
+  lamp 739 100
+  lamp 761 100
+  lamp 790 100
+  lamp 954 100
+  lamp 958 100
+  lamp 961 100
+  lamp 969 100
+  lamp 974 100
+  lamp 978 100
+  lamp 993 100
+  lamp 996 100
+  lamp 998 100
+  lamp 1001 100
+  lamp 1004 100
+  lamp 1005 100
+  lamp 1011 100
+  lamp 1017 100

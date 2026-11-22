@@ -124,19 +124,15 @@ The port's own files (track light, car masks, dash masks, track masks, sounds, t
 
 ## Track light
 
-`data/track_light/<TRACK><A|B|C|N>.txt`, one file for each track and time of day (A dawn, B day, C dusk, N night). In Restomod '26, with no PS1 disc, the light of a track is this file, whole. A mod can carry its own copy: **`<mod>/track_light/<file>` is tried first**, then `data/track_light/<file>`. A file is a few lines per run of nodes (`rows` the light rows, tunnel and lamp lines, `brightness N N P [left|right] [shade]` to dim or lift a stretch (a side; `shade`: only its shadows), `car_tone` the car's tone). Stock '96 and Restored '96 never read these files.
+`data/track_light/<TRACK>.txt`, one file for each track: its facts (tunnels, halls, snow) and a block for each time of day (A dawn, B day, C dusk, N night) with the retouches. In Restomod '26 this file, whole, is the light of the track;
+the rows are made when it loads. A mod can carry its own copy: **`<mod>/track_light/<TRACK>.txt` is tried first**, then `data/track_light/<TRACK>.txt`. [track-light.md](track-light.md) is the reference for the grammar.
 
-    # a stretch of the night track at 70 percent of its light, then the car warmer there
-    brightness 120 180 70
-    car_tone 120 180 ff8020:60
+    # a stretch of the night track at 70 percent of its light
+    track CY1
+    time N
+      brightness 120 180 70
 
-The **live mode** `light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1` for one run) shows in a race the node the car is at, which file it reads and the values there, and the texture under the mouse pointer (`aim (+): road texture slot_38`: the mask to paint for a lamp you point at). **F10** holds the race where it is, **F11** copies a `brightness N N 100` line to the clipboard, and saving the light file or the track's places file reloads the light (and where it rains) within a second without leaving the race; `snow` lines want a restart.
-
-The keywords are English: `track time nodes flags` (the header), `rows`, `present`, `pool car_pool`, `tunnel` (a zone: `tunnel a b [light] [colour | lit]`), `tunnel_tone <light> [colour]`, `brightness`, `tone`, `car_tone`; [track-light.md](track-light.md) is the reference. Files written with the first, Spanish words (`pista hora nodos banderas filas tunel pozo brillo tono_coche`...) still load: the port reads each as its English word. The generator is `tools/export_track_light.sh`: **the export writes only missing files; `FORCE=1` rewrites them and loses your edits** (an existing file is kept, with a "kept <file> (exists; FORCE=1 to overwrite)" line). A retouch can live in the shipped file or in a mod's folder (the mod's copy goes first).
-
-### Track places
-
-`data/track/<TRACK>.txt` holds the physical facts of a track, the same at every time of day, and is the home for other per-track data later: a header `track AL1`, then `tunnel a b`, `canyon a b` and `car_dim a b` lines (and `present <key>` for an array that is there but empty), `snow 1` (the track's rain is snow and its rally is on snow) and `snow_map FROM TO` (the rally's road art: texture slot FROM is drawn with slot TO's bitmaps; see track-light.md's Snow); a word the format does not know is a bad line. It goes through the same overlay as the light files: **`<mod>/track/<TRACK>.txt` is tried first**, then `data/track/<TRACK>.txt`. The time's light file (`track_light/<TRACK><A|B|C|N>.txt`) adds to it: its `tunnel a b lit` says a stretch is a hall, and its `tunnel_tone` the tunnels' light and colour at that time. A track with no places file has no tunnels, canyon or `car_dim` nodes for its light; the log says so.
+The **live mode** `light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1` for one run) shows in a race the node the car is at, which file it reads and the values there, and the texture under the mouse pointer (`aim (+): road texture slot_38`: the mask to paint for a lamp you point at). **F10** holds the race where it is, and saving the light file in the folder given as `--mods` makes the race read it again; that run keeps no records and no replays (a tunnel fact changes the grip).
 
 ## Car masks
 

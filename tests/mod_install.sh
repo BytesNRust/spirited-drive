@@ -60,7 +60,7 @@ hand_light() {
     t=$work/hand
     mkdir -p "$t/track_light"
     printf 'id=hand-light\nname=Hand Light\nversion=1\ntype=tweak\n' > "$t/mod.ini"
-    cp "$port"/track_light/TR1?.txt "$t/track_light/"
+    cp "$port"/track_light/TR1.txt "$t/track_light/"
     [ -e "$work/hand.zip" ] || "$studio" mod pack "$t" "$work/hand.zip" >"$work/log" 2>&1 || fail "mod pack of the tweak: $(cat "$work/log")"
     cmd --install "$work/hand.zip" || fail "--install of the tweak: $(cat "$work/err")"
 }

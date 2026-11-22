@@ -1,0 +1,46 @@
+# tnfs track light 2
+track CL1
+
+time N
+  lamp 237 100
+  lamp 245 100
+  lamp 253 100
+  lamp 261 100
+  lamp 269 100
+  lamp 277 100
+  lamp 285 100
+  lamp 293 100
+  lamp 301 100
+  lamp 309 100
+  lamp 317 100
+  lamp 325 100
+  lamp 333 100
+  lamp 341 100
+  lamp 349 100
+  lamp 357 100
+  lamp 365 100
+  lamp 373 100
+  lamp 381 100
+  lamp 389 100
+  lamp 397 100
+  lamp 405 100
+  lamp 413 100
+  lamp 421 100
+  lamp 429 100
+  lamp 437 100
+  lamp 445 100
+  lamp 453 100
+  lamp 461 100
+  lamp 469 100
+  lamp 477 100
+  lamp 485 100
+  lamp 493 100
+  lamp 501 100
+  lamp 508 100
+  lamp 515 100
+  lamp 523 100
+  lamp 531 100
+  lamp 539 100
+  lamp 547 100
+  lamp 555 100
+  lamp 562 100

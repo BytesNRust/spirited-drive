@@ -1,0 +1,15 @@
+# tnfs track light 2
+track TR6
+tunnel 199 546
+
+time A
+  tunnel_look 67.333335 ffffff
+
+time B
+  tunnel_look 100 ffffff
+
+time C
+  tunnel_look 63.000005 ffffff
+
+time N
+  tunnel_look 60 ffffff

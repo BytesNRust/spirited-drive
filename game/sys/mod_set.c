@@ -151,16 +151,16 @@ static bool serve(int index, const char *rel)
     if (index < 0 || index >= set.now.count) return true;
     const Piece *p = &serving.pieces[index];
     const ModFileRule rule = mod_file_rule(p->type, p->stem, rel);
-    if (rule == MOD_FILE_OK) return true;
-    if (p->cli && rule != MOD_FILE_RACE) return true;   /* --mods serves what does not change the race */
-    /* the live light editor (light_edit=1) works on a track's places file, track/<TRACK>.txt, in the folder given as --mods: that file is served to it */
-    if (p->cli && port_light_edit() && strncasecmp(rel, "track/", 6) == 0) {
+    /* the live light editor (light_edit=1) works on a track's light file, track_light/<TRACK>.txt, in the folder given as --mods: its tunnel facts change the grip (the dry zones), so what is served to it keeps no records */
+    if (p->cli && port_light_edit() && strncasecmp(rel, "track_light/", 12) == 0) {
         if (!mod_set_places_served()) {
             mod_set_places_mark();
             port_log("mods: --mods serves %s to the light editor: this run keeps no records and no replays\n", rel);
         }
         return true;
     }
+    if (rule == MOD_FILE_OK) return true;
+    if (p->cli && rule != MOD_FILE_RACE) return true;   /* --mods serves what does not change the race */
     say_left_out(p, rel, rule);
     return false;
 }

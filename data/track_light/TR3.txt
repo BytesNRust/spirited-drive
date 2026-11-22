@@ -1,0 +1,106 @@
+# tnfs track light 2
+track TR3
+tunnel 76 107
+tunnel 328 351
+tunnel 525 540
+
+time A
+  tunnel_look 84.16667 1/0.62/0.12
+  brightness 852 852 85
+  brightness 853 853 70
+  brightness 854 854 55
+  brightness 855 859 40
+  brightness 860 867 62
+  brightness 868 875 40
+  brightness 876 883 62
+  brightness 884 891 40
+  brightness 892 899 62
+  brightness 900 907 40
+  brightness 908 915 62
+  brightness 916 923 40
+  brightness 924 931 62
+  brightness 932 932 55
+  brightness 933 933 70
+  brightness 934 934 85
+
+time B
+  tunnel_look 125 1/0.62/0.12
+  brightness 852 852 85
+  brightness 853 853 70
+  brightness 854 854 55
+  brightness 855 859 40
+  brightness 860 867 62
+  brightness 868 875 40
+  brightness 876 883 62
+  brightness 884 891 40
+  brightness 892 899 62
+  brightness 900 907 40
+  brightness 908 915 62
+  brightness 916 923 40
+  brightness 924 931 62
+  brightness 932 932 55
+  brightness 933 933 70
+  brightness 934 934 85
+
+time C
+  tunnel_look 78.75001 1/0.62/0.12
+  brightness 852 852 85
+  brightness 853 853 70
+  brightness 854 854 55
+  brightness 855 859 40
+  brightness 860 867 62
+  brightness 868 875 40
+  brightness 876 883 62
+  brightness 884 891 40
+  brightness 892 899 62
+  brightness 900 907 40
+  brightness 908 915 62
+  brightness 916 923 40
+  brightness 924 931 62
+  brightness 932 932 55
+  brightness 933 933 70
+  brightness 934 934 85
+
+time N
+  tunnel_look 60 1/0.42/0.08
+  lamp 132 100
+  lamp 134 100
+  lamp 365 100
+  lamp 370 100
+  lamp 376 100
+  lamp 494 100
+  lamp 498 100
+  lamp 502 100
+  lamp 506 100
+  lamp 510 100
+  lamp 516 100
+  lamp 859 100
+  lamp 868 100
+  lamp 877 100
+  lamp 879 100
+  lamp 888 100
+  lamp 897 100
+  lamp 899 100
+  lamp 906 100
+  lamp 907 100
+  lamp 933 100
+  lamp 936 100
+  lamp 940 100
+  lamp 945 100
+  lamp 955 100
+  brightness 852 852 85
+  brightness 853 853 70
+  brightness 854 854 55
+  brightness 855 859 40
+  brightness 860 867 62
+  brightness 868 875 40
+  brightness 876 883 62
+  brightness 884 891 40
+  brightness 892 899 62
+  brightness 900 907 40
+  brightness 908 915 62
+  brightness 916 923 40
+  brightness 924 931 62
+  brightness 932 932 55
+  brightness 933 933 70
+  brightness 934 934 85

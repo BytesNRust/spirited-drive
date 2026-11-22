@@ -25,8 +25,7 @@ libFuzzer with AddressSanitizer and UndefinedBehaviorSanitizer.
 | `mod_ini` | `mod_ini_parse` | a mod's card (`mod.ini`) |
 | `edition_ini` | `edition_parse`, then `edition_format` and `edition_parse` again, which must give the same | a Restomod edition (`editions/<id>.ini`) |
 | `mod_check` | `mod_check_zip`, `mod_check_install_path` on every entry | the whole install check of a mod's zip |
-| `track_light` | `track_light_parse` | `track_light/<TRK><L>.txt` |
-| `track_places` | `track_light_place_parse` | `data/track/<TRK>.txt` |
+| `track_light` | `track_light_track_parse` | `data/track_light/<TRK>.txt` |
 | `terrain_rules` | `terrain_light_rules_parse` | a track's light rules |
 | `settings_cfg` | `port_settings_parse`, `port_extras_parse`, `port_controls_parse` | `port.cfg`, the modes' files, `controls.cfg` |
 | `config_dat` | `config_dat_parse` | `config.dat` |

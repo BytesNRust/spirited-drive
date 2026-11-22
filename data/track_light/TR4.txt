@@ -1,0 +1,98 @@
+# tnfs track light 2
+track TR4
+tunnel 0 15
+tunnel 1016 1023
+
+time A
+  tunnel_look 67.333335 1/0.8/0.15
+
+time B
+  tunnel_look 100 1/0.8/0.15
+
+time C
+  tunnel_look 63.000005 1/0.8/0.15
+
+time N
+  tunnel_look 60 1/0.8/0.15
+  lamp 440 100
+  lamp 442 100
+  lamp 444 100
+  lamp 446 100
+  lamp 449 100
+  lamp 451 100
+  lamp 452 100
+  lamp 453 100
+  lamp 454 100
+  lamp 455 100
+  lamp 456 100
+  lamp 457 100
+  lamp 458 100
+  lamp 459 100
+  lamp 460 100
+  lamp 462 100
+  lamp 464 100
+  lamp 466 100
+  lamp 472 100
+  lamp 473 100
+  lamp 474 100
+  lamp 475 100
+  lamp 477 100
+  lamp 479 100
+  lamp 481 100
+  lamp 483 100
+  lamp 484 100
+  lamp 486 100
+  lamp 489 100
+  lamp 491 100
+  lamp 497 100
+  lamp 499 100
+  lamp 501 100
+  lamp 503 100
+  lamp 505 100
+  lamp 507 100
+  lamp 513 100
+  lamp 515 100
+  lamp 520 100
+  lamp 523 100
+  lamp 524 100
+  lamp 526 100
+  lamp 528 100
+  lamp 530 100
+  lamp 532 100
+  lamp 535 100
+  lamp 537 100
+  lamp 538 100
+  lamp 539 100
+  lamp 548 100
+  lamp 549 100
+  lamp 550 100
+  lamp 557 100
+  lamp 559 100
+  lamp 560 100
+  lamp 562 100
+  lamp 563 100
+  lamp 564 100
+  lamp 565 100
+  lamp 566 100
+  lamp 567 100
+  lamp 568 100
+  lamp 570 100
+  lamp 576 100
+  lamp 578 100
+  lamp 585 100
+  lamp 586 100
+  lamp 588 100
+  lamp 591 100
+  lamp 596 100
+  lamp 598 100
+  lamp 600 100
+  lamp 602 100
+  lamp 761 100
+  lamp 773 100
+  lamp 779 100
+  lamp 823 100
+  lamp 824 100
+  lamp 827 100
+  lamp 828 100
+  lamp 830 100
+  lamp 832 100

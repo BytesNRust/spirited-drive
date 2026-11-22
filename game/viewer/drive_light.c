@@ -415,18 +415,6 @@ static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *ou
     return 1;
 }
 
-/* the port's flags that make_light_code reads (and the direction the track runs), as the bits a track light file is made for: a file is read only where they are the same */
-static uint32_t track_light_flags(void)
-{
-    const int bits[] = { port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(),
-                         port_light_effects(), port_light_effects(), port_light_effects(), city_night3, street_lamp_on, reverse_track_wanted() };
-    uint32_t flags = 0;
-    for (size_t i = 0; i < sizeof bits / sizeof *bits; i++) flags |= (bits[i] != 0 ? 1u : 0u) << i;
-    return flags;
-}
-
-char track_light_note[160] = "";   /* a small line for the editor when the file was made with other settings than now (a record: the file is used all the same) */
-char track_light_places[200] = "";   /* and the track's places file, when there is one */
 char track_light_status[200] = "";   /* what the track light file did for this race, for the light editor's screen (drive_light_edit_lines) */
 
 /* port (made_tunnels): a made light's warm tunnels take the look of their kind (light_synth_warm_look), which a track light file's retouches then change */
@@ -581,10 +569,9 @@ static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *
     port_log_detail("tunnel_lamps: %zu lamps placed (%d lamps in all, %.1f m between nodes)\n", n, total, (double)found[0].spacing);
 }
 
-/* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the file's retouches
- * (brightness, tunnel look) and the track's own rules go over either. TNFS_EXPORT_TRACK_LIGHT=<dir> writes the made light as such a file (tools/export_track_light.sh);
- * TNFS_TRACK_LIGHT_FILE=0 makes it in code as before, ignoring the files. */
-/* The light the code makes for this time, rows only (the export's own steps: the code's rows, the warm looks and the tunnels' made look): `out` takes them as its data. */
+/* port (track_light_file): the light data/track_light/<TRACK>.txt holds for this track and time (track_light_track.h), else the one made from the terrain (make_light_code); the file's retouches
+ * (brightness, tunnel look) and the track's own rules go over either. TNFS_TRACK_LIGHT_FILE=0 makes it in code, ignoring the files. */
+/* The light the code makes for this time, rows only (the code's rows, the warm looks and the tunnels' made look): `out` takes them as its data. */
 static int made_rows(const Tri *tri, const char *track, TrackNodeLight *out)
 {
     TrackNodeLight gen = { 0 };
@@ -611,69 +598,26 @@ static int made_from_track_file(const Tri *tri, const char *track, TrackLightFil
     return 1;
 }
 
-/* TNFS_LIGHT_ROWS_DIFF=<dir>: for an old light file, where the rows the code makes differ from the file's, as `rows` lines in <dir>/<TRACK><letter>.rows (tools/track_light_convert.py) */
-static void write_rows_diff(const Tri *tri, const char *track, const TrackLightFile *file)
-{
-    const char *const dir = getenv("TNFS_LIGHT_ROWS_DIFF");
-    TrackNodeLight gen = { 0 };
-    if (dir == NULL || dir[0] == '\0' || file->light.data == NULL || !made_rows(tri, track, &gen)) return;
-    char path[1024];
-    snprintf(path, sizeof path, "%s/%s%c.rows", dir, track, light_letter);
-    FILE *const f = fopen(path, "wb");
-    if (f != NULL && gen.nodes == file->light.nodes) {
-        const size_t row = TRACK_NODE_LIGHT_POINTS;
-        int differing = 0;
-        for (uint32_t n = 0; n < gen.nodes;) {
-            if (memcmp(&gen.data[n * row], &file->light.data[n * row], row) == 0) { n++; continue; }
-            uint32_t end = n;
-            while (end + 1 < gen.nodes && memcmp(&gen.data[(end + 1) * row], &file->light.data[(end + 1) * row], row) != 0 &&
-                   memcmp(&file->light.data[(end + 1) * row], &file->light.data[n * row], row) == 0) end++;
-            fprintf(f, "rows %u %u", n, end);
-            for (size_t p = 0; p < row; p++) fprintf(f, " %u", file->light.data[n * row + p]);
-            fputc('\n', f);
-            differing += (int)(end - n + 1);
-            n = end + 1;
-        }
-        fprintf(f, "# %d of %u nodes differ\n", differing, gen.nodes);
-    }
-    if (f != NULL) fclose(f);
-    track_node_light_free(&gen);
-}
-
 static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
 {
     const char *off = getenv("TNFS_TRACK_LIGHT_FILE");
-    const uint32_t flags = track_light_flags();
     TrackNodeLight made = { 0 };
     TrackLightFile file = { 0 };
-    char path[1024] = "", why[160] = "";
+    char path[1024] = "";
     const uint32_t nodes = tri != NULL ? tri->node_count : 0;
-    track_light_note[0] = '\0';
-    track_light_places[0] = '\0';
     const int files_on = port_settings_profile() == PROFILE_RESTOMOD && (off == NULL || off[0] != '0');
     const int from_track = files_on && track_light_track_load(track, light_letter, nodes, &file, path, sizeof path);   /* data/track_light/<TRACK>.txt: the one file of the track */
-    const int have = from_track || (files_on && track_light_load(track, light_letter, nodes, flags, &file, path, sizeof path, why, sizeof why));   /* else the old files of the track: a file for each time and the places */
-    made_sun_set(have ? &file.tweaks : NULL, have && from_track ? &file.sun : NULL);
-    if (have && !from_track) write_rows_diff(tri, track, &file);
-    if (have && from_track && !made_from_track_file(tri, track, &file, &made)) {
+    const int have = from_track;
+    made_sun_set(have ? &file.tweaks : NULL, have ? &file.sun : NULL);
+    if (have && !made_from_track_file(tri, track, &file, &made)) {
         track_light_file_free(&file);
         return 0;
     }
     if (have) {
-        if (!from_track) {
-            made = file.light;
-            if (made_sun_on) {   /* an old file's stored rows are the code's without the sun (checked: 0 nodes differ): the rows made with it take their place */
-                TrackNodeLight sunny = { 0 };
-                if (made_rows(tri, track, &sunny) && sunny.nodes == made.nodes) free(made.data), made.data = sunny.data, sunny.data = NULL;
-                track_node_light_free(&sunny);
-            }
-        }
-        else free(file.light.data), file.light.data = NULL;   /* the file's `rows` were laid over the code's: its own array is not the light */
+        free(file.light.data), file.light.data = NULL;   /* the file's `rows` were laid over the code's: its own array is not the light */
         memset(&file.light, 0, sizeof file.light);
         made.from_file = 1;
         snprintf(track_light_status, sizeof track_light_status, "track light: file %s", path);
-        snprintf(track_light_places, sizeof track_light_places, "%s", file.place_path[0] != '\0' ? file.place_path : "no places file");
-        snprintf(track_light_note, sizeof track_light_note, "%s", why);
     } else {
         if (!make_light_code(tri, track, &made)) {
             track_light_file_free(&file);
@@ -682,30 +626,6 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
         warm_looks(&made);
         made_look_set(&made);
         snprintf(track_light_status, sizeof track_light_status, "track light: made in code (no file for %s%c)", track, light_letter);
-        const char *dir = getenv("TNFS_EXPORT_TRACK_LIGHT");
-        if (dir != NULL && dir[0] != '\0') {
-            char *text = NULL, file_path[1024];
-            size_t size = 0;
-            snprintf(file_path, sizeof file_path, "%s/%s%c.txt", dir, track, light_letter);
-            if (track_light_format(&made, track, light_letter, flags, &text, &size)) {
-                FILE *f = fopen(file_path, "wb");
-                if (f != NULL) {
-                    fwrite(text, 1, size, f);
-                    fclose(f);
-                    port_log("track light: wrote %s\n", file_path);
-                }
-                free(text);
-            }
-            snprintf(file_path, sizeof file_path, "%s/%s.places.txt", dir, track);   /* the places are the same at every time of day: the export script keeps one */
-            if (track_light_place_format(&made, track, &text, &size)) {
-                FILE *f = fopen(file_path, "wb");
-                if (f != NULL) {
-                    fwrite(text, 1, size, f);
-                    fclose(f);
-                }
-                free(text);
-            }
-        }
     }
     if (have) {
         track_light_apply(&file.tweaks, &made, port_light_effects() && light_letter == 'N', tri_is_circuit(tri));   /* a file's own retouches (the code's light has none); its `lamp` lines with track_light_lamp, at night only: the lamps do nothing in the dawn, day and dusk files */

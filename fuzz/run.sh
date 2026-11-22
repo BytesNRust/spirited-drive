@@ -24,7 +24,7 @@ patterns() {
         ffn) echo "*.ffn" ;;
         records) echo "*.pbs *.pdn" ;;
         psx_bigf) echo "*.psh *.viv *.bin" ;;
-        track_light|track_places|terrain_rules) echo "*.txt" ;;
+        track_light|terrain_rules) echo "*.txt" ;;
         settings_cfg) echo "*.cfg" ;;
         config_dat) echo "config.dat" ;;
         psx_light) echo "*.lgs *.lgt *.inf" ;;

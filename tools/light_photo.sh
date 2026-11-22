@@ -2,11 +2,11 @@
 # A track's light at one node at the four times of day, as a 2x2 contact sheet: dawn (A) and day (B) on the top row, dusk (C) and night (N) under them.
 #
 # usage: tools/light_photo.sh <tnfs binary> <original/ dir> TRACK NODE [OUTDIR]
-#   TRACK   a CD track's stem: AL1 .. TR7 (three characters, as the light files are named)
+#   TRACK   a CD track's stem: AL1 .. TR7 (three characters, as the light file is named)
 #   NODE    the road node the car starts at (TNFS_START_NODE); the frame is a few ticks later, so the node in the picture is a little past it (the log's line is printed)
 #   OUTDIR  where the pictures go (default $TMPDIR/light_photo): <TRACK>_<NODE>_sheet.png and <TRACK>_<NODE>_{A,B,C,N}.png
 # environment:
-#   LIGHT_DIR  a folder with track_light/ and track/ (the working copies of the files to judge): they go first, as a mod's do. Default: the repo's data/ (what the game reads).
+#   LIGHT_DIR  a folder with track_light/ (the working copy of the track's file to judge): they go first, as a mod's do. Default: the repo's data/ (what the game reads).
 #   TICKS      the headless run's ticks before the frame (default 4)
 #   VIEW       the game's camera (TNFS_VIEW; default 0, the in-car view with the road ahead, as a menu race shows it; the harness's own default looks at the car from beside)
 #   FULL=1     the sheet at full size (4 pictures of 1280x960 side by side), not halved
@@ -30,9 +30,8 @@ lights=${LIGHT_DIR:-$here/../data}
 mkdir -p "$out" || exit 1
 work=$(mktemp -d "${TMPDIR:-/tmp}/light_photo.XXXXXX") || exit 1
 trap 'find "$work" -delete' EXIT
-mkdir -p "$work/mods/track_light" "$work/mods/track" "$work/user"
-cp "$lights/track_light/$track"?.txt "$work/mods/track_light/" 2>/dev/null || echo "note: no $track light files in $lights: the light is made in code" >&2
-[ -f "$lights/track/$track.txt" ] && cp "$lights/track/$track.txt" "$work/mods/track/"
+mkdir -p "$work/mods/track_light" "$work/user"
+cp "$lights/track_light/$track.txt" "$work/mods/track_light/" 2>/dev/null || echo "note: no $track light file in $lights: the light is made in code" >&2
 printf 'profile=restomod\nlight_effects=1\n' > "$work/user/port.cfg"
 guard=
 for t in timeout gtimeout; do command -v "$t" >/dev/null 2>&1 && { guard="$t -k 5 300"; break; }; done   # the game is bounded where the system has a timeout; CI never reaches here

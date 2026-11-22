@@ -6,9 +6,8 @@ TNFS=$1 REPO=$2 WORK=$3 DATA=${4:-$2/original}
 mkdir -p "$WORK"
 WORK=$(mktemp -d "$WORK/run.XXXXXX")
 trap 'rc=$?; if [ "$rc" -ne 0 ] && [ "${TNFS_KEEP_RUN:-0}" = 1 ]; then echo "kept: $WORK" >&2; else find "$WORK" -delete; fi' EXIT   # its run dir goes with it; kept only on a failure with TNFS_KEEP_RUN=1
-mkdir -p "$WORK/mods/track_light" "$WORK/mods/track" "$WORK/user"
-cp "$REPO/data/track_light/CY1B.txt" "$WORK/mods/track_light/"
-cp "$REPO/data/track/CY1.txt" "$WORK/mods/track/"
+mkdir -p "$WORK/mods/track_light" "$WORK/user"
+cp "$REPO/data/track_light/CY1.txt" "$WORK/mods/track_light/"
 printf 'profile=restomod\nlight_effects=1\n' > "$WORK/user/port.cfg"
 LOG="$WORK/user/spirited-drive.log"
 
@@ -28,17 +27,17 @@ wait_log() {   # the text, the seconds to wait for it
 }
 finish() { kill -9 "$GAME" 2>/dev/null; wait "$GAME" 2>/dev/null; echo "FAIL: $1"; tail -5 "$LOG" 2>/dev/null; exit 1; }
 
-wait_log "track light: .*CY1B.txt" 60 || finish "the race did not start with the file"
+wait_log "track light: .*CY1.txt" 60 || finish "the race did not start with the file"
 sleep 3   # the editor has taken the file's checksum by now
-echo "# saved mid-race" >> "$WORK/mods/track_light/CY1B.txt"
+echo "# saved mid-race" >> "$WORK/mods/track_light/CY1.txt"
 wait_log "light made again" 15 || finish "the file was not read again, or the game died reading it"
 sleep 4   # the message is on screen for 3 s: the frames that draw it
-# the drawn track must follow the file too, not only the overlay: the rows round the start made dark, saved, the built track's light changes
+# the drawn track must follow the file too, not only the overlay: the day's rows made dark (a brightness line over the start), saved, the built track's light changes
 wait_log "the track built again with the new light" 15 || finish "the first reload did not build the track again"
 sum_of() { grep -a "the track built again with the new light" "$LOG" | tail -1 | sed 's/.*light sum \([0-9]*\).*/\1/'; }
 BEFORE=$(sum_of)
-awk '$1=="rows" && $2>=0 && $2<=400 && $2==$3 { printf "rows %s %s", $2, $3; for (i=4;i<=NF;i++) printf " 100"; print ""; next } { print }' \
-    "$WORK/mods/track_light/CY1B.txt" > "$WORK/dark.txt" && cp "$WORK/dark.txt" "$WORK/mods/track_light/CY1B.txt"
+awk '{ print } $1=="time" && $2=="B" { print "  brightness 0 400 20" }' \
+    "$WORK/mods/track_light/CY1.txt" > "$WORK/dark.txt" && cp "$WORK/dark.txt" "$WORK/mods/track_light/CY1.txt"
 for _ in $(seq 1 15); do
     [ "$(grep -a -c "the track built again with the new light" "$LOG")" -ge 2 ] && break
     sleep 1

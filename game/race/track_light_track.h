@@ -24,4 +24,7 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
 int track_light_track_find(const char *track, char *out, size_t out_size);
 int track_light_track_load(const char *track, char letter, uint32_t nodes, TrackLightFile *out, char *path, size_t path_size);
 
+/* the track's facts (its tunnels, snow and snow_map: the same at every time of day) of its file into `out`, which has no tunnel array: 1 when there is a file and it is well-formed */
+int track_light_track_places(const char *track, uint32_t nodes, TrackNodeLight *out);
+
 #endif

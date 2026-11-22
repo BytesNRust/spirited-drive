@@ -4,182 +4,11 @@
 
 
 #include <ctype.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 enum { MAX_LINE = 512 };
-
-typedef struct {
-    char *text;
-    size_t size, capacity;
-    int failed;
-} Buffer;
-
-static void put(Buffer *b, const char *format, ...)
-{
-    va_list args;
-    char line[MAX_LINE];
-    va_start(args, format);
-    const int n = vsnprintf(line, sizeof line, format, args);
-    va_end(args);
-    if (n < 0 || (size_t)n >= sizeof line || b->failed) { b->failed = 1; return; }
-    if (b->size + (size_t)n + 1 > b->capacity) {
-        const size_t capacity = (b->capacity != 0 ? b->capacity * 2 : 4096) + (size_t)n;
-        char *grown = realloc(b->text, capacity);
-        if (grown == NULL) { b->failed = 1; return; }
-        b->text = grown, b->capacity = capacity;
-    }
-    memcpy(b->text + b->size, line, (size_t)n + 1);
-    b->size += (size_t)n;
-}
-
-/* the runs of 1s of a per-node flag array, one `key from to` line each */
-static void put_ranges(Buffer *b, const char *key, const uint8_t *flag, uint32_t nodes)
-{
-    if (flag == NULL) return;
-    for (uint32_t n = 0; n < nodes;) {
-        if (!flag[n]) { n++; continue; }
-        uint32_t end = n;
-        while (end + 1 < nodes && flag[end + 1]) end++;
-        put(b, "%s %u %u\n", key, n, end);
-        n = end + 1;
-    }
-}
-
-static int node_order(const void *a, const void *b)
-{
-    const uint32_t x = *(const uint32_t *)a, y = *(const uint32_t *)b;
-    return x < y ? -1 : x > y;
-}
-
-/* the street lamps as `lamp <node> 100` lines (the ordinary lamp: 100 percent, the default radius), by node, one for each */
-static void put_lamps(Buffer *b, const TrackNodeLight *light)
-{
-    if (light->lamp_node == NULL || light->lamp_node_count <= 0 || light->nodes == 0) return;
-    uint32_t *nodes = malloc((size_t)light->lamp_node_count * sizeof *nodes);
-    if (nodes == NULL) { b->failed = 1; return; }
-    int n = 0;
-    for (int i = 0; i < light->lamp_node_count; i++) {
-        if (!light->lamp_ring && light->lamp_node[i] >= light->nodes) continue;   /* terrain_light_lamp_classes drops it too */
-        nodes[n++] = light->lamp_node[i] % light->nodes;
-    }
-    qsort(nodes, (size_t)n, sizeof *nodes, node_order);
-    for (int i = 0; i < n; i++)
-        if (i == 0 || nodes[i] != nodes[i - 1]) put(b, "lamp %u 100\n", nodes[i]);
-    free(nodes);
-}
-
-/* a colour as the file writes it: RRGGBB when the bytes give the same factors exactly, else r/g/b, the factors written out (the export's, for the made looks whose factors 8 bits cannot hold) */
-static void colour_text(const float cast[3], char out[64])
-{
-    int exact = 1;
-    unsigned v8[3];
-    for (int k = 0; k < 3; k++) {
-        const double c = cast[k] < 0.0f ? 0.0 : cast[k] > 1.0f ? 1.0 : (double)cast[k];
-        v8[k] = (unsigned)(c * 255.0 + 0.5);
-        if ((float)((double)v8[k] / 255.0) != cast[k]) exact = 0;
-    }
-    if (exact) snprintf(out, 64, "%02x%02x%02x", v8[0], v8[1], v8[2]);
-    else {   /* each factor with the fewest digits that read back as the very same float */
-        char part[3][16];
-        for (int k = 0; k < 3; k++)
-            for (int digits = 1; digits <= 9; digits++) {
-                snprintf(part[k], sizeof part[k], "%.*g", digits, (double)cast[k]);
-                if ((float)strtod(part[k], NULL) == cast[k]) break;
-            }
-        snprintf(out, 64, "%s/%s/%s", part[0], part[1], part[2]);
-    }
-}
-
-int track_light_place_format(const TrackNodeLight *light, const char *track, char **text, size_t *size)
-{
-    if (light == NULL || track == NULL || light->nodes == 0 || text == NULL || size == NULL) return 0;
-    Buffer b = { 0 };
-    put(&b, "# tnfs track places 1\n");
-    put(&b, "track %s\n", track);
-    if (light->tunnel != NULL || light->hall != NULL) put(&b, "present tunnel\n");   /* an array that is there but empty is not an array that is not (the rows decide a tunnel without one) */
-    if (light->canyon != NULL) put(&b, "present canyon\n");
-    if (light->car_dim != NULL) put(&b, "present car_dim\n");
-    uint8_t *both = calloc(light->nodes, 1);   /* the road's tunnels and the halls: a hall is a tunnel here, and its time's file says it is lit */
-    if (both == NULL) return 0;
-    for (uint32_t n = 0; n < light->nodes; n++) both[n] = (light->tunnel != NULL && light->tunnel[n]) || (light->hall != NULL && light->hall[n]);
-    put_ranges(&b, "tunnel", both, light->nodes);
-    free(both);
-    put_ranges(&b, "canyon", light->canyon, light->nodes);
-    put_ranges(&b, "car_dim", light->car_dim, light->nodes);
-    if (light->snow) put(&b, "snow 1\n");
-    for (int slot = 0; slot < TRACK_NODE_LIGHT_SNOW_SLOTS; slot++)
-        if (light->snow_map[slot] != 0) put(&b, "snow_map %d %d\n", slot, light->snow_map[slot] - 1);
-    if (b.failed) {
-        free(b.text);
-        return 0;
-    }
-    *text = b.text, *size = b.size;
-    return 1;
-}
-
-int track_light_format(const TrackNodeLight *light, const char *track, char letter, uint32_t flags, char **text, size_t *size)
-{
-    if (light == NULL || track == NULL || light->data == NULL || light->nodes == 0 || text == NULL || size == NULL) return 0;
-    Buffer b = { 0 };
-    put(&b, "# tnfs track light 1\n");
-    put(&b, "track %s time %c nodes %u flags %x\n", track, letter, light->nodes, flags);
-    for (uint32_t n = 0; n < light->nodes;) {
-        const uint8_t *row = &light->data[(size_t)n * TRACK_NODE_LIGHT_POINTS];
-        uint32_t end = n;
-        while (end + 1 < light->nodes && memcmp(row, &light->data[(size_t)(end + 1) * TRACK_NODE_LIGHT_POINTS], TRACK_NODE_LIGHT_POINTS) == 0) end++;
-        put(&b, "rows %u %u", n, end);
-        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) put(&b, " %u", row[p]);
-        put(&b, "\n");
-        n = end + 1;
-    }
-    /* the places (tunnels, canyon, car_dim) are the track's file (track_light_place_format); this file holds the time's light */
-    for (uint32_t n = 0; light->hall != NULL && n < light->nodes;) {   /* a hall is a tunnel with a lot of light: lit by its own lamps */
-        if (!light->hall[n]) { n++; continue; }
-        uint32_t end = n;
-        while (end + 1 < light->nodes && light->hall[end + 1]) end++;
-        put(&b, "tunnel %u %u lit\n", n, end);
-        n = end + 1;
-    }
-    put_lamps(&b, light);
-    for (uint32_t n = 0; light->tone_id != NULL && light->tunnel != NULL && n < light->nodes;) {   /* a zone with a look of its own: its tunnel nodes under a slot of that kind */
-        const int id = light->tone_id[n];
-        if (id <= 0 || id > light->tone_count || !light->tone[id - 1].look || !light->tunnel[n]) { n++; continue; }
-        uint32_t end = n;
-        while (end + 1 < light->nodes && light->tone_id[end + 1] == id && light->tunnel[end + 1]) end++;
-        char colour[64];
-        colour_text(light->tone[id - 1].cast, colour);
-        put(&b, "tunnel %u %u %.9g %s\n", n, end, (double)light->tone[id - 1].light, colour);
-        n = end + 1;
-    }
-    if (light->look_set) {   /* the tunnels' look: its light as a percent of full light at this time, and its colour */
-        char colour[64];
-        colour_text(light->look_cast, colour);
-        put(&b, "tunnel_tone %.12g %s\n", light->look_light, colour);
-    }
-    if (b.failed) {
-        free(b.text);
-        return 0;
-    }
-    *text = b.text, *size = b.size;
-    return 1;
-}
-
-/* The words a file may use are English; the first version of the format was Spanish and those files (the owner's edited ones included) still load: each Spanish word
- * is the English one (tools/track_light_merge.py writes the files out in English). A word that is neither is returned as it is. */
-static const char *english(const char *word)
-{
-    static const char *const WORDS[][2] = {
-        { "pista", "track" }, { "hora", "time" }, { "nodos", "nodes" }, { "banderas", "flags" }, { "filas", "rows" }, { "presente", "present" },
-        { "tunel", "tunnel" }, { "coche_tenue", "car_dim" }, { "canon", "canyon" }, { "nieve", "snow" },
-        { "tono_tunel", "tunnel_tone" }, { "brillo", "brightness" }, { "tono_coche", "car_tone" }, { "farola", "lamp" },
-    };
-    for (size_t i = 0; i < sizeof WORDS / sizeof WORDS[0]; i++)
-        if (strcmp(word, WORDS[i][0]) == 0) return WORDS[i][1];
-    return word;
-}
 
 static uint8_t *flag_array(uint8_t **slot, uint32_t nodes)
 {
@@ -394,31 +223,14 @@ int track_light_tunnel_lamp_at(const TrackLightTweaks *tweaks, uint32_t node, do
     return set;
 }
 
-/* one line of the file into `light`; 0 when it is not well-formed. `seen` counts the node rows given. */
-static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks *tweaks, uint32_t *seen)
+/* one line of a time's retouches into `tweaks`; 0 when it is not well-formed */
+static int parse_line(const char *line, uint32_t nodes, TrackLightTweaks *tweaks)
 {
-    char word[32];
+    char key[32];
     int used = 0;
-    if (sscanf(line, "%31s%n", word, &used) != 1) return 1;   /* blank */
-    const char *const key = english(word);
+    if (sscanf(line, "%31s%n", key, &used) != 1) return 1;   /* blank */
     const char *rest = line + used;
-    const uint32_t nodes = light->nodes;
     unsigned a, b, c;
-    if (strcmp(key, "rows") == 0) {
-        unsigned v[TRACK_NODE_LIGHT_POINTS];
-        int n = 0;
-        if (sscanf(rest, "%u %u%n", &a, &b, &n) != 2) return 0;
-        rest += n;
-        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
-            if (sscanf(rest, "%u%n", &v[p], &n) != 1 || v[p] > 255) return 0;
-            rest += n;
-        }
-        if (a > b || b >= nodes) return 0;
-        for (unsigned node = a; node <= b; node++)
-            for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) light->data[(size_t)node * TRACK_NODE_LIGHT_POINTS + (size_t)p] = (uint8_t)v[p];
-        *seen += b - a + 1;
-        return 1;
-    }
     if (strcmp(key, "tunnel") == 0) {   /* a zone: nodes a..b are a tunnel (added to the track file's), with this time's light and colour, or a hall when `lit` */
         int n = 0;
         if (sscanf(rest, "%u %u%n", &a, &b, &n) != 2 || a > b || b >= nodes || tweaks->zone_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
@@ -478,22 +290,6 @@ static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks 
     }
     if (strcmp(key, "lamp") == 0) return parse_lamp(rest, nodes, tweaks);
     if (strcmp(key, "tunnel_lamp") == 0) return parse_tunnel_lamp(rest, nodes, tweaks);
-    if (strcmp(key, "car_row") == 0) {   /* the cars read the row by their lane (track_node_light_lane); no arguments */
-        if (rest[strspn(rest, " \t\r\n")] != '\0') return 0;
-        tweaks->car_row = 1;
-        return 1;
-    }
-    if (strcmp(key, "car_tone") == 0) {
-        unsigned from = 0, to = nodes > 0 ? nodes - 1 : 0, rgb = 0;
-        int percent = 0;
-        if (sscanf(rest, "%u %u %x:%d", &from, &to, &rgb, &percent) != 4) {   /* no nodes: the whole track */
-            from = 0, to = nodes > 0 ? nodes - 1 : 0;
-            if (sscanf(rest, "%x:%d", &rgb, &percent) != 2) return 0;
-        }
-        if (from > to || to >= nodes || rgb > 0xffffffu || percent < 0 || percent > 100 || tweaks->car_tone_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
-        tweaks->car_tone[tweaks->car_tone_count++] = (TrackLightCarTone){ from, to, { (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb }, percent };
-        return 1;
-    }
     if (strcmp(key, "sun") == 0) return parse_sun(rest, tweaks);
     if (strcmp(key, "tunnel_tone") == 0) {   /* the tunnels' look this time: tunnel_tone <light> [RRGGBB[:strength]] */
         int lit = 0, has_light = 0, has_colour = 0;
@@ -506,10 +302,7 @@ static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks 
 
 int track_light_tweak_line(const char *line, uint32_t nodes, TrackLightTweaks *tweaks)
 {
-    TrackNodeLight none = { 0 };
-    uint32_t seen = 0;
-    none.nodes = nodes;
-    return parse_line(line, &none, tweaks, &seen);
+    return parse_line(line, nodes, tweaks);
 }
 
 int track_light_tweaks_finish(TrackLightTweaks *tweaks, int *bad_line)
@@ -547,130 +340,6 @@ static int parse_sun(const char *rest, TrackLightTweaks *tweaks)
     tweaks->sun_set = (has_az ? TRACK_LIGHT_SUN_AZIMUTH : 0) | (has_el ? TRACK_LIGHT_SUN_ELEVATION : 0) | (has_shadow ? TRACK_LIGHT_SUN_SHADOW : 0) | (has_reach ? TRACK_LIGHT_SUN_REACH : 0);
     tweaks->sun_azimuth = (float)az, tweaks->sun_elevation = (float)el, tweaks->sun_shadow = (float)shadow, tweaks->sun_reach = (float)reach;
     return 1;
-}
-
-int track_light_parse(const char *text, size_t size, const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, int *bad_line)
-{
-    if (bad_line != NULL) *bad_line = 0;
-    if (text == NULL || track == NULL || out == NULL || expected_nodes == 0) return 0;
-    TrackLightFile file = { 0 };
-    uint32_t seen = 0;
-    int header = 0, line_no = 0;
-    size_t at = 0;
-    while (at < size) {
-        char line[MAX_LINE];
-        size_t n = 0;
-        while (at < size && text[at] != '\n') {
-            if (n + 1 < sizeof line) line[n++] = text[at];
-            at++;
-        }
-        at++;
-        line[n] = '\0';
-        line_no++;
-        char *hash = strchr(line, '#');
-        if (hash != NULL) *hash = '\0';
-        if (!header) {
-            char file_track[32], file_letter, w_track[16], w_time[16], w_nodes[16], w_flags[16];
-            unsigned file_nodes, file_flags;
-            if (line[strspn(line, " \t\r")] == '\0') continue;
-            if (sscanf(line, " %15s %31s %15s %c %15s %u %15s %x", w_track, file_track, w_time, &file_letter, w_nodes, &file_nodes, w_flags, &file_flags) != 8 ||
-                strcmp(english(w_track), "track") != 0 || strcmp(english(w_time), "time") != 0 || strcmp(english(w_nodes), "nodes") != 0 || strcmp(english(w_flags), "flags") != 0)
-                goto bad;
-            if (strcmp(file_track, track) != 0 || file_letter != letter || file_nodes != expected_nodes) { track_light_file_free(&file); return 0; }
-            file.flags = file_flags;
-            file.base = flags == TRACK_LIGHT_ANY_FLAGS || file_flags == flags;
-            file.light.nodes = expected_nodes;
-            file.light.data = calloc((size_t)expected_nodes * TRACK_NODE_LIGHT_POINTS, 1);   /* parsed even when it is not the base: its lines are still checked */
-            if (file.light.data == NULL) return 0;
-            header = 1;
-            continue;
-        }
-        const int zones_before = file.tweaks.zone_count;
-        if (!parse_line(line, &file.light, &file.tweaks, &seen)) goto bad;
-        if (file.tweaks.zone_count > zones_before) file.tweaks.zones[zones_before].line = line_no;
-    }
-    if (!zone_slots(&file.tweaks, &line_no)) goto bad;
-    if (!header || seen != expected_nodes) {
-        line_no = 0;
-        goto bad;
-    }
-    if (!file.base) track_node_light_free(&file.light);
-    *out = file;
-    return 1;
-bad:
-    if (bad_line != NULL) *bad_line = line_no;
-    track_light_file_free(&file);
-    return 0;
-}
-
-int track_light_place_parse(const char *text, size_t size, const char *track, uint32_t expected_nodes, TrackNodeLight *out, int *bad_line)
-{
-    if (bad_line != NULL) *bad_line = 0;
-    if (text == NULL || track == NULL || out == NULL || expected_nodes == 0) return 0;
-    TrackNodeLight places = { 0 };
-    places.nodes = expected_nodes;
-    int header = 0, line_no = 0;
-    size_t at = 0;
-    while (at < size) {
-        char line[MAX_LINE];
-        size_t n = 0;
-        while (at < size && text[at] != '\n') {
-            if (n + 1 < sizeof line) line[n++] = text[at];
-            at++;
-        }
-        at++;
-        line[n] = '\0';
-        line_no++;
-        char *hash = strchr(line, '#');
-        if (hash != NULL) *hash = '\0';
-        char word[32], what[32];
-        int used = 0;
-        if (sscanf(line, "%31s%n", word, &used) != 1) continue;
-        const char *rest = line + used;
-        const char *const key = english(word);
-        unsigned a, b;
-        if (!header) {
-            char file_track[32];
-            if (strcmp(key, "track") != 0 || sscanf(rest, "%31s", file_track) != 1 || strchr(rest + strspn(rest, " \t"), ' ') != NULL) goto bad;
-            if (strcmp(file_track, track) != 0) { track_node_light_free(&places); return 0; }
-            header = 1;
-            continue;
-        }
-        if (strcmp(key, "snow") == 0) {   /* the track is a snowy one: its rain falls as snow */
-            int on = 0;
-            if (sscanf(rest, "%d", &on) != 1 || (on != 0 && on != 1)) goto bad;
-            places.snow = on;
-            continue;
-        }
-        if (strcmp(key, "snow_map") == 0) {   /* a texture slot of the road that the snow's bitmaps take over in the rally */
-            unsigned from, to;
-            int used_map = 0;
-            if (sscanf(rest, "%u %u%n", &from, &to, &used_map) != 2 || from >= TRACK_NODE_LIGHT_SNOW_SLOTS || to >= TRACK_NODE_LIGHT_SNOW_SLOTS || rest[used_map + strspn(rest + used_map, " \t\r")] != '\0') goto bad;
-            places.snow_map[from] = (uint8_t)(to + 1);
-            continue;
-        }
-        uint8_t **slot = strcmp(key, "tunnel") == 0 ? &places.tunnel : strcmp(key, "canyon") == 0 ? &places.canyon : strcmp(key, "car_dim") == 0 ? &places.car_dim : NULL;
-        if (slot == NULL && strcmp(key, "present") != 0) goto bad;
-        if (strcmp(key, "present") == 0) {
-            if (sscanf(rest, "%31s", what) != 1) goto bad;
-            const char *const w = english(what);
-            uint8_t **pslot = strcmp(w, "tunnel") == 0 ? &places.tunnel : strcmp(w, "canyon") == 0 ? &places.canyon : strcmp(w, "car_dim") == 0 ? &places.car_dim : NULL;
-            if (pslot == NULL || flag_array(pslot, expected_nodes) == NULL) goto bad;
-            continue;
-        }
-        if (sscanf(rest, "%u %u", &a, &b) != 2 || a > b || b >= expected_nodes) goto bad;
-        uint8_t *flag = flag_array(slot, expected_nodes);
-        if (flag == NULL) goto bad;
-        memset(flag + a, 1, b - a + 1);
-    }
-    if (!header) { line_no = 0; goto bad; }
-    out->tunnel = places.tunnel, out->canyon = places.canyon, out->car_dim = places.car_dim, out->snow = places.snow, out->from_places = 1;
-    memcpy(out->snow_map, places.snow_map, sizeof out->snow_map);   /* the caller's light had none of them */
-    return 1;
-bad:
-    if (bad_line != NULL) *bad_line = line_no;
-    track_node_light_free(&places);
-    return 0;
 }
 
 void track_light_file_free(TrackLightFile *file)
@@ -763,18 +432,6 @@ void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, in
             }
         }
     }
-    if (tweaks->car_row) light->car_row = 1;
-    if (tweaks->car_tone_count > 0 && light->nodes > 0) {
-        free(light->car_tone);
-        light->car_tone = calloc((size_t)light->nodes, 4);
-        for (int i = 0; light->car_tone != NULL && i < tweaks->car_tone_count; i++) {
-            const TrackLightCarTone *t = &tweaks->car_tone[i];
-            for (uint32_t n = t->from; n <= t->to && n < light->nodes; n++) {
-                uint8_t *at = &light->car_tone[4 * (size_t)n];
-                at[0] = t->rgb[0], at[1] = t->rgb[1], at[2] = t->rgb[2], at[3] = (uint8_t)t->percent;
-            }
-        }
-    }
     for (int i = 0; i < tweaks->zone_count; i++) {   /* the zones over the places: a tunnel, or a hall (a tunnel with a lot of light: its own lamps) */
         const TrackLightZone *z = &tweaks->zones[i];
         uint8_t *const tunnel = flag_array(&light->tunnel, light->nodes);
@@ -788,19 +445,4 @@ void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, in
     light->look_light = tweaks->look_has_light ? tweaks->look_light : 10.0;
     for (int k = 0; k < 3; k++) light->look_cast[k] = tweaks->look_has_colour ? tweaks->look_cast[k] : 1.0f;
     if (lamps) apply_lamps(tweaks, light, ring);
-}
-
-void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size)
-{
-    static const char *const NAMES[TLF_COUNT] = { "trans_shadows", "made_tunnels", "car_tunnel_light", "hall_light", "parking_dark", "cavern_dark", "canyon_shade", "lamp_pool_tint",
-                                                  "lamp_car_shade", "lamp_pool_bright", "city_lift 3", "street lamps", "reverse" };
-    if (out == NULL || out_size == 0) return;
-    out[0] = '\0';
-    size_t len = 0;
-    for (int bit = 0; bit < TLF_COUNT; bit++) {
-        if (((file ^ now) >> bit & 1u) == 0) continue;
-        const int n = snprintf(out + len, out_size - len, "%s%s=%s", len ? ", " : "", NAMES[bit], (now >> bit & 1u) ? "on" : "off");
-        if (n < 0 || (size_t)n >= out_size - len) break;
-        len += (size_t)n;
-    }
 }

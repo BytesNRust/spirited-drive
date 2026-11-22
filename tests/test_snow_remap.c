@@ -3,6 +3,7 @@
 
 #include "game/race/track_art.h"
 #include "game/race/track_light_file.h"
+#include "game/race/track_light_track.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,34 +66,28 @@ static void test_no_map_changes_nothing(void)
     free(art), free(same);
 }
 
-static void test_the_places_file_gives_the_map(void)
+static void test_the_track_file_gives_the_map(void)
 {
-    const char *text = "# tnfs track places 1\ntrack AL3\npresent tunnel\ntunnel 5 9\nsnow 1\nsnow_map 3 4\nsnow_map 9 10\n";
-    TrackNodeLight places = { 0 };
+    const char *text = "# tnfs track light 2\ntrack AL3\ntunnel 5 9\nsnow 1\nsnow_map 3 4\nsnow_map 9 10\n";
+    TrackLightFile file = { 0 };
     int bad = -1;
-    CHECK(track_light_place_parse(text, strlen(text), "AL3", 100, &places, &bad));
-    CHECK_EQ_INT(places.snow, 1);
-    places.nodes = 100;   /* the parse's caller's: what the writer needs to know the track's length */
-    CHECK_EQ_INT(places.snow_map[3], 4 + 1);
-    CHECK_EQ_INT(places.snow_map[9], 10 + 1);
-    CHECK_EQ_INT(places.snow_map[4], 0);
-    char *out = NULL;
-    size_t size = 0;
-    CHECK(track_light_place_format(&places, "AL3", &out, &size));   /* and writes them back */
-    CHECK(strstr(out, "snow 1\n") != NULL && strstr(out, "snow_map 3 4\n") != NULL && strstr(out, "snow_map 9 10\n") != NULL);
-    free(out);
-    track_node_light_free(&places);
+    CHECK(track_light_track_parse(text, strlen(text), "AL3", 'B', 100, &file, &bad));
+    CHECK_EQ_INT(file.light.snow, 1);
+    CHECK_EQ_INT(file.light.snow_map[3], 4 + 1);
+    CHECK_EQ_INT(file.light.snow_map[9], 10 + 1);
+    CHECK_EQ_INT(file.light.snow_map[4], 0);
+    track_light_file_free(&file);
     const char *bad_texts[] = { "snow_map 3\n", "snow_map 3 144\n", "snow_map 144 3\n", "snow_map a b\n", "snow_map 3 4 5\n", "snow 2\n" };
-    const char *crlf = "# tnfs track places 1\r\ntrack AL3\r\nsnow_map 3 4\r\n";
-    TrackNodeLight c = { 0 };
-    CHECK(track_light_place_parse(crlf, strlen(crlf), "AL3", 100, &c, NULL) && c.snow_map[3] == 5);   /* a CRLF file is as good */
-    track_node_light_free(&c);
+    const char *crlf = "# tnfs track light 2\r\ntrack AL3\r\nsnow_map 3 4\r\n";
+    TrackLightFile c = { 0 };
+    CHECK(track_light_track_parse(crlf, strlen(crlf), "AL3", 'B', 100, &c, NULL) && c.light.snow_map[3] == 5);   /* a CRLF file is as good */
+    track_light_file_free(&c);
     for (size_t i = 0; i < sizeof bad_texts / sizeof *bad_texts; i++) {
-        char file[128];
-        snprintf(file, sizeof file, "# tnfs track places 1\ntrack AL3\n%s", bad_texts[i]);
-        TrackNodeLight p = { 0 };
+        char text_bad[128];
+        snprintf(text_bad, sizeof text_bad, "# tnfs track light 2\ntrack AL3\n%s", bad_texts[i]);
+        TrackLightFile f = { 0 };
         int line = 0;
-        CHECK(!track_light_place_parse(file, strlen(file), "AL3", 100, &p, &line) && line == 3);   /* a bad line, the third */
+        CHECK(!track_light_track_parse(text_bad, strlen(text_bad), "AL3", 'B', 100, &f, &line) && line == 3);   /* a bad line, the third */
     }
 }
 
@@ -186,6 +181,6 @@ int main(void)
     test_the_snow_road_loses_its_green();
     test_the_snow_is_laid_on_the_roads_own_size();
     test_a_road_with_no_room_or_no_palette_takes_the_snow_as_it_is();
-    test_the_places_file_gives_the_map();
+    test_the_track_file_gives_the_map();
     return TEST_REPORT();
 }

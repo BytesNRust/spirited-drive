@@ -49,8 +49,6 @@ extern char light_letter;
 extern char made_track[16];
 extern const Tri *made_tri;
 extern int synth_wanted, synth_on, synth_time;
-extern char track_light_note[160];
-extern char track_light_places[200];
 extern char track_light_status[200];
 extern const float NIGHT_PALETTE[3];
 extern PsxLgs ambient;
