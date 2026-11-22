@@ -1214,6 +1214,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_new_car PROPERTIES TIMEOUT 600)
         add_test(NAME editor_export_track COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_export_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
         set_tests_properties(editor_export_track PROPERTIES TIMEOUT 600)
+        add_test(NAME editor_own_track_masks COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_own_track_masks.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd>)
+        set_tests_properties(editor_own_track_masks PROPERTIES TIMEOUT 600)
         set_tests_properties(editor_headless_car PROPERTIES TIMEOUT 450)
         add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back
         set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)

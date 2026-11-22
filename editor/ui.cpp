@@ -294,6 +294,7 @@ void default_layout(ImGuiID dock)
     node = ImGui::DockBuilderSplitNode(points, ImGuiDir_Down, 0.45f, nullptr, &points);
     ImGui::DockBuilderDockWindow(PANEL_POINTS, points);
     ImGui::DockBuilderDockWindow(PANEL_NODE, node);
+    ImGui::DockBuilderDockWindow(PANEL_TRACK_MASKS, node);   // a tab beside Node: the track's reflective masks
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -379,7 +380,7 @@ void shortcuts(App *a)
     if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) interact_nudge(a, 0, -INTERACT_NUDGE);
 }
 
-const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS, PANEL_STRIP, PANEL_DRIVE };
+const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS, PANEL_STRIP, PANEL_DRIVE, PANEL_TRACK_MASKS };
 
 // the panels of the mode on screen, as the Window menu lists them
 int mode_panels(const App *a, const char *out[], int cap)
@@ -985,6 +986,10 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (panel_open(PANEL_STRIP)) strip_panel(a);
         if (panel_open(PANEL_NODE)) node_panel(a);
         if (panel_open(PANEL_ROAD_KEY)) road_key_window(a);
+        a->tmask_now = ImGui::GetTime();
+        app_track_masks_load(a);   // the masks of an own track: scanned and made from the PSDs once per open, and again when a PSD is saved
+        app_track_masks_poll(a);
+        if (panel_open(PANEL_TRACK_MASKS)) track_masks_panel(a, track_mask_texture(ren, a));
         if (track_edit_done()) app_track_commit(a);
     } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout
         const bool masks = a->car.masks_only;   // a masks project keeps a layout of its own: it shows fewer windows

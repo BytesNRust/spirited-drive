@@ -551,9 +551,9 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
     float x = 0, y = 0;
     if (strncmp(name, "race-", 5) == 0) return race_frames(s, a, name, p);
     if (strncmp(name, "poll-wait:", 10) == 0) {   /* poll-wait:S: S seconds of frames; "poll: watching" at the start, "poll: STATUS" each time the photos are due again (a PSD saved meanwhile by the test) */
-        if (p == 0) s->wait_from = a->light.now, s->wait_serial = a->light.edit_serial, fprintf(stdout, "poll: watching\n"), fflush(stdout);
+        if (p == 0) s->wait_from = a->kind == APP_KIND_LIGHT ? a->light.now : a->tmask_now, s->wait_serial = a->light.edit_serial, fprintf(stdout, "poll: watching\n"), fflush(stdout);
         if (a->light.edit_serial != s->wait_serial) s->wait_serial = a->light.edit_serial, fprintf(stdout, "poll: %s\n", a->status), fflush(stdout);
-        return a->light.now - s->wait_from < arg[0];
+        return (a->kind == APP_KIND_LIGHT ? a->light.now : a->tmask_now) - s->wait_from < arg[0];
     }
     if (strcmp(name, "curve-block") == 0) {   /* the block as the panel drew it in the frame before */
         fprintf(stdout, "curve block: %s\n", a->curve.block_open == 1 ? "open" : a->curve.block_open == 2 ? "folded" : "not drawn");

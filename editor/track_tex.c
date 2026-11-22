@@ -130,6 +130,11 @@ TrackTexSet *track_tex_open(const char *cd, const char *track, char *why, size_t
 {
     char path[1024];
     snprintf(path, sizeof path, "%s/SIMDATA/ETRACKFM/%s_001.FAM", cd, track);
+    return track_tex_open_fam(path, why, why_cap);
+}
+
+TrackTexSet *track_tex_open_fam(const char *path, char *why, size_t why_cap)
+{
     TrackTexSet *s = calloc(1, sizeof *s);
     size_t size = 0;
     Chunk root, terrain;
