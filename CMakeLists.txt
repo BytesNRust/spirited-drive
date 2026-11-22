@@ -476,6 +476,7 @@ add_library(tnfs_game STATIC
     game/race/light_synth.c
     game/race/track_light_file.c
     game/race/track_light_find.c
+    game/race/track_light_fingerprint.c
     game/race/terrain_light.c
     game/race/headlight_pool.c
     game/race/street_lamp.c
@@ -1783,6 +1784,10 @@ if(NOT EMSCRIPTEN)
         add_test(NAME ui_kit_check COMMAND sh ${CMAKE_SOURCE_DIR}/tools/ui_kit_check.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                  ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(ui_kit_check PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+        # the light of the 16 tracks at the 4 times of day, hashed (game/race/track_light_fingerprint.h): a change of the files, the format or the generator shows here (about 75 s)
+        add_test(NAME track_light_fingerprint COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
+                 ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+        set_tests_properties(track_light_fingerprint PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         # dep59 step 5 (T7g): a whole race on an added track from the menus, to its results
         add_test(NAME edition_menus_trackrace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                  ${CMAKE_SOURCE_DIR}/original trackrace $<TARGET_FILE:tnfs-studio>)

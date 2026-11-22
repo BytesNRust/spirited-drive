@@ -21,6 +21,7 @@
 #include "game/race/window_lights.h"
 #include "game/race/terrain_light.h"
 #include "game/race/light_synth.h"
+#include "game/race/track_light_fingerprint.h"
 #include "game/race/track_light_file.h"
 #include "game/race/track_geometry.h"
 #include "game/race/track_objects.h"
@@ -665,6 +666,16 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
     }
     apply_rules_file(track, &made);
     add_tunnel_lamps(tri, track, &made, have ? &file.tweaks : NULL);   /* the file's tunnel_lamp lines (the tunnels' lamps: strength, colour, reach) */
+    const char *const print = getenv("TNFS_LIGHT_FINGERPRINT");   /* a hash of the light made, appended to this file (tests/track_light_fingerprint.sh) */
+    if (print != NULL && print[0] != '\0') {
+        char hash[65];
+        track_light_fingerprint(&made, hash);
+        FILE *const f = fopen(print, "ab");
+        if (f != NULL) {
+            fprintf(f, "%s%c %s\n", track, light_letter, hash);
+            fclose(f);
+        }
+    }
     track_light_file_free(&file);
     *out = made;
     return 1;
