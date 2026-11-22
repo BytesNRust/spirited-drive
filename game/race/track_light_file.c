@@ -369,8 +369,22 @@ static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks 
         return 1;
     }
     if (strcmp(key, "brightness") == 0) {
-        if (sscanf(rest, "%u %u %u", &a, &b, &c) != 3 || a > b || b >= nodes || c > 1000 || tweaks->brightness_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
-        tweaks->brightness[tweaks->brightness_count++] = (TrackLightBrightness){ a, b, (int)c };
+        int n = 0;
+        if (sscanf(rest, "%u %u %u%n", &a, &b, &c, &n) != 3 || a > b || b >= nodes || c > 1000 || tweaks->brightness_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
+        if (rest[n] != '\0' && rest[n] != ' ' && rest[n] != '\t' && rest[n] != '\r' && rest[n] != '\n') return 0;   /* a word is a word: "50left" is no line */
+        TrackLightBrightness line = { .from = a, .to = b, .percent = (int)c };
+        int has_side = 0;
+        for (const char *word = rest + n;;) {   /* [left|right] [shade], each once, in either order: any other word is a bad line */
+            while (*word == ' ' || *word == '\t') word++;
+            if (*word == '\0' || *word == '\n' || *word == '\r') break;
+            const size_t len = strcspn(word, " \t\r\n");
+            if (len == 4 && strncmp(word, "left", 4) == 0 && !has_side) line.side = TRACK_LIGHT_SIDE_LEFT, has_side = 1;
+            else if (len == 5 && strncmp(word, "right", 5) == 0 && !has_side) line.side = TRACK_LIGHT_SIDE_RIGHT, has_side = 1;
+            else if (len == 5 && strncmp(word, "shade", 5) == 0 && !line.shade) line.shade = 1;
+            else return 0;
+            word += len;
+        }
+        tweaks->brightness[tweaks->brightness_count++] = line;
         return 1;
     }
     if (strcmp(key, "tone") == 0) {
@@ -594,15 +608,24 @@ static void apply_lamps(const TrackLightTweaks *tweaks, TrackNodeLight *light, i
 void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, int lamps, int ring)
 {
     if (tweaks == NULL || light == NULL) return;
-    for (int i = 0; i < tweaks->brightness_count && light->data != NULL; i++) {
-        const TrackLightBrightness *r = &tweaks->brightness[i];
-        for (uint32_t n = r->from; n <= r->to && n < light->nodes; n++)
-            for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
-                uint8_t *at = &light->data[(size_t)n * TRACK_NODE_LIGHT_POINTS + (size_t)p];
-                const int scaled = *at * r->percent / 100;
-                *at = (uint8_t)(scaled > 255 ? 255 : scaled);
-            }
-    }
+    /* the lines with `shade` first, over the rows as the file gives them (that is the shade the sun calculated), then the plain ones in file order */
+    for (int pass = 1; pass >= 0; pass--)
+        for (int i = 0; i < tweaks->brightness_count && light->data != NULL; i++) {
+            const TrackLightBrightness *r = &tweaks->brightness[i];
+            if (r->shade != pass) continue;
+            for (uint32_t n = r->from; n <= r->to && n < light->nodes; n++)
+                for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
+                    if ((r->side == TRACK_LIGHT_SIDE_RIGHT && p > 5) || (r->side == TRACK_LIGHT_SIDE_LEFT && p >= 1 && p <= 5)) continue;   /* the middle point is on both sides */
+                    uint8_t *at = &light->data[(size_t)n * TRACK_NODE_LIGHT_POINTS + (size_t)p];
+                    if (r->shade) {   /* only the darkness: 255 - v is scaled by 100 / percent, at most all the way to black; a point in full light stays */
+                        const int dark = 255 - *at, scaled = r->percent == 0 ? (dark > 0 ? 255 : 0) : (dark * 100 + r->percent / 2) / r->percent;
+                        *at = (uint8_t)(255 - (scaled > 255 ? 255 : scaled));
+                    } else {
+                        const int scaled = *at * r->percent / 100;
+                        *at = (uint8_t)(scaled > 255 ? 255 : scaled);
+                    }
+                }
+        }
     int zone_looks = 0;
     for (int i = 0; i < tweaks->zone_count; i++) zone_looks += tweaks->zones[i].tone >= 0;
     if ((tweaks->tone_run_count > 0 || zone_looks > 0) && light->nodes > 0) {   /* the scene tones and the zones' own looks: a node's slot is its last line's (the zones first, then the `tone` lines) */

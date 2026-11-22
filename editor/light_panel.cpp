@@ -137,11 +137,14 @@ void brightness_rows(App *a)
     char why[LIGHT_WHY];
     const int count = light_file_count(&f, LIGHT_KIND_BRIGHTNESS);
     int remove = -1;
-    if (count > 0 && ImGui::BeginTable("##brightness", 4, ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("From node");
-        ImGui::TableSetupColumn("To node");
-        ImGui::TableSetupColumn("Percent");
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+    if (count > 0 && ImGui::BeginTable("##brightness", 6, ImGuiTableFlags_SizingStretchProp)) {
+        static const char *const SIDES[] = { "both", "left", "right" };
+        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+        ImGui::TableSetupColumn("Percent", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+        ImGui::TableSetupColumn("Side", ImGuiTableColumnFlags_WidthFixed, 72.0f);
+        ImGui::TableSetupColumn("Only shadows", ImGuiTableColumnFlags_WidthFixed, 92.0f);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 62.0f);
         ImGui::TableHeadersRow();
         for (int i = 0; i < count; ++i) {
             LightBrightness b;
@@ -155,11 +158,22 @@ void brightness_rows(App *a)
                 ImGui::SetNextItemWidth(-FLT_MIN);
                 changed = ImGui::InputInt(c == 0 ? "##from" : c == 1 ? "##to" : "##pct", &v[c], 0, 0) || changed;
             }
+            int side = b.side;
+            bool shade = b.shade != 0;
             ImGui::TableSetColumnIndex(3);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::BeginCombo("##side", SIDES[side])) {
+                for (int k = 0; k < 3; ++k)
+                    if (ImGui::Selectable(SIDES[k], side == k)) side = k, changed = true;
+                ImGui::EndCombo();
+            }
+            ImGui::TableSetColumnIndex(4);
+            changed = ImGui::Checkbox("##shade", &shade) || changed;
+            ImGui::TableSetColumnIndex(5);
             if (ImGui::Button("Remove")) remove = i;
             ImGui::PopID();
             if (changed) {
-                const LightBrightness next = { static_cast<unsigned>(v[0] < 0 ? 0 : v[0]), static_cast<unsigned>(v[1] < 0 ? 0 : v[1]), static_cast<unsigned>(v[2] < 0 ? 0 : v[2]) };
+                const LightBrightness next = { static_cast<unsigned>(v[0] < 0 ? 0 : v[0]), static_cast<unsigned>(v[1] < 0 ? 0 : v[1]), static_cast<unsigned>(v[2] < 0 ? 0 : v[2]), side, shade ? 1 : 0 };
                 if (light_file_set_brightness(&f, i, &next, why, sizeof why)) app_light_touch(a);
                 else refused(a, why);
             }
@@ -169,12 +183,14 @@ void brightness_rows(App *a)
     if (remove >= 0 && light_file_remove(&f, LIGHT_KIND_BRIGHTNESS, remove)) app_light_touch(a);
     if (ImGui::Button("Add brightness")) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = f.nodes - 1;
-        const LightBrightness b = { node, node + 50 < last ? node + 50 : last, 100 };
+        const LightBrightness b = { node, node + 50 < last ? node + 50 : last, 100, LIGHT_SIDE_BOTH, 1 };   // born as the safe one: both sides, Only shadows
         if (light_file_set_brightness(&f, -1, &b, why, sizeof why)) app_light_touch(a);
         else refused(a, why);
     }
     ImGui::SameLine();
-    help_marker("Brightness: from node, to node, percent. The road's light between those nodes is scaled (100 is as it is). A later line wins over an earlier one.");
+    help_marker("Brightness: from node, to node, percent. The road's light between those nodes is scaled (100 is as it is). A later line wins over an earlier one.\n"
+                "Side: the left or the right of the road, as you drive (the middle counts for both).\n"
+                "Only shadows: the line acts only on what the sun left in shade; a point in full light never changes, and the road stays as it is. Those lines go first, then the others.");
 }
 
 // a night file has hundreds of lamps: the list is folded, with its count, and scrolls inside its own box
@@ -318,18 +334,22 @@ void light_panel(App *a)
             file_buttons(a);
             drive_row(a);
             if (ui.error[0] != '\0') bad_text(ui.error);
-            ImGui::SeparatorText("Brightness");
+            // from the whole track to the local: the tunnel look, the tunnels, the stretches, the night's lamps, then what the window does not edit
+            ImGui::SeparatorText("Whole track");
+            tunnel_tone_row(a);
+            ImGui::SeparatorText("Tunnels");
+            light_tunnel_rows(a);
+            ImGui::SeparatorText("Stretches");
             ImGui::PushID("brightness");   // each list numbers its rows from 0 in this one window: its own ID scope, or two Remove buttons share an ID
             brightness_rows(a);
             ImGui::PopID();
+            light_stretch_rows(a);
             if (ui.session.letter == 'N') {
+                ImGui::SeparatorText("Night");
                 ImGui::PushID("lamps");
                 lamp_rows(a);
                 ImGui::PopID();
             }
-            ImGui::SeparatorText("Tunnels");
-            tunnel_tone_row(a);
-            light_tone_rows(a);
             other_lines(a);
         }
     }

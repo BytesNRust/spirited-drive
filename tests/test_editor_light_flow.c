@@ -119,7 +119,7 @@ static void test_flow(void)
     char *before = read_file(disk_file, &before_size);
     CHECK(before != NULL);
     char why[LIGHT_WHY];
-    const LightBrightness b = { 120, 180, 70 };
+    const LightBrightness b = { 120, 180, 70, LIGHT_SIDE_BOTH, 0 };
     const int brightness = light_file_count(&a->light.session.file, LIGHT_KIND_BRIGHTNESS);
     CHECK(light_file_set_brightness(&a->light.session.file, -1, &b, why, sizeof why));
     app_light_touch(a);
@@ -155,6 +155,17 @@ static void test_flow(void)
     disk = read_file(disk_file, &disk_size);
     CHECK(disk != NULL && disk_size > before_size && memcmp(disk, before, before_size) == 0 && strcmp(disk + before_size, "brightness 120 180 70\n") == 0);
     free(disk);
+    // the same line given a side and Only shadows (as the panel's combo and box do), saved: the words are in the file, and a window opened on it again reads them
+    const LightBrightness safe = { 120, 180, 70, LIGHT_SIDE_RIGHT, 1 };
+    CHECK(light_file_set_brightness(&a->light.session.file, brightness, &safe, why, sizeof why));
+    app_light_touch(a);
+    CHECK(app_light_save(a) && !app_modified(a));
+    disk = read_file(disk_file, &disk_size);
+    CHECK(disk != NULL && disk_size > before_size && memcmp(disk, before, before_size) == 0 && strcmp(disk + before_size, "brightness 120 180 70 right shade\n") == 0);
+    free(disk);
+    CHECK(app_light_select(a, track_index("CY2"), night) && app_light_select(a, cy1, night));   // away and back: read again from the disk
+    LightBrightness again;
+    CHECK(light_file_get_brightness(&a->light.session.file, brightness, &again) && again.from == 120 && again.to == 180 && again.percent == 70 && again.side == LIGHT_SIDE_RIGHT && again.shade == 1);
     free(before);
     // a node out of the road is clamped
     app_light_set_node(a, 999999);
@@ -208,7 +219,7 @@ static void test_real_game(const char *repo, const char *game, const char *cd)
     const double before = mean_of(a->light.photo.rgba, a->light.photo.w, a->light.photo.h);
     uint8_t *first = malloc((size_t)a->light.photo.w * a->light.photo.h * 4);
     memcpy(first, a->light.photo.rgba, (size_t)a->light.photo.w * a->light.photo.h * 4);
-    const LightBrightness dark = { 0, a->light.session.file.nodes - 1, 30 };
+    const LightBrightness dark = { 0, a->light.session.file.nodes - 1, 30, LIGHT_SIDE_BOTH, 0 };
     CHECK(light_file_set_brightness(&a->light.session.file, -1, &dark, why, sizeof why));
     app_light_touch(a);
     now += LIGHT_UI_SETTLE + 0.1;
@@ -308,7 +319,7 @@ static void test_choose_folder(const char *repo)
     size_t n0 = 0;
     char *before = read_file(saved, &n0);
     CHECK(before != NULL);
-    const LightBrightness e = { 0, b->light.session.file.nodes - 1, 40 };
+    const LightBrightness e = { 0, b->light.session.file.nodes - 1, 40, LIGHT_SIDE_BOTH, 0 };
     char reason[200];
     CHECK(light_file_set_brightness(&b->light.session.file, -1, &e, reason, sizeof reason));
     app_light_touch(b);
@@ -333,7 +344,7 @@ static void test_choose_folder(const char *repo)
     CHECK(app_light_set_folder(a, light) && a->light.open && strcmp(a->light_dir, light) == 0 && a->light.error[0] == '\0');
     CHECK(strcmp(light_ui_track(a->light.track), "AL1") == 0 && a->light.time == 1);
     // unsaved edits: another folder is refused until they are saved or reverted
-    const LightBrightness br = { 0, a->light.session.file.nodes - 1, 40 };
+    const LightBrightness br = { 0, a->light.session.file.nodes - 1, 40, LIGHT_SIDE_BOTH, 0 };
     char why[200];
     CHECK(light_file_set_brightness(&a->light.session.file, -1, &br, why, sizeof why));
     app_light_touch(a);

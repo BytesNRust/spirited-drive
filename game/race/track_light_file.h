@@ -13,6 +13,7 @@
  * and the lines added by hand (all lines count the same):
  *   tunnel_tone night 1 0.35 0.05 174   (a warm tunnel's cast, red green blue, and its light in percent; day is the day's. The file starts with the values the code has)
  *   brightness 120 180 70                  (nodes 120..180 at 70 percent of the light they have)
+ *   brightness 120 180 70 left shade       (only the left side, and only its shadows: the darkness the sun left, scaled)
  *   tone 120 180 ffe080:50            (scene tone: nodes 120..180 are seen through a colour (hex) at 0..100 strength; `tone 120 180 p6 p7 ff2020:60` only the row points p6 p7 (a side strip);
  *                                      16 distinct tones a track at most; a later line over the same nodes replaces the earlier)
  *   lamp 130 150 ff2020:80 8         (a lamp by hand: node, light in percent (1..1000; 100 is the lamp the export writes: a clearly visible pool at night, like a street lamp; more is brighter, never wider), an optional colour
@@ -50,7 +51,10 @@ enum {
 void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size);
 
 enum { TRACK_LIGHT_MAX_BRIGHT = 64, TRACK_LIGHT_MAX_LAMPS = 2048, TRACK_LIGHT_MAX_LAMP_RADIUS = 64, TRACK_LIGHT_MAX_LAMP_PERCENT = 1000 };
-typedef struct { uint32_t from, to; int percent; } TrackLightBrightness;
+/* a `brightness FROM TO PERCENT [left|right] [shade]` line: which side of the road's rows it acts on (the middle point counts for both: the right is points 1..5, the left 6..10) and, with `shade` (Only shadows),
+ * whether it acts only on the darkness the sun left (see track_light_apply). A line with neither word is the line of before. */
+enum { TRACK_LIGHT_SIDE_BOTH, TRACK_LIGHT_SIDE_LEFT, TRACK_LIGHT_SIDE_RIGHT };
+typedef struct { uint32_t from, to; int percent; int side; int shade; } TrackLightBrightness;
 typedef struct { uint32_t from, to; uint8_t rgb[3]; int percent; } TrackLightCarTone;
 /* a `tone` line: nodes from..to, the points of their rows it is on (bit p; 0x7ff all), and the tone's number in the file's list of distinct tones */
 typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightToneRun;

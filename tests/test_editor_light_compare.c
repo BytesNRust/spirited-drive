@@ -131,7 +131,7 @@ static void test_before(App *a, double *now)
     // an edit: the working copy's photo is made again, Before is not: it shows the file on disk
     const int before_runs = runs();
     const int before_serial = c->job[0].serial;
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &(LightBrightness){ 120, 180, 70 }, why, sizeof why));
+    CHECK(light_file_set_brightness(&a->light.session.file, -1, &(LightBrightness){ 120, 180, 70, LIGHT_SIDE_BOTH, 0 }, why, sizeof why));
     app_light_touch(a);
     CHECK(settle(a, now) > 0);
     CHECK_EQ_INT(runs(), before_runs + 1);                                       // one game run: the photo of the working copy
@@ -171,7 +171,7 @@ static void test_four(App *a, double *now)
     for (int t = 0; t < 4; ++t) CHECK_EQ_INT(grey(&c->job[t]), GREY[t]);        // dawn, day, dusk, night in that order
     CHECK_EQ_INT(runs(), 4);                                                      // the four times, one game at a time (the window's own photo was current)
     // the time being edited is the working copy; the others are the folder's files
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &(LightBrightness){ 10, 20, 33 }, why, sizeof why));
+    CHECK(light_file_set_brightness(&a->light.session.file, -1, &(LightBrightness){ 10, 20, 33, LIGHT_SIDE_BOTH, 0 }, why, sizeof why));
     CHECK(light_file_set_place(&a->light.session.places, -1, &(LightPlace){ "canyon", 5, 9 }, a->light.session.file.nodes, why, sizeof why));
     app_light_touch(a);
     forget();
@@ -191,7 +191,7 @@ static void test_four(App *a, double *now)
     // an edit to the night file only: night again, the other three stay
     forget();
     for (int t = 0; t < 4; ++t) serial[t] = c->job[t].serial;
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &(LightBrightness){ 30, 40, 44 }, why, sizeof why));
+    CHECK(light_file_set_brightness(&a->light.session.file, -1, &(LightBrightness){ 30, 40, 44, LIGHT_SIDE_BOTH, 0 }, why, sizeof why));
     app_light_touch(a);
     CHECK(settle(a, now) > 0);
     CHECK_EQ_INT(c->job[0].serial, serial[0]);

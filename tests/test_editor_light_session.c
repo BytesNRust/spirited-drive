@@ -84,7 +84,7 @@ static void test_open_edit_save_reload(const char *repo)
     const int lamps = light_file_count(&s.file, LIGHT_KIND_LAMP), brightness = light_file_count(&s.file, LIGHT_KIND_BRIGHTNESS);
     CHECK(lamps > 0);                                                // the night file's lamps are listed
     // an edit: dirty; the photo's text carries it, the file on disk does not
-    const LightBrightness b = { 120, 180, 70 };
+    const LightBrightness b = { 120, 180, 70, LIGHT_SIDE_BOTH, 0 };
     CHECK(light_file_set_brightness(&s.file, -1, &b, why, sizeof why));
     CHECK(light_session_dirty(&s));
     size_t text_size = 0;
@@ -165,7 +165,7 @@ static void test_refusals(const char *repo)
     // a folder that stopped being a light folder after the open: Save refuses and writes nothing
     write_file(x.file, x.source, x.source_size);
     CHECK(light_session_open(&s, x.light, "CY1", 'N', why, sizeof why));
-    const LightBrightness b = { 1, 2, 50 };
+    const LightBrightness b = { 1, 2, 50, LIGHT_SIDE_BOTH, 0 };
     CHECK(light_file_set_brightness(&s.file, -1, &b, why, sizeof why));
     char gone[EXPORT_PATH + 64];
     snprintf(gone, sizeof gone, "%s/track_light/CY1N.txt", x.light);

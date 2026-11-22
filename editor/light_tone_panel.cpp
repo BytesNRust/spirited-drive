@@ -366,7 +366,7 @@ void place_rows(App *a)
 
 }   // namespace
 
-void light_tone_rows(App *a)
+void light_stretch_rows(App *a)
 {
     ImGui::PushID("tone_rows");   // each list numbers its rows from 0 in one window: its own ID scope, or two Remove buttons share an ID
     tone_rows(a);
@@ -374,6 +374,10 @@ void light_tone_rows(App *a)
     ImGui::PushID("car_tone_rows");
     car_tone_rows(a);
     ImGui::PopID();
+}
+
+void light_tunnel_rows(App *a)
+{
     ImGui::PushID("zone_rows");
     zone_rows(a);
     ImGui::PopID();

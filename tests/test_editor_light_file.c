@@ -166,7 +166,7 @@ static void test_edits_touch_only_their_line(void)
 {
     LightFile f = sample(SAMPLE);
     char why[LIGHT_WHY];
-    const LightBrightness set = { 12, 24, 30 };
+    const LightBrightness set = { 12, 24, 30, LIGHT_SIDE_BOTH, 0 };
     CHECK(light_file_set_brightness(&f, 0, &set, why, sizeof why));
     char *text = formatted(&f);
     CHECK(text != NULL && strstr(text, "brightness 12 24 30\n") != NULL && strstr(text, "brightness 10 20 70") == NULL);
@@ -177,7 +177,7 @@ static void test_edits_touch_only_their_line(void)
     CHECK(text != NULL && strcmp(text, want) == 0);
     free(text);
     // a new line goes after the last line
-    const LightBrightness added = { 60, 70, 40 };
+    const LightBrightness added = { 60, 70, 40, LIGHT_SIDE_BOTH, 0 };
     CHECK(light_file_set_brightness(&f, -1, &added, why, sizeof why));
     text = formatted(&f);
     const char *tail = "tunnel_tone 104.4 1/0.35/0.05\nbrightness 60 70 40\n";
@@ -192,6 +192,50 @@ static void test_edits_touch_only_their_line(void)
     CHECK(text != NULL && strstr(text, "brightness") == NULL && strstr(text, "brillo 30 40 50\n") != NULL && strstr(text, "# the owner's note, kept\n") != NULL);
     free(text);
     light_file_free(&f);
+}
+
+// `brightness FROM TO PERCENT [left|right] [shade]`: the side and Only shadows words are read, written back, and kept as they are on a line that is not edited
+static void test_brightness_side_and_shade(void)
+{
+    static const char TEXT[] = "# tnfs track light 1\ntrack CY1 time N nodes 100 flags fff\nbrightness 10 20 70 left shade\nbrightness 30 40 50 right\nbrightness 50 60 80 shade\nbrightness 70 80 90\n";
+    LightFile f = sample(TEXT);
+    LightBrightness b;
+    CHECK_EQ_INT(light_file_count(&f, LIGHT_KIND_BRIGHTNESS), 4);
+    CHECK(light_file_get_brightness(&f, 0, &b) && b.from == 10 && b.to == 20 && b.percent == 70 && b.side == LIGHT_SIDE_LEFT && b.shade == 1);
+    CHECK(light_file_get_brightness(&f, 1, &b) && b.side == LIGHT_SIDE_RIGHT && b.shade == 0);
+    CHECK(light_file_get_brightness(&f, 2, &b) && b.side == LIGHT_SIDE_BOTH && b.shade == 1);
+    CHECK(light_file_get_brightness(&f, 3, &b) && b.side == LIGHT_SIDE_BOTH && b.shade == 0);   // the line of before
+    char *text = formatted(&f);
+    CHECK(text != NULL && strcmp(text, TEXT) == 0);   // a file nobody edited is written as it was
+    free(text);
+    char why[LIGHT_WHY];
+    const LightBrightness edit = { 12, 24, 30, LIGHT_SIDE_RIGHT, 1 };   // editing one line writes its words, the others stay as they were
+    CHECK(light_file_set_brightness(&f, 3, &edit, why, sizeof why));
+    text = formatted(&f);
+    CHECK(text != NULL && strstr(text, "brightness 12 24 30 right shade\n") != NULL && strstr(text, "brightness 10 20 70 left shade\n") != NULL && strstr(text, "brightness 30 40 50 right\n") != NULL);
+    free(text);
+    const LightBrightness plain = { 12, 24, 30, LIGHT_SIDE_BOTH, 0 };   // no side and not Only shadows: no words
+    CHECK(light_file_set_brightness(&f, 3, &plain, why, sizeof why));
+    text = formatted(&f);
+    CHECK(text != NULL && strstr(text, "brightness 12 24 30\n") != NULL && strstr(text, "right shade") == NULL);
+    free(text);
+    const LightBrightness left = { 1, 2, 50, LIGHT_SIDE_LEFT, 0 };
+    CHECK(light_file_set_brightness(&f, -1, &left, why, sizeof why));
+    text = formatted(&f);
+    CHECK(text != NULL && strstr(text, "brightness 1 2 50 left\n") != NULL);
+    free(text);
+    const LightBrightness nonsense = { 1, 2, 50, 7, 0 };   // a side that is not one
+    CHECK(!light_file_set_brightness(&f, -1, &nonsense, why, sizeof why) && why[0] != '\0');
+    light_file_free(&f);
+    // a line with a word the game does not know is a bad line, kept as written
+    static const char BAD[] = "# tnfs track light 1\ntrack CY1 time N nodes 100 flags fff\nbrightness 1 2 50 middle\nbrightness 1 2 50 left right\nbrightness 1 2 50 shade shade\nbrightness 1 2 50 Left\nbrightness 1 2 50left\nbrightness 1 2 50 note\n";
+    LightFile g = sample(BAD);
+    CHECK_EQ_INT(light_file_count(&g, LIGHT_KIND_BAD), 6);
+    CHECK_EQ_INT(light_file_count(&g, LIGHT_KIND_BRIGHTNESS), 0);
+    text = formatted(&g);
+    CHECK(text != NULL && strcmp(text, BAD) == 0);
+    free(text);
+    light_file_free(&g);
 }
 
 static void test_lamps_and_tunnel_tone(void)
@@ -227,13 +271,13 @@ static void test_rules_of_the_game(void)
     LightFile f = sample(SAMPLE);
     char why[LIGHT_WHY];
     char *before = formatted(&f);
-    LightBrightness b = { 20, 10, 50 };   // unordered
+    LightBrightness b = { 20, 10, 50, LIGHT_SIDE_BOTH, 0 };   // unordered
     CHECK(!light_file_set_brightness(&f, -1, &b, why, sizeof why) && why[0] != '\0');
-    b = (LightBrightness){ 10, 100, 50 };   // the last node is 99
+    b = (LightBrightness){ 10, 100, 50, LIGHT_SIDE_BOTH, 0 };   // the last node is 99
     CHECK(!light_file_set_brightness(&f, -1, &b, why, sizeof why));
-    b = (LightBrightness){ 10, 20, 1001 };
+    b = (LightBrightness){ 10, 20, 1001, LIGHT_SIDE_BOTH, 0 };
     CHECK(!light_file_set_brightness(&f, -1, &b, why, sizeof why));
-    b = (LightBrightness){ 10, 20, 50 };
+    b = (LightBrightness){ 10, 20, 50, LIGHT_SIDE_BOTH, 0 };
     CHECK(!light_file_set_brightness(&f, 5, &b, why, sizeof why));   // no such line to set
     LightLamp l = { 100, 100, 0, "", 0, 0 };
     CHECK(!light_file_set_lamp(&f, -1, &l, why, sizeof why));   // node 100 of 100
@@ -276,10 +320,10 @@ static void test_limits(void)
     LightFile f = sample(text);
     char why[LIGHT_WHY];
     for (int i = 0; i < LIGHT_MAX_BRIGHTNESS; ++i) {
-        const LightBrightness b = { (unsigned)i, (unsigned)i + 1, 50 };
+        const LightBrightness b = { (unsigned)i, (unsigned)i + 1, 50, LIGHT_SIDE_BOTH, 0 };
         CHECK(light_file_set_brightness(&f, -1, &b, why, sizeof why));
     }
-    const LightBrightness more = { 1, 2, 50 };
+    const LightBrightness more = { 1, 2, 50, LIGHT_SIDE_BOTH, 0 };
     CHECK(!light_file_set_brightness(&f, -1, &more, why, sizeof why));   // the 65th
     for (int i = 0; i < LIGHT_MAX_LAMPS; ++i) {
         const LightLamp l = { (unsigned)i, 100, 0, "", 0, 0 };
@@ -296,7 +340,7 @@ static void test_lamp_only_at_night(void)
     char why[LIGHT_WHY];
     const LightLamp l = { 5, 100, 0, "", 0, 0 };
     CHECK(!light_file_set_lamp(&f, -1, &l, why, sizeof why) && strstr(why, "night") != NULL);   // the game ignores a lamp by day: the reason says so
-    const LightBrightness b = { 1, 2, 50 };
+    const LightBrightness b = { 1, 2, 50, LIGHT_SIDE_BOTH, 0 };
     CHECK(light_file_set_brightness(&f, -1, &b, why, sizeof why));   // a brightness is for any time
     light_file_free(&f);
 }
@@ -309,7 +353,7 @@ static void test_odd_files(void)
     CHECK(text != NULL && strcmp(text, "# tnfs track light 1\ntrack CY1 time N nodes 100 flags fff\nlamp 5 100") == 0);
     free(text);
     char why[LIGHT_WHY];
-    const LightBrightness b = { 1, 2, 50 };
+    const LightBrightness b = { 1, 2, 50, LIGHT_SIDE_BOTH, 0 };
     CHECK(light_file_set_brightness(&f, -1, &b, why, sizeof why));
     text = formatted(&f);
     CHECK(text != NULL && strcmp(text, "# tnfs track light 1\ntrack CY1 time N nodes 100 flags fff\nlamp 5 100\nbrightness 1 2 50") == 0);
@@ -374,6 +418,7 @@ int main(int argc, char **argv)
     const char *repo = argc > 1 ? argv[1] : ".";
     test_classification();
     test_edits_touch_only_their_line();
+    test_brightness_side_and_shade();
     test_lamps_and_tunnel_tone();
     test_rules_of_the_game();
     test_limits();

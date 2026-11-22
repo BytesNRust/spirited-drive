@@ -423,6 +423,117 @@ static void test_lamp_apply(void)
     track_light_file_free(&plain);
 }
 
+/* `brightness FROM TO PERCENT [left|right] [shade]`: the side and Only shadows words, either one or both; the line of before is as it was */
+static void test_brightness_words_parse(void)
+{
+    TrackLightFile f = { 0 };
+    int bad = 0;
+    CHECK(parse_lamp_lines("brightness 5 6 50\nbrightness 5 6 50 left\nbrightness 5 6 50 right\nbrightness 5 6 50 shade\nbrightness 5 6 50 left shade\nbrightness 5 6 70 shade right\n", &f, &bad));
+    const TrackLightTweaks *t = &f.tweaks;
+    CHECK_EQ_INT(t->brightness_count, 6);
+    CHECK(t->brightness[0].side == TRACK_LIGHT_SIDE_BOTH && !t->brightness[0].shade && t->brightness[0].percent == 50);   /* no words: today's line */
+    CHECK(t->brightness[1].side == TRACK_LIGHT_SIDE_LEFT && !t->brightness[1].shade);
+    CHECK(t->brightness[2].side == TRACK_LIGHT_SIDE_RIGHT && !t->brightness[2].shade);
+    CHECK(t->brightness[3].side == TRACK_LIGHT_SIDE_BOTH && t->brightness[3].shade);
+    CHECK(t->brightness[4].side == TRACK_LIGHT_SIDE_LEFT && t->brightness[4].shade);
+    CHECK(t->brightness[5].side == TRACK_LIGHT_SIDE_RIGHT && t->brightness[5].shade && t->brightness[5].percent == 70);
+    track_light_file_free(&f);
+    const char *bad_lines[] = { "brightness 5 6 50 middle\n", "brightness 5 6 50 left right\n", "brightness 5 6 50 shade shade\n", "brightness 5 6 50 left left\n", "brightness 5 6 50 shade extra\n", "brightness 5 6 50 Left\n", "brightness 5 6 50left\n", "brightness 5 6 50shade\n", "brightness 5 6 50 note\n" };
+    for (size_t i = 0; i < sizeof bad_lines / sizeof bad_lines[0]; i++) {
+        TrackLightFile g = { 0 };
+        bad = 0;
+        CHECK(!parse_lamp_lines(bad_lines[i], &g, &bad));   /* a word that is not one of those: a bad line, as any bad line */
+        track_light_file_free(&g);
+    }
+}
+
+/* a light whose every node has the same row: middle 255, right 255 200 150 100 50, left 255 200 150 100 50 */
+static TrackNodeLight shade_light(const char *lines, TrackLightFile *f)
+{
+    static const uint8_t ROW[TRACK_NODE_LIGHT_POINTS] = { 255, 255, 200, 150, 100, 50, 255, 200, 150, 100, 50 };
+    CHECK(parse_lamp_lines(lines, f, NULL));
+    TrackNodeLight l = { 0 };
+    l.nodes = NODES;
+    l.data = malloc((size_t)NODES * TRACK_NODE_LIGHT_POINTS);
+    for (int n = 0; n < NODES; n++) memcpy(l.data + (size_t)n * TRACK_NODE_LIGHT_POINTS, ROW, sizeof ROW);
+    track_light_apply(&f->tweaks, &l, 0, 0);
+    return l;
+}
+
+static const uint8_t *row_at(const TrackNodeLight *l, int node)
+{
+    return l->data + (size_t)node * TRACK_NODE_LIGHT_POINTS;
+}
+
+/* a side: the middle point counts for both, the right is points 1..5, the left 6..10 */
+static void test_brightness_side(void)
+{
+    TrackLightFile f = { 0 };
+    TrackNodeLight l = shade_light("brightness 5 6 50 left\n", &f);
+    const uint8_t *r = row_at(&l, 5);
+    CHECK(r[0] == 127 && r[1] == 255 && r[2] == 200 && r[5] == 50 && r[6] == 127 && r[7] == 100 && r[10] == 25);   /* the left half and the middle; the right as it was */
+    CHECK(memcmp(row_at(&l, 4), row_at(&l, 7), TRACK_NODE_LIGHT_POINTS) == 0 && row_at(&l, 4)[7] == 200);   /* outside the run: untouched */
+    track_node_light_free(&l), track_light_file_free(&f);
+    TrackLightFile g = { 0 };
+    l = shade_light("brightness 5 6 50 right\n", &g);
+    r = row_at(&l, 6);
+    CHECK(r[0] == 127 && r[1] == 127 && r[2] == 100 && r[5] == 25 && r[6] == 255 && r[7] == 200 && r[10] == 50);
+    track_node_light_free(&l), track_light_file_free(&g);
+}
+
+/* Only shadows: the darkness the sun left (255 - v) is scaled by 100 / percent: a point in full light never changes, 100 changes nothing, less than 100 darkens, more lightens */
+static void test_brightness_only_shadows(void)
+{
+    TrackLightFile f = { 0 };
+    TrackNodeLight l = shade_light("brightness 5 6 50 left shade\n", &f);
+    const uint8_t *r = row_at(&l, 5);
+    CHECK(r[0] == 255 && r[1] == 255 && r[2] == 200 && r[3] == 150 && r[5] == 50);   /* the middle and the right: as they were */
+    CHECK(r[6] == 255 && r[7] == 145 && r[8] == 45 && r[9] == 0 && r[10] == 0);        /* the left, darker the more it was in shade */
+    track_node_light_free(&l), track_light_file_free(&f);
+    TrackLightFile g = { 0 };
+    l = shade_light("brightness 0 39 100 shade\n", &g);
+    CHECK(row_at(&l, 5)[7] == 200 && row_at(&l, 5)[10] == 50);   /* 100: nothing changes */
+    track_node_light_free(&l), track_light_file_free(&g);
+    TrackLightFile h = { 0 };
+    l = shade_light("brightness 5 5 200 shade\n", &h);
+    CHECK(row_at(&l, 5)[2] == 227 && row_at(&l, 5)[5] == 152 && row_at(&l, 5)[0] == 255);   /* more than 100 lightens: half the darkness */
+    track_node_light_free(&l), track_light_file_free(&h);
+    /* a point at 255 is never changed, at any percent; and the curve has no step: a darker point never comes out lighter than a lighter one */
+    static const int PERCENTS[] = { 0, 1, 10, 50, 99, 100, 101, 250, 1000 };
+    for (size_t k = 0; k < sizeof PERCENTS / sizeof PERCENTS[0]; k++) {
+        char line[64];
+        snprintf(line, sizeof line, "brightness 0 0 %d shade\n", PERCENTS[k]);
+        TrackLightFile p = { 0 };
+        CHECK(parse_lamp_lines(line, &p, NULL));
+        TrackNodeLight q = { 0 };
+        q.nodes = NODES, q.data = calloc((size_t)NODES * TRACK_NODE_LIGHT_POINTS, 1);
+        int previous = -1, steps_ok = 1;
+        for (int v = 0; v < 256; v++) {
+            memset(q.data, v, TRACK_NODE_LIGHT_POINTS);   /* node 0: every point at v */
+            track_light_apply(&p.tweaks, &q, 0, 0);
+            const int out = q.data[0];
+            if (v == 255 && out != 255) steps_ok = 0;
+            if (out < previous) steps_ok = 0;                                          /* lighter in, never darker out */
+            if (PERCENTS[k] >= 50 && v > 0 && out - previous > 3) steps_ok = 0;       /* no step between a point at 255 and its neighbour at 254 */
+            previous = out;
+            if (PERCENTS[k] > 0 && PERCENTS[k] <= 100 && out > v) steps_ok = 0;      /* 100 or less never lightens */
+            if (PERCENTS[k] >= 100 && out < v) steps_ok = 0;                          /* 100 or more never darkens */
+        }
+        CHECK(steps_ok);
+        track_node_light_free(&q), track_light_file_free(&p);
+    }
+}
+
+/* the shade lines act on the rows as the file gives them, then the plain lines in file order, whatever order they are written in */
+static void test_brightness_shade_before_plain(void)
+{
+    TrackLightFile f = { 0 }, g = { 0 };
+    TrackNodeLight a = shade_light("brightness 5 6 50\nbrightness 5 6 50 shade\n", &f), b = shade_light("brightness 5 6 50 shade\nbrightness 5 6 50\n", &g);
+    CHECK(row_at(&a, 5)[2] == 72 && row_at(&a, 5)[4] == 0);   /* 200: shaded to 145, then halved; 100 was shaded to 0 */
+    CHECK(memcmp(a.data, b.data, (size_t)NODES * TRACK_NODE_LIGHT_POINTS) == 0);
+    track_node_light_free(&a), track_node_light_free(&b), track_light_file_free(&f), track_light_file_free(&g);
+}
+
 /* the export writes the street lamps as `lamp <node> 100` lines (there are no pool runs), and the file reads back as the lamp list */
 static void test_export_writes_lamps(void)
 {
@@ -464,6 +575,10 @@ int main(void)
     test_lamp_lines_parse();
     test_lamp_falloff();
     test_lamp_apply();
+    test_brightness_words_parse();
+    test_brightness_side();
+    test_brightness_only_shadows();
+    test_brightness_shade_before_plain();
     test_export_writes_lamps();
     return TEST_REPORT();
 }

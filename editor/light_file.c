@@ -106,9 +106,18 @@ static int parse_brightness(const char *line, unsigned nodes, LightBrightness *o
     char word[TOKEN], a[TOKEN], b[TOKEN], c[TOKEN], extra[TOKEN];
     const char *p = line;
     LightBrightness v;
+    memset(&v, 0, sizeof v);
     if (next_token(&p, word) != 1 || strcmp(word, "brightness") != 0) return 0;
-    if (next_token(&p, a) != 1 || next_token(&p, b) != 1 || next_token(&p, c) != 1 || next_token(&p, extra) != 0) return 0;
+    if (next_token(&p, a) != 1 || next_token(&p, b) != 1 || next_token(&p, c) != 1) return 0;
     if (!is_unsigned(a, &v.from) || !is_unsigned(b, &v.to) || !is_unsigned(c, &v.percent)) return 0;
+    int has_side = 0, got;
+    while ((got = next_token(&p, extra)) == 1) {   // [left|right] [shade], each once, in either order; any other word is a bad line, as the game takes it
+        if (strcmp(extra, "left") == 0 && !has_side) v.side = LIGHT_SIDE_LEFT, has_side = 1;
+        else if (strcmp(extra, "right") == 0 && !has_side) v.side = LIGHT_SIDE_RIGHT, has_side = 1;
+        else if (strcmp(extra, "shade") == 0 && !v.shade) v.shade = 1;
+        else return 0;
+    }
+    if (got != 0) return 0;
     if (v.from > v.to || v.to >= nodes || v.percent > LIGHT_MAX_BRIGHTNESS_PERCENT) return 0;
     if (out != NULL) *out = v;
     return 1;
@@ -498,8 +507,9 @@ int light_file_set_brightness(LightFile *f, int i, const LightBrightness *v, cha
     }
     if (v->percent > LIGHT_MAX_BRIGHTNESS_PERCENT) return fail(why, cap, "the most brightness is 1000 percent");
     if (i < 0 && light_file_count(f, LIGHT_KIND_BRIGHTNESS) >= LIGHT_MAX_BRIGHTNESS) return fail(why, cap, "the game takes 64 brightness lines at most");
-    char text[TOKEN * 2];
-    snprintf(text, sizeof text, "brightness %u %u %u", v->from, v->to, v->percent);
+    if (v->side < LIGHT_SIDE_BOTH || v->side > LIGHT_SIDE_RIGHT) return fail(why, cap, "a brightness line acts on both sides, the left or the right");
+    char text[TOKEN * 3];
+    snprintf(text, sizeof text, "brightness %u %u %u%s%s", v->from, v->to, v->percent, v->side == LIGHT_SIDE_LEFT ? " left" : v->side == LIGHT_SIDE_RIGHT ? " right" : "", v->shade ? " shade" : "");
     return put_line(f, LIGHT_KIND_BRIGHTNESS, i, text) || fail(why, cap, "out of memory");
 }
 

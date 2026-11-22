@@ -124,7 +124,7 @@ The port's own files (track light, car masks, dash masks, track masks, sounds, t
 
 ## Track light
 
-`data/track_light/<TRACK><A|B|C|N>.txt`, one file for each track and time of day (A dawn, B day, C dusk, N night). In Restomod '26, with no PS1 disc, the light of a track is this file, whole. A mod can carry its own copy: **`<mod>/track_light/<file>` is tried first**, then `data/track_light/<file>`. A file is a few lines per run of nodes (`rows` the light rows, tunnel and lamp lines, `brightness N N P` to dim or lift a stretch, `car_tone` the car's tone). Stock '96 and Restored '96 never read these files.
+`data/track_light/<TRACK><A|B|C|N>.txt`, one file for each track and time of day (A dawn, B day, C dusk, N night). In Restomod '26, with no PS1 disc, the light of a track is this file, whole. A mod can carry its own copy: **`<mod>/track_light/<file>` is tried first**, then `data/track_light/<file>`. A file is a few lines per run of nodes (`rows` the light rows, tunnel and lamp lines, `brightness N N P [left|right] [shade]` to dim or lift a stretch (a side; `shade`: only its shadows), `car_tone` the car's tone). Stock '96 and Restored '96 never read these files.
 
     # a stretch of the night track at 70 percent of its light, then the car warmer there
     brightness 120 180 70

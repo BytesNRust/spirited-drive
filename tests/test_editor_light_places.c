@@ -111,7 +111,7 @@ static void test_open_edit_save(const char *repo)
     CHECK(same_file(x.file, x.source, x.source_size));   // the time's file did not change: not written
     // revert brings both back
     CHECK(light_file_set_place(&s.places, 0, &(LightPlace){ "car_dim", 1, 2 }, s.file.nodes, why, sizeof why));
-    CHECK(light_file_set_brightness(&s.file, -1, &(LightBrightness){ 1, 2, 50 }, why, sizeof why));
+    CHECK(light_file_set_brightness(&s.file, -1, &(LightBrightness){ 1, 2, 50, LIGHT_SIDE_BOTH, 0 }, why, sizeof why));
     CHECK(light_session_dirty(&s));
     light_session_revert(&s);
     CHECK(!light_session_dirty(&s));
@@ -130,7 +130,7 @@ static void test_no_places_file(const char *repo)
     char why[LIGHT_WHY + 200];
     CHECK(light_session_open(&s, x.light, "CY1", 'N', why, sizeof why) && s.has_file && !s.has_places);
     CHECK(light_session_places_text(&s, &(size_t){ 0 }) == NULL);
-    CHECK(light_file_set_brightness(&s.file, -1, &(LightBrightness){ 1, 2, 50 }, why, sizeof why));
+    CHECK(light_file_set_brightness(&s.file, -1, &(LightBrightness){ 1, 2, 50, LIGHT_SIDE_BOTH, 0 }, why, sizeof why));
     CHECK(light_session_save(&s, why, sizeof why));   // the time's file saves as ever
     light_session_close(&s);
     free_fixture(&x);
@@ -145,7 +145,7 @@ static void test_refusals(const char *repo)
     CHECK(light_session_open(&s, x.light, "CY1", 'N', why, sizeof why) && s.has_places);
     CHECK(light_file_set_place(&s.places, -1, &(LightPlace){ "tunnel", 3, 4 }, s.file.nodes, why, sizeof why));
     // the track/ folder goes away: the places cannot be saved, and then nothing is written (the time's file included)
-    CHECK(light_file_set_brightness(&s.file, -1, &(LightBrightness){ 1, 2, 50 }, why, sizeof why));
+    CHECK(light_file_set_brightness(&s.file, -1, &(LightBrightness){ 1, 2, 50, LIGHT_SIDE_BOTH, 0 }, why, sizeof why));
     unlink(x.places);
     char dir[EXPORT_PATH + 16];
     snprintf(dir, sizeof dir, "%s/track", x.light);

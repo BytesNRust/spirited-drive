@@ -30,8 +30,9 @@ void race_look_controls(RaceLook *look);   // the race look's switches and resol
 
 // the Track light window (light_panel.cpp): the file's controls and rows, and the photo (a texture of the job's picture, 0 for none)
 void light_panel(App *a);
-// the tone, car tone, tunnel zone and places rows of the Track light window (light_tone_panel.cpp), called by light_panel
-void light_tone_rows(App *a);
+// the rows of the Track light window by stretch and by tunnel (light_tone_panel.cpp), called by light_panel
+void light_stretch_rows(App *a);   // the Track light window's lists by stretch of the road: the scene tones and the car tones
+void light_tunnel_rows(App *a);    // and its tunnels: the zones and the places file's (which also holds the canyons and the car dim)
 // the comparison beside the photo (light_compare_panel.cpp): Off, Before (the files on disk) or the four times of day; the textures are the pictures of the four jobs, 0 for none
 extern const char *const PANEL_LIGHT_COMPARE;
 void light_compare_panel(App *a, const ImTextureID photos[LIGHT_COMPARE_SLOTS]);

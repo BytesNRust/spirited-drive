@@ -49,7 +49,9 @@ typedef struct {
     unsigned nodes;      /* the header's node count; 0 for a places file */
 } LightFile;
 
-typedef struct { unsigned from, to, percent; } LightBrightness;
+/* `brightness FROM TO PERCENT [left|right] [shade]`: the side of the road's rows it acts on (the middle point is on both) and Only shadows (`shade`) */
+enum { LIGHT_SIDE_BOTH, LIGHT_SIDE_LEFT, LIGHT_SIDE_RIGHT };
+typedef struct { unsigned from, to, percent; int side, shade; } LightBrightness;
 typedef struct {
     unsigned node, percent;
     int has_colour;

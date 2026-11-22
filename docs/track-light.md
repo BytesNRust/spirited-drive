@@ -48,6 +48,7 @@ The **light file** `data/track_light/CY1N.txt` (the new keys are in the second b
     rows 0 5 255 255 61 61 62 63 255 60 61 62 63    nodes 0..5 have this row of 11 points
     lamp 13 100            a street lamp at node 13 (the export writes one for each of the CD's lamps; the pools are the lamps now)
     brightness 120 180 70                     nodes 120..180 at 70 percent of their light
+    brightness 120 180 70 left shade          the same for the left side only (`left` or `right`, as you drive; the row's middle point counts for both) and, with `shade` (Only shadows), only for the shade the sun left
     lamp 130 150 ff2000:80 8           a street lamp by hand: node, light in percent, an optional colour RRGGBB[:strength], an optional radius in nodes (5)
     car_tone ff8020:60                  the car's tone: a colour in hex and its intensity 0..100, the whole track
     car_tone 120 180 ff8020:60          the same for nodes 120..180 only (a later line goes over an earlier one)
@@ -75,6 +76,8 @@ CD's own ratios, is gone (a bad line, and the export does not write it).
 
 **Places and times.** The places are loaded first, then the time's file: a `tunnel` line in a time file adds to the places' tunnels (the union), it never takes one away. A zone with `lit` is a **hall**: a tunnel with a lot of light,
 lit by its own lamps (TR7's steelworks, `tunnel 1 62 lit`); it keeps the terrain's light and the lamps' alternation on the car, and has no light or colour of its own. The places file lists a hall as a tunnel; the time's file says it is lit.
+**Only shadows.** A `brightness` line with `shade` scales the darkness the sun already calculated (`255 - light`) by `100 / percent`, at most to black: a point in full light (255) never changes, 100 changes nothing, less than 100 darkens and more than 100 lightens, and the road, which is always in full light, stays as it is. The `shade` lines are applied first, over the rows as the file gives them, then the other lines in the file's order. A binary that does not know the words reads the line as the plain `brightness` (the three numbers). Anything else after the three numbers (`brightness 1 2 50 note`) is a bad line, which the game does not load: notes go on lines of their own, with `#`.
+
 Under all of it are the file's `rows`, the owner's retouches (`brightness`, `tone`, `car_tone`, `pool`) over the made light, so a row he writes is the row.
 
 What the old format had and this one does not read (a bad line, like any word the format does not know): `hall`, `cast neutral city`, `car_disc`, and `tunnel_tone day|night r g b percent`. `tunnel`, `canyon` and `car_dim` are the places file's:
