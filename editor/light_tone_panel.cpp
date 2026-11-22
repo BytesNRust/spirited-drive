@@ -236,8 +236,8 @@ void place_rows(App *a)
     int remove = -1;
     if (count > 0 && ImGui::BeginTable("##places", 4, ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn("What", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-        ImGui::TableSetupColumn("From node");
-        ImGui::TableSetupColumn("To node");
+        ImGui::TableSetupColumn("From node", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+        ImGui::TableSetupColumn("To node", ImGuiTableColumnFlags_WidthFixed, 110.0f);
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
         ImGui::TableHeadersRow();
         for (int i = 0; i < all_places; ++i) {
