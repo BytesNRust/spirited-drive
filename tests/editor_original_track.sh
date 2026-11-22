@@ -43,7 +43,7 @@ out=$(run --frames 60 --steps open-original:3,repo-ask,print-original,print-menu
 echo "$out" | grep -q "^original: $work/ws/tracks/CL1$" || fail "the original track is open: $out"
 echo "$out" | grep -q "^light: $work/ws/tracks/CL1/light$" || fail "the light folder is the track's own: $out"
 echo "$out" | grep -q '^track: CL1 time: B$' || fail "CL1 at day: $out"
-echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Open recent | Copy to game repo | Save | Main menu | Quit$' || fail "the room's File menu: $out"
+echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Export original track... | Open recent | Copy to game repo | Save | Main menu | Quit$' || fail "the room's File menu: $out"
 echo "$out" | grep -q '^preview: CL1:.*5 unchanged' || fail "an untouched track has nothing to publish: $out"
 
 # an edited light file: the preview names it, Copy writes it into data/ and nothing else
@@ -127,7 +127,7 @@ echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "the PSD
 
 # the copy action is hidden unless the game repo's data/ is given (--port-data): without it the room's File menu has no Copy item and print-repo says none
 out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --window 1280x800 --frames 20 --steps open-original:3,print-menu,print-repo 2>&1) || fail "no repo: $out"
-echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Open recent | Save | Main menu | Quit$' || fail "no Copy item without the repo's data/: $out"
+echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Export original track... | Open recent | Save | Main menu | Quit$' || fail "no Copy item without the repo's data/: $out"
 echo "$out" | grep -q '^repo data: none$' || fail "no repo data is given: $out"
 out=$(run --frames 20 --steps print-repo 2>&1) || fail "repo: $out"
 echo "$out" | grep -q "^repo data: $work/data$" || fail "--port-data is the repo data: $out"
