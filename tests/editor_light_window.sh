@@ -62,5 +62,23 @@ grep -q "^LightHud=1$" "$work/huduser/track-editor.ini" 2>/dev/null || fail "the
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps print-panels > "$work/panels" 2>&1 ||
     fail "print-panels in the Track light window: $(tail -3 "$work/panels")"
 [ "$(grep -c '^panel [0-9]*: .*: open, drawn' "$work/panels")" = 3 ] && grep -q '^unlisted:$' "$work/panels" || fail "the Track light window's panels are not all in the Window menu: $(cat "$work/panels")"
+# the Tunnels section: AL1's two tunnels (its places file) listed as all, Own look and a lamp strength written as `tunnel`/`tunnel_lamp` lines over exactly the tunnel's nodes, Save, and
+# Remove own look back to the file as it was, byte for byte
+mkdir -p "$work/light/track"
+cp "$repo/data/track/AL1.txt" "$work/light/track/"
+places_before=$(cksum < "$work/light/track/AL1.txt")
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps print-tunnels,tunnel-strength:1,220,print-tunnels,save > "$work/tunnels" 2>&1 ||
+    fail "the Tunnels steps: $(tail -3 "$work/tunnels")"
+grep -q "^tunnels: 2; all: light 100.0 lamps 150 reach 1.8$" "$work/tunnels" || fail "the All row is not the file's tunnel_tone and the game's day lamps: $(grep '^tunnels' "$work/tunnels")"
+[ "$(grep -c '^tunnel 1: 1836-1847 place 1 as all' "$work/tunnels")" = 1 ] || fail "the second tunnel is not listed as all: $(grep '^tunnel ' "$work/tunnels")"
+grep -q "^tunnel 1: 1836-1847 place 1 own light 100.0\* lamps 220\* reach 1.8$" "$work/tunnels" || fail "Own look and the strength did not make the tunnel's own look: $(grep '^tunnel ' "$work/tunnels")"
+grep -q "^tunnel 1836 1847 100 1/0.8/0.15$" "$work/light/track_light/AL1B.txt" && grep -q "^tunnel_lamp 1836 1847 220$" "$work/light/track_light/AL1B.txt" || fail "Save did not write the tunnel's lines: $(grep -n '^tunnel' "$work/light/track_light/AL1B.txt")"
+[ "$(cksum < "$work/light/track/AL1.txt")" = "$places_before" ] || fail "an Own look changed the places file"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps print-tunnels,tunnel-unown:1,print-tunnels,save > "$work/tunnels" 2>&1 ||
+    fail "the Remove own look steps: $(tail -3 "$work/tunnels")"
+grep -q "^tunnel 1: 1836-1847 place 1 own" "$work/tunnels" && grep -q "^tunnel 1: 1836-1847 place 1 as all" "$work/tunnels" || fail "Remove own look did not take the look back: $(grep '^tunnel ' "$work/tunnels")"
+[ "$(cksum < "$work/light/track_light/AL1B.txt")" = "$before" ] || fail "after Remove own look the light file is not the one it was"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps tunnel-unown:1 > "$work/tunnels" 2>&1 && fail "Remove own look on a tunnel with none went"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the Tunnels section: $(tail -3 "$work/tunnels")"
 [ "$failures" = 0 ] && echo "ok"
 exit "$failures"

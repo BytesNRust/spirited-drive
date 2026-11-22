@@ -216,104 +216,20 @@ void car_tone_rows(App *a)
     }
 }
 
-void zone_rows(App *a)
-{
-    LightFile &f = a->light.session.file;
-    char why[LIGHT_WHY];
-    const int count = light_file_count(&f, LIGHT_KIND_ZONE);
-    const bool open = section("Tunnel zones", count, "lightzones");
-    ImGui::SameLine();
-    help_marker("A zone makes nodes from..to a tunnel at this time of day, with its own light (percent of full light) and colour, or a hall lit by its own lamps (a hall has neither). "
-                "A colour written another way (r/g/b or with a strength) is shown as written and kept.");
-    if (!open) return;
-    int remove = -1;
-    if (count > 0 && ImGui::BeginTable("##zones", 7, ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("From node");
-        ImGui::TableSetupColumn("To node");
-        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-        ImGui::TableSetupColumn("Own light", ImGuiTableColumnFlags_WidthFixed, 30.0f);
-        ImGui::TableSetupColumn("Light %");
-        ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 90.0f);
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-        ImGui::TableHeadersRow();
-        for (int i = 0; i < count; ++i) {
-            LightZone z;
-            if (!light_file_get_zone(&f, i, &z)) continue;
-            int v[2] = { static_cast<int>(z.from), static_cast<int>(z.to) };
-            float light = static_cast<float>(z.light);
-            bool changed = false;
-            ImGui::PushID(i);
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            changed = ImGui::InputInt("##from", &v[0], 0, 0) || changed;
-            ImGui::TableSetColumnIndex(1);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            changed = ImGui::InputInt("##to", &v[1], 0, 0) || changed;
-            ImGui::TableSetColumnIndex(2);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::BeginCombo("##kind", z.lit ? "Hall" : "Tunnel")) {
-                if (ImGui::Selectable("Tunnel", !z.lit) && z.lit) z.lit = 0, changed = true;
-                if (ImGui::Selectable("Hall", z.lit) && !z.lit) z.lit = 1, z.has_light = 0, z.has_colour = 0, changed = true;
-                ImGui::EndCombo();
-            }
-            ImGui::BeginDisabled(z.lit != 0);
-            ImGui::TableSetColumnIndex(3);
-            bool own = z.has_light != 0;
-            if (ImGui::Checkbox("##own", &own)) z.has_light = own ? 1 : 0, changed = true;
-            ImGui::TableSetColumnIndex(4);
-            ImGui::BeginDisabled(!z.has_light);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::InputFloat("##light", &light, 0, 0, "%.1f")) z.light = light < 0 ? 0 : light, changed = true;
-            ImGui::EndDisabled();
-            ImGui::TableSetColumnIndex(5);
-            bool plain = strlen(z.colour) == 6;
-            bool coloured = z.has_colour != 0;
-            if (!z.has_colour || plain) {
-                if (ImGui::Checkbox("##owncolour", &coloured)) {
-                    z.has_colour = coloured ? 1 : 0;
-                    if (coloured && z.colour[0] == '\0') snprintf(z.colour, sizeof z.colour, "ffd070");
-                    changed = true;
-                }
-                if (z.has_colour) {
-                    ImGui::SameLine();
-                    changed = swatch("##swatch", z.colour) || changed;
-                }
-            } else {
-                ImGui::TextUnformatted(z.colour);
-            }
-            ImGui::EndDisabled();
-            ImGui::TableSetColumnIndex(6);
-            if (ImGui::Button("Remove")) remove = i;
-            ImGui::PopID();
-            if (changed) {
-                z.from = non_negative(v[0]), z.to = non_negative(v[1]);
-                if (light_file_set_zone(&f, i, &z, why, sizeof why)) app_light_touch(a);
-                else refused(a, why);
-            }
-        }
-        ImGui::EndTable();
-    }
-    if (remove >= 0 && light_file_remove(&f, LIGHT_KIND_ZONE, remove)) app_light_touch(a);
-    if (ImGui::Button("Add zone")) {
-        const unsigned node = static_cast<unsigned>(a->light.node), last = f.nodes - 1;
-        LightZone z;
-        memset(&z, 0, sizeof z);
-        z.from = node, z.to = node + 20 < last ? node + 20 : last;
-        if (light_file_set_zone(&f, -1, &z, why, sizeof why)) app_light_touch(a);
-        else refused(a, why);
-    }
-}
-
 void place_rows(App *a)
 {
     LightSession &s = a->light.session;
     if (!s.has_places) return;
     char why[LIGHT_WHY];
-    const int count = light_file_count(&s.places, LIGHT_KIND_PLACE);
+    const int all_places = light_file_count(&s.places, LIGHT_KIND_PLACE);
+    int count = 0;   // the tunnels are the Tunnels section's: here the canyon and car_dim ranges
+    for (int i = 0; i < all_places; ++i) {
+        LightPlace p;
+        if (light_file_get_place(&s.places, i, &p) && strcmp(p.what, "tunnel") != 0) ++count;
+    }
     const bool open = section("Places", count, "lightplaces");
     ImGui::SameLine();
-    help_marker("The track's places, the same at every time of day (data/track/<TRACK>.txt): nodes that are a tunnel, a canyon (TR6's) or where the car keeps its dim tone (car_dim). "
+    help_marker("The track's places other than tunnels, the same at every time of day (data/track/<TRACK>.txt): a canyon (TR6's) or nodes where the car keeps its dim tone (car_dim). "
                 "Save writes this file too, when you changed it.");
     if (!open) return;
     static const char *const WHAT[3] = { "tunnel", "canyon", "car_dim" };
@@ -324,9 +240,9 @@ void place_rows(App *a)
         ImGui::TableSetupColumn("To node");
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
         ImGui::TableHeadersRow();
-        for (int i = 0; i < count; ++i) {
+        for (int i = 0; i < all_places; ++i) {
             LightPlace p;
-            if (!light_file_get_place(&s.places, i, &p)) continue;
+            if (!light_file_get_place(&s.places, i, &p) || strcmp(p.what, "tunnel") == 0) continue;
             int v[2] = { static_cast<int>(p.from), static_cast<int>(p.to) };
             bool changed = false;
             ImGui::PushID(i);
@@ -358,7 +274,7 @@ void place_rows(App *a)
     if (remove >= 0 && light_file_remove(&s.places, LIGHT_KIND_PLACE, remove)) app_light_touch(a);
     if (ImGui::Button("Add place")) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = s.file.nodes - 1;
-        LightPlace p = { "tunnel", node, node + 20 < last ? node + 20 : last };
+        LightPlace p = { "car_dim", node, node + 20 < last ? node + 20 : last };
         if (light_file_set_place(&s.places, -1, &p, s.file.nodes, why, sizeof why)) app_light_touch(a);
         else refused(a, why);
     }
@@ -376,11 +292,9 @@ void light_stretch_rows(App *a)
     ImGui::PopID();
 }
 
-void light_tunnel_rows(App *a)
+// the places other than tunnels (the canyons and the car dim), under the Tunnels section
+void light_place_rows(App *a)
 {
-    ImGui::PushID("zone_rows");
-    zone_rows(a);
-    ImGui::PopID();
     ImGui::PushID("place_rows");
     place_rows(a);
     ImGui::PopID();

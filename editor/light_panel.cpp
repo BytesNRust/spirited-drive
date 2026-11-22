@@ -250,32 +250,6 @@ void lamp_rows(App *a)
     }
 }
 
-void tunnel_tone_row(App *a)
-{
-    LightFile &f = a->light.session.file;
-    char why[LIGHT_WHY];
-    LightTunnelTone t;
-    ImGui::TextUnformatted("Tunnel look");
-    ImGui::SameLine();
-    help_marker("Tunnel tone: the light inside the tunnels, in percent of full light. A file has at most one.");
-    if (light_file_get_tunnel_tone(&f, 0, &t)) {
-        float light = static_cast<float>(t.light);
-        ImGui::SetNextItemWidth(-90.0f);
-        if (ImGui::InputFloat("##tt", &light, 0, 0, "%.1f")) {
-            t.light = light < 0 ? 0 : light;
-            if (light_file_set_tunnel_tone(&f, 0, &t, why, sizeof why)) app_light_touch(a);
-            else refused(a, why);
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Remove##tt") && light_file_remove(&f, LIGHT_KIND_TUNNEL_TONE, 0)) app_light_touch(a);
-    } else if (ImGui::Button("Add tunnel look")) {
-        memset(&t, 0, sizeof t);
-        t.light = 100;
-        if (light_file_set_tunnel_tone(&f, -1, &t, why, sizeof why)) app_light_touch(a);
-        else refused(a, why);
-    }
-}
-
 // the lines the window does not edit: shown as they are, with a count
 void other_lines(const App *a)
 {
@@ -334,11 +308,12 @@ void light_panel(App *a)
             file_buttons(a);
             drive_row(a);
             if (ui.error[0] != '\0') bad_text(ui.error);
-            // from the whole track to the local: the tunnel look, the tunnels, the stretches, the night's lamps, then what the window does not edit
-            ImGui::SeparatorText("Whole track");
-            tunnel_tone_row(a);
+            // from the whole track to the local: the tunnels (and the places), the stretches, the night's lamps, then what the window does not edit
             ImGui::SeparatorText("Tunnels");
+            ImGui::PushID("tunnels");
             light_tunnel_rows(a);
+            ImGui::PopID();
+            light_place_rows(a);
             ImGui::SeparatorText("Stretches");
             ImGui::PushID("brightness");   // each list numbers its rows from 0 in this one window: its own ID scope, or two Remove buttons share an ID
             brightness_rows(a);
