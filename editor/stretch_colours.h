@@ -14,16 +14,16 @@ namespace stretch_colours {
 const int MAX_CLASSES = 8;
 
 #define SC(r, g, b) IM_COL32(r, g, b, 255)
-// each mode's classes in order (track_trace_stretch.h); Limits is the road's own grey
+// each mode's classes in order, none red, orange or yellow (they read as an error or a warning; tests/test_stretch_colours.cpp) (track_trace_stretch.h); Limits is the road's own grey
 const ImU32 TABLE[TRACE_COLOUR_MODES][MAX_CLASSES] = {
     { SC(200, 204, 212) },                                                                                   // Limits
-    { SC(200, 204, 212), SC(80, 170, 255), SC(255, 150, 60) },                                               // Curve: straight, left, right
-    { SC(200, 204, 212), SC(250, 220, 90), SC(250, 150, 60), SC(235, 80, 60), SC(120, 220, 230), SC(80, 160, 240), SC(110, 90, 220) },   // Bank
-    { SC(90, 120, 140), SC(80, 150, 170), SC(80, 180, 170), SC(110, 205, 160), SC(170, 225, 130), SC(235, 240, 120) },                    // Width
-    { SC(200, 204, 212), SC(255, 150, 60), SC(170, 110, 240) },                                              // Lanes
-    { SC(200, 204, 212), SC(80, 210, 230), SC(255, 150, 60), SC(150, 230, 90) },                             // Shoulder
-    { SC(200, 204, 212), SC(170, 120, 70), SC(225, 165, 95), SC(110, 170, 230), SC(155, 210, 255), SC(190, 190, 150), SC(245, 245, 190) },   // Fence
-    { SC(200, 204, 212), SC(250, 220, 90), SC(250, 150, 60), SC(235, 80, 60), SC(120, 220, 230), SC(80, 160, 240), SC(110, 90, 220) },   // Grade: level, up in three steps, down in three
+    { SC(200, 204, 212), SC(80, 170, 255), SC(200, 110, 240) },                                              // Curve: straight, left, right
+    { SC(200, 204, 212), SC(150, 230, 140), SC(90, 200, 110), SC(40, 160, 90), SC(120, 220, 230), SC(80, 160, 240), SC(110, 90, 220) },   // Bank
+    { SC(90, 120, 140), SC(80, 150, 170), SC(80, 180, 170), SC(110, 205, 160), SC(150, 225, 175), SC(190, 240, 200) },                    // Width
+    { SC(200, 204, 212), SC(80, 200, 190), SC(170, 110, 240) },                                              // Lanes
+    { SC(200, 204, 212), SC(80, 210, 230), SC(200, 120, 240), SC(150, 230, 90) },                            // Shoulder
+    { SC(200, 204, 212), SC(100, 200, 130), SC(160, 230, 170), SC(110, 170, 230), SC(155, 210, 255), SC(180, 130, 230), SC(225, 190, 250) },   // Fence
+    { SC(200, 204, 212), SC(150, 230, 140), SC(90, 200, 110), SC(40, 160, 90), SC(120, 220, 230), SC(80, 160, 240), SC(110, 90, 220) },   // Grade: level, up in three steps, down in three
 };
 #undef SC
 

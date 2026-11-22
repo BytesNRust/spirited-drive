@@ -63,10 +63,10 @@ if mode == "slope-run":   # the Viewport shows the run the slope tool is for
     assert teal(40, 450) > 400, teal(40, 450)
 elif mode == "slope-none":   # no preview: no teal
     assert teal(40, 450) == 0, teal(40, 450)
-elif mode == "profile-curve":   # Colour by curve: the profile's line takes the stretch colours (the right turn is orange), as the road does
-    assert band((255, 150, 60), 470, 650) > 100, band((255, 150, 60), 470, 650)
+elif mode == "profile-curve":   # Colour by curve: the profile's line takes the stretch colours (the right turn is violet), as the road does
+    assert band((200, 110, 240), 470, 650) > 100, band((200, 110, 240), 470, 650)
 elif mode == "profile-limits":   # Limits: the profile's line is its own colour, no stretch colours
-    assert band((255, 150, 60), 470, 650) == 0, band((255, 150, 60), 470, 650)
+    assert band((200, 110, 240), 470, 650) == 0, band((200, 110, 240), 470, 650)
 elif mode == "good":   # the road was made and no limit breaks: no red, no amber
     assert road > 400 and points > 100 and red == 0 and amber == 0, (road, points, red, amber)
 elif mode == "warn":   # a curve over an amber limit and under the red ones: amber nodes, no red
