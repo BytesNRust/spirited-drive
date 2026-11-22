@@ -322,6 +322,38 @@ static void test_edited_by_hand(void)
     psd_job_free(&job);
 }
 
+/* a kit from before the manifest: no line for any PNG. One that is not what the PSD gives is somebody's edit and is kept (with the warning); one that is the same is made again, and the manifest then has its line */
+static void test_no_manifest_line(void)
+{
+    PsdJob job;
+    char why[300], masks[700], dash[700], manifest[700], png[700];
+    path_of(masks, sizeof masks, "kit5/art-generated/car_masks"), path_of(dash, sizeof dash, "kit5/art-generated/dash_masks"), path_of(manifest, sizeof manifest, "kit5/art-generated/.generated.tsv");
+    path_of(png, sizeof png, "kit5/art-generated/car_masks/side_mask.png");
+    dir_of("kit5");
+    put_dash_psd("psd/TSupra/dash.psd", 1);
+    psd_job_init(&job);
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok && job.kept == 0);
+    unlink(manifest);   /* the kit as an earlier Studio left it */
+    put("kit5/art-generated/car_masks/side_mask.png", "somebody's own side mask");
+    put("kit5/art-generated/dash_masks/dash_color.png", "somebody's own colour");
+    put_dash_psd("psd/TSupra/dash.psd", 0);
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok && job.kept == 1 && strcmp(job.kept_names, "side_mask.png") == 0);
+    CHECK(content_is("kit5/art-generated/car_masks/side_mask.png", "somebody's own side mask"));
+    CHECK(content_is("kit5/art-generated/dash_masks/dash_color.png", "somebody's own colour"));   /* nor is the colour a dash.psd without one would drop */
+    CHECK(strstr(job.text, "Kept as edited by hand: side_mask.png") != NULL);
+    Manifest m;
+    CHECK(manifest_load(manifest, &m) && manifest_sha(&m, "frnt_mask.png") != NULL && manifest_sha(&m, "side_mask.png") == NULL);   /* the one that matched is Studio's again; the kept one is not claimed */
+    CHECK_EQ_INT(manifest_state(&m, masks, "frnt_mask.png"), GEN_OK);
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 1, why, sizeof why));   /* Regenerate from PSD replaces them */
+    run_to_end(&job);
+    CHECK(job.ok && job.kept == 0 && !content_is("kit5/art-generated/car_masks/side_mask.png", "somebody's own side mask") && !exists("kit5/art-generated/dash_masks/dash_color.png"));
+    psd_job_free(&job);
+}
+
 static void remove_tree(void)
 {
     char cmd[700];
@@ -346,6 +378,7 @@ int main(void)
     test_half_written_never();
     test_kit();
     test_edited_by_hand();
+    test_no_manifest_line();
     remove_tree();
     return TEST_REPORT();
 }

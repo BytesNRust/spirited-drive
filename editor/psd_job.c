@@ -112,6 +112,17 @@ static void unstage(Staged *st)
     st->count = 0;
 }
 
+/* a PNG in `dest` Convert PSD must not replace: its hash is not the manifest's, or the manifest has no line for it (a kit from before the manifest) and it is not what the PSD gives (`src`, the scratch copy) */
+static int kept_by_hand(const Manifest *known, const char *dest, const char *name, const char *src)
+{
+    const GenState state = manifest_state(known, dest, name);
+    if (state == GEN_EDITED) return 1;
+    if (state != GEN_UNKNOWN) return 0;
+    char mine[MANIFEST_SHA], theirs[MANIFEST_SHA], path[PSD_PATH];
+    if (!join(path, sizeof path, dest, name) || !manifest_file_sha(path, mine)) return 0;
+    return !manifest_file_sha(src, theirs) || strcmp(mine, theirs) != 0;
+}
+
 /* every PNG written below `from` (one folder a car, PNG files) copied beside its place in `dest`; the count, -1 on a failure */
 static int stage_pngs(PsdJob *job, const Manifest *known, const char *from, const char *dest, Staged *st)
 {
@@ -126,7 +137,7 @@ static int stage_pngs(PsdJob *job, const Manifest *known, const char *from, cons
             const size_t len = strlen(f->d_name);
             char src[PSD_PATH];
             if (len < 5 || strcmp(f->d_name + len - 4, ".png") != 0 || !join(src, sizeof src, sub, f->d_name)) continue;
-            if (!job->force && known != NULL && manifest_state(known, dest, f->d_name) == GEN_EDITED) {   /* edited by hand since Studio made it: kept (a PNG the manifest has no line for is not known to be: it is replaced) */
+            if (!job->force && known != NULL && kept_by_hand(known, dest, f->d_name, src)) {   /* edited by hand since Studio made it, or a PNG of a project with no manifest line that is not what the PSD gives: kept */
                 const size_t used = strlen(job->kept_names);
                 job->kept++;
                 if (used + strlen(f->d_name) + 3 < sizeof job->kept_names) snprintf(job->kept_names + used, sizeof job->kept_names - used, "%s%s", used > 0 ? ", " : "", f->d_name);
@@ -214,7 +225,8 @@ static void finish(PsdJob *job)
     const int has_dash = scratch_dash_has(job, "dash_mask.png"), has_colour = scratch_dash_has(job, "dash_color.png");   /* what the reader made says whether the dash.psd has a colour layer, whatever was kept */
     if (has_dash && !has_colour) {   /* a dash.psd with no colour layer: the colour of an older conversion goes */
         char file[PSD_PATH];
-        const int by_hand = manifest != NULL && !job->force && manifest_state(manifest, job->dash_dst, "dash_color.png") == GEN_EDITED;   /* an edit of it is kept too */
+        const GenState was = manifest != NULL ? manifest_state(manifest, job->dash_dst, "dash_color.png") : GEN_MISSING;
+        const int by_hand = !job->force && (was == GEN_EDITED || was == GEN_UNKNOWN);   /* an edit of it is kept too, and one the manifest has no line for (nothing says Studio made it) */
         if (!by_hand && join(file, sizeof file, job->dash_dst, "dash_color.png")) unlink(file);
         if (!by_hand && manifest != NULL) manifest_forget(manifest, "dash_color.png");
     }
