@@ -265,7 +265,7 @@ static int look_lines(const RaceLook *look, char *out, size_t cap)
         if (line != NULL && !sw[i].on) line[strlen(sw[i].key)] = '0';
     }
     const size_t used = strlen(out);
-    const int m = snprintf(out + used, cap - used, "render_scale=%d\n", look->scale == 1 ? 1 : 2);
+    const int m = snprintf(out + used, cap - used, "render_scale=%d\nfullscreen=0\n", look->scale == 1 ? 1 : 2);   /* every run the Studio starts is in a window, never full screen over the Studio (the profile's default is full screen) */
     return m > 0 && (size_t)m < cap - used;
 }
 
@@ -282,7 +282,7 @@ int car_race_paint_digit(const ExportCar *car, const uint8_t *rgb)
 int car_race_user_files(const char *user, int night, const RaceLook *look, char *why, size_t why_cap)
 {
     char path[EXPORT_PATH + 32], mode[1024], lines[600];
-    static const char PORT[] = "profile=restomod\n";
+    static const char PORT[] = "profile=restomod\nfullscreen=0\n";   /* a window, never full screen over the Studio: the key is free in every mode, so the game reads it from either file; both say it */
     const RaceLook fallback = car_race_look_default();
     if (!look_lines(look != NULL ? look : &fallback, lines, sizeof lines)) return refuse(why, why_cap, "the look's settings are too long");
     const RaceLook *l = look != NULL ? look : &fallback;

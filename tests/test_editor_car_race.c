@@ -286,12 +286,13 @@ static void test_files_and_temp(void)
     CHECK(car_race_user_files(user, 1, &look, why, sizeof why));
     snprintf(path, sizeof path, "%s/port.cfg", user);
     read_all(path, text, sizeof text);
-    CHECK(strcmp(text, "profile=restomod\n") == 0);
+    CHECK(strcmp(text, "profile=restomod\nfullscreen=0\n") == 0);
     snprintf(path, sizeof path, "%s/restomod.cfg", user);
     read_all(path, text, sizeof text);
     CHECK(strstr(text, "light_time=night\n") != NULL && strstr(text, "light_effects=1\n") != NULL && strstr(text, "render_scale=2\n") != NULL);
     CHECK(strstr(text, "body_shine=4\n") != NULL && strstr(text, "car_colours=1\n") != NULL && strstr(text, "car_soft_shadow=1\n") != NULL);
     CHECK(strstr(text, "texture_filter=1\n") != NULL && strstr(text, "extra_liveries=0\n") != NULL);   /* the project's livery, never another */
+    CHECK(strstr(text, "fullscreen=0\n") != NULL);   /* the game the Studio starts (a test drive, a race, a photo) is in a window: its profile starts full screen */
     look.reflections = 0, look.texture_filter = 0, look.scale = 1;   /* T6: the switches */
     CHECK(car_race_user_files(user, 0, &look, why, sizeof why));
     read_all(path, text, sizeof text);
