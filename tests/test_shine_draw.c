@@ -363,6 +363,36 @@ static void test_the_exe_pass_covers_exactly_the_mappers_pixels(void)
     CHECK_EQ_INT(missed, 0);
 }
 
+/* soft edges: a place whose four texels agree gives the class's table at any pixel; at a paint | matte border the dither shares the pixels by the weights, and a paint | glass border only ever gives
+ * a shined table */
+static void test_soft_edges_share_a_border_by_weight(void)
+{
+    enum { CW = 8, CH = 4 };
+    uint8_t map[CW * CH];
+    for (int y = 0; y < CH; y++)
+        for (int x = 0; x < CW; x++) map[y * CW + x] = x < 4 ? 0 : 1;   /* paint | matte (REPAINT_DRAFT_MATTE) */
+    ShineClass cls = { map, CW, CH };
+    int on = 0, total = 0;
+    for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++) {
+            CHECK_EQ_INT(shine_draw_soft_pick(&cls, 1.5f, 1.5f, x, y), 1);   /* inside the paint: always its table */
+            CHECK_EQ_INT(shine_draw_soft_pick(&cls, 6.5f, 1.5f, x, y), 0);   /* inside the matte: never */
+            on += shine_draw_soft_pick(&cls, 4.0f, 1.5f, x, y) == 1, total++;   /* on the border: half the weight: half the pixels of the dither's pattern */
+        }
+    CHECK_EQ_INT(on, total / 2);
+    for (int y = 0; y < CH; y++)
+        for (int x = 0; x < CW; x++) map[y * CW + x] = x < 4 ? 0 : 2;   /* paint | glass (REPAINT_DRAFT_SHINE) */
+    int paint = 0, glass = 0;
+    for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++) {
+            const int pick = shine_draw_soft_pick(&cls, 4.0f, 1.5f, x, y);
+            CHECK(pick == 1 || pick == 2);   /* never unshined: both sides are shined */
+            paint += pick == 1, glass += pick == 2;
+        }
+    CHECK_EQ_INT(paint, 8);
+    CHECK_EQ_INT(glass, 8);
+}
+
 int main(void)
 {
     test_the_envmap_shines_the_drafts_glass();
@@ -378,5 +408,6 @@ int main(void)
     test_a_polygon_behind_the_eye_draws_nothing();
     test_recorded_is_the_direct_draw();
     test_the_exe_pass_covers_exactly_the_mappers_pixels();
+    test_soft_edges_share_a_border_by_weight();
     return TEST_REPORT();
 }

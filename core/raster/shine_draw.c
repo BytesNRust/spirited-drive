@@ -90,7 +90,7 @@ static uint8_t texel_class(const Shine *sh, float u, float v)
 }
 
 /* port (body_shine, soft edges, prototype): the class map is one byte a texel, so where paint meets glass or the original colours the shine's edge falls on the texel's: a step the size of a
- * texel on a small texture drawn large. With TNFS_SHINE_SOFT=1 each pixel takes the weights of the shined classes (paint and body 0 / 192, glass 128) bilinearly between the four texels nearest
+ * texel on a small texture drawn large. With TNFS_SHINE_SOFT=1 each pixel takes the weights of the shined classes (paint and body, glass: the draft's codes) bilinearly between the four texels nearest
  * its sub-texel place, and the ordered dither decides, from the same threshold as the levels', whether the pixel is shined at all (weight of the shined classes) and, if so, by which table
  * (paint first, then glass). A pixel whose four texels agree has weight 1 or 0: shined as before or not at all, byte for byte. Only which table a pixel takes changes, never which pixels are drawn. */
 static int soft_on(void)
@@ -101,7 +101,7 @@ static int soft_on(void)
 }
 
 /* 0 not shined, 1 the paint's table, 2 the glass's: for the pixel at (x, y) whose texture place is (u, v) in texels */
-static int soft_pick(const Shine *sh, float u, float v, int x, int y)
+static int soft_pick_in(const Shine *sh, float u, float v, int x, int y)
 {
     const float fu = u - 0.5f, fv = v - 0.5f;
     const float bu = floorf(fu), bv = floorf(fv), tu = fu - bu, tv = fv - bv;
@@ -116,6 +116,12 @@ static int soft_pick(const Shine *sh, float u, float v, int x, int y)
     const float t = BAYER[y & 3][x & 3];
     if (t >= paint + glass) return 0;
     return t < paint ? 1 : 2;
+}
+
+int shine_draw_soft_pick(const ShineClass *cls, float u, float v, int x, int y)
+{
+    const Shine sh = { cls, NULL };
+    return soft_pick_in(&sh, u, v, x, y);
 }
 
 static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, float origin, float grow, const Shine *sh)
@@ -149,7 +155,7 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
             const float u = (wa * a->uz + wb * b->uz + wc * c->uz) * r, v = (wa * a->vz + wb * b->vz + wc * c->vz) * r;
             uint8_t k = texel_class(sh, u, v);
             if (soft_on()) {
-                const int pick = soft_pick(sh, u, v, x, y);
+                const int pick = soft_pick_in(sh, u, v, x, y);
                 k = pick == 0 ? 255 : pick == 1 ? SHINE_PAINT : SHINE_GLASS;   /* the picked table in the class's code (255: matte, not shined) */
             }
             /* the mask drives the shine: paint (0) at the body intensity, tinted by the paint; glass and lamps (128) at the glass

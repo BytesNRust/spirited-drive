@@ -26,6 +26,10 @@ typedef struct {
     const uint8_t (*paint_hard)[256], (*glass_hard)[256];   /* car_envmap_hard of each table: a step not to dither (may be NULL: none) */
 } EnvShine;
 
+/* port (soft edges, prototype): the table the pixel (x, y) at texture place (u, v) (texels) takes with soft edges: 0 not shined, 1 the paint's, 2 the glass's. A place whose four nearest texels agree gives
+ * the class's own table (or 0) at any (x, y). Public for the tests. */
+int shine_draw_soft_pick(const ShineClass *cls, float u, float v, int x, int y);
+
 /* Modern 3D's: the view the camera path draws with, kept by pointer. */
 void shine_draw_set_view(const View *view);
 
