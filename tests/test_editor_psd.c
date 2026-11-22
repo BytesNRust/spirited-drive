@@ -3,6 +3,7 @@
 #include "app.h"
 #include "app_dash.h"
 #include "psd_fixture.h"
+#include "psd_manifest.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -158,6 +159,23 @@ static void test_kit(void)
     CHECK(access(p, F_OK) != 0);
     app_dash_stale_refresh(a);
     CHECK(a->stale_ok && a->stale.stale == 0 && !app_psd_busy(a));   /* in sync: nothing more runs by itself */
+    {   /* a slow, synced disk makes every open dear: with nothing changed on disk a look re-reads nothing, and the frames in between do not look at all */
+        app_dash_stale_refresh(a);   /* the hashes of what the conversion wrote are made once */
+        const unsigned before = manifest_opens();
+        app_dash_stale_refresh(a);
+        app_dash_stale_refresh(a);
+        for (int i = 0; i < 100; i++) app_dash_poll(a);
+        CHECK_EQ_INT((int)(manifest_opens() - before), 0);   /* neither the manifest nor a PNG was opened */
+        put("kit2/art-generated/car_masks/side_mask.png", "a longer edit, so its size is not the one before");
+        app_dash_stale_refresh(a);
+        CHECK(manifest_opens() > before);   /* a file that changed is hashed again */
+        char names[200];
+        CHECK_EQ_INT(app_psd_edited(a, names, sizeof names), 1);
+        CHECK(app_psd_regenerate(a) && app_psd_busy(a));   /* put back as it was for what follows */
+        run_to_end(a);
+        app_dash_stale_refresh(a);
+        CHECK_EQ_INT(app_psd_edited(a, names, sizeof names), 0);
+    }
     {   /* a PNG touched up by hand: said, kept by a conversion, replaced by Regenerate from PSD */
         char names[200];
         CHECK_EQ_INT(app_psd_edited(a, names, sizeof names), 0);

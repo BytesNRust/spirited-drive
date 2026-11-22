@@ -1,5 +1,6 @@
 /* Convert PSD in the app (app.h's app_psd_*): the glue between a car project and psd_job.h. */
 #include "app.h"
+#include "app_dash.h"
 
 #include "formats/car_kit_paths.h"
 
@@ -182,6 +183,7 @@ int app_psd_poll(App *a)
     snprintf(a->status, sizeof a->status, "%s", a->psd.text);
     a->psd_auto_fail = !a->psd.ok;
     app_psd_forget_dir();   /* the conversion may have made the folder's files */
+    if (!a->psd.ok) app_dash_stale_refresh(a);   /* the state it failed on is looked at now, and blocked (app_psd_auto): the next look is some seconds away, and a PSD saved before it would be taken for it */
     if (a->psd.ok) {
         app_car_reread(a);   /* the lists, and the masks read again (a mask that was open is closed: it was just remade) */
     }

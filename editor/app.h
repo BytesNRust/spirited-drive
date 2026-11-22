@@ -160,7 +160,7 @@ typedef struct {
     int drive_pick;              /* the car Test drive gives the player: the game's car menu's number (0..7, car_race_menu_car); the editor's settings keep it */
     int dash_check;              /* Check dash (app_dash.h): 1 while its Convert PSD runs (the cockpit photo follows) */
     char dash_stale[320];        /* what is older than its PSD, a sentence ("" when nothing): the Masks window's warning */
-    int dash_stale_ticks;        /* frames since it was last worked out */
+    int dash_stale_ticks;        /* frames since it was last worked out; 0: not yet for this project */
     StaleReport stale;           /* each PSD of the car against its mask (psd_stale.h), when stale_ok: the Masks window's state column */
     int stale_ok;                /* stale was worked out for this project (a PSD folder was found) */
     unsigned psd_auto_sig;       /* the stale state (which PSDs, how, and when they were saved) Convert PSD was last started for by itself, when psd_auto_set: the same state is not tried again */

@@ -29,7 +29,11 @@ int manifest_save(const char *path, const Manifest *m);
 int manifest_file_sha(const char *file, char sha[MANIFEST_SHA]);
 /* Hashes `dir`/`name` and writes it down; 0 when the file cannot be read or does not fit. */
 int manifest_record(Manifest *m, const char *dir, const char *name);
-/* What `dir`/`name` is against the manifest: GEN_MISSING (no such file), GEN_UNKNOWN (no line), GEN_EDITED (another hash) or GEN_OK. */
+/* The manifest in `path`, as manifest_load, but a file whose time and size are those of the last one read is not opened again (a slow, synced disk makes every open dear). */
+int manifest_load_cached(const char *path, Manifest *m);
+/* How many files this module has opened (manifest_load, manifest_file_sha) since the program began: a test's way to see that nothing was read again. */
+unsigned manifest_opens(void);
+/* What `dir`/`name` is against the manifest: GEN_MISSING (no such file), GEN_UNKNOWN (no line), GEN_EDITED (another hash) or GEN_OK. The hash of a file is kept by its time and size and made again only when one changes. */
 GenState manifest_state(const Manifest *m, const char *dir, const char *name);
 
 #endif

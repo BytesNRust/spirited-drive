@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { STALE_EVERY = 30 };   /* frames between looks at the files' times */
+enum { STALE_EVERY = 150 };   /* frames between looks at the files' times (about 2.5 s: on a slow disk a look is dear, and the first one is at the first frame) */
 
 static void say(App *a, const char *text)
 {
@@ -25,7 +25,7 @@ void app_dash_stale_refresh(App *a)
     char dir[APP_PATH];
     StaleReport r;
     a->dash_stale[0] = '\0';
-    a->dash_stale_ticks = 0;
+    a->dash_stale_ticks = 1;   /* 0 is "never looked" */
     a->stale_ok = 0;
     if (a->kind != APP_KIND_CAR || (!app_car_is_kit(a) && car_race_original_of(&a->car) == NULL) || !app_psd_psd_dir(a, dir, sizeof dir)) return;
     if (app_car_is_kit(a)) {   // a kit: its PSDs in art-source/masks, the PNGs flat in art-generated
@@ -33,7 +33,7 @@ void app_dash_stale_refresh(App *a)
         app_psd_dirs(a, masks, dash, manifest, sizeof masks);
         if (!psd_stale_check_flat(dir, masks, dash, drivable(a) != NULL, &r)) return;
         Manifest *known = calloc(1, sizeof *known);   // which PNGs were touched since Studio made them
-        if (known != NULL && manifest_load(manifest, known))
+        if (known != NULL && manifest_load_cached(manifest, known))
             for (int i = 0; i < r.count; ++i) r.item[i].edited = manifest_state(known, r.item[i].dash ? dash : masks, r.item[i].png) == GEN_EDITED;
         free(known);
     } else if (!psd_stale_check(dir, a->car.piece, a->car.folder, drivable(a) != NULL, &r)) return;
@@ -76,7 +76,7 @@ static void take_photo(App *a)
 
 int app_dash_poll(App *a)
 {
-    if (a->kind == APP_KIND_CAR && (++a->dash_stale_ticks >= STALE_EVERY || a->dash_stale_ticks == 1)) app_dash_stale_refresh(a);   // at once at the first frame, then now and then
+    if (a->kind == APP_KIND_CAR && (a->dash_stale_ticks == 0 || ++a->dash_stale_ticks >= STALE_EVERY)) app_dash_stale_refresh(a);   // at once at the first frame, then now and then
     if (a->dash_check != 1 || app_psd_busy(a)) return a->dash_check == 1;
     a->dash_check = 0;
     if (a->psd.ok) {
