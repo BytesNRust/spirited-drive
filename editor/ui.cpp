@@ -320,7 +320,7 @@ void default_layout(ImGuiID dock)
     node = ImGui::DockBuilderSplitNode(points, ImGuiDir_Down, 0.45f, nullptr, &points);
     ImGui::DockBuilderDockWindow(PANEL_POINTS, points);
     ImGui::DockBuilderDockWindow(PANEL_NODE, node);
-    ImGui::DockBuilderDockWindow(PANEL_TRACK_MASKS, node);   // a tab beside Node: the track's reflective masks
+    ImGui::DockBuilderDockWindow(PANEL_TRACK_MASKS, right);   // a tab beside Project: the track's reflective masks
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -460,7 +460,7 @@ void front_tabs(const App *a)
     const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_PREVIEW, PANEL_CAR }, *const masks[] = { PANEL_MASKS, PANEL_PREVIEW };
     const char *const *names = a->kind == APP_KIND_TRACK ? track : a->car.masks_only ? masks : car;
     if (a->kind == APP_KIND_NONE || a->kind == APP_KIND_LIGHT) return;   // the light window has no tabs
-    for (int i = 0; i < 2; ++i) ImGui::SetWindowFocus(names[i]);
+    for (int i = 0; i < 2; ++i) ImGui::SetWindowFocus(names[i]);  
 }
 
 // Save, Undo and Redo on the platform's command key (command_keys.h)
