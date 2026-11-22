@@ -1,6 +1,6 @@
 /* An original track of the game as a project of the workspace (dep103): <workspace>/tracks/<STEM>/ with
  *   original.ini                   kind=original-track and stem=<STEM> (what marks the folder; an own track has project.ini)
- *   light/track_light/<STEM>{A,B,C,N}.txt, light/track/<STEM>.txt    the light folder the Track light panels edit
+ *   light/track_light/<STEM>.txt                                  the light folder the Track light panels edit
  *   art-source/masks/<name>.psd    the owner's mask PSDs, copied (never moved) from the art folder
  *   art-generated/track_masks/     written by Studio (phase B)
  * Adding copies from the game's data/ (and the art folder) and never overwrites a file that is there; publishing copies the light files back into data/ after a preview.
@@ -57,7 +57,7 @@ typedef struct {
     int lines_added, lines_removed;   /* changed: the lines the project's file has that data/'s has not, and the other way round; for a mask PNG ("track_masks/CL1/slot_06.png"): the texels it marks that data/'s does not, and the reverse; both -1 when its size is not data/'s */
 } OriginalPublishItem;
 
-#define OT_PUBLISH_MAX 264   /* the 5 light files and the masks (track_masks.h adds one item for each PNG, up to 256) */
+#define OT_PUBLISH_MAX 264   /* the light file and the masks (track_masks.h adds one item for each PNG, up to 256) */
 typedef struct {
     OriginalPublishItem item[OT_PUBLISH_MAX];
     int count, same, changed, added;

@@ -13,7 +13,6 @@
 #include <unistd.h>
 
 static const char *const STEMS[OT_STEMS] = { "AL1", "AL2", "AL3", "CL1", "CL2", "CL3", "CY1", "CY2", "CY3", "TR1", "TR2", "TR3", "TR4", "TR5", "TR6", "TR7" };
-static const char LETTERS[] = "ABCN";
 
 const char *original_track_stem(int index)
 {
@@ -132,17 +131,14 @@ static int copy_keep(const char *from, const char *to)
 
 static int add_light(const char *dir, const char *stem, const char *data_dir, OriginalAdd *out, char *why, size_t cap)
 {
-    for (int i = 0; i < 5; ++i) {
-        char from[1100], to[1100], rel[64];
-        if (i < 4) snprintf(rel, sizeof rel, "track_light/%s%c.txt", stem, LETTERS[i]);
-        else snprintf(rel, sizeof rel, "track/%s.txt", stem);
-        snprintf(from, sizeof from, "%s/%s", data_dir, rel);
-        snprintf(to, sizeof to, "%s/light/%s", dir, rel);
-        const int r = copy_keep(from, to);
-        if (r == 0) return fail(why, cap, "cannot copy %s from the game's data", rel), 0;
-        if (r == 2) ++out->kept;
-        else ++out->light_files;
-    }
+    char from[1100], to[1100], rel[64];
+    snprintf(rel, sizeof rel, "track_light/%s.txt", stem);   /* the track's one light file */
+    snprintf(from, sizeof from, "%s/%s", data_dir, rel);
+    snprintf(to, sizeof to, "%s/light/%s", dir, rel);
+    const int r = copy_keep(from, to);
+    if (r == 0) return fail(why, cap, "cannot copy %s from the game's data", rel), 0;
+    if (r == 2) ++out->kept;
+    else ++out->light_files;
     return 1;
 }
 
@@ -178,7 +174,7 @@ int original_track_add(const char *workspace, const char *stem, const char *data
 {
     char dir[1024], ini[1100];
     if (!original_track_dir(workspace, stem, dir, sizeof dir)) return fail(why, cap, "%s is not one of the game's tracks", stem != NULL ? stem : "(none)"), 0;
-    static const char *const SUB[] = { "light", "light/track_light", "light/track", "art-source", "art-source/masks", "art-generated", "art-generated/track_masks" };
+    static const char *const SUB[] = { "light", "light/track_light", "art-source", "art-source/masks", "art-generated", "art-generated/track_masks" };
     char tracks[1100];
     snprintf(tracks, sizeof tracks, "%s/tracks", workspace);
     if (!make_dir(tracks) || !make_dirs(dir, SUB, 7)) return fail(why, cap, "cannot make the folder %s", dir), 0;
@@ -239,10 +235,9 @@ static void line_diff(unsigned char *a_text, unsigned char *b_text, int *added, 
     free(a), free(b);
 }
 
-static void rel_of(char *out, size_t cap, const char *stem, int i)
+static void rel_of(char *out, size_t cap, const char *stem)
 {
-    if (i < 4) snprintf(out, cap, "track_light/%s%c.txt", stem, LETTERS[i]);
-    else snprintf(out, cap, "track/%s.txt", stem);
+    snprintf(out, cap, "track_light/%s.txt", stem);
 }
 
 int original_track_publish_plan(const char *dir, const char *data_dir, OriginalPublish *out, char *why, size_t cap)
@@ -250,10 +245,10 @@ int original_track_publish_plan(const char *dir, const char *data_dir, OriginalP
     char stem[16];
     memset(out, 0, sizeof *out);
     if (!original_track_stem_of(dir, stem, sizeof stem)) return fail(why, cap, "%s is not an original track's folder", dir), 0;
-    for (int i = 0; i < 5; ++i) {
+    {
         OriginalPublishItem *it = &out->item[out->count];
         char mine[1100], theirs[1100];
-        rel_of(it->file, sizeof it->file, stem, i);
+        rel_of(it->file, sizeof it->file, stem);
         snprintf(mine, sizeof mine, "%s/light/%s", dir, it->file);
         snprintf(theirs, sizeof theirs, "%s/%s", data_dir, it->file);
         size_t lm, lt;

@@ -10,11 +10,10 @@ export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-mkdir -p "$work/data/track_light" "$work/data/track" "$work/art/AL1" "$work/ws" "$work/cd" "$work/tmp"
+mkdir -p "$work/data/track_light" "$work/art/AL1" "$work/ws" "$work/cd" "$work/tmp"
 export TMPDIR="$work/tmp/"
 for t in AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7; do
-    for l in A B C N; do printf '# tnfs track light 1\ntrack %s time %s nodes 10 flags 3ff\nrows 0 0 255 255\n' "$t" "$l" > "$work/data/track_light/$t$l.txt"; done
-    printf '# tnfs track places 1\ntrack %s\n' "$t" > "$work/data/track/$t.txt"
+    printf '# tnfs track light 2\ntrack %s\n' "$t" > "$work/data/track_light/$t.txt"
 done
 "$make_psd" "$work/art/AL1/scenery_00.psd" paint; "$make_psd" "$work/art/AL1/slot_00.psd" lamps; "$make_psd" "$work/art/AL1/slot_01.psd" empty; printf psd > "$work/art/AL1/slot_00.before-x.psd"
 cat > "$work/fake_game" <<'SH'
@@ -33,7 +32,7 @@ run_bg() { exec "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work
 out=$(run --frames 4 --steps print-menu,add-originals,print-workspace 2>&1) || fail "add-originals: $out"
 echo "$out" | grep -q '^file: Workspace | Game repo folder... | Quit$' || fail "the hub's File menu: $out"
 echo "$out" | grep -q '^tracks: AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7$' || fail "the 16 originals are listed: $out"
-for f in light/track_light/CL1B.txt light/track/CL1.txt original.ini; do [ -f "$work/ws/tracks/CL1/$f" ] || fail "CL1 has no $f"; done
+for f in light/track_light/CL1.txt original.ini; do [ -f "$work/ws/tracks/CL1/$f" ] || fail "CL1 has no $f"; done
 [ -f "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" ] || fail "the PSD was not copied"
 [ -f "$work/ws/tracks/AL1/art-source/masks/slot_00.before-x.psd" ] && fail "a PSD backup was copied"
 [ -f "$work/art/AL1/scenery_00.psd" ] || fail "the original PSD is gone from the art folder"
@@ -44,16 +43,15 @@ echo "$out" | grep -q "^original: $work/ws/tracks/CL1$" || fail "the original tr
 echo "$out" | grep -q "^light: $work/ws/tracks/CL1/light$" || fail "the light folder is the track's own: $out"
 echo "$out" | grep -q '^track: CL1 time: B$' || fail "CL1 at day: $out"
 echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Export original track... | Open recent | Copy to game repo | Game repo folder... | Save | Main menu | Quit$' || fail "the room's File menu: $out"
-echo "$out" | grep -q '^preview: CL1:.*5 unchanged' || fail "an untouched track has nothing to publish: $out"
+echo "$out" | grep -q '^preview: CL1:.*1 unchanged' || fail "an untouched track has nothing to publish: $out"
 
 # an edited light file: the preview names it, Copy writes it into data/ and nothing else
-printf 'brightness 0 5 120\n' >> "$work/ws/tracks/CL1/light/track_light/CL1N.txt"
+printf 'time N\nbrightness 0 5 120\n' >> "$work/ws/tracks/CL1/light/track_light/CL1.txt"
 out=$(run --frames 60 --steps open-original:3,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish: $out"
-echo "$out" | grep -q 'track_light/CL1N.txt changed (+1 -0 lines)' || fail "the preview names the edited file: $out"
-echo "$out" | grep -q '4 unchanged' || fail "the other four are unchanged: $out"
-grep -q '^brightness 0 5 120$' "$work/data/track_light/CL1N.txt" || fail "data/ did not get the edited file"
+echo "$out" | grep -q 'track_light/CL1.txt changed (+2 -0 lines)' || fail "the preview names the edited file: $out"
+grep -q '^brightness 0 5 120$' "$work/data/track_light/CL1.txt" || fail "data/ did not get the edited file"
 echo "$out" | grep -q '^status: copied to the game repo: 1 file written' || fail "the status says what was written: $out"
-[ "$(grep -c brightness "$work/data/track_light/CL1B.txt")" = 0 ] || fail "an untouched file was changed"
+[ "$(grep -c brightness "$work/data/track_light/AL1.txt")" = 0 ] || fail "an untouched file was changed"
 
 # the masks: PSDs make the PNGs when the track opens (never from an empty mask layer); the panel's rows say the state
 # the test drive in the Track light window (light tuning design, piece 1): the game in a window beside Studio, the working copy in front of the files, weather and stop
