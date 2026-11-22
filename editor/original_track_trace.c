@@ -126,6 +126,19 @@ static uint8_t *read_tri(const char *cd, const char *stem, size_t *size, char *w
     return d;
 }
 
+int original_track_nodes(const char *cd, const char *stem, unsigned *nodes, char *why, size_t why_cap)
+{
+    size_t size;
+    Tri tri;
+    uint8_t *d = read_tri(cd, stem, &size, why, why_cap);
+    if (d == NULL) return 0;
+    const int ok = tri_open(&tri, d, size) == TRI_OK;
+    if (ok) *nodes = tri.node_count;
+    else fail(why, why_cap, "the track's file does not open");
+    free(d);
+    return ok;
+}
+
 int original_track_exportable(const char *cd, const char *stem, char *why, size_t why_cap)
 {
     size_t size;

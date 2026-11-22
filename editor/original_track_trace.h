@@ -22,6 +22,9 @@ int original_track_trace_error(const uint8_t *tri, size_t size, const Trace *tra
  * words (a track of more than 599 segments is refused: the generator builds no more), nothing left behind. */
 int original_track_export(const char *cd, const char *stem, const char *tracks_dir, const char *id, const char *name, const char *generic_art, char *dir, size_t dir_cap, char *why, size_t why_cap);
 
+/* The node count of the game's track `stem` (the TRI's, the closing node's index): 1 and *nodes, or 0 with `why` (no such track in `cd`, a file that does not open). */
+int original_track_nodes(const char *cd, const char *stem, unsigned *nodes, char *why, size_t why_cap);
+
 /* 1 when the CD track `stem` can be exported: its file reads and holds at most 599 segments (the editor's own limit); else 0 with `why` */
 int original_track_exportable(const char *cd, const char *stem, char *why, size_t why_cap);
 
