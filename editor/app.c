@@ -125,6 +125,7 @@ static int car_into(App *a, const char *dir)
     snprintf(a->dir, sizeof a->dir, "%s", a->car.root);
     a->kind = APP_KIND_CAR;
     a->race_track = car_race_default_track(car_race_original_of(&a->car));
+    a->race_mod[0] = '\0';
     a->mask.opacity = 0;
     a->preview_paint = -1;
     a->photo_view_open = 0;   /* the large photo belongs to the car that took it */
@@ -162,6 +163,17 @@ int app_race(App *a, int photo)
     const int p = a->preview_paint;
     look.paint_model = car->model, look.paint = p >= 0 && p < a->edit.now.paint_count ? car_race_paint_digit(car, a->edit.now.paints[p].rgb) : 0;
     const char *masks_of = app_car_is_kit(a) ? a->car.root : a->car.piece;   /* a kit: its art-generated/ masks, as they are now (car_race stages them); else the piece's */
+    if (a->race_mod[0] != '\0') {   // an installed track: the window's race only (the photo is of the game's own tracks), on the folder the scan finds it in now
+        if (photo) return set_status(a, "the in-game photo is for the game's own tracks: choose one of them"), 0;
+        RaceModTrack mods[RACE_MOD_TRACKS];
+        const int n = race_mods_scan(a->user, mods, RACE_MOD_TRACKS);
+        int at = -1;
+        for (int i = 0; i < n && at < 0; i++) at = strcmp(mods[i].id, a->race_mod) == 0 ? i : -1;
+        if (at < 0) return snprintf(a->status, sizeof a->status, "the installed track %s is not in the player's mods folder any more", a->race_mod), 0;
+        if (!car_race_start_race_mod(&a->race, a->game, a->export_src.cd, masks_of, car, a->race_mod, mods[at].dir, a->race_night, &look, why, sizeof why)) return set_status(a, why), 0;
+        set_status(a, "the game is running: close its window to end the test");
+        return 1;
+    }
     const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, masks_of, car, track->stem, a->race_night, &look, why, sizeof why)
                          : car_race_start_race(&a->race, a->game, a->export_src.cd, masks_of, car, track->stem, a->race_night, &look, why, sizeof why);
     if (!ok) return set_status(a, why), 0;

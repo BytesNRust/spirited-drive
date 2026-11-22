@@ -145,6 +145,7 @@ typedef struct {
     RaceJob race;                /* Test in race / Race photo of the open original car (car_race.h), running or last run */
     int race_night;              /* the preset: 0 Day, 1 Night */
     int race_track;              /* the track chosen (car_race_track's index) */
+    char race_mod[64];           /* "": the track is race_track's; else the id of an installed track chosen in the Track picker (race_mods_scan over the player's folder) */
     int photo_view_open;         /* the In-game photo's large window (photo_view_panel) is asked for */
     RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
     PyProbe py;                  /* the python that has psd-tools, looked for once in the background (psd_job.h) */

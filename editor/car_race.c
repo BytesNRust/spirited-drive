@@ -5,6 +5,7 @@
 #include "formats/car_piece.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <ftw.h>
 #include <stdarg.h>
@@ -185,13 +186,17 @@ int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, ch
     memset(out, 0, sizeof *out);
     if (s->piece != NULL) return drive_command(s, base, out, why, why_cap);
     const int traffic = s->car != NULL && s->car->kind != EXPORT_DRIVABLE;
-    const int ti = car_race_track_find(s->track);
+    const int mod = s->track_mods != NULL && s->track_mods[0] != '\0';
+    const int ti = mod ? -1 : car_race_track_find(s->track);
     if (s->car == NULL || s->game == NULL || s->cd == NULL || s->project == NULL || s->user == NULL || s->track == NULL) return refuse(why, why_cap, "the race is not set up");
-    if (ti < 0) return refuse(why, why_cap, "%s is not a track of the list", s->track);
+    if (ti < 0 && !mod) return refuse(why, why_cap, "%s is not a track of the list", s->track);
+    if (mod && !car_race_piece_id_ok(s->track)) return refuse(why, why_cap, "%s is not an installed track's id", s->track);
+    if (traffic && mod) return refuse(why, why_cap, "an installed track has no traffic here: choose a City, Coastal or Alpine stage for a traffic or police car");
     if (traffic && !TRACKS[ti].stage) return refuse(why, why_cap, "%s has no traffic: choose a City, Coastal or Alpine stage for a traffic or police car", TRACKS[ti].label);
     if (s->photo_ticks > 0 && s->shot == NULL) return refuse(why, why_cap, "no file for the photo");
-    int ok = add_arg(out, "%s", s->game) && add_arg(out, "--data") && add_arg(out, "%s", s->cd) && add_arg(out, "--user") && add_arg(out, "%s", s->user) &&
-             add_arg(out, "--drive") && add_arg(out, "%s", TRACKS[ti].stem);
+    int ok = add_arg(out, "%s", s->game) && add_arg(out, "--data") && add_arg(out, "%s", s->cd) && add_arg(out, "--user") && add_arg(out, "%s", s->user);
+    if (ok && mod) ok = add_arg(out, "--mods") && add_arg(out, "%s", s->track_mods);   /* the installed track's folder: the game finds the track by its id there */
+    ok = ok && add_arg(out, "--drive") && add_arg(out, "%s", mod ? s->track : TRACKS[ti].stem);
     const int model = traffic ? RACE_TRAFFIC_PLAYER_MODEL : s->car->model;   /* the player's car; for a traffic or police car the traffic is the test */
     const int number = s->photo_ticks > 0 ? model : car_race_menu_pick(model);   /* a photo takes the model, a race in a window the menu's number */
     if (number < 0) {
@@ -460,7 +465,7 @@ static char *take_game_log(const RaceJob *j, size_t *len)
 static int launch(RaceJob *j, char *why, size_t why_cap)
 {
     RaceSetup *s = &j->setup;
-    s->game = j->own[0], s->cd = j->own[1], s->project = j->own[2], s->user = j->own[3], s->shot = j->own[4], s->track = j->track;
+    s->game = j->own[0], s->cd = j->own[1], s->project = j->own[2], s->user = j->own[3], s->shot = j->own[4], s->track = j->track, s->track_mods = j->mods;
     s->piece = j->piece[0] != '\0' ? j->piece : NULL;
     char shot[EXPORT_PATH + 32];
     snprintf(shot, sizeof shot, "%s/frame.ppm", j->temp);
@@ -542,16 +547,18 @@ static int stage_kit_masks(RaceJob *j, const ExportCar *car, const char *project
     return 1;
 }
 
-static int start_common(RaceJob *j, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
-                        RaceJobState state, char *why, size_t why_cap)
+static int start_common(RaceJob *j, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, const char *mods, int night,
+                        const RaceLook *look, RaceJobState state, char *why, size_t why_cap)
 {
     if (!job_can_start(j, game, why, why_cap)) return 0;
     if (car == NULL) return refuse(why, why_cap, "this car is not one of the game's: Test drive is for the cars Export original car makes");
-    if (car_race_track_find(track) < 0) return refuse(why, why_cap, "no such track");
+    if (mods == NULL && car_race_track_find(track) < 0) return refuse(why, why_cap, "no such track");
+    if (mods != NULL && (!car_race_piece_id_ok(track) || strlen(mods) >= EXPORT_PATH)) return refuse(why, why_cap, "%s is not an installed track's id", track);
     if (strlen(game) >= EXPORT_PATH || strlen(cd) >= EXPORT_PATH || strlen(project) >= EXPORT_PATH) return refuse(why, why_cap, "a path is too long");
     if (!job_begin(j, game, cd, project, look, why, why_cap)) return 0;
     const char *user = j->own[3];
     snprintf(j->track, sizeof j->track, "%s", track);
+    snprintf(j->mods, sizeof j->mods, "%s", mods != NULL ? mods : "");
     j->setup.cockpit = look != NULL && look->cockpit, j->setup.gauge_set = look != NULL && look->gauge_set, j->setup.gauge_light = look != NULL ? look->gauge_light : 0;
     j->setup.car = car, j->setup.night = night, j->setup.photo_ticks = state == RACE_JOB_RACE ? 0 : state == RACE_JOB_PROBE ? 1 : car_race_photo_ticks(car);
     j->state = state;
@@ -580,7 +587,7 @@ int car_race_start_drive(RaceJob *job, const char *game, const char *cd, const c
 int car_race_start_race(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
                         char *why, size_t why_cap)
 {
-    const int ok = start_common(job, game, cd, project, car, track, night, look, RACE_JOB_RACE, why, why_cap);
+    const int ok = start_common(job, game, cd, project, car, track, NULL, night, look, RACE_JOB_RACE, why, why_cap);
     if (ok) {
         char note[500];
         car_race_note(car, track, note, sizeof note);
@@ -589,11 +596,21 @@ int car_race_start_race(RaceJob *job, const char *game, const char *cd, const ch
     return ok;
 }
 
+int car_race_start_race_mod(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *id, const char *mods_dir, int night,
+                            const RaceLook *look, char *why, size_t why_cap)
+{
+    if (mods_dir == NULL || mods_dir[0] == '\0') return refuse(why, why_cap, "the installed track has no folder");
+    if (car != NULL && car->kind != EXPORT_DRIVABLE) return refuse(why, why_cap, "an installed track has no traffic here: choose a City, Coastal or Alpine stage for a traffic or police car");
+    const int ok = start_common(job, game, cd, project, car, id, mods_dir, night, look, RACE_JOB_RACE, why, why_cap);
+    if (ok) job_say(job, "Test drive on the installed track %s, %s. A scratch player folder.\n", id, night ? "night" : "day");
+    return ok;
+}
+
 int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
                          char *why, size_t why_cap)
 {
     const int traffic = car != NULL && car->kind != EXPORT_DRIVABLE;
-    const int ok = start_common(job, game, cd, project, car, track, night, look, traffic ? RACE_JOB_PROBE : RACE_JOB_SHOOT, why, why_cap);
+    const int ok = start_common(job, game, cd, project, car, track, NULL, night, look, traffic ? RACE_JOB_PROBE : RACE_JOB_SHOOT, why, why_cap);
     if (ok) job_say(job, "In-game photo: %s on %s, %s.\n", car->label, car_race_track_label(track), night ? "night" : "day");
     return ok;
 }
@@ -820,4 +837,51 @@ void car_race_free(RaceJob *j)
     memset(j, 0, sizeof *j);
     j->run.fd = -1;
     install_job_init(&j->install);
+}
+
+#define CARD_MAX (64 * 1024)   /* a card is a few lines: more is not one */
+
+static int read_card(const char *dir, ModInfo *info)
+{
+    char path[EXPORT_PATH + 16];
+    if (snprintf(path, sizeof path, "%s/mod.ini", dir) >= (int)sizeof path) return 0;
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return 0;
+    uint8_t *text = malloc(CARD_MAX);
+    const size_t n = text != NULL ? fread(text, 1, CARD_MAX, f) : 0;
+    fclose(f);
+    char why[200];
+    const int ok = text != NULL && n > 0 && n < CARD_MAX && mod_ini_parse(text, n, info, why, sizeof why);
+    free(text);
+    return ok;
+}
+
+static int by_label(const void *a, const void *b)
+{
+    const RaceModTrack *x = a, *y = b;
+    const int c = strcasecmp(x->label, y->label);
+    return c != 0 ? c : strcmp(x->id, y->id);
+}
+
+int race_mods_scan(const char *user, RaceModTrack *out, int cap)
+{
+    char mods[EXPORT_PATH];
+    if (user == NULL || user[0] == '\0' || snprintf(mods, sizeof mods, "%s/mods", user) >= (int)sizeof mods) return 0;
+    DIR *d = opendir(mods);
+    if (d == NULL) return 0;
+    int n = 0;
+    for (struct dirent *e; n < cap && (e = readdir(d)) != NULL;) {
+        if (e->d_name[0] == '.') continue;
+        RaceModTrack *t = &out[n];
+        ModInfo info;
+        memset(&info, 0, sizeof info);
+        if (snprintf(t->dir, sizeof t->dir, "%s/%s", mods, e->d_name) >= (int)sizeof t->dir || !read_card(t->dir, &info) || info.type != MOD_TYPE_TRACK) continue;
+        if (strcmp(info.id, e->d_name) != 0) continue;   /* the game finds an installed mod by its folder's name: a card that says another id is not that */
+        snprintf(t->id, sizeof t->id, "%s", info.id);
+        snprintf(t->label, sizeof t->label, "%s", info.name[0] != '\0' ? info.name : info.id);
+        n++;
+    }
+    closedir(d);
+    qsort(out, (size_t)n, sizeof *out, by_label);
+    return n;
 }

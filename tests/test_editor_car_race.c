@@ -190,6 +190,61 @@ static void test_command(void)
     car_race_command_free(&c);
 }
 
+/* an installed track (item 6): the game gets --mods of its folder and --drive its id; the window's race only, a car you drive only */
+static void test_installed_track_command(void)
+{
+    char *base_env[] = { "HOME=/h", "PATH=/bin", NULL };
+    RaceCommand c;
+    char why[300];
+    RaceSetup s = setup_of("P911", "my-track", 0, 0);
+    s.track_mods = "/u/mods/my-track";
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why));
+    CHECK(arg_pair(&c, "--mods", "/u/mods/my-track") && arg_pair(&c, "--drive", "my-track") && arg_pair(&c, "--type", "0") && arg_pair(&c, "--user", "/tmp/u"));
+    CHECK(has_env(&c, "TNFS_CAR_MASKS=/p/proj/car_masks") && has_env(&c, "TNFS_DASH_MASKS=/p/proj/dash_masks"));
+    car_race_command_free(&c);
+    s = setup_of("Wagon", "my-track", 0, 0);   /* a traffic car: the installed track has no traffic here */
+    s.track_mods = "/u/mods/my-track";
+    CHECK(!car_race_command(&s, base_env, &c, why, sizeof why) && strstr(why, "no traffic") != NULL);
+    s = setup_of("P911", "../x", 0, 0);   /* an id that is not one is never given to the game */
+    s.track_mods = "/u/mods/x";
+    CHECK(!car_race_command(&s, base_env, &c, why, sizeof why) && strstr(why, "not an installed track's id") != NULL);
+    s = setup_of("P911", "TR5", 0, 0);   /* no folder: a track of the table, as ever, with no --mods */
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why) && !has_arg(&c, "--mods"));
+    car_race_command_free(&c);
+}
+
+static void write_text_file(const char *path, const char *text, mode_t mode);
+
+static void make_card(const char *mods, const char *folder, const char *text)
+{
+    char dir[600], path[700];
+    snprintf(dir, sizeof dir, "%s/%s", mods, folder);
+    mkdir(mods, 0755), mkdir(dir, 0755);
+    snprintf(path, sizeof path, "%s/mod.ini", dir);
+    write_text_file(path, text, 0644);
+}
+
+/* the installed tracks of a player folder: tracks only, by name, a card that names another id than its folder left out */
+static void test_installed_tracks_scan(void)
+{
+    char user[600], mods[700];
+    snprintf(user, sizeof user, "%s/scan_user", base);
+    mkdir(user, 0755);
+    snprintf(mods, sizeof mods, "%s/mods", user);
+    RaceModTrack t[RACE_MOD_TRACKS];
+    CHECK(race_mods_scan(user, t, RACE_MOD_TRACKS) == 0);   /* no mods folder */
+    make_card(mods, "zeta-ring", "id=zeta-ring\nname=Zeta Ring\nversion=1.0\ntype=track\nstem=ZR\n");
+    make_card(mods, "alpha-pass", "id=alpha-pass\nname=Alpha Pass\nversion=1.0\ntype=track\nstem=AP\n");
+    make_card(mods, "some-car", "id=some-car\nname=Some Car\nversion=1.0\ntype=car\nstem=SC\n");
+    make_card(mods, "liar", "id=other-id\nname=Liar\nversion=1.0\ntype=track\nstem=LI\n");
+    make_card(mods, "broken", "this is not a card\n");
+    const int n = race_mods_scan(user, t, RACE_MOD_TRACKS);
+    CHECK(n == 2);
+    CHECK(n == 2 && strcmp(t[0].id, "alpha-pass") == 0 && strcmp(t[0].label, "Alpha Pass") == 0 && strcmp(t[1].id, "zeta-ring") == 0);
+    CHECK(n == 2 && strstr(t[0].dir, "/mods/alpha-pass") != NULL);
+    CHECK(race_mods_scan(user, t, 1) == 1);   /* the cap */
+}
+
 static void test_tracks(void)
 {
     CHECK(car_race_track_count() == 16);
@@ -459,6 +514,12 @@ static void test_job(void)
     job.run.fd = -1;
     const ExportCar *p911 = car_export_car(index_of("P911")), *wagon = car_export_car(index_of("Wagon")), *cop = car_export_car(index_of("COPMUST"));
     setenv("FAKE_MODE", "ok", 1);
+    /* an installed track (item 6): the window's race on its folder; a traffic car refused before anything is made; no folder refused */
+    CHECK(!car_race_start_race_mod(&job, game, "/cd", project, wagon, "my-track", "/u/mods/my-track", 0, NULL, why, sizeof why) && strstr(why, "no traffic") != NULL);
+    CHECK(!car_race_start_race_mod(&job, game, "/cd", project, p911, "my-track", "", 0, NULL, why, sizeof why) && strstr(why, "no folder") != NULL);
+    CHECK(car_race_start_race_mod(&job, game, "/cd", project, p911, "my-track", "/u/mods/my-track", 1, NULL, why, sizeof why));
+    run_job(&job);
+    CHECK(!car_race_busy(&job) && job.finished && strstr(job.log, "Test drive on the installed track my-track, night") != NULL && job.temp[0] == '\0' && !temps_left());
     /* a car you drive: one run, a photo, the scratch folder gone after */
     CHECK(car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 1, NULL, why, sizeof why));
     CHECK(car_race_busy(&job) && !car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 1, NULL, why, sizeof why) && strstr(why, "already") != NULL);
@@ -669,6 +730,8 @@ int main(void)
     if (realpath(base, real) != NULL) snprintf(base, sizeof base, "%s", real);
     setenv("TMPDIR", base, 1);   /* the scratch folders of the jobs are made here, and counted */
     test_command();
+    test_installed_track_command();
+    test_installed_tracks_scan();
     test_tracks();
     test_files_and_temp();
     test_log();

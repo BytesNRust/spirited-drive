@@ -697,23 +697,37 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet)
             ImGui::TextUnformatted("  Track");
             ImGui::SameLine();
             const RaceTrack *now = car_race_track(a->race_track);
+            RaceModTrack mods[RACE_MOD_TRACKS];   // the tracks installed in the player's folder, listed after the game's own
+            const int mod_count = race_mods_scan(a->user, mods, RACE_MOD_TRACKS);
+            const char *shown = now != nullptr ? now->label : "";
+            for (int i = 0; a->race_mod[0] != '\0' && i < mod_count; ++i)
+                if (strcmp(mods[i].id, a->race_mod) == 0) shown = mods[i].label;
             ImGui::SetNextItemWidth(190);
-            if (ImGui::BeginCombo("##track", now != nullptr ? now->label : "")) {
+            if (ImGui::BeginCombo("##track", shown)) {
                 for (int i = 0; i < car_race_track_count(); ++i) {
                     const RaceTrack *tr = car_race_track(i);
                     const bool off = traffic && !tr->stage;   // the circuits have no traffic
                     ImGui::BeginDisabled(off);
-                    if (ImGui::Selectable(tr->label, a->race_track == i)) a->race_track = i;
+                    if (ImGui::Selectable(tr->label, a->race_mod[0] == '\0' && a->race_track == i)) a->race_track = i, a->race_mod[0] = '\0';
                     ImGui::EndDisabled();
                     if (off && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("A circuit has no traffic");
+                }
+                if (mod_count > 0) ImGui::SeparatorText("Installed tracks");
+                for (int i = 0; i < mod_count; ++i) {
+                    ImGui::PushID(mods[i].id);
+                    ImGui::BeginDisabled(traffic);
+                    if (ImGui::Selectable(mods[i].label, strcmp(a->race_mod, mods[i].id) == 0)) snprintf(a->race_mod, sizeof a->race_mod, "%s", mods[i].id);
+                    ImGui::EndDisabled();
+                    if (traffic && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("An installed track has no traffic here");
+                    ImGui::PopID();
                 }
                 ImGui::EndCombo();
             }
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("The night is each track's own; Rusty Springs is the reference");
-            if (a->race_night && now != nullptr && strcmp(now->stem, "TR7") == 0) ImGui::TextDisabled("Lost Vegas has no time of day: it stays as it is");
+            if (a->race_night && a->race_mod[0] == '\0' && now != nullptr && strcmp(now->stem, "TR7") == 0) ImGui::TextDisabled("Lost Vegas has no time of day: it stays as it is");
             ImGui::EndDisabled();
             char note[500];   // Test in race: who drives what, and where a traffic car is
-            car_race_note(car, now != nullptr ? now->stem : "", note, sizeof note);
+            car_race_note(car, now != nullptr && a->race_mod[0] == '\0' ? now->stem : "", note, sizeof note);
             char help[800];   // the detail, behind the (?) beside the buttons: no loose explanation in the panel
             const int n = snprintf(help, sizeof help, "The game runs on a scratch player folder, with this project's masks. The car wears the colour chosen in Preview when the game's catalogue has it; then, in a Test drive, the rivals wear the game's own liveries too (the photo has no rivals).%s%s%s",
                                    traffic ? " A traffic or police car: City, Coastal or Alpine stages only." : "", note[0] != '\0' ? "\n\nTest drive: " : "", note);
@@ -721,7 +735,10 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet)
             ImGui::BeginDisabled(busy);
             if (ImGui::Button("Test drive")) app_race(a, 0);
             ImGui::SameLine();
+            ImGui::BeginDisabled(a->race_mod[0] != '\0');
             if (ImGui::Button("In-game photo")) app_race(a, 1);
+            ImGui::EndDisabled();
+            if (a->race_mod[0] != '\0' && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("The photo is of the game's own tracks");
             ImGui::EndDisabled();
             ImGui::SameLine();
             ImGui::BeginDisabled(!busy);

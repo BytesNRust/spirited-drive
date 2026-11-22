@@ -13,6 +13,7 @@
 #include "car_export.h"
 #include "car_project.h"
 #include "install_job.h"
+#include "formats/mod_ini.h"
 #include "proc_run.h"
 
 #include <stddef.h>
@@ -56,6 +57,18 @@ const char *car_race_track_label(const char *stem);
 /* the ticks of a car's photo */
 int car_race_photo_ticks(const ExportCar *car);
 
+/* The tracks installed in the player's folder, for the Drive tab's Track picker (owner 2026-11-21, item 6): each <player>/mods/<id>/mod.ini of type=track. A test drive on
+ * one runs the game with --mods of that folder and --drive <id> (car_race_start_race_mod). Read as the game reads a mod's card (formats/mod_ini.h); a folder with no
+ * readable card, of another type, or whose card says another id than its folder's name is left out. */
+enum { RACE_MOD_TRACKS = 32 };
+typedef struct {
+    char id[MOD_INI_ID_MAX + 1];
+    char label[MOD_INI_NAME_MAX + 1];   /* the track's name for the picker */
+    char dir[EXPORT_PATH];              /* <player>/mods/<id> */
+} RaceModTrack;
+/* the installed tracks of `user`'s mods folder by name, at most `cap`; their number (0 for none or no folder) */
+int race_mods_scan(const char *user, RaceModTrack *out, int cap);
+
 /* the track a car starts on: Rusty Springs for a drivable car (the night reference of the design), Coastal 1 for traffic (circuits have none) */
 int car_race_default_track(const ExportCar *car);
 
@@ -73,6 +86,7 @@ typedef struct {
     uint32_t seed;           /* TNFS_DRIVE_SEED; 0 for the game's own */
     int photo_ticks;         /* > 0: headless, the frame after that many ticks in `shot`; 0: a race in a window */
     const char *shot;
+    const char *track_mods;  /* an installed track's folder (<player>/mods/<id>): `track` is its id, the game gets --mods of it, and it is no stage (no traffic); NULL or "" for a track of the table */
     const char *piece;       /* a track piece's id: Test drive of the track editor, a time trial on it (`track` and `project` unused); NULL for a car's race */
 } RaceSetup;
 
@@ -144,7 +158,8 @@ typedef struct {
     RaceCommand command;
     RaceSetup setup;                 /* its strings are in `own` */
     char own[5][EXPORT_PATH];        /* game, cd, project, user, shot */
-    char track[8];
+    char track[64];                  /* a stem of the table, or an installed track's id (mods) */
+    char mods[EXPORT_PATH];          /* the installed track's folder, "" for a track of the table */
     char temp[EXPORT_PATH];
     char *log;                       /* what the finished runs wrote (and the job's own lines), RACE_LOG_MAX at most; the run's own is run.log */
     size_t log_len;
@@ -171,6 +186,10 @@ typedef struct {
  * program and files. 1 when the job started, 0 with `why` (the car cannot race there, no game, a scratch folder that cannot be made). Refused while a job runs. */
 int car_race_start_race(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
                         char *why, size_t why_cap);
+/* Test drive on an installed track: the same race on the track `id` of the folder `mods_dir` (<player>/mods/<id>, found by race_mods_scan), which the game is given as --mods.
+ * A traffic or police car is refused there: an installed track has no traffic in this window. */
+int car_race_start_race_mod(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *id, const char *mods_dir, int night,
+                            const RaceLook *look, char *why, size_t why_cap);
 int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
                          char *why, size_t why_cap);
 /* Starts Test drive of a track piece (the track editor's Drive window): a scratch player folder with the Restomod look, `zip` installed into it by the game's installer
