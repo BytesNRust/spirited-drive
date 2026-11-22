@@ -1,0 +1,304 @@
+/* The Track light panel's model of the new file format (editor/light_track.h): a file is held as its lines, the panel's are the facts `tunnel` and `snow` and a time's `sun`, `tunnel_look`,
+ * `lamp`, `brightness`, `tone`, `rows`; a file that was not changed is written back as the same bytes; a change the game would refuse is not made. usage: test_editor_light_track [DIR]
+ * (DIR: a folder of track light files, each of which must read, round-trip and have no line the game refuses; the repo's, once the converted files are in it). */
+#include "light_track.h"
+#include "test.h"
+
+#ifndef _WIN32
+#include <dirent.h>
+#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+enum { NODES = 1200 };
+
+static const char CY1[] =
+    "# tnfs track light 2\n"
+    "track CY1\n"
+    "tunnel 1064 1171\n"
+    "tunnel 1 62 lit   # the steelworks\n"
+    "snow 0\n"
+    "snow_map 3 36\n"
+    "\n"
+    "time A\n"
+    "  sun 150 20 55\n"
+    "  tunnel_look 104 ff5a0d\n"
+    "  tunnel_look 1064 1171 90 lamps 220 reach 2\n"
+    "\n"
+    "time N\n"
+    "  tunnel_look 115\n"
+    "  lamp 130 150 ff2000:80 8\n"
+    "  brightness 852 943 60 left\n"
+    "  tone 10 20 p2 p4 ff8000:50\n"
+    "  rows 5 6 255 255 255 255 255 255 255 255 255 255 255\n";
+
+static int parse(const char *text, unsigned nodes, LightTrack *f)
+{
+    char why[LT_WHY];
+    const int ok = light_track_parse(text, strlen(text), nodes, f, why, sizeof why);
+    if (!ok) printf("parse: %s\n", why);
+    return ok;
+}
+
+static char *text_of(const LightTrack *f)
+{
+    size_t n;
+    char *t = light_track_format(f, &n);
+    CHECK(t != NULL && strlen(t) == n);
+    return t;
+}
+
+static int same(const LightTrack *f, const char *want)
+{
+    char *t = text_of(f);
+    const int eq = t != NULL && strcmp(t, want) == 0;
+    if (!eq) printf("--- got\n%s--- want\n%s---\n", t, want);
+    free(t);
+    return eq;
+}
+
+static void reads(void)
+{
+    LightTrack f;
+    CHECK(parse(CY1, NODES, &f));
+    CHECK(strcmp(f.track, "CY1") == 0);
+    CHECK(same(&f, CY1));   // untouched: the same bytes
+    CHECK(light_track_first_bad(&f) == 0);
+    CHECK(light_track_count(&f, LT_TIME_FACTS, LT_TUNNEL) == 2);
+    CHECK(light_track_count(&f, LT_TIME_A, LT_LOOK) == 2 && light_track_count(&f, LT_TIME_N, LT_LOOK) == 1 && light_track_count(&f, LT_TIME_B, LT_LOOK) == 0);
+    CHECK(light_track_has_time(&f, LT_TIME_A) && light_track_has_time(&f, LT_TIME_N) && !light_track_has_time(&f, LT_TIME_B));
+    LightTrackTunnel t;
+    CHECK(light_track_get_tunnel(&f, 1, &t) && t.from == 1 && t.to == 62 && t.lit);
+    CHECK(light_track_get_tunnel(&f, 0, &t) && t.from == 1064 && t.to == 1171 && !t.lit);
+    CHECK(!light_track_get_tunnel(&f, 2, &t));
+    int snow = 1;
+    CHECK(light_track_get_snow(&f, &snow) && snow == 0);
+    LightTrackSun sun;
+    CHECK(light_track_get_sun(&f, LT_TIME_A, &sun) && sun.has_azimuth && sun.azimuth == 150 && sun.elevation == 20 && sun.shadow == 55);
+    CHECK(!light_track_get_sun(&f, LT_TIME_N, &sun));
+    LightTrackLook look;
+    CHECK(light_track_get_look(&f, LT_TIME_A, 0, &look) && !look.has_nodes && look.has_light && look.light == 104 && look.has_colour == 1 && strcmp(look.colour, "ff5a0d") == 0);
+    CHECK(light_track_get_look(&f, LT_TIME_A, 1, &look) && look.from == 1064 && look.to == 1171 && look.light == 90 && look.has_lamps && look.lamps == 220 && look.has_reach && look.reach == 2);
+    CHECK(light_track_get_look(&f, LT_TIME_N, 0, &look) && !look.has_nodes && look.light == 115);
+    LightTrackLamp lamp;
+    CHECK(light_track_get_lamp(&f, LT_TIME_N, 0, &lamp) && lamp.node == 130 && lamp.percent == 150 && lamp.has_colour && strcmp(lamp.colour, "ff2000:80") == 0 && lamp.radius == 8);
+    LightTrackBrightness b;
+    CHECK(light_track_get_brightness(&f, LT_TIME_N, 0, &b) && b.from == 852 && b.to == 943 && b.percent == 60 && b.mask == LT_STRIP_LEFT);
+    LightTrackTone tone;
+    CHECK(light_track_get_tone(&f, LT_TIME_N, 0, &tone) && tone.mask == ((1u << 2) | (1u << 3) | (1u << 4)) && tone.percent == 50 && strcmp(tone.colour, "ff8000") == 0);
+    LightTrackRows rows;
+    CHECK(light_track_get_rows(&f, LT_TIME_N, 0, &rows) && rows.from == 5 && rows.to == 6 && rows.value[10] == 255);
+    light_track_free(&f);
+}
+
+static void refuses_reading(void)
+{
+    LightTrack f;
+    char why[LT_WHY];
+    CHECK(!light_track_parse("tunnel 1 2\n", 11, NODES, &f, why, sizeof why));   // no track line first
+    CHECK(!light_track_parse(CY1, strlen(CY1), 0, &f, why, sizeof why));
+    // lines the game refuses are kept and listed, never rewritten
+    const char *bad = "track X\ntunnel 1 5\nbogus 1\ntime B\nsnow 1\ntunnel_look 9 12 50\ntime B\nlamp 1 50\n";
+    CHECK(parse(bad, NODES, &f));
+    CHECK(light_track_first_bad(&f) == 3);
+    CHECK(same(&f, bad));
+    int bads = 0;
+    for (int i = 0; i < f.count; i++) bads += f.lines[i].kind == LT_BAD;
+    CHECK(bads == 4);   // the unknown word, a fact after time, a look outside the tunnels, a second time B
+    CHECK(light_track_count(&f, LT_TIME_B, LT_LAMP) == 1);
+    light_track_free(&f);
+}
+
+static void edits(void)
+{
+    LightTrack f;
+    char why[LT_WHY];
+    CHECK(parse(CY1, NODES, &f));
+    // set a value: the line is rewritten in place and keeps its indent
+    LightTrackLamp lamp;
+    CHECK(light_track_get_lamp(&f, LT_TIME_N, 0, &lamp));
+    lamp.percent = 90, lamp.has_radius = 0;
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
+    char *t = text_of(&f);
+    CHECK(strstr(t, "\n  lamp 130 90 ff2000:80\n") != NULL);
+    free(t);
+    // a tunnel fact keeps its comment when it changes
+    LightTrackTunnel tun = { 1, 70, 1 };
+    CHECK(light_track_set_tunnel(&f, 1, &tun, why, sizeof why));
+    t = text_of(&f);
+    CHECK(strstr(t, "tunnel 1 70 lit # the steelworks\n") != NULL);
+    free(t);
+    // add: a lamp goes to the end of its block, a tone in a time with no block makes the block at the end
+    lamp = (LightTrackLamp){ .node = 300, .percent = 100 };
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, -1, &lamp, why, sizeof why));
+    CHECK(light_track_count(&f, LT_TIME_N, LT_LAMP) == 2);
+    LightTrackBrightness b = { 10, 20, 50, LT_STRIP_ROAD };
+    CHECK(light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
+    t = text_of(&f);
+    CHECK(strstr(t, "\n\ntime B\n  brightness 10 20 50 road\n") != NULL);
+    CHECK(strlen(t) > 0 && t[strlen(t) - 1] == '\n');
+    free(t);
+    LightTrackBrightness c = { 30, 40, 120, (1u << 3) | (1u << 4) | (1u << 5) };
+    CHECK(light_track_set_brightness(&f, LT_TIME_B, -1, &c, why, sizeof why));
+    CHECK(light_track_get_brightness(&f, LT_TIME_B, 1, &b) && b.from == 30 && b.mask == c.mask);
+    CHECK(light_track_first_bad(&f) == 0);
+    // the sun: a new one in a block, then set again (one line)
+    LightTrackSun sun = { .has_azimuth = 0, .has_elevation = 1, .elevation = 12.5, .has_shadow = 1, .shadow = 60 };
+    CHECK(light_track_set_sun(&f, LT_TIME_N, &sun, why, sizeof why));
+    sun.shadow = 70;
+    CHECK(light_track_set_sun(&f, LT_TIME_N, &sun, why, sizeof why));
+    CHECK(light_track_count(&f, LT_TIME_N, LT_SUN) == 1);
+    t = text_of(&f);
+    CHECK(strstr(t, "  sun - 12.5 70\n") != NULL);
+    free(t);
+    // snow is set in place
+    CHECK(light_track_set_snow(&f, 1, why, sizeof why));
+    int snow = 0;
+    CHECK(light_track_get_snow(&f, &snow) && snow == 1 && light_track_count(&f, LT_TIME_FACTS, LT_SNOW) == 1);
+    // remove drops only that line
+    CHECK(light_track_remove(&f, LT_TIME_N, LT_LAMP, 1, why, sizeof why));
+    CHECK(light_track_count(&f, LT_TIME_N, LT_LAMP) == 1);
+    CHECK(!light_track_remove(&f, LT_TIME_N, LT_LAMP, 5, why, sizeof why));
+    light_track_free(&f);
+}
+
+static void refuses_edits(void)
+{
+    LightTrack f;
+    char why[LT_WHY];
+    CHECK(parse(CY1, NODES, &f));
+    char *before = text_of(&f);
+    // a look outside every tunnel
+    LightTrackLook look = { .has_nodes = 1, .from = 200, .to = 210, .has_light = 1, .light = 50 };
+    CHECK(!light_track_set_look(&f, LT_TIME_B, -1, &look, why, sizeof why));
+    CHECK(strstr(why, "tunnel") != NULL);
+    // a look inside the hall (lamps only) is fine; the default look's colour needs its light
+    look = (LightTrackLook){ .has_nodes = 1, .from = 1, .to = 62, .has_lamps = 1, .lamps = 300 };
+    CHECK(light_track_set_look(&f, LT_TIME_B, -1, &look, why, sizeof why));
+    free(before);
+    before = text_of(&f);
+    look = (LightTrackLook){ .has_colour = 1, .colour = "ff0000" };
+    CHECK(!light_track_set_look(&f, LT_TIME_B, -1, &look, why, sizeof why));
+    // the tunnel a look needs cannot be dropped or shrunk away from it
+    CHECK(!light_track_remove(&f, LT_TIME_FACTS, LT_TUNNEL, 0, why, sizeof why));
+    CHECK(strstr(why, "line") != NULL);
+    LightTrackTunnel tun = { 1100, 1171, 0 };
+    CHECK(!light_track_set_tunnel(&f, 0, &tun, why, sizeof why));
+    // ranges and limits
+    LightTrackBrightness b = { 5, 4, 50, LT_ALL_POINTS };
+    CHECK(!light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
+    b = (LightTrackBrightness){ 5, NODES, 50, LT_ALL_POINTS };
+    CHECK(!light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
+    b = (LightTrackBrightness){ 5, 6, 1001, LT_ALL_POINTS };
+    CHECK(!light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
+    b = (LightTrackBrightness){ 5, 6, 50, (1u << 1) | (1u << 4) };   // not a run
+    CHECK(!light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
+    LightTrackLamp lamp = { .node = NODES, .percent = 50 };
+    CHECK(!light_track_set_lamp(&f, LT_TIME_B, -1, &lamp, why, sizeof why));
+    lamp = (LightTrackLamp){ .node = 5, .percent = 0 };
+    CHECK(!light_track_set_lamp(&f, LT_TIME_B, -1, &lamp, why, sizeof why));
+    LightTrackSun sun = { .has_elevation = 1, .elevation = 120 };
+    CHECK(!light_track_set_sun(&f, LT_TIME_B, &sun, why, sizeof why));
+    CHECK(!light_track_set_sun(&f, 7, &sun, why, sizeof why));
+    // 65 brightness lines in a time; 17 different tones
+    for (int i = 0; i < 64; i++) {
+        b = (LightTrackBrightness){ (unsigned)i, (unsigned)i, 50, LT_ALL_POINTS };
+        CHECK(light_track_set_brightness(&f, LT_TIME_C, -1, &b, why, sizeof why));
+    }
+    CHECK(!light_track_set_brightness(&f, LT_TIME_C, -1, &b, why, sizeof why));
+    for (int i = 0; i < 16; i++) {
+        LightTrackTone t = { 1, 2, LT_ALL_POINTS, (unsigned)i, "ff8000" };
+        CHECK(light_track_set_tone(&f, LT_TIME_C, -1, &t, why, sizeof why));
+    }
+    LightTrackTone t = { 1, 2, LT_ALL_POINTS, 99, "ff8000" };
+    CHECK(!light_track_set_tone(&f, LT_TIME_C, -1, &t, why, sizeof why));
+    t.percent = 3;   // an existing tone again is fine
+    CHECK(light_track_set_tone(&f, LT_TIME_C, -1, &t, why, sizeof why));
+    CHECK(light_track_first_bad(&f) == 0);
+    light_track_free(&f);
+    CHECK(parse(before, NODES, &f));   // what the refused edits left alone
+    CHECK(same(&f, before));
+    light_track_free(&f);
+    free(before);
+}
+
+static void shapes(void)
+{
+    // CRLF, no final newline, a file with no blocks: edits keep the file's habits
+    LightTrack f;
+    char why[LT_WHY];
+    const char *crlf = "track X\r\ntunnel 1 5\r\ntime N\r\n  lamp 3 50\r\n";
+    CHECK(parse(crlf, 100, &f));
+    CHECK(same(&f, crlf));
+    LightTrackLamp lamp = { .node = 9, .percent = 70 };
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, -1, &lamp, why, sizeof why));
+    CHECK(same(&f, "track X\r\ntunnel 1 5\r\ntime N\r\n  lamp 3 50\r\n  lamp 9 70\r\n"));
+    LightTrackTunnel t = { 20, 30, 0 };
+    CHECK(light_track_set_tunnel(&f, -1, &t, why, sizeof why));
+    CHECK(same(&f, "track X\r\ntunnel 1 5\r\ntunnel 20 30\r\ntime N\r\n  lamp 3 50\r\n  lamp 9 70\r\n"));
+    light_track_free(&f);
+    const char *bare = "track Y";
+    CHECK(parse(bare, 100, &f));
+    CHECK(same(&f, bare));
+    lamp = (LightTrackLamp){ .node = 1, .percent = 10 };
+    CHECK(light_track_set_lamp(&f, LT_TIME_B, -1, &lamp, why, sizeof why));
+    CHECK(same(&f, "track Y\n\ntime B\n  lamp 1 10\n"));
+    light_track_free(&f);
+}
+
+#ifndef _WIN32
+static void folder(const char *dir)
+{
+    DIR *d = opendir(dir);
+    CHECK(d != NULL);
+    if (d == NULL) return;
+    int files = 0;
+    for (struct dirent *e; (e = readdir(d)) != NULL;) {
+        const size_t len = strlen(e->d_name);
+        if (len < 5 || strcmp(e->d_name + len - 4, ".txt") != 0) continue;
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s", dir, e->d_name);
+        FILE *fp = fopen(path, "rb");
+        CHECK(fp != NULL);
+        if (fp == NULL) continue;
+        fseek(fp, 0, SEEK_END);
+        const long n = ftell(fp);
+        fseek(fp, 0, SEEK_SET);
+        char *text = malloc((size_t)n + 1);
+        CHECK(text != NULL && fread(text, 1, (size_t)n, fp) == (size_t)n);
+        fclose(fp);
+        text[n] = '\0';
+        LightTrack f;
+        char why[LT_WHY];
+        const int ok = light_track_parse(text, (size_t)n, 6000, &f, why, sizeof why);
+        if (!ok) printf("%s: %s\n", path, why);
+        CHECK(ok);
+        if (ok) {
+            if (light_track_first_bad(&f) != 0) printf("%s: line %d is refused\n", path, light_track_first_bad(&f));
+            CHECK(light_track_first_bad(&f) == 0);
+            CHECK(same(&f, text));
+            light_track_free(&f);
+            files++;
+        }
+        free(text);
+    }
+    closedir(d);
+    CHECK(files > 0);
+}
+#endif
+
+int main(int argc, char **argv)
+{
+    reads();
+    refuses_reading();
+    edits();
+    refuses_edits();
+    shapes();
+#ifndef _WIN32
+    if (argc > 1) folder(argv[1]);
+#else
+    (void)argc, (void)argv;
+#endif
+    return TEST_REPORT();
+}

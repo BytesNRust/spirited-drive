@@ -1144,12 +1144,16 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     add_executable(test_editor_light_file tests/test_editor_light_file.c editor/light_file.c)   # the Track light window's file model (dep98): the repo's light files round-trip byte for byte
     target_include_directories(test_editor_light_file PRIVATE editor tests)
     target_compile_options(test_editor_light_file PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_light_track tests/test_editor_light_track.c editor/light_track.c)   # the Track light panel's model of the new one-file-a-track format: byte-for-byte round trip, the game's rules on every change
+    target_include_directories(test_editor_light_track PRIVATE editor tests)
+    target_compile_options(test_editor_light_track PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME editor_light_track COMMAND test_editor_light_track)
     add_executable(test_editor_light_tones tests/test_editor_light_tones.c editor/light_file.c)   # the tone, car tone, zone and places lines of the Track light window's model (dep98 part D)
     target_include_directories(test_editor_light_tones PRIVATE editor tests)
     target_compile_options(test_editor_light_tones PRIVATE ${TNFS_WARNINGS})
     add_test(NAME editor_light_tones COMMAND test_editor_light_tones)
     # the tools share ONLY the core with the game (the owner's rule): the Studio and its tests never link the game's library or compile its files
-    foreach(studio_target tnfs-track-editor test_car_photos test_card_backdrop test_card_central test_editor_track_undo test_editor_shortcuts test_stretch_colours test_editor_edit_clipboard test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_new_kit test_editor_car_physics_from test_editor_original_track_export test_editor_car_race test_editor_session test_editor_psd test_editor_dash_check test_editor_light_compare test_editor_light_places test_editor_mask_reload test_editor_heights test_editor_lanes test_editor_fence test_editor_mask_edit test_editor_light_photo test_editor_light_file test_editor_light_session test_editor_light_flow test_editor_card_reload test_editor_mask_changes)
+    foreach(studio_target tnfs-track-editor test_car_photos test_card_backdrop test_card_central test_editor_track_undo test_editor_shortcuts test_stretch_colours test_editor_edit_clipboard test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_new_kit test_editor_car_physics_from test_editor_original_track_export test_editor_car_race test_editor_session test_editor_psd test_editor_dash_check test_editor_light_compare test_editor_light_places test_editor_mask_reload test_editor_heights test_editor_lanes test_editor_fence test_editor_mask_edit test_editor_light_photo test_editor_light_file test_editor_light_track test_editor_light_session test_editor_light_flow test_editor_card_reload test_editor_mask_changes)
         get_target_property(studio_libs ${studio_target} LINK_LIBRARIES)
         get_target_property(studio_sources ${studio_target} SOURCES)
         if(studio_libs MATCHES "tnfs_game")
