@@ -19,6 +19,7 @@
 #include "art.h"
 #include "build.h"
 #include "capture.h"
+#include "car_race.h"
 #include "game_find.h"
 #include "light_photo.h"
 #include "mask_changes.h"
@@ -28,6 +29,8 @@
 #include "window_fit.h"
 
 #include <SDL3/SDL.h>
+
+void shine_draw_set_soft(int on);   // core/raster/shine_draw.h, not included: its View clashes with the editor's
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -831,6 +834,7 @@ int main(int argc, char **argv)
         char player[APP_PATH];
         car_race_player_dir(o.user, own, player, sizeof player);
         car_race_set_player(player);
+        shine_draw_set_soft(car_race_player_shine_soft());   // the Preview's body shine has the soft edges the player chose
         SDL_free(own);
     }
     app_psd_setup(app, SDL_GetBasePath(), o.psd_root);

@@ -118,6 +118,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.traffic_halo, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.rally_dry_lamps, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
+    CHECK_EQ_INT(s.shine_soft, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.wipers, 0);   /* Stock keeps the exe's */
     CHECK_EQ_INT(s.weather_fog, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.spray_v4, 0);   /* the exe's, in Stock and Restored */
@@ -147,6 +148,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.traffic_halo, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.rally_dry_lamps, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
+    CHECK_EQ_INT(s.shine_soft, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.wipers, 0);   /* Restored keeps the exe's */
     CHECK_EQ_INT(s.weather_fog, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.spray_v4, 0);   /* the exe's, in Stock and Restored */
@@ -182,6 +184,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.handbrake_lamps, 1);   /* Restomod: the handbrake never lights the brake lamps */
     CHECK_EQ_INT(s.rally_spray, 1);   /* on in Restomod (owner 2026-11-08): every car throws the tinted trail in a rally */
     CHECK_EQ_INT(s.lamp_halos, 1);   /* on in Restomod (owner 2026-11-08): the street lamps' halo; Stock and Restored keep 0 */
+    CHECK_EQ_INT(s.shine_soft, 1);   /* on in Restomod (owner 2026-11-23): the shine's soft edges; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.wipers, 1);   /* on in Restomod (owner 2026-11-08) */
     CHECK_EQ_INT(s.spray_v4, 1);   /* on in Restomod (owner 2026-11-09, "bastante bien"): the generated spray; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.weather_fog, 1);   /* the whiter, denser snow fog and the denser storm fog, no dark mood over snow (owner 2026-11-09) */

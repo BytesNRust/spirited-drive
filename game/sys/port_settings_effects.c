@@ -224,6 +224,8 @@ int port_snow_fx(void)
     return port_settings_load().snow_fx;
 }
 
+int port_shine_soft(void) { return port_settings_load().shine_soft; }
+
 int port_lamp_halos(void)
 {
     const char *v = getenv("TNFS_LAMP_HALOS");

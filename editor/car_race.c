@@ -310,6 +310,7 @@ int car_race_user_files(const char *user, int night, const RaceLook *look, char 
 }
 
 static char player_dir[EXPORT_PATH];
+static char *slurp(const char *path, size_t *size);
 
 void car_race_set_player(const char *dir)
 {
@@ -329,7 +330,25 @@ int car_race_player_dir(const char *user, const char *pref, char *out, size_t ca
 }
 
 static const char *const PLAYER_KEYS[] = { "format", "refresh_hz", "scale", "fov_adjust", "view_ultra", "perspective", "texture_filter", "fog", "f3_ultra", "render_scale", "render_bands",
-                                           "light_effects", "car_soft_shadow", "fog_sample", "sky_fill", "sky_fill_below", "body_shine", "lamp_flares", "lamp_halos", NULL };
+                                           "light_effects", "car_soft_shadow", "fog_sample", "sky_fill", "sky_fill_below", "body_shine", "shine_soft", "lamp_flares", "lamp_halos", NULL };
+
+int car_race_player_shine_soft(void)
+{
+    static const char *const NAMES[] = { "port.cfg", "restomod.cfg" };
+    int on = 1;   /* Restomod's default; a line in the player's files says otherwise */
+    if (player_dir[0] == '\0') return 1;
+    for (int i = 0; i < 2; ++i) {
+        char path[EXPORT_PATH + 32];
+        size_t size = 0;
+        if (snprintf(path, sizeof path, "%s/%s", player_dir, NAMES[i]) >= (int)sizeof path) continue;
+        char *text = slurp(path, &size);
+        if (text == NULL) continue;
+        for (const char *at = text; (at = strstr(at, "shine_soft=")) != NULL; at += 11)
+            if (at == text || at[-1] == '\n') on = at[11] == '1';   /* the last line wins */
+        free(text);
+    }
+    return on;
+}
 
 static int player_key(const char *line, size_t len)
 {

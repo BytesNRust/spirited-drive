@@ -300,7 +300,7 @@ static void test_player_options(void)
     snprintf(path, sizeof path, "%s/port.cfg", mine);
     write_text(path, "profile=stock\nfullscreen=1\npsx_dir=/somewhere\nformat=16_9\nrefresh_hz=144\n");
     snprintf(path, sizeof path, "%s/restomod.cfg", mine);
-    write_text(path, "fullscreen=1\nfov_adjust=10\nscale=fill\nrender_scale=3\nlight_effects=1\nlight_time=night\nweather=rain\nsome_other=7\n");
+    write_text(path, "fullscreen=1\nfov_adjust=10\nscale=fill\nrender_scale=3\nlight_effects=1\nlight_time=night\nweather=rain\nshine_soft=0\nsome_other=7\n");
     read_all(path, before, sizeof before);
     RaceLook look = car_race_look_default();
     CHECK(car_race_user_files(user, 0, &look, why, sizeof why));   /* a photo: the fixed values only, car_race_player_options is not called */
@@ -312,6 +312,8 @@ static void test_player_options(void)
     read_all(path, text, sizeof text);
     CHECK(strstr(text, "fov_adjust=10\n") != NULL && strstr(text, "scale=fill\n") != NULL && strstr(text, "render_scale=3\n") != NULL && strstr(text, "render_scale=2\n") == NULL);   /* the player's value in place of the fixed one */
     CHECK(strstr(text, "light_time=day\n") != NULL && strstr(text, "weather=rain") == NULL && strstr(text, "some_other") == NULL && strstr(text, "fullscreen=1") == NULL);   /* the run's own keys stay */
+    CHECK(strstr(text, "shine_soft=0\n") != NULL);   /* the player's soft edges choice goes to the test drive too */
+    CHECK_EQ_INT(car_race_player_shine_soft(), 0);   /* and the Preview reads it from the same files */
     snprintf(path, sizeof path, "%s/port.cfg", user);
     read_all(path, text, sizeof text);
     CHECK(strstr(text, "format=16_9\n") != NULL && strstr(text, "refresh_hz=144\n") != NULL && strstr(text, "profile=restomod\n") != NULL && strstr(text, "fullscreen=0\n") != NULL);
@@ -321,6 +323,7 @@ static void test_player_options(void)
     read_all(path, after, sizeof after);
     CHECK(strcmp(before, after) == 0);   /* the player's file is as it was */
     car_race_set_player("");
+    CHECK_EQ_INT(car_race_player_shine_soft(), 1);   /* no player files: Restomod's default, on */
     CHECK(car_race_player_options(user, why, sizeof why));   /* no player folder: nothing to do */
     car_race_set_player(NULL);
     CHECK(car_race_temp_remove(temp));

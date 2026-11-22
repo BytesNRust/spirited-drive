@@ -89,6 +89,7 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `rally_spray` | 0 | 0 | 0, 1 (in a rally with rain_fx, in rain or snow, every car, the player's too, throws the rain spray tinted by the road under it: grey on gravel, brown on dirt, white on snow; the dust is not drawn over it; 0 as before) | none | `TNFS_RALLY_SPRAY` | 0 / 0 / 1 | none |
 | `snow_fx` | 0 | 0 | 0, 1 (with snow_weather, the falling snow: soft round flakes, a little less regular, leaning away from the vanishing point with the car's speed at a smaller angle than the rain's streaks, the snowstorm's wind swinging from one side to the other over about a minute, and whiter, rarer marks on the lens; 0 as before) | none | `TNFS_SNOW_FX` | 0 / 0 / 1 | none |
 | `lamp_halos` | 0 | 0 | 0, 1 (at night, the street lamps get the same soft dithered halo as the brake lights and the tunnel lamps: found as the blobs of the lamp boards' emissive entries after the 3D, only where a lamp's own sprite was drawn, the nearest or largest few; the lit windows and the traffic signs the reflectors light never; 0 as before) | none | `TNFS_LAMP_HALOS` | 0 / 0 / 1 | none |
+| `shine_soft` | 0 | 0 | 0, 1 (with `body_shine`, the shine's edge where the paint meets the glass or the original colours is dithered between the tables instead of cut at the texel; `TNFS_SHINE_SOFT=0/1` overrides it for a check; on in Restomod '26 (owner), off in Stock and Restored) | none | `TNFS_SHINE_SOFT` | 0 / 0 / 1 | none |
 0 | none | `TNFS_LAMP_HALOS` | 0 / 0 / 0 | none |
 | `wipers` | 0 | 0 | 0, 1 (in the dash view, in rain, storm and snow, two wiper blades sweep the glass, at a pace that follows what falls (rain and snow 1.8 s a cycle, the storm 1.3 s), and park when the cycle is done; each pass clears the lens drops and the snow's marks it crosses; a dash whose art draws wiper blades (the P911's, a red `dash_mask.png` colour) shows them only when the wipers are off; needs the wide path (a wide format or render_scale above 1); 0 as before) | none | `TNFS_WIPERS` | 0 / 0 / 1 | none |
 | `weather_fog` | 0 | 0 | 0, 1 (the weather's fog in snow and in the rain storm, with Modern 3D: 1 the snow's fog is whiter and denser (a snow-white colour, closer, with the fog weather's exponential curve, denser in the snow storm), the rain storm's fog is denser than the rain's, and the rain's dark grey mood is not laid over the snow, so the picture is whiter; an older file's 2 reads as 1; 0 the same fog as the rain in all four) | none | `TNFS_WEATHER_FOG` | 0 / 0 / 1 | `modern_3d` |
@@ -171,7 +172,7 @@ Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as
 
 ## What each profile sets (`TABLES`)
 
-All 61 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 62 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -228,6 +229,7 @@ All 61 columns of the table. A column that is not here is not touched by any pro
 | `rally_spray` | settings | 0 | 0 | 1 |
 | `snow_fx` | settings | 0 | 0 | 1 |
 | `lamp_halos` | settings | 0 | 0 | 1 |
+| `shine_soft` | settings | 0 | 0 | 1 |
 | `wipers` | settings | 0 | 0 | 1 |
 | `weather_fog` | settings | 0 | 0 | 1 |
 | `spray_v4` | settings | 0 | 0 | 1 |

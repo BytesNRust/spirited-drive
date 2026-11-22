@@ -92,6 +92,7 @@ typedef struct {
     int tunnel_lamps;   /* 1 (day and night; an older file's 2 reads as 1): the lamps of the tunnels and caverns (tunnel_lamp_textures.c's table: CY1/2/3, TR3, TR4) light the walls and the road in a pool under each, ADDED over the tunnel's own light (tunnel_tone), so a dark tunnel still has bright pools; 0 the exe's */
     int wipers;        /* 1: in the dash view in rain and snow a wiper blade sweeps the glass (the pace follows what falls), clears the lens drops and snow marks it crosses and hides the blades some dash art draws (a red dash mask colour); 0 as before */
     int snow_fx;    /* 1: with snow_weather, the falling snow has more depth: flakes less regular and soft, leaning with the car's speed (a smaller angle than the rain's), a snowstorm whose wind swings from side to side, and white marks on the lens (fewer than the rain's drops); 0 as before */
+    int shine_soft;    /* 1: with body_shine, the shine's edge where the paint meets the glass or the original colours is dithered between the tables (soft edges), not cut at the texel; 0 as before */
     int lamp_halos;    /* 1: at night the street lamps (the lamp boards' emissive entries) get a soft halo like the brake lights' (never the windows'); 0 as before */
     /* port (dep65): the player's choice on Restomod's track screen switches, kept as the time and the weather are: 1 on. What each
      * track runs is worked out from them (Lost Vegas takes no mirror or rally, a stage no reverse) where Control Central reads the
@@ -220,6 +221,8 @@ int port_wrong_way(void);
 int port_sun_shadow(void);
 /* 1 when snow_fx: TNFS_SNOW_FX=0/1 when set, else the mode's. */
 int port_snow_fx(void);
+/* 1 when shine_soft (the settings' value; TNFS_SHINE_SOFT=0/1 overrides it in shine_draw). */
+int port_shine_soft(void);
 /* 1 when lamp_halos: TNFS_LAMP_HALOS=0/1 when set, else the mode's. */
 int port_lamp_halos(void);
 

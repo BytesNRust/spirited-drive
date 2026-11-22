@@ -90,14 +90,16 @@ static uint8_t texel_class(const Shine *sh, float u, float v)
 }
 
 /* port (body_shine, soft edges, prototype): the class map is one byte a texel, so where paint meets glass or the original colours the shine's edge falls on the texel's: a step the size of a
- * texel on a small texture drawn large. With TNFS_SHINE_SOFT=1 each pixel takes the weights of the shined classes (paint and body, glass: the draft's codes) bilinearly between the four texels nearest
+ * texel on a small texture drawn large. With the shine_soft setting (or TNFS_SHINE_SOFT=1) each pixel takes the weights of the shined classes (paint and body, glass: the draft's codes) bilinearly between the four texels nearest
  * its sub-texel place, and the ordered dither decides, from the same threshold as the levels', whether the pixel is shined at all (weight of the shined classes) and, if so, by which table
  * (paint first, then glass). A pixel whose four texels agree has weight 1 or 0: shined as before or not at all, byte for byte. Only which table a pixel takes changes, never which pixels are drawn. */
+static int soft_setting;   /* the player's shine_soft, told by the game and the Studio (shine_draw_set_soft) */
+void shine_draw_set_soft(int on) { soft_setting = on != 0; }
 static int soft_on(void)
 {
-    static int on = -1;
-    if (on < 0) on = getenv("TNFS_SHINE_SOFT") != NULL && atoi(getenv("TNFS_SHINE_SOFT")) != 0;
-    return on;
+    static int env = -2;   /* TNFS_SHINE_SOFT=0/1 overrides the setting, for a check */
+    if (env == -2) env = getenv("TNFS_SHINE_SOFT") != NULL ? atoi(getenv("TNFS_SHINE_SOFT")) != 0 : -1;
+    return env >= 0 ? env : soft_setting;
 }
 
 /* 0 not shined, 1 the paint's table, 2 the glass's: for the pixel at (x, y) whose texture place is (u, v) in texels */

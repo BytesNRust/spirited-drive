@@ -1,6 +1,7 @@
 /* port (the scenery models, the car slots, the shadows and the skid marks), taken out of ported_view.c.
  * ported_view.c calls these; what this file takes of the view is in view_shared.h. */
 
+#include "raster/shine_draw.h"
 #include "game/race/car_road.h"
 #include "game/viewer/screen_layout.h"
 #include "game/viewer/weather_hooks.h"
@@ -88,6 +89,7 @@ void ported_view_set_car_objects(int slot, Object3D *high, Object3D *low)
     if (high == NULL || low == NULL) return;
     c->high = high, c->low = low, c->borrowed = 1;
     c->ok = car_model_init(&c->model, high, low);
+    shine_draw_set_soft(port_shine_soft());   /* port (soft edges) */
     body_shine_enable(port_body_shine());   /* port (body shine): the bodies keep vertex normals for the shine's reflections */
     if (c->ok && body_shine_enabled()) object3d_enable_normals(high), object3d_enable_normals(low);
 }
