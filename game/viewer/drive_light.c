@@ -677,6 +677,7 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
         }
     }
     track_light_file_free(&file);
+    if (port_settings_profile() == PROFILE_RESTOMOD && getenv("TNFS_CAR_ROW") != NULL && atoi(getenv("TNFS_CAR_ROW")) != 0) made.car_row = 1;   /* port (cars read the row): for the owner's drive, Restomod '26 only */
     *out = made;
     return 1;
 }

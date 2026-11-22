@@ -200,6 +200,20 @@ float track_node_light_road_light(const TrackNodeLight *light, uint32_t node)
     return ((float)light_at(light, node, 0) + (float)light_at(light, node, 1) + (float)light_at(light, node, 6)) / (3.0f * (float)TRACK_NODE_LIGHT_FULL);
 }
 
+float track_node_light_lane(const TrackNodeLight *light, uint32_t node, double side, double left_half, double right_half)
+{
+    if (light == NULL || light->data == NULL) return 1.0f;
+    const double half = side >= 0.0 ? right_half : left_half;
+    const double t = half > 0.0 ? fmin(fabs(side) / half, 1.0) : 0.0;
+    const float centre = (float)light_at(light, node, 0), edge = (float)light_at(light, node, side >= 0.0 ? 1 : 6);
+    float lane = (centre + (edge - centre) * (float)t) / (float)TRACK_NODE_LIGHT_FULL;
+    if (track_node_light_tunnel(light, node)) {   /* the tunnel's look has the road's mean: only the lateral difference is new */
+        const float mean = track_node_light_road_light(light, node);
+        lane = mean > 0.01f ? lane / mean : 1.0f;
+    }
+    return lane > 1.0f ? 1.0f : lane < 0.0f ? 0.0f : lane;
+}
+
 int track_node_light_look_tunnel(const TrackNodeLight *light, uint32_t node) { return light != NULL && light->look_set && track_node_light_tunnel(light, node); }
 
 static int made_tunnel(const TrackNodeLight *light, uint32_t node)

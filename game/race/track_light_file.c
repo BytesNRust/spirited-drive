@@ -476,6 +476,11 @@ static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks 
     }
     if (strcmp(key, "lamp") == 0) return parse_lamp(rest, nodes, tweaks);
     if (strcmp(key, "tunnel_lamp") == 0) return parse_tunnel_lamp(rest, nodes, tweaks);
+    if (strcmp(key, "car_row") == 0) {   /* the cars read the row by their lane (track_node_light_lane); no arguments */
+        if (rest[strspn(rest, " \t\r\n")] != '\0') return 0;
+        tweaks->car_row = 1;
+        return 1;
+    }
     if (strcmp(key, "car_tone") == 0) {
         unsigned from = 0, to = nodes > 0 ? nodes - 1 : 0, rgb = 0;
         int percent = 0;
@@ -709,6 +714,7 @@ void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, in
             }
         }
     }
+    if (tweaks->car_row) light->car_row = 1;
     if (tweaks->car_tone_count > 0 && light->nodes > 0) {
         free(light->car_tone);
         light->car_tone = calloc((size_t)light->nodes, 4);

@@ -481,6 +481,32 @@ static void test_brightness_side(void)
     track_node_light_free(&l), track_light_file_free(&g);
 }
 
+/* port (cars read the row): the lane's light is the row's by the car's side: centre, right edge, left edge, linear between, held past the edges; `car_row` is the file's switch */
+static void test_car_lane(void)
+{
+    TrackLightFile f = { 0 };
+    TrackNodeLight l = shade_light("brightness 5 6 50 right\ncar_row\n", &f);   /* nodes 5, 6: middle 127, right edge 127, left edge 255 */
+    CHECK(l.car_row == 1);
+    CHECK(fabsf(track_node_light_lane(&l, 6, 0.0, 6.0, 6.0) - 127.0f / 255.0f) < 1e-4f);   /* centre */
+    CHECK(fabsf(track_node_light_lane(&l, 6, 6.0, 6.0, 6.0) - 127.0f / 255.0f) < 1e-4f);   /* right edge */
+    CHECK(fabsf(track_node_light_lane(&l, 6, -6.0, 6.0, 6.0) - 1.0f) < 1e-4f);           /* left edge */
+    CHECK(fabsf(track_node_light_lane(&l, 6, -3.0, 6.0, 6.0) - (127.0f + 64.0f) / 255.0f) < 1.5f / 255.0f);   /* half way to the left */
+    CHECK(fabsf(track_node_light_lane(&l, 6, -60.0, 6.0, 6.0) - 1.0f) < 1e-4f);          /* past the edge: held */
+    CHECK(track_node_light_lane(&l, 4, 6.0, 6.0, 6.0) == 1.0f);                            /* outside the run: full */
+    CHECK(track_node_light_lane(NULL, 6, 0.0, 6.0, 6.0) == 1.0f);
+    uint8_t tunnel[NODES] = { 0 };
+    tunnel[6] = 1;
+    l.tunnel = tunnel;   /* in a tunnel the road's mean is the look's already */
+    CHECK(track_node_light_lane(&l, 6, 6.0, 6.0, 6.0) == 1.0f);   /* a tunnel's road is capped alike across (light_at): no lateral difference left, and no second darkening */
+    CHECK(track_node_light_lane(&l, 6, -6.0, 6.0, 6.0) == 1.0f);
+    l.tunnel = NULL;
+    track_node_light_free(&l), track_light_file_free(&f);
+    TrackLightFile g = { 0 };
+    l = shade_light("brightness 5 6 50 right\n", &g);
+    CHECK(l.car_row == 0);   /* without the word the cars are as before */
+    track_node_light_free(&l), track_light_file_free(&g);
+}
+
 /* Only shadows: the darkness the sun left (255 - v) is scaled by 100 / percent: a point in full light never changes, 100 changes nothing, less than 100 darkens, more lightens */
 static void test_brightness_only_shadows(void)
 {
@@ -614,6 +640,7 @@ int main(void)
     test_lamp_apply();
     test_brightness_words_parse();
     test_brightness_side();
+    test_car_lane();
     test_brightness_only_shadows();
     test_brightness_shade_before_plain();
     test_export_writes_lamps();

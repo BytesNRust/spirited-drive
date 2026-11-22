@@ -52,6 +52,7 @@ The **light file** `data/track_light/CY1N.txt` (the new keys are in the second b
     lamp 130 150 ff2000:80 8           a street lamp by hand: node, light in percent, an optional colour RRGGBB[:strength], an optional radius in nodes (5)
     car_tone ff8020:60                  the car's tone: a colour in hex and its intensity 0..100, the whole track
     car_tone 120 180 ff8020:60          the same for nodes 120..180 only (a later line goes over an earlier one)
+    car_row                             the cars (player, traffic, police) take the row's light by their lane: the left edge (point 6), the centre (0), the right edge (1), linear between, before the headlights' pool and the lamps lift it; `canyon`, `car_dim` and `car_tone` then do not enter the car. Without it the cars are as before (TNFS_CAR_ROW=1 turns it on for a drive)
     tone 120 180 ffe080:50              scene tone: nodes 120..180 are seen through a colour (hex) at 0..100 strength (yellower or whiter tunnels)
     tone 120 180 p6 p7 ff2020:60        only the row points p6 p7 (p0..p10): a side strip, e.g. beside a neon
 

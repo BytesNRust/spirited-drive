@@ -278,7 +278,7 @@ static void car_tunnel_look(const TrackNodeLight *light, uint32_t node, int matc
 void light_synth_car_tunnel_match(const TrackNodeLight *light, uint32_t node, int match, float mean, float out[3])
 {
     const uint32_t at = light != NULL ? track_node_light_old_node(light, node) : node;   /* the file's arrays are of its own direction (a reversed track): asked at the file's node */
-    if (light != NULL && light->car_dim != NULL && light->nodes > 0 && light->car_dim[at % light->nodes]) {   /* port (parking_dark): the darkest tone of the lamp alternation (the exit tunnel's dim, which is right), whichever node */
+    if (light != NULL && !light->car_row && light->car_dim != NULL && light->nodes > 0 && light->car_dim[at % light->nodes]) {   /* port (parking_dark): the darkest tone of the lamp alternation (the exit tunnel's dim, which is right), whichever node */
         for (int k = 0; k < 3; k++) out[k] = LAMP_DIM[k];
         return;
     }

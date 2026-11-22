@@ -44,6 +44,7 @@ typedef struct {
     float warm_cast[2][3];   /* port (made_tunnels): city_tunnel's tunnel look [0 day, 1 night]: the cast of the dim levels (red, green, blue) ... */
     int warm_percent[2];     /* ... and its light, the gain over the made tunnel's own in percent (light_synth_warm_look; 0 none) */
     int neutral_cast;   /* port (made_tunnels): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
+    int car_row;        /* port (cars read the row): 1 the cars take the row's light by their lane (track_node_light_lane) and not canyon, car_dim or car_tone; set by the file's `car_row` or TNFS_CAR_ROW=1 */
     uint8_t *canyon;    /* port (canyon_shade): per node (owned), 1 where TR6's property-16 stretch (the canyon) is; NULL none */
     uint8_t *car_dim;   /* port (parking_dark): per node (owned), 1 where the car keeps the darkest tone of the lamp alternation with no alternating (TR7's parking); NULL none */
     int forest_road;    /* port (forest_neutral): 1 and the file's nodes forest_from..forest_to, which the rows mark as a tunnel (a forest's shade), are drawn with the road's tables, not a tunnel's cast */
@@ -152,6 +153,11 @@ int track_node_light_tunnel_class(const TrackNodeLight *light, uint32_t node);
 /* port (lamp_car_shade): a car's light ratio (`out`, 0..1 a channel) times a warm lamp gain by the pool at `node` (car_pool, 2.6 / 2.4 / 1.8 at the strongest, fading with its class, at most 2, never darkened): 1 when it
  * changed, 0 with no pool there. */
 int track_node_light_car_pool(const TrackNodeLight *light, uint32_t node, float out[3]);
+
+/* port (cars read the row): the light 0..1 a car has from the row of `node` at `side` metres from the road's centre (positive to the right; `left_half`, `right_half` the road's half widths in metres):
+ * the centre (point 0) at 0, the right edge (point 1) at the right half, the left edge (point 6) at the left half, linear between and held beyond. Without data 1. In a tunnel node the road's mean
+ * is divided out (the tunnel's own look already has it: only the lateral difference remains, never above 1). */
+float track_node_light_lane(const TrackNodeLight *light, uint32_t node, double side, double left_half, double right_half);
 
 /* The intensity of terrain-row point `point` (0..10, TriRow order) of node `node` (taken modulo the nodes); the file's last
  * node is not light (random bytes) and takes the one before it; TRACK_NODE_LIGHT_FULL without data or for a point out of range. */

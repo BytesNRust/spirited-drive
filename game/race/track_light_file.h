@@ -74,6 +74,7 @@ typedef struct {
     int brightness_count;
     TrackLightCarTone car_tone[TRACK_LIGHT_MAX_BRIGHT];   /* car_tone: in file order, later lines over earlier ones */
     int car_tone_count;
+    int car_row;   /* `car_row`: the cars read the row by their lane (the light's car_row) */
     TrackNodeLightTone tones[TRACK_NODE_LIGHT_TONES];   /* the distinct tones the `tone` lines use, and then the zones' own looks (at most TRACK_NODE_LIGHT_TONES in all: a line past that is refused) */
     int tone_count;
     TrackLightToneRun tone_runs[TRACK_LIGHT_MAX_BRIGHT];
