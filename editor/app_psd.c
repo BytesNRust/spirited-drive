@@ -61,7 +61,7 @@ void app_psd_dirs(const App *a, char *masks, char *dash, char *manifest, size_t 
     car_project_manifest(&a->car, manifest, cap);
 }
 
-static int start(App *a)
+static int start(App *a, int force)
 {
     char masks[APP_PATH], dash[APP_PATH], manifest[APP_PATH];
     char dir[APP_PATH], why[APP_MSG];
@@ -70,7 +70,7 @@ static int start(App *a)
     if (!app_psd_psd_dir(a, dir, sizeof dir))
         return snprintf(a->status, sizeof a->status, "no PSD folder named %s in %s", a->car.folder, a->psd_root[0] != '\0' ? a->psd_root : "(no PSD folder set: --psd-root)"), 0;
     app_psd_dirs(a, masks, dash, manifest, sizeof masks);
-    if (!psd_job_start(&a->psd, dir, a->car.folder, masks, dash, manifest, why, sizeof why)) return snprintf(a->status, sizeof a->status, "Convert PSD did not start: %s", why), 0;
+    if (!psd_job_start(&a->psd, dir, a->car.folder, masks, dash, manifest, force, why, sizeof why)) return snprintf(a->status, sizeof a->status, "Convert PSD did not start: %s", why), 0;
     snprintf(a->status, sizeof a->status, "Converting the PSDs of %s: the masks are replaced when every PSD has been read", a->car.folder);
     return 1;
 }
@@ -78,7 +78,29 @@ static int start(App *a)
 int app_psd_start(App *a)
 {
     a->psd_auto_set = 0;   /* a person asking again: the automatic conversion may try this state too */
-    return start(a);
+    return start(a, 0);
+}
+
+int app_psd_edited(const App *a, char *names, size_t cap)
+{
+    int count = 0;
+    size_t used = 0;
+    if (cap > 0) names[0] = '\0';
+    if (!a->stale_ok) return 0;
+    for (int i = 0; i < a->stale.count; ++i) {
+        if (!a->stale.item[i].edited) continue;
+        count++;
+        if (used + strlen(a->stale.item[i].png) + 3 < cap) used += (size_t)snprintf(names + used, cap - used, "%s%s", used > 0 ? ", " : "", a->stale.item[i].png);
+    }
+    return count;
+}
+
+int app_psd_regenerate(App *a)
+{
+    a->psd_auto_set = 0;
+    if (!start(a, 1)) return 0;
+    snprintf(a->status, sizeof a->status, "Regenerating the masks of %s from the PSDs: the ones edited by hand are replaced", a->car.folder);
+    return 1;
 }
 
 /* FNV-1a over what makes a stale state: which PSDs, how they stand and when they were saved */
@@ -87,7 +109,7 @@ static unsigned stale_signature(const StaleReport *r)
     unsigned h = 2166136261u;
     for (int i = 0; i < r->count; ++i) {
         const StaleItem *it = &r->item[i];
-        if (it->state == STALE_OK) continue;
+        if (it->state == STALE_OK || it->edited) continue;   /* a kept PNG stays older than its PSD: that is no new state */
         for (const char *c = it->psd; *c != '\0'; ++c) h = (h ^ (unsigned char)*c) * 16777619u;
         h = (h ^ (unsigned)it->state) * 16777619u;
         h = (h ^ (unsigned)it->psd_time) * 16777619u;
@@ -97,7 +119,9 @@ static unsigned stale_signature(const StaleReport *r)
 
 int app_psd_auto(App *a, const StaleReport *r)
 {
-    if (r->stale == 0) return a->psd_auto_set = a->psd_auto_fail = 0;   /* all in sync: whatever is stale next is a new state */
+    int pending = 0;   /* the stale ones a conversion can mend: not a PNG kept because it was edited by hand */
+    for (int i = 0; i < r->count; ++i) pending += r->item[i].state != STALE_OK && !r->item[i].edited;
+    if (pending == 0) return a->psd_auto_set = a->psd_auto_fail = 0;   /* all in sync: whatever is stale next is a new state */
     const unsigned sig = stale_signature(r);
     if (a->psd_auto_fail) {   /* a conversion failed (this one, or a click's): the state it failed on stays untried until a PSD is saved again or Convert PSD is pressed */
         a->psd_auto_fail = 0, a->psd_auto_set = 1, a->psd_auto_sig = sig;
@@ -106,7 +130,7 @@ int app_psd_auto(App *a, const StaleReport *r)
     if (mask_edit_modified(&a->mask.me)) return 0;   /* the conversion closes the open mask: paint that is not saved is not thrown away by itself (it goes on when it is saved) */
     if ((a->psd_auto_set && a->psd_auto_sig == sig) || a->dash_check || a->sheet_active || car_race_busy(&a->race) || psd_job_busy(&a->psd)) return 0;
     a->psd_auto_set = 1, a->psd_auto_sig = sig;   /* set before the start: a start that fails (no folder, no room) is not retried every few frames */
-    if (!start(a)) return 0;
+    if (!start(a, 0)) return 0;
     snprintf(a->status, sizeof a->status, "A PSD of %s changed: converting the PSDs", a->car.folder);
     return 1;
 }

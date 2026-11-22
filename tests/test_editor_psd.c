@@ -158,6 +158,20 @@ static void test_kit(void)
     CHECK(access(p, F_OK) != 0);
     app_dash_stale_refresh(a);
     CHECK(a->stale_ok && a->stale.stale == 0 && !app_psd_busy(a));   /* in sync: nothing more runs by itself */
+    {   /* a PNG touched up by hand: said, kept by a conversion, replaced by Regenerate from PSD */
+        char names[200];
+        CHECK_EQ_INT(app_psd_edited(a, names, sizeof names), 0);
+        CHECK(put("kit2/art-generated/car_masks/side_mask.png", "touched up in GIMP"));
+        app_dash_stale_refresh(a);
+        CHECK(app_psd_edited(a, names, sizeof names) == 1 && strcmp(names, "side_mask.png") == 0 && !app_psd_busy(a));
+        CHECK(app_psd_start(a));   /* Convert PSD */
+        run_to_end(a);
+        CHECK(a->psd.ok && strstr(a->status, "Kept as edited by hand: side_mask.png") != NULL);
+        CHECK(app_psd_regenerate(a) && app_psd_busy(a));
+        run_to_end(a);
+        app_dash_stale_refresh(a);
+        CHECK(a->psd.ok && app_psd_edited(a, names, sizeof names) == 0 && strstr(a->status, "Converted") != NULL);
+    }
     CHECK(put("kit2/art-source/masks/rear.psd", "not a PSD"));   /* a PSD that cannot be read: converted by itself once, and not again while nothing changes */
     app_dash_stale_refresh(a);
     CHECK(app_psd_busy(a));

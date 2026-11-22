@@ -115,7 +115,7 @@ static int start(PsdJob *job, const char *folder, char *why, size_t why_cap)
     char masks[700], dash[700];
     snprintf(masks, sizeof masks, "%s/car_masks/%s", piece, folder);
     snprintf(dash, sizeof dash, "%s/dash_masks/%s", piece, folder);
-    return psd_job_start(job, psd_dir, folder, masks, dash, "", why, why_cap);
+    return psd_job_start(job, psd_dir, folder, masks, dash, "", 0, why, why_cap);
 }
 
 static void setup(void)
@@ -246,7 +246,7 @@ static void test_kit(void)
     dir_of("kit");   /* nothing of art-generated/ is there yet: the job makes the folders */
     psd_job_init(&job);
     put_dash_psd("psd/TSupra/dash.psd", 1);
-    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, why, sizeof why));
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
     run_to_end(&job);
     CHECK(job.finished && job.ok);
     CHECK(exists("kit/art-generated/car_masks/side_mask.png") && exists("kit/art-generated/car_masks/frnt_mask.png"));   /* flat: no folder of the car's name */
@@ -260,10 +260,65 @@ static void test_kit(void)
     CHECK(manifest_set(&m, "other_mask.png", "0123456789012345678901234567890123456789012345678901234567890123") && manifest_save(manifest, &m));
     put_dash_psd("psd/TSupra/dash.psd", 0);
     path_of(masks, sizeof masks, "kit/art-generated/car_masks"), path_of(dash, sizeof dash, "kit/art-generated/dash_masks");
-    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, why, sizeof why));
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
     run_to_end(&job);
     CHECK(job.ok && !exists("kit/art-generated/dash_masks/dash_color.png"));
     CHECK(manifest_load(manifest, &m) && manifest_sha(&m, "other_mask.png") != NULL && manifest_sha(&m, "dash_color.png") == NULL && manifest_sha(&m, "dash_mask.png") != NULL);
+    psd_job_free(&job);
+}
+
+/* a PNG somebody edited since Studio made it (its hash is not the manifest's) is kept by a conversion, and replaced only by Regenerate from PSD (force) */
+static void test_edited_by_hand(void)
+{
+    PsdJob job;
+    char why[300], masks[700], dash[700], manifest[700], sha_before[MANIFEST_SHA], sha[MANIFEST_SHA], png[700];
+    path_of(masks, sizeof masks, "kit4/art-generated/car_masks"), path_of(dash, sizeof dash, "kit4/art-generated/dash_masks"), path_of(manifest, sizeof manifest, "kit4/art-generated/.generated.tsv");
+    path_of(png, sizeof png, "kit4/art-generated/car_masks/side_mask.png");
+    dir_of("kit4");
+    put_dash_psd("psd/TSupra/dash.psd", 1);
+    psd_job_init(&job);
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok && job.kept == 0 && strstr(job.text, "edited by hand") == NULL);
+    CHECK(manifest_file_sha(png, sha_before));
+    put("kit4/art-generated/car_masks/side_mask.png", "touched up in GIMP");   /* edited by hand */
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok && job.kept == 1 && strcmp(job.kept_names, "side_mask.png") == 0);
+    CHECK(content_is("kit4/art-generated/car_masks/side_mask.png", "touched up in GIMP"));   /* not overwritten */
+    CHECK(strstr(job.text, "Kept as edited by hand: side_mask.png") != NULL && strstr(job.text, "Regenerate from PSD") != NULL);
+    CHECK_EQ_INT(job.masks, 1);   /* the other body mask was made again */
+    CHECK(exists("kit4/art-generated/dash_masks/dash_mask.png"));
+    Manifest m;
+    CHECK(manifest_load(manifest, &m) && manifest_sha(&m, "side_mask.png") != NULL && strcmp(manifest_sha(&m, "side_mask.png"), sha_before) == 0);   /* what Studio made is still what is written down */
+    CHECK_EQ_INT(manifest_state(&m, masks, "side_mask.png"), GEN_EDITED);
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 1, why, sizeof why));   /* Regenerate from PSD */
+    run_to_end(&job);
+    CHECK(job.ok && job.kept == 0);
+    CHECK(!content_is("kit4/art-generated/car_masks/side_mask.png", "touched up in GIMP"));
+    CHECK(manifest_load(manifest, &m) && manifest_file_sha(png, sha) && strcmp(manifest_sha(&m, "side_mask.png"), sha) == 0);
+    CHECK_EQ_INT(manifest_state(&m, masks, "side_mask.png"), GEN_OK);
+    /* the dash: an edited dash_mask.png is kept, the dash_color.png the PSD makes still comes; an edited dash_color.png is kept when the PSD has no colour layer */
+    put("kit4/art-generated/dash_masks/dash_mask.png", "dash edited");
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok && strstr(job.kept_names, "dash_mask.png") != NULL && content_is("kit4/art-generated/dash_masks/dash_mask.png", "dash edited"));
+    CHECK(exists("kit4/art-generated/dash_masks/dash_color.png"));   /* the colour layer's PNG was not taken for "no colour layer" and removed */
+    put("kit4/art-generated/dash_masks/dash_color.png", "colour edited");
+    put_dash_psd("psd/TSupra/dash.psd", 0);   /* no colour layer now */
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok && content_is("kit4/art-generated/dash_masks/dash_color.png", "colour edited"));   /* the old colour goes, but not one somebody edited */
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 1, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok && !exists("kit4/art-generated/dash_masks/dash_color.png") && !content_is("kit4/art-generated/dash_masks/dash_mask.png", "dash edited"));   /* Regenerate: all replaced, the colour gone */
+    put_dash_psd("psd/TSupra/dash.psd", 1);
+    /* every body mask edited: nothing to make, and still not a failure */
+    put("kit4/art-generated/car_masks/side_mask.png", "edited");
+    put("kit4/art-generated/car_masks/frnt_mask.png", "edited too");
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok && job.kept == 2 && job.masks == 0 && strstr(job.kept_names, "frnt_mask.png") != NULL && strstr(job.kept_names, "side_mask.png") != NULL);
     psd_job_free(&job);
 }
 
@@ -290,6 +345,7 @@ int main(void)
     test_stop();
     test_half_written_never();
     test_kit();
+    test_edited_by_hand();
     remove_tree();
     return TEST_REPORT();
 }

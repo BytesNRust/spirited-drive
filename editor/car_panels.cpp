@@ -534,6 +534,30 @@ void masks_panel(App *a, ImTextureID tex)
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", can_check ? "Convert PSD, then take the cockpit photo at night with the car's own gauge colours: the dash as the game lights it.\nThe photo shows in the Drive window."
                                                   : why);
+            char edited[200];
+            const int n_edited = app_psd_edited(a, edited, sizeof edited);
+            ImGui::SameLine();
+            ImGui::BeginDisabled(n_edited == 0 || !found || busy);
+            if (ImGui::Button("Regenerate from PSD")) ImGui::OpenPopup("Regenerate from PSD?");
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("%s", n_edited > 0 ? "Make the masks again from the PSDs, replacing the PNGs edited by hand too."
+                                                     : "Nothing to regenerate: no PNG was edited by hand since Studio made it.");
+            if (ImGui::BeginPopupModal("Regenerate from PSD?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                if (n_edited == 0 || busy) ImGui::CloseCurrentPopup();   // nothing left to replace (a conversion ran meanwhile)
+                ImGui::TextWrapped("%s edited by hand: %s.", n_edited == 1 ? "This PNG was" : "These PNGs were", edited);
+                ImGui::TextWrapped("Regenerating replaces %s with what the PSD makes; the changes made to %s by hand are lost.", n_edited == 1 ? "it" : "them", n_edited == 1 ? "it" : "them");
+                if (ImGui::Button("Replace")) app_psd_regenerate(a), ImGui::CloseCurrentPopup();
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+            }
+            if (n_edited > 0) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.69f, 0.13f, 1.0f));
+                ImGui::TextWrapped("Edited by hand, kept as they are: %s", edited);
+                ImGui::PopStyleColor();
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Convert PSD does not replace a PNG somebody edited. Regenerate from PSD does.");
+            }
             if (a->dash_stale[0] != '\0') {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.69f, 0.13f, 1.0f));
                 ImGui::TextWrapped("%s", a->dash_stale);

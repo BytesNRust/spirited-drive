@@ -209,7 +209,7 @@ const char *app_mask_dash_state(const App *a)
     if (a->stale_ok)
         for (int i = 0; i < a->stale.count; ++i) {
             const StaleItem *it = &a->stale.item[i];
-            if (it->dash) return it->state == STALE_OK ? "in sync" : it->state == STALE_NEWER ? "PSD newer" : "PSD found, no mask yet";
+            if (it->dash) return it->edited ? "edited by hand" : it->state == STALE_OK ? "in sync" : it->state == STALE_NEWER ? "PSD newer" : "PSD found, no mask yet";
         }
     return NULL;
 }
@@ -222,7 +222,7 @@ const char *app_mask_state(const App *a, int index)
         for (int i = 0; i < a->stale.count; ++i) {
             const StaleItem *it = &a->stale.item[i];
             if (it->dash || strcasecmp(it->png, t->file) != 0) continue;
-            return it->state == STALE_OK ? "in sync" : it->state == STALE_NEWER ? "PSD newer" : "PSD found, no mask yet";
+            return it->edited ? "edited by hand" : it->state == STALE_OK ? "in sync" : it->state == STALE_NEWER ? "PSD newer" : "PSD found, no mask yet";
         }
     return a->mask.has_mask[index] ? "PNG only" : "no mask";
 }

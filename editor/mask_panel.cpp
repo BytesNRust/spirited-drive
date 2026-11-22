@@ -216,6 +216,11 @@ void mask_view_section(App *a, ImTextureID tex)
         ImGui::SetScrollHereY(0.0f);
     }
     ImGui::Text("%s   %dx%d", m.tex[m.sel].file, m.me.width, m.me.height);
+    if (strcmp(app_mask_state(a, m.sel), "edited by hand") == 0) {   // not what the PSD makes: Convert PSD keeps it, Regenerate from PSD replaces it
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "edited by hand");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("This PNG is not what its PSD makes: it was edited after Studio made it.\nConvert PSD keeps it; Regenerate from PSD (in Masks) replaces it.");
+    }
     if (m.tex_file[0] != '\0') {   // only in a kit: the texture's PNG in its bank folder
         ImGui::SameLine();
         if (ImGui::Button("Show texture file")) snprintf(a->reveal, sizeof a->reveal, "%s", m.tex_file);

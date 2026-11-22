@@ -1,8 +1,10 @@
 #include "app_dash.h"
 
+#include "psd_manifest.h"
 #include "psd_stale.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum { STALE_EVERY = 30 };   /* frames between looks at the files' times */
@@ -30,6 +32,10 @@ void app_dash_stale_refresh(App *a)
         char masks[APP_PATH], dash[APP_PATH], manifest[APP_PATH];
         app_psd_dirs(a, masks, dash, manifest, sizeof masks);
         if (!psd_stale_check_flat(dir, masks, dash, drivable(a) != NULL, &r)) return;
+        Manifest *known = calloc(1, sizeof *known);   // which PNGs were touched since Studio made them
+        if (known != NULL && manifest_load(manifest, known))
+            for (int i = 0; i < r.count; ++i) r.item[i].edited = manifest_state(known, r.item[i].dash ? dash : masks, r.item[i].png) == GEN_EDITED;
+        free(known);
     } else if (!psd_stale_check(dir, a->car.piece, a->car.folder, drivable(a) != NULL, &r)) return;
     psd_stale_text(&r, a->dash_stale, sizeof a->dash_stale);
     a->stale = r;

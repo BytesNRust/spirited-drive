@@ -549,6 +549,10 @@ int app_install_busy(const App *a);
 void app_psd_setup(App *a, const char *base, const char *root);
 int app_psd_psd_dir(const App *a, char *out, size_t cap);
 int app_psd_start(App *a);
+/* The PNGs the masks have that were edited by hand since Studio made them (the manifest's hash is not theirs): how many, and their names ("frnt_mask.png, dash_mask.png"). Convert PSD keeps them. */
+int app_psd_edited(const App *a, char *names, size_t cap);
+/* Regenerate from PSD: Convert PSD that replaces the PNGs edited by hand too; 1 when it started */
+int app_psd_regenerate(App *a);
 /* where this car's masks, dash masks and manifest are (car_project.h): a kit's art-generated, else the piece's folders */
 void app_psd_dirs(const App *a, char *masks, char *dash, char *manifest, size_t cap);
 /* Convert PSD by itself (the stale refresh calls it with what it found): when some PSD is newer than its mask or has none, it starts, once for each state: a state it

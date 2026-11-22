@@ -113,7 +113,7 @@ static void unstage(Staged *st)
 }
 
 /* every PNG written below `from` (one folder a car, PNG files) copied beside its place in `dest`; the count, -1 on a failure */
-static int stage_pngs(const char *from, const char *dest, Staged *st)
+static int stage_pngs(PsdJob *job, const Manifest *known, const char *from, const char *dest, Staged *st)
 {
     DIR *d = opendir(from);
     if (d == NULL) return 0;
@@ -126,6 +126,12 @@ static int stage_pngs(const char *from, const char *dest, Staged *st)
             const size_t len = strlen(f->d_name);
             char src[PSD_PATH];
             if (len < 5 || strcmp(f->d_name + len - 4, ".png") != 0 || !join(src, sizeof src, sub, f->d_name)) continue;
+            if (!job->force && known != NULL && manifest_state(known, dest, f->d_name) == GEN_EDITED) {   /* edited by hand since Studio made it: kept (a PNG the manifest has no line for is not known to be: it is replaced) */
+                const size_t used = strlen(job->kept_names);
+                job->kept++;
+                if (used + strlen(f->d_name) + 3 < sizeof job->kept_names) snprintf(job->kept_names + used, sizeof job->kept_names - used, "%s%s", used > 0 ? ", " : "", f->d_name);
+                continue;
+            }
             const int slot = st->count;
             if (slot >= STAGE_MAX || !make_dirs(dest) || !join(st->to[slot], sizeof st->to[slot], dest, f->d_name) ||
                 snprintf(st->tmp[slot], sizeof st->tmp[slot], "%s.psdtmp", st->to[slot]) >= (int)sizeof st->tmp[slot])
@@ -149,29 +155,44 @@ static void fail(PsdJob *job, const char *what)
     clean_scratch(job);
 }
 
+/* the reader wrote `name` for the dash in the scratch folder (<scratch>/dash/<folder>/) */
+static int scratch_dash_has(const PsdJob *job, const char *name)
+{
+    char path[PSD_PATH];
+    const int n = snprintf(path, sizeof path, "%s/dash/%s/%s", job->scratch, job->folder, name);
+    return n > 0 && (size_t)n < sizeof path && access(path, F_OK) == 0;
+}
+
 static void finish(PsdJob *job)
 {
     char from[PSD_PATH];
     Staged *st = calloc(1, sizeof *st);
-    if (st == NULL) {
+    Manifest *manifest = job->manifest[0] != '\0' ? calloc(1, sizeof *manifest) : NULL;
+    if (st == NULL || (job->manifest[0] != '\0' && manifest == NULL)) {
+        free(st);
+        free(manifest);
         fail(job, "out of memory");
         return;
     }
+    int written = manifest == NULL || manifest_load(job->manifest, manifest);
     if (!join(from, sizeof from, job->scratch, "masks")) {
         fail(job, "a path is too long");
         free(st);
+        free(manifest);
         return;
     }
-    job->masks = stage_pngs(from, job->masks_dst, st);
-    if (job->masks > 0 && join(from, sizeof from, job->scratch, "dash")) job->dash_files = stage_pngs(from, job->dash_dst, st);
+    job->masks = stage_pngs(job, manifest, from, job->masks_dst, st);
+    if (job->masks >= 0 && job->masks + job->kept > 0 && join(from, sizeof from, job->scratch, "dash")) job->dash_files = stage_pngs(job, manifest, from, job->dash_dst, st);
     if (job->masks < 0 || job->dash_files < 0) {
         unstage(st);
         free(st);
+        free(manifest);
         fail(job, "a file could not be written into the project (nothing was changed)");
         return;
     }
-    if (job->masks == 0) {
+    if (job->masks + job->kept == 0) {
         free(st);
+        free(manifest);
         fail(job, "no PSD of the car was found in its PSD folder");
         return;
     }
@@ -180,21 +201,22 @@ static void finish(PsdJob *job)
     if (renamed != st->count) {
         unstage(st);
         free(st);
+        free(manifest);
         fail(job, "some files could not be put in place: the project may hold part of the new masks");
         return;
     }
-    Manifest *manifest = job->manifest[0] != '\0' ? calloc(1, sizeof *manifest) : NULL;
-    int written = manifest == NULL || manifest_load(job->manifest, manifest);
     for (int i = 0; manifest != NULL && i < st->count; i++) {   /* what was made, hashed: a later edit of it by hand is told from it */
         const char *base = strrchr(st->to[i], '/');
         char sha[MANIFEST_SHA];
         written &= manifest_file_sha(st->to[i], sha) && manifest_set(manifest, base != NULL ? base + 1 : st->to[i], sha);
     }
     free(st);
-    if (job->dash_files == 1) {   /* a dash.psd with no colour layer: the colour of an older conversion goes */
+    const int has_dash = scratch_dash_has(job, "dash_mask.png"), has_colour = scratch_dash_has(job, "dash_color.png");   /* what the reader made says whether the dash.psd has a colour layer, whatever was kept */
+    if (has_dash && !has_colour) {   /* a dash.psd with no colour layer: the colour of an older conversion goes */
         char file[PSD_PATH];
-        if (join(file, sizeof file, job->dash_dst, "dash_color.png")) unlink(file);
-        if (manifest != NULL) manifest_forget(manifest, "dash_color.png");
+        const int by_hand = manifest != NULL && !job->force && manifest_state(manifest, job->dash_dst, "dash_color.png") == GEN_EDITED;   /* an edit of it is kept too */
+        if (!by_hand && join(file, sizeof file, job->dash_dst, "dash_color.png")) unlink(file);
+        if (!by_hand && manifest != NULL) manifest_forget(manifest, "dash_color.png");
     }
     if (manifest != NULL) written &= manifest_save(job->manifest, manifest);
     free(manifest);
@@ -202,7 +224,9 @@ static void finish(PsdJob *job)
         fail(job, "the masks were made, but their manifest (.generated.tsv) could not be written");
         return;
     }
-    snprintf(job->text, sizeof job->text, "Converted %d mask%s from %s%s.", job->masks, job->masks == 1 ? "" : "s", job->psd_dir, job->dash_files > 0 ? ", and the dash" : "");
+    const int n = snprintf(job->text, sizeof job->text, "Converted %d mask%s from %s%s.", job->masks, job->masks == 1 ? "" : "s", job->psd_dir, job->dash_files > 0 ? ", and the dash" : "");
+    if (job->kept > 0 && n > 0 && (size_t)n < sizeof job->text)
+        snprintf(job->text + n, sizeof job->text - (size_t)n, " Kept as edited by hand: %s (Regenerate from PSD replaces %s).", job->kept_names, job->kept == 1 ? "it" : "them");
     job->finished = 1, job->ok = 1;
     clean_scratch(job);
 }
@@ -224,7 +248,7 @@ static void *convert_thread(void *arg)
     return NULL;
 }
 
-int psd_job_start(PsdJob *job, const char *psd_dir, const char *folder, const char *masks_dst, const char *dash_dst, const char *manifest, char *why, size_t why_cap)
+int psd_job_start(PsdJob *job, const char *psd_dir, const char *folder, const char *masks_dst, const char *dash_dst, const char *manifest, int force, char *why, size_t why_cap)
 {
     if (job->started) return snprintf(why, why_cap, "a conversion is running already"), 0;
     if (strlen(psd_dir) >= PSD_PATH || strlen(masks_dst) >= PSD_PATH || strlen(dash_dst) >= PSD_PATH || strlen(manifest) >= PSD_PATH || strlen(folder) >= sizeof job->folder || folder[0] == '\0' || folder[0] == '.' || strchr(folder, '/') != NULL)
@@ -238,6 +262,7 @@ int psd_job_start(PsdJob *job, const char *psd_dir, const char *folder, const ch
     snprintf(job->masks_dst, sizeof job->masks_dst, "%s", masks_dst);
     snprintf(job->dash_dst, sizeof job->dash_dst, "%s", dash_dst);
     snprintf(job->manifest, sizeof job->manifest, "%s", manifest);
+    job->force = force;
     const char *tmp = getenv("TMPDIR");
     if (snprintf(job->scratch, sizeof job->scratch, "%s/tnfs-psd-XXXXXX", tmp != NULL && tmp[0] != '\0' ? tmp : "/tmp") >= (int)sizeof job->scratch || mkdtemp(job->scratch) == NULL)
         return job->scratch[0] = '\0', snprintf(why, why_cap, "no scratch folder for the conversion"), 0;
