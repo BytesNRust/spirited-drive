@@ -60,7 +60,8 @@ enum { TRACK_LIGHT_MAX_BRIGHT = 64, TRACK_LIGHT_MAX_LAMPS = 2048, TRACK_LIGHT_MA
 /* a `brightness FROM TO PERCENT [left|right] [shade]` line: which side of the road's rows it acts on (the middle point counts for both: the right is points 1..5, the left 6..10) and, with `shade` (Only shadows),
  * whether it acts only on the darkness the sun left (see track_light_apply). A line with neither word is the line of before. */
 enum { TRACK_LIGHT_SIDE_BOTH, TRACK_LIGHT_SIDE_LEFT, TRACK_LIGHT_SIDE_RIGHT };
-typedef struct { uint32_t from, to; int percent; int side; int shade; } TrackLightBrightness;
+/* `mask`: the points of the row the line is on (bit p, p0..p10), set by the track light file's STRIP (track_light_track.h); 0 for the lines of the old format, which `side` and `shade` rule */
+typedef struct { uint32_t from, to; int percent; int side; int shade; uint16_t mask; } TrackLightBrightness;
 typedef struct { uint32_t from, to; uint8_t rgb[3]; int percent; } TrackLightCarTone;
 /* a `tone` line: nodes from..to, the points of their rows it is on (bit p; 0x7ff all), and the tone's number in the file's list of distinct tones */
 typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightToneRun;
@@ -94,12 +95,16 @@ typedef struct {
  * general line is the base, the last line over `node` replaces it for what it gives; 0 (nothing set) with no line: the caller keeps the values the code has. */
 int track_light_tunnel_lamp_at(const TrackLightTweaks *tweaks, uint32_t node, double *strength, float cast[3], double *reach);
 
+/* a time block's `sun AZ EL SHADOW`: degrees, degrees, percent of light left in full shadow; a part written `-` is not `has_*` (the generator's default) */
+typedef struct { int has, has_azimuth, has_elevation, has_shadow; double azimuth, elevation, shadow; } TrackLightSun;
 typedef struct {
     int base;                   /* 1: the file's flags are the ones asked and `light` holds its rows (owned); 0: only the tweaks count */
     uint32_t flags;             /* the flags the file was made with */
     TrackNodeLight light;
     TrackLightTweaks tweaks;
     char place_path[512];       /* the places file the light's tunnels, canyon and car_dim came from ("" none) */
+    uint8_t *row_set;           /* the track file's `rows` overrides (track_light_track.h): per node (owned), 1 where `light.data` holds the file's own row; NULL none */
+    TrackLightSun sun;          /* the time's `sun` line (track_light_track.h), `has` 0 when there is none */
 } TrackLightFile;
 
 /* `flags` for track_light_parse that takes the file's rows whatever settings its header says it was made with (the header's flags are a record: TrackLightFile.flags) */
@@ -109,6 +114,10 @@ typedef struct {
  * *bad_line when it is not NULL). `out` is untouched unless 1; with other flags than `flags` (unless TRACK_LIGHT_ANY_FLAGS) its base is 0 and only the tweaks are read. */
 int track_light_parse(const char *text, size_t size, const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, int *bad_line);
 void track_light_file_free(TrackLightFile *file);
+/* for track_light_track.c: one line of a time's retouches (brightness, tone, lamp, tunnel_tone, tunnel, tunnel_lamp, of the old format's grammar) into `tweaks`, and the end of the lines (the zones' tone slots;
+ * 0 and the zone's line in *bad_line when a slot does not fit) */
+int track_light_tweak_line(const char *line, uint32_t nodes, TrackLightTweaks *tweaks);
+int track_light_tweaks_finish(TrackLightTweaks *tweaks, int *bad_line);
 
 /* The tweaks over a made light: the brightness runs scale its rows, the tunnel looks are its warm_cast / warm_percent. With `lamps` (the port's track_light_lamp) the `lamp` lines are laid too, as
  * the light's lamp list (sorted by node; their world place is set by track_node_light_lamps_place): the old pool classes the code made are dropped, a lamp is light. `ring` wraps a lamp's reach past the ends. */

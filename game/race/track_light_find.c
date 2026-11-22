@@ -1,5 +1,6 @@
 /* port: see track_light_file.h. The lookup and the read, apart from the format so that its tests need no platform. */
 #include "game/race/track_light_file.h"
+#include "game/race/track_light_track.h"
 
 #include "game/platform/platform.h"
 #include "game/sys/data_path.h"
@@ -78,5 +79,33 @@ int track_light_load(const char *track, char letter, uint32_t expected_nodes, ui
         port_log("track light: %s was made with other settings (%s)\n", found, names);
         if (why != NULL && why_size > 0) snprintf(why, why_size, "made with other settings: %s", names);
     }
+    return 1;
+}
+
+int track_light_track_find(const char *track, char *out, size_t out_size)
+{
+    if (track == NULL || out == NULL || out_size == 0) return 0;
+    char relative[128];
+    snprintf(relative, sizeof relative, "track_light/%s.txt", track);
+    return find_relative(relative, out, out_size);
+}
+
+int track_light_track_load(const char *track, char letter, uint32_t nodes, TrackLightFile *out, char *path, size_t path_size)
+{
+    char found[DATA_PATH_MAX];
+    if (!track_light_track_find(track, found, sizeof found)) return 0;
+    size_t size = 0;
+    uint8_t *file = platform_read_file(found, &size);
+    if (file == NULL) return 0;
+    int bad = 0;
+    const int ok = track_light_track_parse((const char *)file, size, track, letter, nodes, out, &bad);
+    platform_free_file(file);
+    if (path != NULL && path_size > 0) snprintf(path, path_size, "%s", found);
+    if (!ok) {
+        if (bad != 0) port_log("track light: %s is not well-formed (line %d), the light is made as before\n", found, bad);
+        return 0;
+    }
+    port_log("track light: %s\n", found);
+    out->place_path[0] = '\0';
     return 1;
 }

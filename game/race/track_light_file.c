@@ -501,6 +501,19 @@ static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks 
     return 0;
 }
 
+int track_light_tweak_line(const char *line, uint32_t nodes, TrackLightTweaks *tweaks)
+{
+    TrackNodeLight none = { 0 };
+    uint32_t seen = 0;
+    none.nodes = nodes;
+    return parse_line(line, &none, tweaks, &seen);
+}
+
+int track_light_tweaks_finish(TrackLightTweaks *tweaks, int *bad_line)
+{
+    return zone_slots(tweaks, bad_line);
+}
+
 int track_light_parse(const char *text, size_t size, const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, int *bad_line)
 {
     if (bad_line != NULL) *bad_line = 0;
@@ -628,6 +641,7 @@ bad:
 void track_light_file_free(TrackLightFile *file)
 {
     if (file == NULL) return;
+    free(file->row_set);
     track_node_light_free(&file->light);
     memset(file, 0, sizeof *file);
 }
@@ -682,7 +696,7 @@ void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, in
             if (r->shade != pass) continue;
             for (uint32_t n = r->from; n <= r->to && n < light->nodes; n++)
                 for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
-                    if ((r->side == TRACK_LIGHT_SIDE_RIGHT && p > 5) || (r->side == TRACK_LIGHT_SIDE_LEFT && p >= 1 && p <= 5)) continue;   /* the middle point is on both sides */
+                    if (r->mask != 0 ? !((r->mask >> p) & 1) : ((r->side == TRACK_LIGHT_SIDE_RIGHT && p > 5) || (r->side == TRACK_LIGHT_SIDE_LEFT && p >= 1 && p <= 5))) continue;   /* the middle point is on both sides of an old line */
                     uint8_t *at = &light->data[(size_t)n * TRACK_NODE_LIGHT_POINTS + (size_t)p];
                     if (r->shade) {   /* only the darkness: 255 - v is scaled by 100 / percent, at most all the way to black; a point in full light stays */
                         const int dark = 255 - *at, scaled = r->percent == 0 ? (dark > 0 ? 255 : 0) : (dark * 100 + r->percent / 2) / r->percent;
