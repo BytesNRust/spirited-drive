@@ -23,16 +23,26 @@ ImVec4 state_colour(TrackMaskState s)
     return ImGui::GetStyleColorVec4(ImGuiCol_Text);
 }
 
+// one count after the one before it on the same line, on the next line when the panel is too narrow for it
+void count_part(ImVec4 colour, const char *text)
+{
+    const float room = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+    if (ImGui::GetItemRectMax().x + ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize(text).x <= room) ImGui::SameLine();
+    ImGui::TextColored(colour, "%s", text);
+}
+
 void summary(const TrackMasks &m)
 {
     int n[8] = { 0 };
     for (int i = 0; i < m.count; ++i) ++n[m.row[i].state];
     ImGui::Text("%d textures: %d ok", m.count, n[TM_OK]);
-    if (n[TM_NONE] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d without mask", n[TM_NONE]);
-    if (n[TM_PNG_SOURCE] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d PNG only", n[TM_PNG_SOURCE]);
-    if (n[TM_EMPTY] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d PSD not painted", n[TM_EMPTY]);
-    if (n[TM_EDITED] > 0) ImGui::SameLine(), ImGui::TextColored(state_colour(TM_EDITED), "%d edited by hand", n[TM_EDITED]);
-    if (n[TM_BAD] > 0) ImGui::SameLine(), ImGui::TextColored(state_colour(TM_BAD), "%d unreadable", n[TM_BAD]);
+    const ImVec4 grey = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+    char text[48];
+    if (n[TM_NONE] > 0) snprintf(text, sizeof text, "%d without mask", n[TM_NONE]), count_part(grey, text);
+    if (n[TM_PNG_SOURCE] > 0) snprintf(text, sizeof text, "%d PNG only", n[TM_PNG_SOURCE]), count_part(grey, text);
+    if (n[TM_EMPTY] > 0) snprintf(text, sizeof text, "%d PSD not painted", n[TM_EMPTY]), count_part(grey, text);
+    if (n[TM_EDITED] > 0) snprintf(text, sizeof text, "%d edited by hand", n[TM_EDITED]), count_part(state_colour(TM_EDITED), text);
+    if (n[TM_BAD] > 0) snprintf(text, sizeof text, "%d unreadable", n[TM_BAD]), count_part(state_colour(TM_BAD), text);
 }
 
 // a PSD with nothing painted in its mask and no PNG beside it
@@ -115,6 +125,11 @@ void track_masks_panel(App *a, ImTextureID picture)
             ImGui::SameLine();
             if (ImGui::SmallButton("Regenerate from PSD")) app_track_mask_regenerate(a);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes this PNG again from its PSD; a PNG edited by hand is replaced");
+        }
+        if (!r.has_psd) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Create PSD")) app_track_mask_create_psd(a);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes the layered PSD of this texture in art-source/masks, with an empty mask layer to paint what is reflective. Needs python3 with Pillow.");
         }
         if (picture != 0 && a->tmask_w > 0) {
             const float room = bounded(ImGui::GetContentRegionAvail().x, 16.0f, 4096.0f);

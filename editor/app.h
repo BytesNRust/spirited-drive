@@ -384,6 +384,9 @@ int app_track_masks_refresh(App *a);
 int app_track_masks_poll(App *a);
 int app_track_mask_select(App *a, int i);
 int app_track_mask_regenerate(App *a);
+/* Create PSD on the selected texture, which has no PSD: the layered PSD to paint its mask in is made in art-source/masks (tools/track_mask_psd.py, needs python3 and Pillow; a short wait).
+ * 1 when made, 0 with the words in tmask_note */
+int app_track_mask_create_psd(App *a);
 /* The window on another light folder (the Choose... button): refused, with light.error and the status, while the working copy has unsaved changes or when the folder
  * is no light folder (light_session_open's reason); then nothing changes. 1 when it is on the folder, kept as a->light_dir for the rest of the session. */
 int app_light_set_folder(App *a, const char *dir);

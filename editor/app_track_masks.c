@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "formats/psd_mask.h"
+#include "track_mask_make_psd.h"
 #include "track_tex.h"
 
 /* The art source of what is open (dep103's TrackArtSource): the folder whose light/, art-source/masks and art-generated/track_masks the panel works on, the track's stem, and where its textures
@@ -163,6 +164,30 @@ int app_track_mask_regenerate(App *a)
     for (int i = 0; i < a->tmasks.count; ++i)
         if (strcmp(a->tmasks.row[i].name, name) == 0) app_track_mask_select(a, i);
     snprintf(a->status, sizeof a->status, "masks: %s made again from its PSD", name);
+    return 1;
+}
+
+int app_track_mask_create_psd(App *a)
+{
+    char stem[16], name[TRACK_TEX_NAME], why[APP_MSG] = "";
+    const int sel = a->tmask_sel;
+    if (!stem_of(a, stem, sizeof stem)) return 0;
+    if (sel < 0 || sel >= a->tmasks.count) return snprintf(a->tmask_note, sizeof a->tmask_note, "pick a texture first"), 0;
+    if (a->tmasks.row[sel].has_psd) return snprintf(a->tmask_note, sizeof a->tmask_note, "this texture has a PSD already"), 0;
+    snprintf(name, sizeof name, "%s", a->tmasks.row[sel].name);
+    TrackTexSet *set = textures(a, stem);
+    int tw = 0, th = 0;
+    uint8_t *tex = NULL;
+    const int have = set != NULL && track_tex_rgba(set, name, &tw, &th, &tex);
+    track_tex_close(set);
+    if (!have) return snprintf(a->tmask_note, sizeof a->tmask_note, "the game's files were not found: there is no texture to make a PSD from"), 0;
+    const int ok = track_mask_make_psd(a->py.python, a->tools, root_of(a), stem, name, tex, tw, th, why, sizeof why);
+    free(tex);
+    if (!ok) return snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why), 0;
+    app_track_masks_refresh(a);
+    for (int i = 0; i < a->tmasks.count; ++i)
+        if (strcmp(a->tmasks.row[i].name, name) == 0) app_track_mask_select(a, i);
+    snprintf(a->status, sizeof a->status, "masks: %s.psd made in art-source/masks: paint its mask layer", name);
     return 1;
 }
 

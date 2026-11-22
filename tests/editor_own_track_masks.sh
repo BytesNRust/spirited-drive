@@ -40,4 +40,23 @@ sleep 1
 out=$(run --frames 6 "$dir" --steps masks-print 2>&1) || fail "masks-print after the change: $out"
 [ "$(cksum < "$dir/art-generated/track_masks/slot_00.png")" != "$before" ] || fail "a PSD saved again did not make its PNG again: $out"
 
+# Create PSD on a texture with no PSD: the script (a fake of tools/track_mask_psd.py in a scratch tools folder) makes its PSD in art-source/masks; a second one never overwrites it
+mkdir -p "$work/tools"
+cat > "$work/tools/track_mask_psd.py" <<'PY'
+import os, sys
+for stem in os.listdir(sys.argv[1]):
+    for f in os.listdir(os.path.join(sys.argv[1], stem)):
+        os.makedirs(os.path.join(sys.argv[2], stem), exist_ok=True)
+        open(os.path.join(sys.argv[2], stem, f.replace(".rgb.png", ".psd")), "wb").write(b"8BPS fake")
+PY
+out=$(run --frames 6 "$dir" --steps masks-print 2>&1)
+i=$(echo "$out" | grep '^mask ' | grep -n ': no mask,' | head -1 | cut -d: -f1)
+name=$(echo "$out" | grep '^mask ' | sed -n "${i}p" | sed 's/^mask \([^:]*\):.*/\1/')
+i=$((i - 1))
+[ -n "$name" ] && [ ! -e "$dir/art-source/masks/$name.psd" ] || fail "no texture without a PSD to try Create PSD on: $out"
+out=$(TNFS_TOOLS="$work/tools" run --frames 6 "$dir" --steps mask-psd:$i,status 2>&1) || fail "Create PSD: $out"
+[ -s "$dir/art-source/masks/$name.psd" ] || fail "Create PSD did not make $name.psd: $out"
+echo "$out" | grep -q "$name.psd made in art-source/masks" || fail "Create PSD says nothing: $out"
+TNFS_TOOLS="$work/tools" run --frames 6 "$dir" --steps mask-psd:$i >/dev/null 2>&1 && fail "Create PSD went over a PSD that is there"
+
 [ "$failures" = 0 ] || exit 1
