@@ -25,6 +25,28 @@ def lines(path):
                 yield n, text.split()
 
 
+# TR3's forest (the code's terrain_light_forest, nodes 852..934): two dark tones in bands of 8 nodes, the first the darker, eased in over the first and last 3 nodes. A track file says it as
+# `brightness` lines; the percent is whole, so a point can come out one level apart from the code's rounding (the fingerprint of TR3 changes on purpose).
+FOREST = {"TR3": (852, 934, 8, 3, (0.40, 0.62))}
+
+
+def forest_lines(track):
+    if track not in FOREST:
+        return []
+    a, b, period, ramp, tones = FOREST[track]
+    runs = []
+    for n in range(a, b + 1):
+        tone = tones[((n - a) // period) % 2]
+        edge = min(n - a, b - n)
+        ease = 1.0 if edge >= ramp else (edge + 1) / (ramp + 1)
+        percent = int((1.0 - ease * (1.0 - tone)) * 100 + 0.5)
+        if runs and runs[-1][2] == percent and runs[-1][1] == n - 1:
+            runs[-1][1] = n
+        else:
+            runs.append([n, n, percent])
+    return ["  brightness %d %d %d" % tuple(r) for r in runs]
+
+
 def convert(data, track):
     facts_tunnel, facts_hall, facts_other = [], None, []
     covered = set()
@@ -89,7 +111,8 @@ def convert(data, track):
         out.append("snow_map %s %s" % (a, b))
     for t in TIMES:
         look, zones, lamps = blocks[t]
-        if look is None and not zones and not lamps:
+        forest = forest_lines(track)
+        if look is None and not zones and not lamps and not forest:
             continue
         out.append("")
         out.append("time " + t)
@@ -99,6 +122,7 @@ def convert(data, track):
             out.append(("  tunnel_look %d %d %s" % (a, b, rest)).rstrip())
         for lamp in lamps:
             out.append("  " + lamp)
+        out.extend(forest)
     return "\n".join(out) + "\n"
 
 

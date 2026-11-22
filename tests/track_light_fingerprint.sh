@@ -3,6 +3,8 @@
 # Any change of a light file, of the format or of the generator that changes a light shows here; one that is meant is written with  UPDATE=1 sh tests/track_light_fingerprint.sh ...
 # usage: tests/track_light_fingerprint.sh <tnfs binary> <original/ dir> [expected file]      (run from the repo's root: the game reads data/ from there)
 # CONVERT=1 reads the light from the one file a track that tools/track_light_convert.py makes from the old files (in a copy of data/): the same fingerprints.
+# In CONVERT mode the lines of tests/track_light_fingerprint_converted.txt replace the expected ones: what a track file says in lines that the code did in float (TR3's forest) differs by a level
+# or so on purpose.
 # Exit 77 (skipped) without the CD's data. TRACKS="CY1 TR3" restricts the tracks (the comparison then covers only them).
 set -u
 bin=$1
@@ -16,6 +18,7 @@ if [ "${CONVERT:-0}" = 1 ]; then   # the game runs in a copy of the repo's data/
   case $bin in /*) ;; *) bin=$here/$bin ;; esac
   case $original in /*) ;; *) original=$here/$original ;; esac
   case $expected in /*) ;; *) expected=$here/$expected ;; esac
+  converted=$here/tests/track_light_fingerprint_converted.txt
   cp -R data "$work/data" && python3 tools/track_light_convert.py data "$work/data/track_light" $tracks > /dev/null || { echo "FAIL: the conversion"; exit 1; }
   cd "$work"
 fi
@@ -43,6 +46,11 @@ if [ "${UPDATE:-0}" = 1 ] && [ $status -eq 0 ]; then
   cp "$work/now" "$expected"; echo "wrote $expected ($lines lines)"
 elif [ $status -eq 0 ]; then
   if [ -z "${TRACKS:-}" ]; then cp "$expected" "$work/want"; else grep -E "^($(echo $tracks | tr ' ' '|'))[ABCN] " "$expected" > "$work/want"; fi
+  if [ "${CONVERT:-0}" = 1 ] && [ -f "$converted" ]; then   # the converted files' own hashes replace those of the tracks they list
+    cut -d' ' -f1 "$converted" | sort > "$work/keys"
+    grep -v -F -f "$work/keys" "$work/want" > "$work/want2"; cat "$converted" >> "$work/want2"
+    grep -E "^($(echo $tracks | tr ' ' '|'))[ABCN] " "$work/want2" | LC_ALL=C sort > "$work/want"
+  fi
   if diff "$work/want" "$work/now" > "$work/diff"; then echo "track_light_fingerprint: ok ($lines)"; else echo "FAIL: the light changed:"; cat "$work/diff"; status=1; fi
 fi
 find "$work" -delete
