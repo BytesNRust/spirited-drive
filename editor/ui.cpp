@@ -652,8 +652,10 @@ void copy_popup(App *a)
         ImGui::EndPopup();
         return;
     }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 560.0f);   // the dialog is as wide as its list: a long data/ path wraps, it does not widen it past a small window
     ImGui::TextUnformatted(a->publish_car ? "Copies the changed and new masks into the game repo's data/ (nothing is committed):" : "Copies the changed light files and mask PNGs into the game repo's data/ (nothing is committed):");
     ImGui::TextDisabled("%s", app_repo_data(a));
+    ImGui::PopTextWrapPos();
     ImGui::Spacing();
     if (ImGui::BeginChild("##publishlist", ImVec2(560.0f, 220.0f), ImGuiChildFlags_Borders)) ImGui::TextWrapped("%s", a->publish_text);   // many new masks: it scrolls
     ImGui::EndChild();
