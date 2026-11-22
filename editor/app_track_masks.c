@@ -110,6 +110,19 @@ int app_track_mask_select(App *a, int i)
     const TrackMaskRow *row = &a->tmasks.row[i];
     unsigned char *marks = NULL;
     unsigned mw = 0, mh = 0;
+    if (row->state == TM_NONE) {   // a texture with no mask: the texture as it is
+        TrackTexSet *set = textures(a, stem);
+        int tw = 0, th = 0;
+        uint8_t *tex = NULL;
+        const int ok = set != NULL && track_tex_rgba(set, row->name, &tw, &th, &tex);
+        track_tex_close(set);
+        a->tmask_sel = i;
+        if (!ok) return snprintf(a->tmask_note, sizeof a->tmask_note, "the game's files were not found: there is no texture to show"), 0;
+        a->tmask_rgba = tex, a->tmask_w = tw, a->tmask_h = th;
+        ++a->tmask_serial;
+        snprintf(a->tmask_note, sizeof a->tmask_note, "this texture has no mask");
+        return 1;
+    }
     if (!row->has_png || !track_masks_load(root_of(a), row->name, &marks, &mw, &mh)) {
         snprintf(a->tmask_note, sizeof a->tmask_note, row->state == TM_EMPTY ? "nothing is painted in this PSD's mask layer, and there is no PNG" : "no PNG to show");
         a->tmask_sel = i;

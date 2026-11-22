@@ -9,6 +9,7 @@
  *   TM_PNG_SOURCE  a PNG with no PSD: the PNG is the source
  *   TM_EMPTY       a PSD with nothing painted in its mask layer: not a source; the PNG, if there is one, is kept (generate never overwrites it from an empty layer)
  *   TM_BAD         the PSD does not read (the reason is in `note`)
+ *   TM_NONE        a texture of the track (known from `tex`) with no PSD and no PNG: it has no mask (the panel offers to make its PSD)
  * The rule that makes the PNG is tools/track_mask_from_psd.py's, in C (formats/psd_mask.h: psd_track_mask): white reflective, yellow a lamp's mark; the PNG is grey without lamps, RGBA with.
  * Pure C, POSIX files, no window. */
 #ifndef TNFS_EDITOR_TRACK_MASKS_H
@@ -21,7 +22,7 @@
 
 enum { TM_MAX = TRACK_TEX_MAX, TM_NOTE = 160 };
 
-typedef enum { TM_OK = 0, TM_NEW, TM_STALE, TM_EDITED, TM_PNG_SOURCE, TM_EMPTY, TM_BAD } TrackMaskState;
+typedef enum { TM_OK = 0, TM_NEW, TM_STALE, TM_EDITED, TM_PNG_SOURCE, TM_EMPTY, TM_BAD, TM_NONE } TrackMaskState;
 
 typedef struct {
     char name[TRACK_TEX_NAME];
@@ -39,8 +40,8 @@ typedef struct {
     int edited;                  /* EDITED: kept until Regenerate */
 } TrackMasks;
 
-/* The rows of `dir` (an original track's folder): a row for every mask PSD (a backup, a name with a second dot, is not one) and every mask PNG, by name. `tex` (NULL for none) gives the
- * texture sizes. 1; 0 with `why` when the folder has neither art-source/masks nor art-generated/track_masks. */
+/* The rows of `dir` (an original track's folder): a row for every mask PSD (a backup, a name with a second dot, is not one) and every mask PNG, by name, and, when `tex` (NULL for none)
+ * lists the track's textures, a TM_NONE row for each of them that has neither (the table lists every texture, masked or not). `tex` also gives the texture sizes. 1; 0 with `why` when the folder has neither art-source/masks nor art-generated/track_masks. */
 int track_masks_scan(const char *dir, const TrackTexInfo *tex, int tex_count, TrackMasks *out, char *why, size_t why_cap);
 
 /* Writes the PNG of every NEW and STALE row into art-generated/track_masks (made when missing); `written` gets how many. EDITED and EMPTY rows are never touched. 1, or 0 with `why`

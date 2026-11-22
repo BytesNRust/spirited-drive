@@ -204,5 +204,20 @@ echo "$out" | grep -q '^room: hub$' || fail "Main menu returns to the hub: $out"
 echo "$out" | grep -q '^original: none$' || fail "no original is open on the hub: $out"
 echo "$out" | grep -q "^light: $work/data$" || fail "the light folder is the game's data/ again: $out"
 
+# with the game's files: Track masks lists EVERY texture of the track, those with no mask too (a texture the PNG is not for); only the real-CD blocks skip in CI
+if [ -r "$repo/original/SIMDATA/ETRACKFM/AL1_001.FAM" ]; then
+    mkdir -p "$work/real/ws" "$work/real/u"
+    real() { "$editor" --game /bin/true --cd "$repo/original" --user "$work/real/u" --workspace "$work/real/ws" --port-data "$repo/data" --window 1280x800 "$@"; }
+    real --frames 6 --steps add-originals >/dev/null 2>&1 || fail "real add-originals"
+    mkdir -p "$work/real/ws/tracks/AL1/art-generated/track_masks"
+    cp "$repo/data/track_masks/AL1/scenery_00.png" "$work/real/ws/tracks/AL1/art-generated/track_masks/" || fail "no scenery_00.png in data/"
+    out=$(real --frames 60 --steps open-original:0,masks-print,masks-only:1 --shot "$work/real/masks.png" 2>&1) || fail "real masks-print: $out"
+    n=$(echo "$out" | sed -n 's/^masks: \([0-9]*\) .*/\1/p')
+    [ "${n:-0}" -gt 20 ] || fail "AL1's textures are not all listed: $out"
+    echo "$out" | grep -q '^mask scenery_00: PNG is the source, 53x127, [1-9][0-9]* reflective' || fail "the texture with a mask says so: $out"
+    echo "$out" | grep -q '^mask slot_00: no mask, 128x256, 0 reflective, 0 lamps$' || fail "a texture with no mask is a row: $out"
+    [ -s "$work/real/masks.png" ] || fail "no picture of the Masks panel with With mask only"
+fi
+
 [ $failures -eq 0 ] && echo "editor_original_track: ok"
 exit $failures

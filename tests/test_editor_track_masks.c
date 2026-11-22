@@ -174,6 +174,29 @@ int main(void)
     const TrackTexInfo tex[1] = { { "slot_10", 64, 32 } };
     CHECK(track_masks_scan(g_dir, tex, 1, &m, why, sizeof why) && row(&m, "slot_10")->width == 64 && row(&m, "slot_10")->height == 32, "sizes from the texture list");
 
+    /* every texture of the track is a row: the ones with no PSD and no PNG are TM_NONE, with their size, in order; they are not work to do and change nothing in generate */
+    {
+        const TrackTexInfo all[4] = { { "slot_10", 64, 32 }, { "slot_00", 128, 256 }, { "scenery_05", 32, 32 }, { "slot_01", 4, 1 } };
+        CHECK(track_masks_scan(g_dir, all, 4, &m, why, sizeof why), "scan with the textures: %s", why);
+        CHECK(row(&m, "slot_00") != NULL && row(&m, "slot_00")->state == TM_NONE && row(&m, "slot_00")->width == 128 && row(&m, "slot_00")->height == 256 && !row(&m, "slot_00")->has_psd && !row(&m, "slot_00")->has_png, "slot_00 has no mask");
+        CHECK(row(&m, "scenery_05")->state == TM_NONE, "scenery_05 has no mask");
+        CHECK(row(&m, "slot_01")->state != TM_NONE && row(&m, "slot_10")->state == TM_PNG_SOURCE, "a texture with a PSD or a PNG is not a 'no mask' row");
+        int none = 0, last_rank_ok = 1;
+        for (int i = 0; i < m.count; ++i) {
+            none += m.row[i].state == TM_NONE;
+            if (i > 0 && strncmp(m.row[i - 1].name, "scenery", 7) == 0 && strncmp(m.row[i].name, "slot", 4) == 0) last_rank_ok = 0;   /* the slots first, then the boards */
+        }
+        CHECK(none == 2 && last_rank_ok, "two rows with no mask, slots before boards: %d", none);
+        CHECK(m.to_make == 0 && m.edited == 0, "no mask is not work: to_make %d edited %d", m.to_make, m.edited);
+        CHECK(strcmp(track_mask_state_text(TM_NONE), "no mask") == 0, "words");
+        CHECK(track_masks_generate(g_dir, &m, &written, why, sizeof why) && written == 0, "generate writes nothing for them");
+        const TrackTexInfo some[1] = { { "slot_77", 8, 8 } };
+        char gone[300];
+        snprintf(gone, sizeof gone, "%s/nothing", g_dir);
+        CHECK(track_masks_scan(gone, some, 1, &m, why, sizeof why) && m.count == 1 && m.row[0].state == TM_NONE, "a track folder with no masks still lists its textures");
+        CHECK(!track_masks_scan(gone, NULL, 0, &m, why, sizeof why), "no folder and no textures is still refused");
+    }
+
     /* a PSD that does not read */
     put_bytes("art-source/masks/slot_20.psd", (const uint8_t *)"not a psd", 9);
     CHECK(track_masks_scan(g_dir, NULL, 0, &m, why, sizeof why) && row(&m, "slot_20")->state == TM_BAD && row(&m, "slot_20")->note[0] != '\0', "a bad PSD says why");

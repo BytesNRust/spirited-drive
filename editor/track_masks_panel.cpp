@@ -19,15 +19,16 @@ float bounded(float v, float lo, float hi)
 ImVec4 state_colour(TrackMaskState s)
 {
     if (s == TM_EDITED || s == TM_BAD) return ImVec4(1.0f, 0.75f, 0.25f, 1.0f);
-    if (s == TM_EMPTY) return ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+    if (s == TM_EMPTY || s == TM_NONE) return ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
     return ImGui::GetStyleColorVec4(ImGuiCol_Text);
 }
 
 void summary(const TrackMasks &m)
 {
-    int n[7] = { 0 };
+    int n[8] = { 0 };
     for (int i = 0; i < m.count; ++i) ++n[m.row[i].state];
-    ImGui::Text("%d masks: %d ok", m.count, n[TM_OK]);
+    ImGui::Text("%d textures: %d ok", m.count, n[TM_OK]);
+    if (n[TM_NONE] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d without mask", n[TM_NONE]);
     if (n[TM_PNG_SOURCE] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d PNG only", n[TM_PNG_SOURCE]);
     if (n[TM_EMPTY] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d PSD not painted", n[TM_EMPTY]);
     if (n[TM_EDITED] > 0) ImGui::SameLine(), ImGui::TextColored(state_colour(TM_EDITED), "%d edited by hand", n[TM_EDITED]);
@@ -52,7 +53,8 @@ void mask_row(App *a, int i)
     ImGui::TableNextColumn();
     if (r.width > 0) ImGui::Text("%dx%d", r.width, r.height);
     ImGui::TableNextColumn();
-    ImGui::Text("%d", r.reflective);
+    if (r.state == TM_NONE) ImGui::TextDisabled("-");
+    else ImGui::Text("%d", r.reflective);
     if (r.lamps > 0) ImGui::SameLine(0, 4), ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.0f, 1.0f), "+%d lamp", r.lamps);
     ImGui::TableNextColumn();
     ImGui::TextColored(state_colour(r.state), "%s", track_mask_state_text(r.state));
@@ -72,9 +74,12 @@ void track_masks_panel(App *a, ImTextureID picture)
     ImGui::SameLine();
     help_marker("The owner's PSDs (art-source/masks) make the PNGs the game reads (art-generated/track_masks), on their own when a PSD changes. A texture with a PNG and no PSD uses the PNG. "
                 "A PSD with nothing painted in its mask layer is not used. A PNG edited by hand is kept until Regenerate from PSD. Click a row to see its mask over the texture.");
+    bool only = a->tmask_masked_only != 0;
+    if (ImGui::Checkbox("With mask only", &only)) a->tmask_masked_only = only;
+    ImGui::SetItemTooltip("Hides the textures that have no mask, leaving the list of those that do.");
     if (a->tmask_note[0] != '\0') ImGui::TextWrapped("%s", a->tmask_note);
     if (m.count == 0) {
-        ImGui::TextDisabled("This track has no masks yet.");
+        ImGui::TextDisabled("This track has no textures or masks to list.");
         ImGui::End();
         return;
     }
@@ -91,7 +96,7 @@ void track_masks_panel(App *a, ImTextureID picture)
         int unpainted = 0;
         for (int i = 0; i < m.count; ++i) unpainted += unpainted_row(m.row[i]) ? 1 : 0;
         for (int i = 0; i < m.count; ++i)
-            if (!unpainted_row(m.row[i])) mask_row(a, i);
+            if (!unpainted_row(m.row[i]) && !(a->tmask_masked_only && m.row[i].state == TM_NONE)) mask_row(a, i);
         if (unpainted > 0) {   // PSDs with no mask painted and no PNG: one closed header line at the bottom, open on click
             ImGui::TableNextRow();
             ImGui::TableNextColumn();

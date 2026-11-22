@@ -118,6 +118,7 @@ typedef struct {
     char original_dir[APP_PATH]; /* the original track's folder the Track light window is on (<workspace>/tracks/<STEM>); "" for the plain window of a light folder */
     TrackMasks tmasks;           /* the masks of the original track on screen (track_masks.h), scanned when it opens and after Regenerate; tmasks_loaded 0 until then */
     int tmasks_loaded;
+    int tmask_masked_only;       /* the Masks table hides the textures that have no mask (its «With mask only» switch; 0 lists every texture) */
     int tmask_sel;               /* the row on show, -1 for none */
     uint8_t *tmask_rgba;         /* its picture, tmask_w x tmask_h: the track's texture with the mask over it (just the mask when the game's files are not found); NULL for none */
     int tmask_w, tmask_h;
