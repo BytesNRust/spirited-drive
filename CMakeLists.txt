@@ -1235,7 +1235,7 @@ if(NOT EMSCRIPTEN)
         if(APPLE)   # the UI thread's file calls at rest are counted by a dylib put in front of the editor (tests/io_count.c)
             add_library(tnfs_io_count SHARED tests/io_count.c)
             add_test(NAME editor_ui_io COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_ui_io.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:make_test_psd> $<TARGET_FILE:tnfs_io_count>)
-            set_tests_properties(editor_ui_io PROPERTIES TIMEOUT 300 WILL_FAIL TRUE)   # WILL_FAIL until app_dash_stale_refresh stops reading files per frame (dev2's fix): then it passes and this line goes
+            set_tests_properties(editor_ui_io PROPERTIES TIMEOUT 300)
         endif()
         add_test(NAME editor_export_track COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_export_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
         set_tests_properties(editor_export_track PROPERTIES TIMEOUT 600)
