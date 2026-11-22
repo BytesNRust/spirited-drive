@@ -820,6 +820,13 @@ int main(int argc, char **argv)
     int opened = 1;
     if (o.dir != NULL) opened = app_open_any(app, o.dir, o.game, o.user != NULL ? o.user : "", generic_art);
     else app_begin(app, o.game, o.user != NULL ? o.user : "", generic_art);   /* nothing given: the start screen, or what it had last */
+    {   // the interactive test drives show the game as the player set it up: the --user folder, or the game's own player folder on a normal start (read only; a test run, with --frames, keeps the fixed values)
+        char *own = o.user == NULL && o.frames == 0 ? SDL_GetPrefPath(NULL, "Spirited Drive") : NULL;
+        char player[APP_PATH];
+        car_race_player_dir(o.user, own, player, sizeof player);
+        car_race_set_player(player);
+        SDL_free(own);
+    }
     app_psd_setup(app, SDL_GetBasePath(), o.psd_root);
     if (opened) {
         ExportSource sources;

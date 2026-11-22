@@ -316,6 +316,18 @@ void car_race_set_player(const char *dir)
     snprintf(player_dir, sizeof player_dir, "%s", dir != NULL ? dir : "");
 }
 
+int car_race_player_dir(const char *user, const char *pref, char *out, size_t cap)
+{
+    const char *pick = user != NULL && user[0] != '\0' ? user : pref != NULL ? pref : "";
+    size_t n = strlen(pick);
+    while (n > 1 && pick[n - 1] == '/') --n;
+    if (cap == 0) return 0;
+    if (n == 0 || n >= cap) return out[0] = '\0', 0;
+    memcpy(out, pick, n);
+    out[n] = '\0';
+    return 1;
+}
+
 static const char *const PLAYER_KEYS[] = { "format", "refresh_hz", "scale", "fov_adjust", "view_ultra", "perspective", "texture_filter", "fog", "f3_ultra", "render_scale", "render_bands",
                                            "light_effects", "car_soft_shadow", "fog_sample", "sky_fill", "sky_fill_below", "body_shine", "lamp_flares", "lamp_halos", NULL };
 

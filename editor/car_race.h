@@ -132,6 +132,9 @@ int car_race_user_files(const char *user, int night, const RaceLook *look, char 
 
 /* The player's own folder (the one Studio was started with; "" or NULL when it is the game's default, which Studio does not know): where car_race_player_options reads their settings. */
 void car_race_set_player(const char *dir);
+/* The player folder of this run: `user` (--user) when given, else `pref` (the game's own folder, SDL_GetPrefPath: ~/Library/Application Support/Spirited Drive/ on macOS; a normal start
+ * without --user), a trailing slash dropped; "" when neither is there. 1 when `out` is a folder, 0 when it is "" (or does not fit). */
+int car_race_player_dir(const char *user, const char *pref, char *out, size_t cap);
 /* An INTERACTIVE run (a test drive the person drives) shows the game as the person set it up: the graphics keys of the player's port.cfg and restomod.cfg (screen format, refresh,
  * scaling, field of view, render scale and bands, view distance, texture filter, fog, light effects, shadows, lamps) replace the fixed ones car_race_user_files wrote into the scratch
  * `user` folder. Never fullscreen, the profile or the PS1 folder; the player's files are only read. Photos do not call it: their values stay fixed (the pictures are compared). 1, also

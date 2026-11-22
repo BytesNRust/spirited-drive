@@ -281,6 +281,16 @@ static void write_text(const char *path, const char *text)
 }
 
 /* the interactive runs show the game as the player set it up; the photos keep the fixed values; the player's files are not touched */
+static void test_player_dir(void)
+{
+    char dir[64];
+    CHECK(car_race_player_dir("/u/mine", "/lib/Spirited Drive/", dir, sizeof dir) && strcmp(dir, "/u/mine") == 0);   /* --user wins */
+    CHECK(car_race_player_dir(NULL, "/lib/Spirited Drive/", dir, sizeof dir) && strcmp(dir, "/lib/Spirited Drive") == 0);   /* a normal start: the game's own folder, the slash dropped */
+    CHECK(car_race_player_dir("", "/lib/Spirited Drive", dir, sizeof dir) && strcmp(dir, "/lib/Spirited Drive") == 0);
+    CHECK(!car_race_player_dir(NULL, NULL, dir, sizeof dir) && dir[0] == '\0');
+    CHECK(!car_race_player_dir(NULL, "/a/very/long/folder/name/that/does/not/fit/in/sixty/four/bytes/at/all/", dir, sizeof dir) && dir[0] == '\0');
+}
+
 static void test_player_options(void)
 {
     char temp[1024], user[1100], mine[1100], why[300], text[600], path[1200], before[600];
@@ -778,6 +788,7 @@ int main(void)
     test_installed_tracks_scan();
     test_tracks();
     test_files_and_temp();
+    test_player_dir();
     test_player_options();
     test_log();
     test_ppm();
