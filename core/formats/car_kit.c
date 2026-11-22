@@ -39,7 +39,7 @@ static const char *const PATHS[CAR_KIT_PATHS] = {
     [CAR_KIT_BUILD] = "build",
     [CAR_KIT_BUILD_PIECE] = "build/piece",
     [CAR_KIT_README] = "README.txt",
-    [CAR_KIT_MESH_OBJ] = "mesh.blender.obj",
+    [CAR_KIT_MESH_OBJ] = "mesh.edit.obj",
     [CAR_KIT_SRC_MESH_TO_KIT] = "../..",
 };
 
@@ -48,7 +48,7 @@ const char *car_kit_path(CarKitPath which)
     return which >= 0 && which < CAR_KIT_PATHS ? PATHS[which] : "";
 }
 
-/* the stem mesh_export names a mesh folder's files by (mesh.obj, mesh.blender.obj, mesh.*.tsv) */
+/* the stem mesh_export names a mesh folder's files by (mesh.obj, mesh.edit.obj, mesh.*.tsv) */
 static const char MESH_STEM[] = "mesh";
 
 const char *car_kit_readme(void)
@@ -61,9 +61,9 @@ const char *car_kit_readme(void)
            "  specs/specs.tsv         the car's physics (optional)\n"
            "  specs/pdn.tsv           its body size and AI (optional)\n"
            "  art-source/             what you edit with other programs: masks/ (a PSD a texture) and mesh/ (the OBJs)\n"
-           "  art-source/mesh/        near.obj and far.obj: open them in Blender and export back over them. Each has its .mtl, whose textures are\n"
-           "                          ../../model/near/bank (far: ../../model/far/bank); that path is not tested in Blender 3.6, so if a texture\n"
-           "                          does not show, point Blender at model/near/bank by hand\n"
+           "  art-source/mesh/        near.obj and far.obj: open them in the 3D editor and export back over them. Each has its .mtl, whose textures are\n"
+           "                          ../../model/near/bank (far: ../../model/far/bank); that path is not tested in the 3D editor, so if a texture\n"
+           "                          does not show, point the 3D editor at model/near/bank by hand\n"
            "  art-generated/          what Studio writes: do not edit it\n"
            "  art-generated/model/near/mesh/, art-generated/model/far/mesh/   the mesh tables the OBJ does not carry\n"
            "  art-generated/car_masks/   the colour masks, grey: frnt_mask.png goes over the texture model/near/bank/NNNN_frnt.png (same\n"

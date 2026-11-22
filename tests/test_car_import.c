@@ -15,7 +15,7 @@
 #include "formats/pdn.h"
 #include "formats/png.h"
 #include "test.h"
-#include "blender_like.h"
+#include "modeller_sim.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -37,7 +37,7 @@ static void put(Buf *b, const char *format, ...)
     b->len += (size_t)n;
 }
 
-/* a box, Blender's frame, faces counter-clockwise from outside, each corner its uv 1..4 */
+/* a box, the 3D editor's frame, faces counter-clockwise from outside, each corner its uv 1..4 */
 static void box(Buf *b, int *v, double x0, double x1, double y0, double y1, double z0, double z1)
 {
     for (int k = 0; k < 8; k++) put(b, "v %g %g %g\n", k & 1 ? x1 : x0, k & 2 ? y1 : y0, k & 4 ? z1 : z0);
@@ -472,9 +472,9 @@ static void test_raw(const uint8_t *donor, size_t n)
     mesh_desc_free(&d.mesh);
 }
 
-/* dep71: the Viper's high mesh through Blender (tests/blender_like.h; also with its faces by material) and back with raw comes back the Viper's; a vertex moved a metre
+/* dep71: the Viper's high mesh through the 3D editor (tests/modeller_sim.h; also with its faces by material) and back with raw comes back the Viper's; a vertex moved a metre
  * up comes back 130 units up; without the tables' mesh.obj it is refused, saying so */
-static void test_blender(const uint8_t *donor, size_t n)
+static void test_edited(const uint8_t *donor, size_t n)
 {
     Donor d;
     CHECK(donor_of(donor, n, &d));
@@ -486,39 +486,39 @@ static void test_blender(const uint8_t *donor, size_t n)
     CHECK(cfm_describe(donor, n, child, len, &err));
     const MeshTextureBank banks[] = { { child[1], len[1], "../c1" } };
     CHECK(mesh_export(child[0], len[0], "mesh", banks, 1, &files, &err));
-    const SetFile *f = fileset_find(&files, "mesh.blender.obj");
+    const SetFile *f = fileset_find(&files, "mesh.edit.obj");
     CHECK(f != NULL);
     if (f != NULL) {
         char *text = malloc(f->size + 1);
         memcpy(text, f->data, f->size), text[f->size] = '\0';
-        char *blender = blender_like(text);
+        char *edited = modeller_sim(text);
         MeshDesc m;
-        CHECK(raw_mesh_from(donor, n, blender, &files, &m, &err));
-        if (err.message[0]) fprintf(stderr, "car_import: Blender: %s\n", err.message);
+        CHECK(raw_mesh_from(donor, n, edited, &files, &m, &err));
+        if (err.message[0]) fprintf(stderr, "car_import: the 3D editor: %s\n", err.message);
         else {
             CHECK(same_mesh(&m, &d.mesh));
             mesh_desc_free(&m);
         }
-        /* the faces in material blocks, as Blender's exporter may write them: the same mesh */
-        char *grouped = by_material(text), *sorted = blender_like(grouped);
+        /* the faces in material blocks, as the 3D editor's exporter may write them: the same mesh */
+        char *grouped = by_material(text), *sorted = modeller_sim(grouped);
         CHECK(strcmp(grouped, text) != 0);   /* the Viper's materials do interleave */
         CHECK(raw_mesh_from(donor, n, sorted, &files, &m, &err));
-        if (err.message[0]) fprintf(stderr, "car_import: Blender by material: %s\n", err.message);
+        if (err.message[0]) fprintf(stderr, "car_import: the 3D editor by material: %s\n", err.message);
         else {
             CHECK(same_mesh(&m, &d.mesh));
             mesh_desc_free(&m);
         }
         free(grouped), free(sorted);
         /* vertex 1 a metre up */
-        char *v = strstr(blender, "\nv "), *end = v != NULL ? strchr(v + 1, '\n') : NULL;
+        char *v = strstr(edited, "\nv "), *end = v != NULL ? strchr(v + 1, '\n') : NULL;
         double x, y, z;
         CHECK(end != NULL && sscanf(v + 1, "v %lf %lf %lf", &x, &y, &z) == 3);
         if (end != NULL) {
             char line[96];
-            const size_t cap = strlen(blender) + sizeof line;
+            const size_t cap = strlen(edited) + sizeof line;
             char *moved = malloc(cap);
             snprintf(line, sizeof line, "\nv %.6f %.6f %.6f", x, y + 1, z);
-            snprintf(moved, cap, "%.*s%s%s", (int)(v - blender), blender, line, end);
+            snprintf(moved, cap, "%.*s%s%s", (int)(v - edited), edited, line, end);
             CHECK(raw_mesh_from(donor, n, moved, &files, &m, &err));
             if (err.message[0] == '\0') {
                 CHECK(m.vertices[0].y == d.mesh.vertices[0].y + 130 && m.vertices[0].x == d.mesh.vertices[0].x);
@@ -530,9 +530,9 @@ static void test_blender(const uint8_t *donor, size_t n)
         fileset_init(&bare);
         for (size_t i = 0; i < files.count; i++)
             if (strcmp(files.file[i].name, "mesh.obj") != 0) fileset_add(&bare, files.file[i].name, files.file[i].data, files.file[i].size);
-        CHECK(!raw_mesh_from(donor, n, blender, &bare, &m, &err) && strstr(err.message, "mesh.obj") != NULL);
+        CHECK(!raw_mesh_from(donor, n, edited, &bare, &m, &err) && strstr(err.message, "mesh.obj") != NULL);
         fileset_free(&bare);
-        free(blender), free(text);
+        free(edited), free(text);
     }
     fileset_free(&files);
     mesh_desc_free(&d.mesh);
@@ -602,9 +602,9 @@ static void test_raw_keeps_the_banks(const uint8_t *viper, size_t viper_len)
     free(made), free(again), free(near_only);
 }
 
-/* the Viper's high mesh through Blender (as test_blender) and back with raw onto a piece whose CFM is `own` (malloc'd CFM; NULL when it
+/* the Viper's high mesh through the 3D editor (as test_edited) and back with raw onto a piece whose CFM is `own` (malloc'd CFM; NULL when it
  * failed) */
-static uint8_t *blender_onto(const uint8_t *viper, size_t n, const uint8_t *own, size_t own_len, size_t *out_len)
+static uint8_t *edited_onto(const uint8_t *viper, size_t n, const uint8_t *own, size_t own_len, size_t *out_len)
 {
     const uint8_t *child[CFM_CHILDREN];
     size_t len[CFM_CHILDREN];
@@ -616,13 +616,13 @@ static uint8_t *blender_onto(const uint8_t *viper, size_t n, const uint8_t *own,
     int ok = cfm_describe(viper, n, child, len, &err);
     const MeshTextureBank b = { ok ? child[1] : NULL, ok ? len[1] : 0, "../c1" };
     ok = ok && mesh_export(child[0], len[0], "mesh", &b, 1, &files, &err);
-    const SetFile *f = ok ? fileset_find(&files, "mesh.blender.obj") : NULL;
+    const SetFile *f = ok ? fileset_find(&files, "mesh.edit.obj") : NULL;
     if (f != NULL) {
         char *text = malloc(f->size + 1);
         memcpy(text, f->data, f->size), text[f->size] = '\0';
-        char *blender = blender_like(text);
+        char *edited = modeller_sim(text);
         ObjModel model;
-        ok = obj_read((const uint8_t *)blender, strlen(blender), NULL, 0, &model, &err);
+        ok = obj_read((const uint8_t *)edited, strlen(edited), NULL, 0, &model, &err);
         if (ok) {
             CarImportIn in = input(viper, n, &model, NULL);
             in.raw = 1, in.high_tables = &files, in.own_cfm = own, in.own_cfm_len = own_len;
@@ -630,15 +630,15 @@ static uint8_t *blender_onto(const uint8_t *viper, size_t n, const uint8_t *own,
             ok = car_import(&in, &cfm, out_len, half, &err);
             obj_free(&model);
         }
-        free(blender), free(text);
+        free(edited), free(text);
     }
-    if (!ok || f == NULL) fprintf(stderr, "car_import: Blender onto a piece: %s\n", err.message), free(cfm), cfm = NULL;
+    if (!ok || f == NULL) fprintf(stderr, "car_import: the 3D editor onto a piece: %s\n", err.message), free(cfm), cfm = NULL;
     fileset_free(&files);
     return cfm;
 }
 
-/* dep71 follow-up: a piece whose rsid car resize made twice its size, then the Viper's old export through Blender and back with raw:
- * the piece's banks stay (rsid at its new size), its uvs on rsid come back scaled (Blender's 0..1 read with the new size), the whole
+/* dep71 follow-up: a piece whose rsid car resize made twice its size, then the Viper's old export through the 3D editor and back with raw:
+ * the piece's banks stay (rsid at its new size), its uvs on rsid come back scaled (the 3D editor's 0..1 read with the new size), the whole
  * CFM is the resized one; a piece whose banks name other entries (another car's) gets the donor's, as before */
 static void test_raw_keeps_a_resize(const uint8_t *viper, size_t viper_len)
 {
@@ -655,7 +655,7 @@ static void test_raw_keeps_a_resize(const uint8_t *viper, size_t viper_len)
     CarResizeStats st;
     CHECK(w > 0 && car_resize(viper, viper_len, 0, "rsid", (uint16_t)(2 * w), (uint16_t)(2 * h), NULL, &resized, &rn, &st, &err));
     if (resized == NULL) return;
-    uint8_t *back = blender_onto(viper, viper_len, resized, rn, &n1);
+    uint8_t *back = edited_onto(viper, viper_len, resized, rn, &n1);
     CHECK(back != NULL && n1 == rn && memcmp(back, resized, rn) == 0);
     if (back != NULL && (n1 != rn || memcmp(back, resized, rn) != 0))
         for (int k = 0; k < CFM_CHILDREN; k++) fprintf(stderr, "car_import: resize kept: child %d %s\n", k, same_child(back, n1, resized, rn, k) ? "same" : "differs");
@@ -663,7 +663,7 @@ static void test_raw_keeps_a_resize(const uint8_t *viper, size_t viper_len)
     size_t nn = 0;
     uint8_t *nsx = read_cd("SIMDATA/CARFAMS/ANSX.CFM", &nn);
     if (nsx != NULL) {
-        uint8_t *other = blender_onto(viper, viper_len, nsx, nn, &n2);
+        uint8_t *other = edited_onto(viper, viper_len, nsx, nn, &n2);
         CHECK(other != NULL && same_child(other, n2, viper, viper_len, 1) && same_child(other, n2, viper, viper_len, 3) &&
               same_child(other, n2, viper, viper_len, 2));
         free(other);
@@ -672,7 +672,7 @@ static void test_raw_keeps_a_resize(const uint8_t *viper, size_t viper_len)
 }
 
 /* `obj` with its first two faces under the material `mtl` (and the faces after them under the material they had): what an author
- * does picking a material for two faces in Blender (malloc'd) */
+ * does picking a material for two faces in the 3D editor (malloc'd) */
 static char *two_faces_on(const char *obj, const char *mtl)
 {
     const size_t cap = strlen(obj) + 2 * strlen(mtl) + 512;
@@ -693,9 +693,9 @@ static char *two_faces_on(const char *obj, const char *mtl)
 }
 
 /* the piece `own` (made from the Viper) exported at both levels as a rebuild of the kit re-extracts it, `mtl` put on the first two faces of the
- * high OBJ (or the low one when `low_edit`), both through Blender and back with raw onto the piece (malloc'd CFM; NULL with the reason
+ * high OBJ (or the low one when `low_edit`), both through the 3D editor and back with raw onto the piece (malloc'd CFM; NULL with the reason
  * in `why`) */
-static uint8_t *blender_edit(const uint8_t *viper, size_t n, const uint8_t *own, size_t own_len, const char *mtl, int low_edit,
+static uint8_t *edited_edit(const uint8_t *viper, size_t n, const uint8_t *own, size_t own_len, const char *mtl, int low_edit,
                              size_t *out_len, char *why, size_t why_size)
 {
     const uint8_t *child[CFM_CHILDREN];
@@ -712,12 +712,12 @@ static uint8_t *blender_edit(const uint8_t *viper, size_t n, const uint8_t *own,
     const MeshTextureBank bh = { ok ? child[1] : NULL, ok ? len[1] : 0, "../c1" }, bl = { ok ? child[3] : NULL, ok ? len[3] : 0, "../c3" };
     ok = ok && mesh_export(child[0], len[0], "mesh", &bh, 1, &hi, &err) && mesh_export(child[2], len[2], "mesh", &bl, 1, &lo, &err);
     for (int k = 0; ok && k < 2; k++) {
-        const SetFile *f = fileset_find(k == 0 ? &hi : &lo, "mesh.blender.obj");
+        const SetFile *f = fileset_find(k == 0 ? &hi : &lo, "mesh.edit.obj");
         if (f == NULL) { ok = 0; break; }
         char *plain = malloc(f->size + 1);
         memcpy(plain, f->data, f->size), plain[f->size] = '\0';
         char *edited = k == low_edit ? two_faces_on(plain, mtl) : strdup(plain);
-        text[k] = blender_like(edited);
+        text[k] = modeller_sim(edited);
         free(plain), free(edited);
     }
     ok = ok && obj_read((const uint8_t *)text[0], strlen(text[0]), NULL, 0, &high, &err) &&
@@ -735,7 +735,7 @@ static uint8_t *blender_edit(const uint8_t *viper, size_t n, const uint8_t *own,
     return cfm;
 }
 
-/* dep71 follow-up 2: the Viper with a bitmap of its own (badg, 64 x 32, near), two of its faces put on it in Blender: they come back on
+/* dep71 follow-up 2: the Viper with a bitmap of its own (badg, 64 x 32, near), two of its faces put on it in the 3D editor: they come back on
  * it, their uvs in its texels; every other face on its texture as before; the piece's bank (the donor's entries and badg after them)
  * kept byte for byte. A far face put on it is refused, saying to add it to the far model (--low); with it added there, it is taken. */
 static void test_raw_takes_an_added_bitmap(const uint8_t *viper, size_t viper_len)
@@ -750,9 +750,9 @@ static void test_raw_takes_an_added_bitmap(const uint8_t *viper, size_t viper_le
     if (own == NULL) return;
     char mtl[32], why[256];
     snprintf(mtl, sizeof mtl, "t%u_badge", ref);
-    uint8_t *back = blender_edit(viper, viper_len, own, on, mtl, 0, &n1, why, sizeof why);
+    uint8_t *back = edited_edit(viper, viper_len, own, on, mtl, 0, &n1, why, sizeof why);
     CHECK(back != NULL);
-    if (back == NULL) printf("car_import: Blender onto badg: %s\n", why);
+    if (back == NULL) printf("car_import: the 3D editor onto badg: %s\n", why);
     Donor was, now;
     if (back != NULL && donor_of(own, on, &was) && donor_of(back, n1, &now)) {
         CHECK(same_child(back, n1, own, on, 1) && same_child(back, n1, own, on, 3) && same_child(back, n1, own, on, 2));
@@ -772,17 +772,17 @@ static void test_raw_takes_an_added_bitmap(const uint8_t *viper, size_t viper_le
         }
         CHECK_EQ_INT(on_badg, 2);
         CHECK_EQ_INT(moved_wrong, 0);
-        CHECK(uv_in);   /* Blender's 0..1 in badg's texels, not rsid's */
+        CHECK(uv_in);   /* the 3D editor's 0..1 in badg's texels, not rsid's */
         mesh_desc_free(&was.mesh), mesh_desc_free(&now.mesh);
     }
     /* a far face on it: refused while the far model has no such texture, naming --low; taken once it has */
-    uint8_t *no = blender_edit(viper, viper_len, own, on, mtl, 1, &n2, why, sizeof why);
+    uint8_t *no = edited_edit(viper, viper_len, own, on, mtl, 1, &n2, why, sizeof why);
     CHECK(no == NULL && strstr(why, "--low") != NULL);
     if (no != NULL || strstr(why, "--low") == NULL) printf("car_import: a far face on badg: '%s'\n", why);
     free(no);
     CHECK(car_texture_add(own, on, 1, "badg", "badge", px, 32, 16, &both, &bn, &far_ref, &err));
     snprintf(mtl, sizeof mtl, "t%u_badge", far_ref);
-    uint8_t *far_ok = both != NULL ? blender_edit(viper, viper_len, both, bn, mtl, 1, &n2, why, sizeof why) : NULL;
+    uint8_t *far_ok = both != NULL ? edited_edit(viper, viper_len, both, bn, mtl, 1, &n2, why, sizeof why) : NULL;
     CHECK(far_ok != NULL && same_child(far_ok, n2, both, bn, 3));
     if (far_ok == NULL) printf("car_import: a far face on badg added --low: %s\n", why);
     free(far_ok), free(both), free(back), free(own);
@@ -805,7 +805,7 @@ int main(void)
     refused_obj(donor, n, &pngs, 0, 1, "wheel_fr");
     test_twins(donor, n, &pngs);
     test_raw(donor, n);
-    test_blender(donor, n);
+    test_edited(donor, n);
     test_raw_keeps_the_banks(donor, n);
     test_raw_keeps_a_resize(donor, n);
     test_raw_takes_an_added_bitmap(donor, n);

@@ -4,16 +4,16 @@
 #    with it), unpack shows rsid at its new size, the uvs of rsid's faces twice what they were and every other line of mesh.obj as it
 #    was; resizing to the size it has gives the same CFM again (a rebuild may run it every time).
 # 2. --image: a picture of the size asked is taken, one of another size refused with nothing written; --low resizes the far model's.
-# 3. The Blender round trip does not undo it: the Viper's export from before the resize, through Blender and back with --raw --force
+# 3. The the 3D editor round trip does not undo it: the Viper's export from before the resize, through the 3D editor and back with --raw --force
 #    (the kit's command), gives the resized CFM byte for byte.
 # 4. The resized piece races (Restomod, alone on TR1), with no sanitizer report.
-# usage: car_resize.sh TNFS STUDIO ORIGINAL_DIR PORT_DATA_DIR BLENDER_LIKE_TOOL
+# usage: car_resize.sh TNFS STUDIO ORIGINAL_DIR PORT_DATA_DIR MODELLER_SIM_TOOL
 set -u
 tnfs=$1
 studio=$2
 orig=$3
 port=$4
-blender_like=$5
+modeller_sim=$5
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0
@@ -73,13 +73,13 @@ cmp -s "$work/resized.cfm" "$p/SIMDATA/CARFAMS/RSCAR.CFM" || fail "the bitmap's 
 valid "$p"
 cp "$p/SIMDATA/CARFAMS/RSCAR.CFM" "$work/resized.cfm"
 
-# 3. the kit's Blender round trip, from the export made before the resize
-"$blender_like" "$work/d/c0/mesh.blender.obj" "$work/high.obj" && "$blender_like" "$work/d/c2/mesh.blender.obj" "$work/low.obj" ||
-    fail "blender_like_tool"
+# 3. the kit's the 3D editor round trip, from the export made before the resize
+"$modeller_sim" "$work/d/c0/mesh.edit.obj" "$work/high.obj" && "$modeller_sim" "$work/d/c2/mesh.edit.obj" "$work/low.obj" ||
+    fail "modeller_sim_tool"
 "$studio" car import "$p" --raw --obj "$work/high.obj" --tables "$work/d/c0" --low "$work/low.obj" --low-tables "$work/d/c2" --keep-pdn \
-    --force --data "$orig" >"$work/log" 2>&1 || fail "car import through Blender: $(cat "$work/log")"
-clean "$work/log" || fail "car import through Blender: a sanitizer report"
-cmp -s "$work/resized.cfm" "$p/SIMDATA/CARFAMS/RSCAR.CFM" || fail "the Blender round trip did not give the resized CFM back"
+    --force --data "$orig" >"$work/log" 2>&1 || fail "car import through the 3D editor: $(cat "$work/log")"
+clean "$work/log" || fail "car import through the 3D editor: a sanitizer report"
+cmp -s "$work/resized.cfm" "$p/SIMDATA/CARFAMS/RSCAR.CFM" || fail "the the 3D editor round trip did not give the resized CFM back"
 valid "$p"
 
 # 4. it races

@@ -67,7 +67,7 @@ echo "$out" | grep -q "not a kit in the current layout" || fail "no word that th
 out=$("$editor" "$work/oldkit/coche" --frames 2 2>&1) && fail "an old coche/ folder was opened"
 echo "$out" | grep -q "not a kit in the current layout" || fail "no word that coche/ is the old layout: $out"
 [ ! -e "$work/oldkit/project.ini" ] && [ ! -e "$work/oldkit/coche/project.ini" ] || fail "an old kit was made a track project"
-"$editor" "$work/kit" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a kit that has no Blender OBJ"
+"$editor" "$work/kit" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a kit that has no the 3D editor OBJ"
 grep -q "could not be built" "$work/log" || fail "Build on a kit that cannot be built does not say why: $(cat "$work/log")"
 "$editor" "$work/exports/wagon-masks" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a masks project"
 grep -q "for a car kit" "$work/log" || fail "Build on a masks project does not say it is for a kit: $(cat "$work/log")"

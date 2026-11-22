@@ -9,7 +9,7 @@
  * map_Kd paths below --textures (default the MTL's directory). With --raw the OBJ is unpack's, its tables beside it. Writes the
  * piece's CFM and the body's measured half sizes into its PDN's first three words (the rest of the PDN as it was; --keep-pdn
  * leaves it alone and says so), and removes the piece's car masks, which paint the template's textures. With --raw the piece's banks
- * stay when they are a retouch of the donor's (its entries, its palettes: car resize's other sizes), and Blender's uvs are read with
+ * stay when they are a retouch of the donor's (its entries, its palettes: car resize's other sizes), and the 3D editor's uvs are read with
  * their sizes. Without --force it
  * replaces only the CFM car new copied (the donor's). Everything is read and made before anything is written. */
 #ifndef TNFS_STUDIO_CAR_IMPORT_H

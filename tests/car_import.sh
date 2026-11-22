@@ -8,21 +8,21 @@
 # 3. The Viper unpacked and imported back with --raw (both meshes, both banks): validate finds nothing, it races; unpacked again,
 #    its meshes' OBJ and tables are the Viper's, each bitmap and palette has the Viper's bytes (raw keeps the template's banks as they
 #    are), its MTLs differ only in those file numbers, and the PDN's measured half sizes are within a tenth of the Viper's.
-# 4. dep71: every race car of the CD through Blender and back: a piece of it, unpacked, both meshes' mesh.blender.obj rewritten as
-#    Blender's exporter writes them (blender_like_tool: tests/blender_like.h; half the cars with their faces in material blocks), taken
+# 4. dep71: every race car of the CD through the 3D editor and back: a piece of it, unpacked, both meshes' mesh.edit.obj rewritten as
+#    the 3D editor's exporter writes them (modeller_sim_tool: tests/modeller_sim.h; half the cars with their faces in material blocks), taken
 #    back with --raw --tables --keep-pdn; unpacked again, its meshes' OBJs and tables are the car's, and the CFM is byte-identical
 #    (fix/raw-import-banks: raw keeps the banks as they are). A vertex moved a metre up comes back 130 units up; that import has no
 #    --low, and the far model, its bank and the piece's _lo_mask.png stay. The owner's kit's command (car new of the 911, the
-#    mesh.blender.obj files copied unchanged, --low, --force) gives the CFM back byte for byte.
+#    mesh.edit.obj files copied unchanged, --low, --force) gives the CFM back byte for byte.
 # With a sanitizer build, no report.
-# usage: car_import.sh TNFS STUDIO FIXTURE_DIR ORIGINAL_DIR PORT_DATA_DIR BLENDER_LIKE_TOOL
+# usage: car_import.sh TNFS STUDIO FIXTURE_DIR ORIGINAL_DIR PORT_DATA_DIR MODELLER_SIM_TOOL
 set -u
 tnfs=$1
 studio=$2
 fixture=$3
 orig=$4
 port=$5
-blender_like=$6
+modeller_sim=$6
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0
@@ -110,28 +110,28 @@ paste "$work/pv/pdn.tsv" "$work/pn/pdn.tsv" | awk -F'\t' '$1 == "0x000" { for (k
     if (d * 10 > $(k + 6)) bad = 1 } found = 1 } END { exit !(found && !bad) }' ||
     fail "the imported Viper's half sizes are not within a tenth of the Viper's: $(grep '^0x000' "$work/pn/pdn.tsv")"
 
-# 4. every race car through Blender and back, half of them with their faces in material blocks (as Blender's exporter may write them)
+# 4. every race car through the 3D editor and back, half of them with their faces in material blocks (as the 3D editor's exporter may write them)
 for car in rx7 nsx supra 911 zr1 viper 512tr diablo; do
     b=$work/bl_$car
     case $car in rx7 | supra | zr1 | 512tr) grouped=--by-material ;; *) grouped= ;; esac
     "$studio" car new --template "$car" --id "bl-$car" --stem BLCAR --out "$b/piece" --data "$orig" --port-data "$port" >"$work/log" 2>&1 ||
         { fail "car new of $car: $(cat "$work/log")"; continue; }
     "$studio" unpack "$b/piece/SIMDATA/CARFAMS/BLCAR.CFM" "$b/d" >/dev/null 2>&1 || { fail "unpack of $car"; continue; }
-    "$blender_like" $grouped "$b/d/c0/mesh.blender.obj" "$b/high.obj" && "$blender_like" $grouped "$b/d/c2/mesh.blender.obj" "$b/low.obj" ||
-        { fail "$car: blender_like_tool"; continue; }
+    "$modeller_sim" $grouped "$b/d/c0/mesh.edit.obj" "$b/high.obj" && "$modeller_sim" $grouped "$b/d/c2/mesh.edit.obj" "$b/low.obj" ||
+        { fail "$car: modeller_sim_tool"; continue; }
     cp "$b/piece/SIMDATA/CARFAMS/BLCAR.CFM" "$b/before.cfm"
     "$studio" car import "$b/piece" --raw --obj "$b/high.obj" --tables "$b/d/c0" --low "$b/low.obj" --low-tables "$b/d/c2" --keep-pdn \
-        --data "$orig" --force >"$work/log" 2>&1 || { fail "car import of $car's Blender OBJs: $(cat "$work/log")"; continue; }
-    cmp -s "$b/before.cfm" "$b/piece/SIMDATA/CARFAMS/BLCAR.CFM" || fail "$car through Blender unchanged: the CFM is not the same bytes"
-    clean "$work/log" || fail "car import of $car's Blender OBJs: a sanitizer report"
+        --data "$orig" --force >"$work/log" 2>&1 || { fail "car import of $car's the 3D editor OBJs: $(cat "$work/log")"; continue; }
+    cmp -s "$b/before.cfm" "$b/piece/SIMDATA/CARFAMS/BLCAR.CFM" || fail "$car through the 3D editor unchanged: the CFM is not the same bytes"
+    clean "$work/log" || fail "car import of $car's the 3D editor OBJs: a sanitizer report"
     "$studio" unpack "$b/piece/SIMDATA/CARFAMS/BLCAR.CFM" "$b/n" >/dev/null 2>&1 || { fail "unpack of $car back"; continue; }
     for mesh in c0 c2; do
         for f in "$b/d/$mesh"/*.obj "$b/d/$mesh"/*.tsv; do
-            cmp -s "$f" "$b/n/$mesh/${f##*/}" || fail "$car through Blender: its $mesh/${f##*/} is not the car's"
+            cmp -s "$f" "$b/n/$mesh/${f##*/}" || fail "$car through the 3D editor: its $mesh/${f##*/} is not the car's"
         done
     done
 done
-# the import does write: the Viper's first vertex a metre up in Blender comes back 130 units up, the only line of mesh.obj that differs
+# the import does write: the Viper's first vertex a metre up in the 3D editor comes back 130 units up, the only line of mesh.obj that differs
 b=$work/bl_viper
 awk '!done && /^v / { $3 = sprintf("%.6f", $3 + 1); done = 1 } { print }' "$b/high.obj" > "$b/moved.obj" && cp "$b/high.mtl" "$b/moved.mtl"
 lo_masks=$(find "$b/piece" -name '*_lo_mask.png' | sort)
@@ -141,7 +141,7 @@ lo_masks=$(find "$b/piece" -name '*_lo_mask.png' | sort)
 was=$(grep -m1 '^v ' "$b/d/c0/mesh.obj") now=$(grep -m1 '^v ' "$b/m/c0/mesh.obj")
 [ "$(diff "$b/d/c0/mesh.obj" "$b/m/c0/mesh.obj" | grep -c '^[<>]')" -eq 2 ] &&
     [ "$(echo "$now" | awk '{ print $3 }')" -eq $(( $(echo "$was" | awk '{ print $3 }') + 130 )) ] ||
-    fail "the Viper's first vertex moved a metre up in Blender is '$now' (was '$was')"
+    fail "the Viper's first vertex moved a metre up in the 3D editor is '$now' (was '$was')"
 # without --low the far model, its bank and its masks are the car's
 for f in "$b/d/c2"/* "$b/d/c3"/*; do
     cmp -s "$f" "$b/m/${f#"$b/d/"}" || fail "the Viper imported without --low: its far ${f#"$b/d/"} changed"
@@ -149,17 +149,17 @@ done
 [ -n "$lo_masks" ] || fail "the Viper's piece has no _lo_mask.png to keep"
 [ "$(find "$b/piece" -name '*_lo_mask.png' | sort)" = "$lo_masks" ] || fail "the Viper imported without --low: its _lo_mask.png were removed"
 
-# the owner's kit's command, on a car new piece of the 911: the mesh.blender.obj files as unpack wrote them
+# the owner's kit's command, on a car new piece of the 911: the mesh.edit.obj files as unpack wrote them
 k=$work/kit
 "$studio" car new --template 911 --id carrera-84 --stem C84 --out "$k/P" --data "$orig" --port-data "$port" >"$work/log" 2>&1 ||
     fail "car new of the kit's 911: $(cat "$work/log")"
 cp "$k/P/SIMDATA/CARFAMS/C84.CFM" "$k/before.cfm"
 "$studio" unpack "$k/P/SIMDATA/CARFAMS/C84.CFM" "$k/M" >/dev/null 2>&1 || fail "unpack of the kit's 911"
-cp "$k/M/c0/mesh.blender.obj" "$k/M/c0/x.obj"
-"$studio" car import "$k/P" --raw --obj "$k/M/c0/x.obj" --tables "$k/M/c0" --low "$k/M/c2/mesh.blender.obj" --low-tables "$k/M/c2" \
+cp "$k/M/c0/mesh.edit.obj" "$k/M/c0/x.obj"
+"$studio" car import "$k/P" --raw --obj "$k/M/c0/x.obj" --tables "$k/M/c0" --low "$k/M/c2/mesh.edit.obj" --low-tables "$k/M/c2" \
     --keep-pdn --force --data "$orig" >"$work/log" 2>&1 || fail "car import of the kit's 911: $(cat "$work/log")"
 clean "$work/log" || fail "car import of the kit's 911: a sanitizer report"
-cmp -s "$k/before.cfm" "$k/P/SIMDATA/CARFAMS/C84.CFM" || fail "the kit's 911 through Blender unchanged: the CFM is not the same bytes"
+cmp -s "$k/before.cfm" "$k/P/SIMDATA/CARFAMS/C84.CFM" || fail "the kit's 911 through the 3D editor unchanged: the CFM is not the same bytes"
 
 [ "$failures" -eq 0 ] || exit 1
 echo "car_import: ok"

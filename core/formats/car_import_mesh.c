@@ -1,4 +1,4 @@
-/* The car importer's mesh from an author's OBJ (formats/car_import.h): objects by name, Blender's frame turned into the mesh's,
+/* The car importer's mesh from an author's OBJ (formats/car_import.h): objects by name, the 3D editor's frame turned into the mesh's,
  * the flag bytes from the donor, the points and lights the OBJ lacks made. */
 #include "formats/car_import_internal.h"
 #include "formats/car_steer.h"
@@ -34,7 +34,7 @@ typedef struct {
     ExchangeError *err;
 } Build;
 
-/* `name` is `want`, or `want` then '.' and Blender's number, case aside */
+/* `name` is `want`, or `want` then '.' and the 3D editor's number, case aside */
 static int named(const char *name, const char *want, int prefix)
 {
     const size_t n = strlen(want);
@@ -82,7 +82,7 @@ static int classify(Build *b)
     return 1;
 }
 
-/* Blender's frame to the mesh's: z negated, scaled */
+/* the 3D editor's frame to the mesh's: z negated, scaled */
 static int vertices(Build *b)
 {
     MeshDesc *m = b->out;

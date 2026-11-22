@@ -1,6 +1,6 @@
 #!/bin/sh
 # dep85 step 2: a car kit of flat sources (tnfs-studio car kit) and its build (tnfs-studio car build), the paths of core/formats/car_kit_paths.h.
-# 1. car new of the Viper, then `car kit PIECE KIT`: the kit has README.txt, the near and far model (Blender OBJ and bank files), specs/
+# 1. car new of the Viper, then `car kit PIECE KIT`: the kit has README.txt, the near and far model (the 3D editor OBJ and bank files), specs/
 #    and the masks flat (no stem level).
 # 2. `car build KIT`: build/piece/ holds the car's CFM byte for byte, its PBS and PDN with the same records (unpacked to the same TSVs),
 #    the masks under the stem again; validate finds nothing; build/<id>.zip is made. The kit's sources are byte for byte as before, and a
@@ -39,7 +39,7 @@ done
 grep -q '^mtllib near.mtl$' "$k/art-source/mesh/near.obj" && grep -q '^mtllib far.mtl$' "$k/art-source/mesh/far.obj" || fail "an OBJ does not name its own MTL"
 grep -q 'map_Kd \.\./\.\./model/near/bank/' "$k/art-source/mesh/near.mtl" || fail "near.mtl's textures are not at ../../model/near/bank/"
 grep -q 'map_Kd far\.[a-z]*\.png' "$k/art-source/mesh/far.mtl" && [ -f "$k/art-source/mesh/far.frnt.png" ] || fail "far.mtl's see-through copies are not beside it, named far.<label>.png"   # the far MTL's other materials name no bank file
-[ ! -e "$k/art-source/mesh/mesh.blender.obj" ] || fail "the OBJ keeps its old name"
+[ ! -e "$k/art-source/mesh/mesh.edit.obj" ] || fail "the OBJ keeps its old name"
 [ ! -e "$k/build" ] || fail "car kit made build/"
 grep -q "disposable" "$k/README.txt" || fail "README.txt does not say build/ is disposable"
 grep -q "model/near/bank" "$k/README.txt" && grep -q "not tested" "$k/README.txt" || fail "README.txt does not say where the textures are and that the MTL path is untested"
@@ -73,7 +73,7 @@ cmp -s "$work/first.CFM" "$b/SIMDATA/CARFAMS/KITCAR.CFM" || fail "a second build
 # an old-layout kit (the OBJ and tables in model/near/mesh) is refused in words, and nothing is built or moved
 old="$work/oldkit"
 mkdir -p "$old/model/near/mesh" "$old/model/near/bank" && cp "$k/mod.ini" "$old/" && cp "$k/model/near/bank/bank.tsv" "$old/model/near/bank/" &&
-    cp "$k/art-source/mesh/near.obj" "$old/model/near/mesh/mesh.blender.obj"
+    cp "$k/art-source/mesh/near.obj" "$old/model/near/mesh/mesh.edit.obj"
 "$studio" car build "$old" >"$work/log" 2>&1 && fail "car build of an old-layout kit went on"
 grep -q "old layout" "$work/log" && grep -q "art-source/mesh" "$work/log" && grep -q "car kit" "$work/log" || fail "the old-layout refusal does not say so: $(cat "$work/log")"
 [ ! -e "$old/build" ] || fail "a refused car build made build/ in an old-layout kit"

@@ -8,10 +8,10 @@
  * nearest its corner of the body) and noted. What is not drawn copies the donor: the polygons' flag bytes, the texture
  * references' words, the groups' word 0, the header's words, the tyre references and their bitmaps.
  *
- * The OBJ is Blender's (Y up, -Z forward, faces counter-clockwise from outside, uvs 0..1 from the bottom left); the mesh negates z
+ * The OBJ is the 3D editor's (Y up, -Z forward, faces counter-clockwise from outside, uvs 0..1 from the bottom left); the mesh negates z
  * and scales, which makes its faces clockwise as the race wants them, and gives uvs in texels from the top. In raw mode the OBJ
  * is mesh_export's and its tables (`.tsv`, with lists.tsv) beside it give everything the OBJ does not carry; a raw OBJ that is not
- * mesh_export's is Blender's export of NAME.blender.obj (dep71), turned back on the tables' own NAME.obj (formats/mesh_blender.h). Raw
+ * mesh_export's is the 3D editor's export of NAME.edit.obj (dep71), turned back on the tables' own NAME.obj (formats/mesh_edit.h). Raw
  * mode retouches the donor: its banks are the donor's chunks byte for byte, and without a low OBJ the donor's far model stays. */
 #ifndef TNFS_CAR_IMPORT_H
 #define TNFS_CAR_IMPORT_H
@@ -31,16 +31,16 @@ typedef struct {
     size_t donor_cfm_len;                  /* the donor car's CFM from the CD */
     const ObjModel *high, *low;            /* low NULL: the high mesh and its bank in the low-detail slot too (decision 3); raw: the
                                             * donor's own low-detail mesh and bank, untouched */
-    const FileSet *high_tables, *low_tables;   /* raw: mesh_export's tables (any stem), and its NAME.obj for a Blender OBJ; else NULL */
+    const FileSet *high_tables, *low_tables;   /* raw: mesh_export's tables (any stem), and its NAME.obj for a the 3D editor OBJ; else NULL */
     const FileSet *high_pngs, *low_pngs;   /* the textures, each under its map_Kd path as the MTL writes it */
     const uint8_t *own_cfm;                /* raw: the piece's CFM as it is now, or NULL. A level whose bank names the donor's entries in
                                             * the donor's order with the donor's palettes, then perhaps bitmaps of
                                             * its own (car texture add) (a retouch of it: car resize may have given a bitmap another size) keeps
-                                            * the piece's bank, and Blender's uvs are read with its sizes; without a low OBJ the piece's
+                                            * the piece's bank, and the 3D editor's uvs are read with its sizes; without a low OBJ the piece's
                                             * far model stays when its bank is such. Any other bank: the donor's, as without it */
     size_t own_cfm_len;
     const uint8_t *bank[2];                /* raw: the car's own banks, near and far (a kit's, dep85), each level's SHPI chunk as it is: they
-                                            * are the car's banks whatever the donor has, Blender's uvs are read with their sizes, and with
+                                            * are the car's banks whatever the donor has, the 3D editor's uvs are read with their sizes, and with
                                             * both given (and a low OBJ, which they need) no donor is read: donor_cfm may be NULL */
     size_t bank_len[2];
     int raw;                               /* the OBJ is mesh_export's: the mesh's frame, units and texel uvs */

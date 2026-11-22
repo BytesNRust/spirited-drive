@@ -126,8 +126,8 @@ static int read_obj(const char *path, ObjModel *model, char *mtl_dir, size_t cap
     return ok;
 }
 
-/* the .tsv files in `dir` (unpack's tables, lists.tsv among them) and its .obj files (the mesh's own NAME.obj, which a Blender OBJ is
- * read back on: formats/mesh_blender.h) */
+/* the .tsv files in `dir` (unpack's tables, lists.tsv among them) and its .obj files (the mesh's own NAME.obj, which a the 3D editor OBJ is
+ * read back on: formats/mesh_edit.h) */
 static int read_tables(const char *dir, FileSet *set, ExchangeError *err)
 {
     DIR *d = opendir(dir);
@@ -136,7 +136,7 @@ static int read_tables(const char *dir, FileSet *set, ExchangeError *err)
     for (struct dirent *e; ok && (e = readdir(d)) != NULL;) {
         const size_t n = strlen(e->d_name);
         if (n < 5 || (strcmp(e->d_name + n - 4, ".tsv") != 0 && strcmp(e->d_name + n - 4, ".obj") != 0)) continue;
-        if (n > 12 && strcmp(e->d_name + n - 12, ".blender.obj") == 0) continue;   /* only the mesh's own NAME.obj is wanted */
+        if (n > 12 && strcmp(e->d_name + n - 12, ".edit.obj") == 0) continue;   /* only the mesh's own NAME.obj is wanted */
         char path[PATH_MAX];
         size_t size = 0;
         join(path, sizeof path, dir, e->d_name);

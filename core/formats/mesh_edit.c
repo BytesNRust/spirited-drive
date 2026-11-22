@@ -1,5 +1,5 @@
-/* dep71: see mesh_blender.h. */
-#include "formats/mesh_blender.h"
+/* dep71: see mesh_edit.h. */
+#include "formats/mesh_edit.h"
 
 #include "formats/mesh_exchange.h"
 
@@ -8,10 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char TOPOLOGY[] = "adding or removing geometry is not a Blender round trip: import it with `car import` without --raw";
+static const char TOPOLOGY[] = "adding or removing geometry is not a the 3D editor round trip: import it with `car import` without --raw";
 
-/* the original face each Blender face is (dep71, tnfs-35's decision: Blender may write the faces in another order, by material):
- * from[o] the Blender face of original face o, turn[o] how far its corners are rotated (Blender's corner (k + turn) % n is the
+/* the original face each the 3D editor face is (dep71, tnfs-35's decision: the 3D editor may write the faces in another order, by material):
+ * from[o] the the 3D editor face of original face o, turn[o] how far its corners are rotated (the 3D editor's corner (k + turn) % n is the
  * original's corner k) */
 typedef struct {
     uint32_t *from, *turn;
@@ -42,7 +42,7 @@ static int same_set(const ObjModel *b, const ObjFace *bf, const ObjModel *o, con
     return 1;
 }
 
-/* the original face Blender face `f` is: the first unused one with its vertices turned; 0 with the reason (no face on them, a second
+/* the original face the 3D editor face `f` is: the first unused one with its vertices turned; 0 with the reason (no face on them, a second
  * face on them, or them the other way round) */
 static int match_one(const ObjModel *b, uint32_t f, const ObjModel *o, uint8_t *used, Match *m, ExchangeError *err)
 {
@@ -58,7 +58,7 @@ static int match_one(const ObjModel *b, uint32_t f, const ObjModel *o, uint8_t *
         set |= same_set(b, bf, o, &o->faces[of]);
     }
     if (taken) return exchange_fail(err, "line %u: a second face on the vertices of one face of the mesh: %s", bf->line, TOPOLOGY), 0;
-    if (set) return exchange_fail(err, "line %u: a face of the mesh with its corners the other way round (its normal flipped in Blender?): "
+    if (set) return exchange_fail(err, "line %u: a face of the mesh with its corners the other way round (its normal flipped in the 3D editor?): "
                                        "flip it back", bf->line), 0;
     return exchange_fail(err, "line %u: its %u vertices are no face of the mesh: %s", bf->line, bf->corners, TOPOLOGY), 0;
 }
@@ -118,7 +118,7 @@ static int start(const ObjModel *b, const ObjModel *o, const Match *m, ObjModel 
     out->from_exporter = 1;
     for (uint32_t f = 0; f < out->face_count; f++) out->faces[f].material = b->faces[m->from[f]].material;
     for (uint32_t v = 0; v < out->vertex_count; v++) {
-        out->vertices[v] = (ObjVec3){ b->vertices[v].x * MESH_BLENDER_UNITS, b->vertices[v].y * MESH_BLENDER_UNITS, -b->vertices[v].z * MESH_BLENDER_UNITS };
+        out->vertices[v] = (ObjVec3){ b->vertices[v].x * MESH_EDIT_UNITS, b->vertices[v].y * MESH_EDIT_UNITS, -b->vertices[v].z * MESH_EDIT_UNITS };
         if (!fits(out->vertices[v].x) || !fits(out->vertices[v].y) || !fits(out->vertices[v].z)) {
             obj_free(out);
             return exchange_fail(err, "vertex %u is %g m from the middle: past what the mesh's units hold", v + 1,
@@ -141,20 +141,20 @@ static void put_uv(ObjModel *out, uint8_t *taken, uint32_t c, ObjVec2 uv)
     out->uvs[out->uv_count++] = uv;
 }
 
-int mesh_blender_back(const ObjModel *blender, const ObjModel *original, const MeshBlenderSize *sizes, uint32_t size_count, ObjModel *out,
+int mesh_edit_back(const ObjModel *edited, const ObjModel *original, const MeshEditSize *sizes, uint32_t size_count, ObjModel *out,
                       ExchangeError *err)
 {
     Match m;
-    if (!same_topology(blender, original, &m, err)) return 0;
-    if (!start(blender, original, &m, out, err)) return free(m.from), free(m.turn), 0;
+    if (!same_topology(edited, original, &m, err)) return 0;
+    if (!start(edited, original, &m, out, err)) return free(m.from), free(m.turn), 0;
     uint8_t *taken = calloc(original->uv_count + 1, 1);
     int ok = taken != NULL;
     if (!ok) exchange_fail(err, "out of memory");
     for (uint32_t f = 0; ok && f < original->face_count; f++) {
-        const ObjFace *bf = &blender->faces[m.from[f]], *of = &original->faces[f];
-        int t = texture_of(blender, bf);
+        const ObjFace *bf = &edited->faces[m.from[f]], *of = &original->faces[f];
+        int t = texture_of(edited, bf);
         if (t == -2) {
-            exchange_fail(err, "line %u: the material %s is not one of the mesh's (t<0..255>_<name>)", bf->line, blender->materials[bf->material].name);
+            exchange_fail(err, "line %u: the material %s is not one of the mesh's (t<0..255>_<name>)", bf->line, edited->materials[bf->material].name);
             ok = 0;
             break;
         }
@@ -165,12 +165,12 @@ int mesh_blender_back(const ObjModel *blender, const ObjModel *original, const M
             ok = 0;
             break;
         }
-        const MeshBlenderSize size = t >= 0 ? sizes[t] : (MeshBlenderSize){ 1, 1 };
+        const MeshEditSize size = t >= 0 ? sizes[t] : (MeshEditSize){ 1, 1 };
         for (uint32_t k = 0; ok && k < of->corners; k++) {
             const uint32_t c = of->first + k;
-            const int32_t bt = blender->corner_uv[bf->first + (k + m.turn[f]) % of->corners];
-            if (original->corner_uv[c] < 0 || bt < 0) continue;   /* no uv before: none now; Blender's none: the original's */
-            const ObjVec2 u = blender->uvs[bt];
+            const int32_t bt = edited->corner_uv[bf->first + (k + m.turn[f]) % of->corners];
+            if (original->corner_uv[c] < 0 || bt < 0) continue;   /* no uv before: none now; the 3D editor's none: the original's */
+            const ObjVec2 u = edited->uvs[bt];
             const double tu = u.u * size.width, tv = (1.0 - u.v) * size.height;
             if (size.width == 0 || size.height == 0) {
                 exchange_fail(err, "line %u: face %u's texture t%d has no bitmap in the car's bank (another --donor?): its uvs cannot be turned "

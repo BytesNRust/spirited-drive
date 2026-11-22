@@ -56,7 +56,7 @@ static int add(const Args *a, ExchangeError *err)
              fsio_write_atomic(cfm_path, out, out_len, err);
     if (ok) {
         printf("car texture add: %s: %s %ux%u added to the %s model's bank\n", cfm_path, a->name, w, h, a->low ? "far" : "high");
-        printf("car texture add: in Blender, faces take it with the material t%u_%s (unpack the piece again to list it)\n", ref, a->label);
+        printf("car texture add: in the 3D editor, faces take it with the material t%u_%s (unpack the piece again to list it)\n", ref, a->label);
     }
     free(cfm), free(pixels), free(out);
     return ok;

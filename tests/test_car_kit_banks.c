@@ -1,4 +1,4 @@
-/* dep85 (a): a car kit gives car_import its own banks (CarImportIn.bank), and its model comes back from its Blender OBJ and tables with
+/* dep85 (a): a car kit gives car_import its own banks (CarImportIn.bank), and its model comes back from its the 3D editor OBJ and tables with
  * those banks and no donor: every car of the CD, the traffic and police ones too, rebuilt byte for byte. Needs the CD in original/
  * (skipped without it, as CI is). */
 #include "formats/car_import.h"
@@ -6,7 +6,7 @@
 #include "formats/mesh_exchange.h"
 #include "formats/obj_read.h"
 #include "test.h"
-#include "blender_like.h"
+#include "modeller_sim.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -36,27 +36,27 @@ static uint8_t *read_cd(const char *stem, size_t *size)
     return read_file(path, size);
 }
 
-/* one level of `cfm` as a kit holds it: the mesh's tables (mesh_export, its bank beside it) and its Blender OBJ as Blender writes it back
- * (`grouped`: its faces in material blocks, as Blender may write them) */
+/* one level of `cfm` as a kit holds it: the mesh's tables (mesh_export, its bank beside it) and its the 3D editor OBJ as the 3D editor writes it back
+ * (`grouped`: its faces in material blocks, as the 3D editor may write them) */
 static int kit_level(const uint8_t *const child[CFM_CHILDREN], const size_t len[CFM_CHILDREN], int level, int grouped, FileSet *tables,
                      ObjModel *obj, ExchangeError *err)
 {
     const MeshTextureBank bank = { child[2 * level + 1], len[2 * level + 1], level == 0 ? "../c1" : "../c3" };
     if (!mesh_export(child[2 * level], len[2 * level], "mesh", &bank, 1, tables, err)) return 0;
-    const SetFile *f = fileset_find(tables, "mesh.blender.obj");
-    if (f == NULL) { exchange_fail(err, "no mesh.blender.obj"); return 0; }
+    const SetFile *f = fileset_find(tables, "mesh.edit.obj");
+    if (f == NULL) { exchange_fail(err, "no mesh.edit.obj"); return 0; }
     char *plain = malloc(f->size + 1);
     if (plain == NULL) { exchange_fail(err, "out of memory"); return 0; }
     memcpy(plain, f->data, f->size), plain[f->size] = '\0';
     char *faces = grouped ? by_material(plain) : NULL;
-    char *blender = blender_like(faces != NULL ? faces : plain);
+    char *edited = modeller_sim(faces != NULL ? faces : plain);
     free(faces);
-    const int ok = obj_read((const uint8_t *)blender, strlen(blender), NULL, 0, obj, err);
-    free(blender), free(plain);
+    const int ok = obj_read((const uint8_t *)edited, strlen(edited), NULL, 0, obj, err);
+    free(edited), free(plain);
     return ok;
 }
 
-/* `cfm` rebuilt as a kit builds it: its Blender OBJs and tables, its own banks given, `donor` (NULL: none) (malloc'd; NULL with `err`) */
+/* `cfm` rebuilt as a kit builds it: its the 3D editor OBJs and tables, its own banks given, `donor` (NULL: none) (malloc'd; NULL with `err`) */
 static uint8_t *kit_build(const uint8_t *cfm, size_t n, const uint8_t *donor, size_t donor_len, int grouped, size_t *out_len, ExchangeError *err)
 {
     const uint8_t *child[CFM_CHILDREN];

@@ -1,9 +1,9 @@
-/* dep71: tests/blender_like.h as a command, for tests/car_import.sh. A test program, not a tnfs-studio command.
+/* dep71: tests/modeller_sim.h as a command, for tests/car_import.sh. A test program, not a tnfs-studio command.
  *
- *   blender_like_tool [--by-material] IN.obj OUT.obj   (--by-material: the faces in material blocks first, by_material())
+ *   modeller_sim_tool [--by-material] IN.obj OUT.obj   (--by-material: the faces in material blocks first, by_material())
  *
- * As Blender's exporter does, OUT.obj's mtllib names OUT.mtl, written beside it with a newmtl for each material the faces use. */
-#include "blender_like.h"
+ * As the 3D editor's exporter does, OUT.obj's mtllib names OUT.mtl, written beside it with a newmtl for each material the faces use. */
+#include "modeller_sim.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,7 @@
 int main(int argc, char **argv)
 {
     const int grouped = argc == 4 && strcmp(argv[1], "--by-material") == 0;
-    if (argc != 3 && !grouped) { fprintf(stderr, "usage: blender_like_tool [--by-material] IN.obj OUT.obj\n"); return 2; }
+    if (argc != 3 && !grouped) { fprintf(stderr, "usage: modeller_sim_tool [--by-material] IN.obj OUT.obj\n"); return 2; }
     argv += grouped;
     FILE *in = fopen(argv[1], "rb");
     if (in == NULL) { fprintf(stderr, "cannot read %s\n", argv[1]); return 1; }
@@ -36,7 +36,7 @@ int main(int argc, char **argv)
         if (by == NULL) return 1;
         text = by;
     }
-    char *out = blender_like(text);
+    char *out = modeller_sim(text);
     free(text);
     if (out == NULL) return 1;
     const size_t stem = strlen(argv[2]) > 4 ? strlen(argv[2]) - 4 : strlen(argv[2]);

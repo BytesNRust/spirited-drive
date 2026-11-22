@@ -1,6 +1,6 @@
 /* An OBJ and its MTL read into memory for the car importer (dep59 tools B2). The geometry as written: vertices, uvs, faces of 3 or
  * more corners (an importer splits the rest), the material and the object each face is in. An object is opened by `o` or `g`
- * and holds the vertices written after it (as Blender writes them): an object with vertices and no face is a point. Indexes are
+ * and holds the vertices written after it (as the 3D editor writes them): an object with vertices and no face is a point. Indexes are
  * stored from 0; the OBJ's are 1-based or, negative, from the last one read. Normals, smoothing groups and the other lines are
  * skipped; `l` and `p` are refused, since a car has no lines. */
 #ifndef TNFS_OBJ_READ_H

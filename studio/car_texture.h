@@ -6,7 +6,7 @@
  * NAME (4 characters a-z 0-9, not one the bank has nor one the race looks up) gets the picture, fitted to the bank's palette as car
  * import fits one, after the bank's last entry: the high model's, or with --low the far model's (its own palette). The model gets a
  * texture reference to it (label LABEL, default NAME) with no face on it yet; the command says the material to give faces in
- * Blender, t<index>_<label>. Unpack the piece again for Blender to list it; `car import --raw` keeps it. */
+ * the 3D editor, t<index>_<label>. Unpack the piece again for the 3D editor to list it; `car import --raw` keeps it. */
 #ifndef TNFS_STUDIO_CAR_TEXTURE_H
 #define TNFS_STUDIO_CAR_TEXTURE_H
 

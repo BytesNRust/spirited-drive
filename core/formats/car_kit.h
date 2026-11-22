@@ -1,7 +1,7 @@
 /* A car kit's flat sources and its build (dep85): the CFM, PBS and PDN made from the kit's files alone, no donor and no binary to start
  * from, and a car's binaries laid out as those files. In memory: the studio reads and writes the folders (car_kit_paths.h).
  *
- * car_kit_build: each bank from its flat files (shpi_from_flat), each mesh from its Blender OBJ and tables by the raw builder with those
+ * car_kit_build: each bank from its flat files (shpi_from_flat), each mesh from its the 3D editor OBJ and tables by the raw builder with those
  * banks as the car's own (car_import, CarImportIn.bank), the CFM from the four (cfm_build); the PBS from specs.tsv and the PDN from
  * pdn.tsv on a zeroed record (their fields cover every byte), sealed and packed as QFS as `pack` writes them. A kit with no specs.tsv
  * (no pdn.tsv) makes no PBS (PDN). car_kit_write is its inverse: what a kit of the car holds, so the build of it gives the car again. */

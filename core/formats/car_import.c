@@ -2,7 +2,7 @@
  * author's OBJ, car_import_tables.c in raw mode), and the CFM put together again. Without a low OBJ the low slot holds the high
  * mesh and its bank (the owner's decision 3); in raw mode, which retouches the donor, the donor's own far model and bank stay. Raw
  * mode's banks are the donor's chunks byte for byte (fix/raw-import-banks): it only names the donor's bitmaps; or the piece's own,
- * when they are a retouch of the donor's (CarImportIn.own_cfm: car resize's other sizes survive a Blender round trip); or a kit's own
+ * when they are a retouch of the donor's (CarImportIn.own_cfm: car resize's other sizes survive a the 3D editor round trip); or a kit's own
  * banks (CarImportIn.bank, dep85), which are the car's whatever the donor has, and with which no donor is read. */
 #include "formats/car_import_internal.h"
 #include "formats/cfm_build.h"

@@ -1498,7 +1498,7 @@ static void check_free_keeps_stdin(void)
     }
 }
 
-/* a kit with no car file is built as it opens, in a thread: the window is not held, the end is told in the status, the car is read again. This kit has no Blender
+/* a kit with no car file is built as it opens, in a thread: the window is not held, the end is told in the status, the car is read again. This kit has no the 3D editor
  * OBJ, so the build says why it cannot; an old-shape piece and a built kit start nothing */
 static void check_kit_builds_on_open(void)
 {

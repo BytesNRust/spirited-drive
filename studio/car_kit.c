@@ -69,34 +69,34 @@ static int car_files(const char *piece, const char *stem, FileSet *files, Exchan
 }
 
 static const char *const LEVEL[CAR_KIT_LEVELS] = { "near", "far" };
-static const char BLENDER_PREFIX[] = "mesh.blender.";   /* what a CarKitFlat's mesh set calls the Blender files: mesh.blender.obj, .mtl, .<label>.png */
+static const char EDIT_PREFIX[] = "mesh.edit.";   /* what a CarKitFlat's mesh set calls the the 3D editor files: mesh.edit.obj, .mtl, .<label>.png */
 
-/* `data` with each "mesh.blender." made `to` (the OBJ's mtllib line, the MTL's map_Kd names), in a new buffer; NULL if out of memory */
+/* `data` with each "mesh.edit." made `to` (the OBJ's mtllib line, the MTL's map_Kd names), in a new buffer; NULL if out of memory */
 static uint8_t *rename_in(const uint8_t *data, size_t size, const char *to, size_t *out_size)
 {
-    const size_t from_len = sizeof BLENDER_PREFIX - 1, to_len = strlen(to);
+    const size_t from_len = sizeof EDIT_PREFIX - 1, to_len = strlen(to);
     uint8_t *out = malloc(size * (to_len > from_len ? to_len : from_len) / from_len + 1), *w = out;
     if (out == NULL) return NULL;
     for (size_t i = 0; i < size;) {
-        if (size - i >= from_len && memcmp(data + i, BLENDER_PREFIX, from_len) == 0) memcpy(w, to, to_len), w += to_len, i += from_len;
+        if (size - i >= from_len && memcmp(data + i, EDIT_PREFIX, from_len) == 0) memcpy(w, to, to_len), w += to_len, i += from_len;
         else *w++ = data[i++];
     }
     *out_size = (size_t)(w - out);
     return out;
 }
 
-/* one level's mesh files into the kit: the Blender set as art-source/mesh/<near|far>.obj, .mtl, .<label>.png (named for itself); the tables
+/* one level's mesh files into the kit: the the 3D editor set as art-source/mesh/<near|far>.obj, .mtl, .<label>.png (named for itself); the tables
  * into art-generated/model/<near|far>/mesh, with the game's mesh.obj (the build reads it); mesh.mtl, which it does not, is left out */
 static int mesh_into(const FileSet *mesh, int level, FileSet *out)
 {
     char name[PATH_MAX], to[32];
     snprintf(to, sizeof to, "%s.", LEVEL[level]);
-    const size_t prefix_len = sizeof BLENDER_PREFIX - 1;
+    const size_t prefix_len = sizeof EDIT_PREFIX - 1;
     int ok = 1;
     for (size_t i = 0; ok && i < mesh->count; ++i) {
         const SetFile *f = &mesh->file[i];
         const size_t n = strlen(f->name);
-        if (strncmp(f->name, BLENDER_PREFIX, prefix_len) == 0) {
+        if (strncmp(f->name, EDIT_PREFIX, prefix_len) == 0) {
             snprintf(name, sizeof name, "%s/%s%s", car_kit_path(CAR_KIT_SRC_MESH), to, f->name + prefix_len);
             const int text = n > 4 && (strcmp(f->name + n - 4, ".obj") == 0 || strcmp(f->name + n - 4, ".mtl") == 0);
             size_t size = f->size;

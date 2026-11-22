@@ -1,6 +1,6 @@
 /* dep71 follow-up (notes/dep71-texture-resize-plan.md): a car's bitmap given another size and the uvs that address it following.
  * In a CFM's level (0 the high mesh and its bank, 1 the far model's), the bank entry `name` takes w x h pixels (the given ones, or
- * its own scaled nearest-neighbour) and every uv of every face whose texture reference shows it (mesh_blender_shown: a nameless
+ * its own scaled nearest-neighbour) and every uv of every face whose texture reference shows it (mesh_edit_shown: a nameless
  * tyre reference shows tyr1) is scaled by w / was_w, h / was_h, rounded to the nearest texel. A uv record a face of another bitmap
  * also uses is split: those faces keep the old record, this bitmap's faces get a scaled copy. Faces with no uvs (they map the whole
  * bitmap) need nothing. The other chunks are kept byte for byte. */

@@ -30,7 +30,7 @@ static int shows(const MeshDesc *m, uint8_t t, const char name[4])
 {
     if (t >= m->texture_count) return 0;
     char shown[4];
-    mesh_blender_shown(m->textures[t].label, m->textures[t].name, shown);
+    mesh_edit_shown(m->textures[t].label, m->textures[t].name, shown);
     return memcmp(shown, name, 4) == 0;
 }
 

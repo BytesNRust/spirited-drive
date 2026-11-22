@@ -27,7 +27,7 @@ enum { SHPI_FILE_NAME_SIZE = 24 };   /* 10 digits, _, 4, .png */
  * mesh's export names its textures by it (mesh_exchange.h). */
 int shpi_entry_file(const uint8_t *data, size_t size, const char name[4], char file[SHPI_FILE_NAME_SIZE]);
 
-/* fix/blender-preview: the bitmap entry named `name` (the first of that name) as RGBA, its colours from the palette shpi_export's PNG
+/* fix/edited-preview: the bitmap entry named `name` (the first of that name) as RGBA, its colours from the palette shpi_export's PNG
  * has (the SHPI's first palette entry, else a grey ramp), its texels of palette index `key` transparent. 1 with *rgba (malloc'd), its
  * size and the count of key texels in *keyed; 0 when the SHPI has no such bitmap, its pixels do not fit in it, or memory runs out */
 int shpi_entry_rgba(const uint8_t *data, size_t size, const char name[4], uint8_t key, uint8_t **rgba, uint32_t *w, uint32_t *h,

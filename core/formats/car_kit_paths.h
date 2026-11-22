@@ -7,8 +7,8 @@
  *   specs/specs.tsv          the PBS (optional: a car with none keeps the game's)
  *   specs/pdn.tsv            the PDN (optional)
  *   art-source/              what is edited with other programs (dep100): masks/ (a PSD a texture, <tex>.psd and <tex>_lo.psd, and dash.psd; a texture with no
- *                            PSD has its mask PNG there as its source) and mesh/ (near.obj and far.obj, the Blender OBJs, each with its .mtl, whose textures
- *                            are ../../model/<near|far>/bank/, and the .<label>.png copies Blender previews). Studio never writes into it
+ *                            PSD has its mask PNG there as its source) and mesh/ (near.obj and far.obj, the the 3D editor OBJs, each with its .mtl, whose textures
+ *                            are ../../model/<near|far>/bank/, and the .<label>.png copies the 3D editor previews). Studio never writes into it
  *   art-generated/           what Studio writes, never edited by hand: model/near/mesh/ and model/far/mesh/ (the mesh tables the OBJ does not carry), car_masks/ (the masks, grey, as the game reads them: <tex>_mask.png over the near
  *                            texture <tex>, <tex>_lo_mask.png over the far one; no stem level, the build adds it), dash_masks/ (dash_mask.png and
  *                            dash_color.png, the same way) and .generated.tsv (a hash a generated PNG, for the warning on a hand-edited one; the
@@ -30,7 +30,7 @@ typedef enum {
     CAR_KIT_PDN,
     CAR_KIT_ART_SOURCE,
     CAR_KIT_SRC_MASKS,      /* art-source/masks: <tex>.psd, <tex>_lo.psd, dash.psd, or the PNG that is a texture's source */
-    CAR_KIT_SRC_MESH,       /* art-source/mesh: the Blender OBJs */
+    CAR_KIT_SRC_MESH,       /* art-source/mesh: the the 3D editor OBJs */
     CAR_KIT_SRC_NEAR_OBJ,   /* art-source/mesh/near.obj, with near.mtl and near.<label>.png beside it */
     CAR_KIT_SRC_FAR_OBJ,    /* art-source/mesh/far.obj */
     CAR_KIT_ART_GENERATED,
@@ -42,7 +42,7 @@ typedef enum {
     CAR_KIT_BUILD,
     CAR_KIT_BUILD_PIECE,
     CAR_KIT_README,
-    CAR_KIT_MESH_OBJ,       /* the Blender OBJ's name in a CarKitFlat's mesh set (the kit's places are above) */
+    CAR_KIT_MESH_OBJ,       /* the the 3D editor OBJ's name in a CarKitFlat's mesh set (the kit's places are above) */
     CAR_KIT_SRC_MESH_TO_KIT,/* the kit's top, from art-source/mesh: what an MTL's texture paths start with, then model/<near|far>/bank */
     CAR_KIT_MODEL,          /* the folder of both models, near and far */
     CAR_KIT_PATHS

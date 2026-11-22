@@ -1,7 +1,7 @@
 /* dep71 follow-up 2 (notes/dep71-texture-add-plan.md): a bitmap of the car's own added to a level of a CFM (0 the high model and its
  * bank, 1 the far model's): the entry after the bank's last, its pixels as given (already fitted to the bank's palette:
  * car_texture_from_png), and a texture reference to it at the end of that level's mesh, with no face on it yet (a face takes it in
- * Blender by the material t<index>_<label>). The other entries, references and chunks are kept byte for byte. */
+ * the 3D editor by the material t<index>_<label>). The other entries, references and chunks are kept byte for byte. */
 #ifndef TNFS_CAR_TEXTURE_ADD_H
 #define TNFS_CAR_TEXTURE_ADD_H
 

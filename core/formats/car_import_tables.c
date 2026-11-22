@@ -1,10 +1,10 @@
 /* The car importer's raw mode (formats/car_import.h; the owner's decision 4): the mesh from mesh_export's OBJ, its tables and its
  * lists.tsv, in the mesh's own frame and units. What the OBJ does not carry (flags, references, parts, groups, points, labels,
  * header) comes from the tables; a face of the OBJ is a row of polygons.tsv, in order. An OBJ that is not mesh_export's is the one
- * Blender exported from NAME.blender.obj (dep71): it is turned back on the tables' own NAME.obj first (formats/mesh_blender.h). */
+ * the 3D editor exported from NAME.edit.obj (dep71): it is turned back on the tables' own NAME.obj first (formats/mesh_edit.h). */
 #include "formats/car_import_internal.h"
 #include "formats/le.h"
-#include "formats/mesh_blender.h"
+#include "formats/mesh_edit.h"
 #include "formats/mesh_exchange.h"
 
 #include <math.h>
@@ -213,47 +213,47 @@ static int raw_build(const ObjModel *obj, const FileSet *t, const char *stem, co
 }
 
 /* the texture references' bitmap sizes, from the donor's bank of the level (the bitmaps raw mode keeps), of the bitmap each shows
- * (mesh_blender_shown, as mesh_export: a tyre reference with no name, tyr1's): 1 x 1 for a reference that shows none, a bitmap of no
+ * (mesh_edit_shown, as mesh_export: a tyre reference with no name, tyr1's): 1 x 1 for a reference that shows none, a bitmap of no
  * size, or a tyre reference whose tyr1 the bank does not hold (as mesh_export); 0 x 0 for a name of its own the bank does not hold
- * (mesh_blender.h) */
-static MeshBlenderSize *bitmap_sizes(const FileSet *t, const char *stem, const ShpiDescEntry *bank, size_t n, size_t *rows, ExchangeError *err)
+ * (mesh_edit.h) */
+static MeshEditSize *bitmap_sizes(const FileSet *t, const char *stem, const ShpiDescEntry *bank, size_t n, size_t *rows, ExchangeError *err)
 {
     uint8_t *rec = NULL;
     if (!read_table(t, stem, MESH_TABLE_TEXTURES, &rec, rows, err)) return NULL;
-    MeshBlenderSize *sizes = malloc((*rows ? *rows : 1) * sizeof *sizes);
+    MeshEditSize *sizes = malloc((*rows ? *rows : 1) * sizeof *sizes);
     if (sizes == NULL) exchange_fail(err, "out of memory");
     for (size_t i = 0; sizes != NULL && i < *rows; i++) {
         const char *label = (const char *)rec + 20 * i, *name = label + 8;
         char shown[4];
-        mesh_blender_shown(label, name, shown);
+        mesh_edit_shown(label, name, shown);
         const ShpiDescEntry *e = shown[0] != '\0' ? ci_bank_find(bank, n, shown) : NULL;
-        if (shown[0] == '\0') sizes[i] = (MeshBlenderSize){ 1, 1 };
-        else if (e == NULL || e->type != 0x7b) sizes[i] = name[0] != '\0' ? (MeshBlenderSize){ 0, 0 } : (MeshBlenderSize){ 1, 1 };
-        else sizes[i] = e->width > 0 && e->height > 0 ? (MeshBlenderSize){ e->width, e->height } : (MeshBlenderSize){ 1, 1 };
+        if (shown[0] == '\0') sizes[i] = (MeshEditSize){ 1, 1 };
+        else if (e == NULL || e->type != 0x7b) sizes[i] = name[0] != '\0' ? (MeshEditSize){ 0, 0 } : (MeshEditSize){ 1, 1 };
+        else sizes[i] = e->width > 0 && e->height > 0 ? (MeshEditSize){ e->width, e->height } : (MeshEditSize){ 1, 1 };
     }
     free(rec);
     return sizes;
 }
 
-/* Blender's OBJ back in the mesh's frame on the tables' own NAME.obj (mesh_blender.h) */
-static int from_blender(const ObjModel *blender, const FileSet *t, const char *stem, const ShpiDescEntry *bank, size_t n, ObjModel *out,
+/* the 3D editor's OBJ back in the mesh's frame on the tables' own NAME.obj (mesh_edit.h) */
+static int from_edit(const ObjModel *edited, const FileSet *t, const char *stem, const ShpiDescEntry *bank, size_t n, ObjModel *out,
                         ExchangeError *err)
 {
     char name[300];
     snprintf(name, sizeof name, "%s.obj", stem);
     const SetFile *f = fileset_find(t, name);
     if (f == NULL) {
-        exchange_fail(err, "the OBJ is not mesh_export's, so it is read as Blender's export of %s.blender.obj: that needs the tables' own %s "
+        exchange_fail(err, "the OBJ is not mesh_export's, so it is read as the 3D editor's export of %s.edit.obj: that needs the tables' own %s "
                            "beside them (unpack writes it)", stem, name);
         return 0;
     }
     ObjModel original;
     if (!obj_read(f->data, f->size, NULL, 0, &original, err)) return 0;
     size_t rows = 0;
-    MeshBlenderSize *sizes = NULL;
+    MeshEditSize *sizes = NULL;
     int ok = original.from_exporter;
     if (!ok) exchange_fail(err, "%s beside the tables is not mesh_export's (its first line is not '# ORIP mesh')", name);
-    ok = ok && (sizes = bitmap_sizes(t, stem, bank, n, &rows, err)) != NULL && mesh_blender_back(blender, &original, sizes, (uint32_t)rows, out, err);
+    ok = ok && (sizes = bitmap_sizes(t, stem, bank, n, &rows, err)) != NULL && mesh_edit_back(edited, &original, sizes, (uint32_t)rows, out, err);
     free(sizes);
     obj_free(&original);
     return ok;
@@ -272,9 +272,9 @@ int ci_raw_mesh(const CarImportIn *in, int level, const MeshDesc *donor, const S
     Lists lists;
     if (!stem_of(t, stem, sizeof stem, &lists_file, err) || !read_lists(lists_file, &lists, err)) return 0;
     ObjModel back;
-    const int blender = !obj->from_exporter;
-    const int converted = blender && from_blender(obj, t, stem, donor_bank, donor_count, &back, err);
-    int ok = (!blender || converted) && raw_build(blender ? &back : obj, t, stem, &lists, out, err);   /* the bank: the donor's (car_import.c) */
+    const int edited = !obj->from_exporter;
+    const int converted = edited && from_edit(obj, t, stem, donor_bank, donor_count, &back, err);
+    int ok = (!edited || converted) && raw_build(edited ? &back : obj, t, stem, &lists, out, err);   /* the bank: the donor's (car_import.c) */
     if (converted) obj_free(&back);
     lists_free(&lists);
     if (!ok) mesh_desc_free(out), car_import_bank_free(bank);

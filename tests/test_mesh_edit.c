@@ -1,11 +1,11 @@
-/* dep71: a mesh's Blender OBJ back to mesh_export's (formats/mesh_blender.h), with no CD: an OBJ as mesh_export writes it, the one it
- * writes for Blender, that one through tests/blender_like.h (Blender's exporter as far as the tests know it), and back: the same
- * vertices, uvs, corners and materials; a moved vertex and a moved uv come back moved, a uv two corners shared and Blender split
+/* dep71: a mesh's the 3D editor OBJ back to mesh_export's (formats/mesh_edit.h), with no CD: an OBJ as mesh_export writes it, the one it
+ * writes for the 3D editor, that one through tests/modeller_sim.h (the 3D editor's exporter as far as the tests know it), and back: the same
+ * vertices, uvs, corners and materials; a moved vertex and a moved uv come back moved, a uv two corners shared and the 3D editor split
  * takes a new row, a face without uvs stays without; a face or a vertex more or less is refused, naming the import without --raw. */
-#include "formats/mesh_blender.h"
+#include "formats/mesh_edit.h"
 #include "formats/obj_read.h"
 #include "test.h"
-#include "blender_like.h"
+#include "modeller_sim.h"
 
 #include <math.h>
 #include <string.h>
@@ -16,13 +16,13 @@ static const char ORIGINAL[] = "# ORIP mesh 'T': integer units as stored, no axi
                                "v 0 0 0\nv 130 0 0\nv 130 260 0\nv 0 0 -130\nv 5 5 5\n"
                                "vt 0 0\nvt 4 2\nvt 4 0\n"
                                "usemtl t0_side\nf 1/1 2/2 3/3 4/1\nusemtl t1_none\nf 1 2 3\nusemtl t0_side\nf 2 3 4\n";
-/* what mesh_export writes for Blender from it */
-static const char BLENDER[] = "# Spirited Drive mesh 'T' for Blender\nmtllib m.mtl\no T\n"
+/* what mesh_export writes for the 3D editor from it */
+static const char BLENDER[] = "# Spirited Drive mesh 'T' for the 3D editor\nmtllib m.mtl\no T\n"
                               "v 0.000000 0.000000 0.000000\nv 1.000000 0.000000 0.000000\nv 1.000000 2.000000 0.000000\n"
                               "v 0.000000 0.000000 1.000000\nv 0.038462 0.038462 -0.038462\n"
                               "vt 0.000000 1.000000\nvt 1.000000 0.000000\nvt 1.000000 1.000000\nvt 0.000000 1.000000\n"
                               "usemtl t0_side\nf 1/1 2/2 3/3 4/4\nusemtl t1_none\nf 1 2 3\nusemtl t0_side\nf 2 3 4\n";
-static const MeshBlenderSize SIZES[] = { { 4, 2 }, { 1, 1 } };
+static const MeshEditSize SIZES[] = { { 4, 2 }, { 1, 1 } };
 
 static int read(const char *text, ObjModel *m)
 {
@@ -32,13 +32,13 @@ static int read(const char *text, ObjModel *m)
     return ok;
 }
 
-/* `blender` (already Blender's) back against ORIGINAL into `out`; 0 with the reason in `err` */
-static int back(const char *blender, ObjModel *out, ExchangeError *err)
+/* `edited` (already the 3D editor's) back against ORIGINAL into `out`; 0 with the reason in `err` */
+static int back(const char *edited, ObjModel *out, ExchangeError *err)
 {
     ObjModel b, o;
-    if (!read(blender, &b)) return 0;
+    if (!read(edited, &b)) return 0;
     if (!read(ORIGINAL, &o)) return obj_free(&b), 0;
-    const int ok = mesh_blender_back(&b, &o, SIZES, 2, out, err);
+    const int ok = mesh_edit_back(&b, &o, SIZES, 2, out, err);
     obj_free(&b), obj_free(&o);
     return ok;
 }
@@ -71,7 +71,7 @@ static char *edited(const char *text, const char *from, const char *to)
 
 static void test_unchanged(void)
 {
-    char *b = blender_like(BLENDER);
+    char *b = modeller_sim(BLENDER);
     CHECK(strstr(b, "o T.001\n") != NULL && strstr(b, "vn ") != NULL);   /* the rewrite did rewrite */
     ObjModel out, o;
     ExchangeError err = { { 0 } };
@@ -82,13 +82,13 @@ static void test_unchanged(void)
     free(b);
 }
 
-/* the faces in material blocks (0, 0, 1: Blender's exporter may write them so), and the quad's corners rotated by one: the same mesh */
+/* the faces in material blocks (0, 0, 1: the 3D editor's exporter may write them so), and the quad's corners rotated by one: the same mesh */
 static void test_reordered(void)
 {
     char *rotated = edited(BLENDER, "f 1/1 2/2 3/3 4/4\n", "f 2/2 3/3 4/4 1/1\n");
     char *grouped = by_material(rotated);
     CHECK(strstr(grouped, "usemtl t0_side\nf 2/2 3/3 4/4 1/1\nf 2 3 4\nusemtl t1_none\nf 1 2 3\n") != NULL);
-    char *b = blender_like(grouped);
+    char *b = modeller_sim(grouped);
     ObjModel out, o;
     ExchangeError err = { { 0 } };
     CHECK(back(b, &out, &err) && read(ORIGINAL, &o));
@@ -105,7 +105,7 @@ static void test_moved(void)
     /* vertex 3 a metre up, the quad's third corner's uv to the bitmap's middle */
     char *e1 = edited(BLENDER, "v 1.000000 2.000000 0.000000", "v 1.000000 3.000000 0.000000");
     char *e2 = edited(e1, "vt 1.000000 1.000000\n", "vt 0.500000 0.500000\n");
-    char *b = blender_like(e2);
+    char *b = modeller_sim(e2);
     ObjModel out;
     ExchangeError err = { { 0 } };
     CHECK(back(b, &out, &err));
@@ -124,7 +124,7 @@ static void test_split(void)
 {
     /* the quad's last corner, which shared uv 0 with its first, moved: a uv row more; the first keeps uv 0 */
     char *e = edited(BLENDER, "vt 0.000000 1.000000\nusemtl", "vt 0.250000 1.000000\nusemtl");
-    char *b = blender_like(e);
+    char *b = modeller_sim(e);
     ObjModel out;
     ExchangeError err = { { 0 } };
     CHECK(back(b, &out, &err));
@@ -142,7 +142,7 @@ static void test_split(void)
 
 static void test_no_uv_stays(void)
 {
-    /* Blender gives every face of a mesh with uvs a vt: the triangle that had none still has none */
+    /* the 3D editor gives every face of a mesh with uvs a vt: the triangle that had none still has none */
     char *e1 = edited(BLENDER, "usemtl t1_none\nf 1 2 3\n", "usemtl t1_none\nf 1/1 2/1 3/1\n");
     ObjModel out;
     ExchangeError err = { { 0 } };
@@ -166,7 +166,7 @@ static void refused(const char *from, const char *to, const char *word)
     free(e);
 }
 
-/* refusals that say why: the faces in another order (Blender's Separate or Sort), a vertex past the mesh's units, a material naming
+/* refusals that say why: the faces in another order (the 3D editor's Separate or Sort), a vertex past the mesh's units, a material naming
  * a texture the mesh does not have, a textured face whose bitmap is not in the bank (size 0 x 0) */
 static void refused_more(void)
 {
@@ -182,9 +182,9 @@ static void refused_more(void)
     CHECK(!back(far, &out, &err) && strstr(err.message, "vertex 3") != NULL);
     char *unknown = edited(BLENDER, "usemtl t0_side", "usemtl t7_side");
     CHECK(!back(unknown, &out, &err) && strstr(err.message, "t7") != NULL);
-    static const MeshBlenderSize MISSING[] = { { 0, 0 }, { 1, 1 } };
+    static const MeshEditSize MISSING[] = { { 0, 0 }, { 1, 1 } };
     CHECK(read(BLENDER, &b) && read(ORIGINAL, &o));
-    CHECK(!mesh_blender_back(&b, &o, MISSING, 2, &out, &err) && strstr(err.message, "bank") != NULL);
+    CHECK(!mesh_edit_back(&b, &o, MISSING, 2, &out, &err) && strstr(err.message, "bank") != NULL);
     obj_free(&b), obj_free(&o);
     free(flipped), free(stray), free(twice), free(far), free(unknown);
 }

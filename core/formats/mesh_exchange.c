@@ -153,7 +153,7 @@ static void write_mtl(const Mesh *mesh, const MeshTextureBank *banks, size_t ban
     }
 }
 
-void mesh_blender_shown(const char label[8], const char name[4], char shown[4])
+void mesh_edit_shown(const char label[8], const char name[4], char shown[4])
 {
     static const char ZERO[4];
     memcpy(shown, name, 4);
@@ -162,10 +162,10 @@ void mesh_blender_shown(const char label[8], const char name[4], char shown[4])
 
 enum { BANK_KEY = 0xff };   /* the car banks' transparent key (car_texture.c's TRANSPARENT) */
 
-/* fix/blender-preview: NAME.blender.mtl, Blender's own: each reference shows its bitmap (mesh_blender_shown), from the first bank that holds
- * it, or, when it has the key colour, from an RGBA copy NAME.blender.<label>.png beside the OBJ with the key transparent (map_Kd and
+/* fix/edited-preview: NAME.edit.mtl, the 3D editor's own: each reference shows its bitmap (mesh_edit_shown), from the first bank that holds
+ * it, or, when it has the key colour, from an RGBA copy NAME.edit.<label>.png beside the OBJ with the key transparent (map_Kd and
  * map_d). `stem` the files' stem, `base` its last part. 0 when memory runs out */
-static int write_blender_mtl(const Mesh *mesh, const MeshTextureBank *banks, size_t bank_count, const char *stem, const char *base, Text *mtl,
+static int write_edit_mtl(const Mesh *mesh, const MeshTextureBank *banks, size_t bank_count, const char *stem, const char *base, Text *mtl,
                              FileSet *out)
 {
     for (uint32_t i = 0; i < mesh->texture_count; ++i) {
@@ -173,7 +173,7 @@ static int write_blender_mtl(const Mesh *mesh, const MeshTextureBank *banks, siz
         char label[5], file[SHPI_FILE_NAME_SIZE], shown[4];
         mesh_texture(mesh, i, &t);
         texture_label(&t, label);
-        mesh_blender_shown(t.label, t.name, shown);
+        mesh_edit_shown(t.label, t.name, shown);
         text_printf(mtl, "newmtl t%u_%s\nKd 1 1 1\n", i, label);
         for (size_t b = 0; shown[0] != '\0' && b < bank_count; ++b) {
             if (!shpi_entry_file(banks[b].shpi, banks[b].size, shown, file)) continue;
@@ -189,7 +189,7 @@ static int write_blender_mtl(const Mesh *mesh, const MeshTextureBank *banks, siz
             memcpy(as.name, shown, 4);
             char shown_label[5], suffix[32];
             texture_label(&as, shown_label);
-            snprintf(suffix, sizeof suffix, ".blender.%s.png", shown_label);
+            snprintf(suffix, sizeof suffix, ".edit.%s.png", shown_label);
             char *copy = named(stem, suffix);
             int ok = copy != NULL;
             if (ok && fileset_find(out, copy) == NULL) {   /* one copy a bitmap, however many references show it */
@@ -227,18 +227,18 @@ static void bitmap_size(const MeshTextureBank *banks, size_t bank_count, const c
 /* +0.0 for -0.0: the same text for a zero either way */
 static double unsigned_zero(double v) { return v + 0.0; }
 
-/* dep71: NAME.blender.obj (mesh_exchange.h); `mtl` the MTL's file name. 0 with the reason in `err` */
-static int blender_obj(const Mesh *mesh, const char *name, const char *mtl, const MeshTextureBank *banks, size_t bank_count, Text *obj,
+/* dep71: NAME.edit.obj (mesh_exchange.h); `mtl` the MTL's file name. 0 with the reason in `err` */
+static int edit_obj(const Mesh *mesh, const char *name, const char *mtl, const MeshTextureBank *banks, size_t bank_count, Text *obj,
                        ExchangeError *err)
 {
-    text_printf(obj, "# Spirited Drive mesh '%s' for Blender: metres (%d units), Y up, -Z forward; car import --raw takes it back\n",
-                name, MESH_BLENDER_UNITS);
+    text_printf(obj, "# Spirited Drive mesh '%s' for the 3D editor: metres (%d units), Y up, -Z forward; car import --raw takes it back\n",
+                name, MESH_EDIT_UNITS);
     text_printf(obj, "mtllib %s\no %s\n", mtl, name[0] ? name : "mesh");
     for (uint32_t i = 0; i < mesh->vertex_count; ++i) {
         MeshVertex v;
         mesh_vertex(mesh, i, &v);
-        text_printf(obj, "v %.6f %.6f %.6f\n", unsigned_zero((double)v.x / MESH_BLENDER_UNITS), unsigned_zero((double)v.y / MESH_BLENDER_UNITS),
-                    unsigned_zero(-(double)v.z / MESH_BLENDER_UNITS));
+        text_printf(obj, "v %.6f %.6f %.6f\n", unsigned_zero((double)v.x / MESH_EDIT_UNITS), unsigned_zero((double)v.y / MESH_EDIT_UNITS),
+                    unsigned_zero(-(double)v.z / MESH_EDIT_UNITS));
     }
     for (int pass = 0; pass < 2; ++pass) {   /* every corner's vt, then the faces */
         uint32_t corner_vt = 0;
@@ -254,7 +254,7 @@ static int blender_obj(const Mesh *mesh, const char *name, const char *mtl, cons
             }
             const int corners = poly.flags & 7, with_uv = poly.uv_slot != poly.vertex_slot;
             char shown[4];
-            mesh_blender_shown(t.label, t.name, shown);
+            mesh_edit_shown(t.label, t.name, shown);
             bitmap_size(banks, bank_count, shown, &w, &h);
             if (pass == 1 && poly.texture != current) {
                 char label[5];
@@ -380,16 +380,16 @@ int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTe
     }
     free(obj.data);
     free(mtl.data);
-    if (ok) {   /* dep71: the same mesh for Blender, with its own MTL (fix/blender-preview) */
-        Text blender = { 0 }, bmtl = { 0 };
+    if (ok) {   /* dep71: the same mesh for the 3D editor, with its own MTL (fix/edited-preview) */
+        Text edited = { 0 }, bmtl = { 0 };
         const char *const base = strchr(stem, '/') ? strrchr(stem, '/') + 1 : stem;
-        char *mtl_name = named(base, ".blender.mtl"), *f = named(stem, ".blender.obj"), *fm = named(stem, ".blender.mtl");
-        ok = mtl_name && f && fm && blender_obj(&mesh, name, mtl_name, banks, bank_count, &blender, err);
-        if (ok && !write_blender_mtl(&mesh, banks, bank_count, stem, base, &bmtl, out)) exchange_fail(err, "%s: cannot write the Blender previews", stem), ok = 0;
-        if (ok && (blender.failed || bmtl.failed || !fileset_add(out, f, (uint8_t *)blender.data, blender.len) ||
+        char *mtl_name = named(base, ".edit.mtl"), *f = named(stem, ".edit.obj"), *fm = named(stem, ".edit.mtl");
+        ok = mtl_name && f && fm && edit_obj(&mesh, name, mtl_name, banks, bank_count, &edited, err);
+        if (ok && !write_edit_mtl(&mesh, banks, bank_count, stem, base, &bmtl, out)) exchange_fail(err, "%s: cannot write the the 3D editor previews", stem), ok = 0;
+        if (ok && (edited.failed || bmtl.failed || !fileset_add(out, f, (uint8_t *)edited.data, edited.len) ||
                    !fileset_add(out, fm, (uint8_t *)bmtl.data, bmtl.len)))
-            exchange_fail(err, "%s: cannot write the Blender OBJ", stem), ok = 0;
-        free(mtl_name), free(f), free(fm), free(blender.data), free(bmtl.data);
+            exchange_fail(err, "%s: cannot write the the 3D editor OBJ", stem), ok = 0;
+        free(mtl_name), free(f), free(fm), free(edited.data), free(bmtl.data);
     }
     if (ok) {
         char *hname = named(stem, ".header.tsv");
