@@ -1800,6 +1800,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(track_light_fingerprint PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         add_test(NAME sun_shadow_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/sun_shadow_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(sun_shadow_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
+        add_test(NAME sky_glow_heading COMMAND sh ${CMAKE_SOURCE_DIR}/tests/sky_glow_heading.sh $<TARGET_FILE:sky_glow> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+        set_tests_properties(sky_glow_heading PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
         # the same, from the one file a track that tools/track_light_convert.py makes from the old files: converting changes no light
         add_test(NAME track_light_convert COMMAND ${CMAKE_COMMAND} -E env CONVERT=1 sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
                  ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
@@ -2246,6 +2248,9 @@ if(NOT EMSCRIPTEN)
     add_executable(psx_light_fit tools/psx_light_fit.c)
     target_link_libraries(psx_light_fit PRIVATE tnfs_game)
     target_compile_options(psx_light_fit PRIVATE ${TNFS_WARNINGS})
+    add_executable(sky_glow tools/sky_glow.c)
+    target_link_libraries(sky_glow PRIVATE tnfs_game)
+    target_compile_options(sky_glow PRIVATE ${TNFS_WARNINGS})
 
     # the exe-comparison probes (probe_*.c, quad_draw, flat_draw, palette_match_run): each runs a ported function on the cases it is sent, to compare
     # with the exe's own; built only when asked for (-DTNFS_PROBES=ON), from a checkout of their sources, which are not in this repository (-DTNFS_WORKSHOP=DIR or the TNFS_WORKSHOP variable)
