@@ -18,6 +18,7 @@ extern "C" {
 #include "panels.h"
 #include "shortcut_keys.h"
 #include "command_keys.h"
+#include "edit_clipboard.h"
 #include "viewport.h"
 
 #include <algorithm>
@@ -519,6 +520,7 @@ static void workspace_menu(App *a)
 
 void main_menu(App *a)
 {
+    edit_clipboard_frame();   // before the menu bar can return: the text field the user was in, and an Edit item under way
     if (!ImGui::BeginMainMenuBar()) return;
     if (ImGui::BeginMenu("File")) {
         FileItem items[12];
@@ -554,6 +556,14 @@ void main_menu(App *a)
         shortcut_label(redo_keys, sizeof redo_keys, SHORTCUT_MAC, "Shift+Z");
         if (ImGui::MenuItem("Undo", undo_keys, false, app_can_undo(a))) app_undo(a);
         if (ImGui::MenuItem("Redo", redo_keys, false, app_can_redo(a))) app_redo(a);
+        ImGui::Separator();
+        static const struct { const char *label, *key; EditAction action; } CLIPBOARD[] = {
+            { "Cut", "X", EDIT_CUT }, { "Copy", "C", EDIT_COPY }, { "Paste", "V", EDIT_PASTE }, { "Select all", "A", EDIT_SELECT_ALL } };
+        for (const auto &item : CLIPBOARD) {   // on the text field the user was in: it is given back, the chord typed for it
+            char keys[16];
+            shortcut_label(keys, sizeof keys, SHORTCUT_MAC, item.key);
+            if (ImGui::MenuItem(item.label, keys, false, edit_clipboard_ready() && !edit_clipboard_busy())) edit_clipboard_do(item.action);
+        }
         ImGui::EndMenu();
     }
     window_menu(a);
