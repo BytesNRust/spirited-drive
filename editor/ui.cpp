@@ -204,14 +204,6 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
 void ui_settings_to(App *a)
 {
     g_app = a;
-    a->drive_window[0] = '\0';
-    if (g_win != nullptr) {   // the Test drive's game opens to the right of this window when the display has room for it, else where the game puts it
-        int wx = 0, wy = 0, ww = 0, wh = 0;
-        SDL_Rect room = { 0, 0, 0, 0 };
-        SDL_GetWindowPosition(g_win, &wx, &wy);
-        SDL_GetWindowSize(g_win, &ww, &wh);
-        if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(g_win), &room) && room.x + room.w - (wx + ww) >= 680) snprintf(a->drive_window, sizeof a->drive_window, "%d,%d", wx + ww + 8, wy);
-    }
     if (g_drive_read >= 0) a->drive_pick = g_drive_read;
     g_drive_read = -1;
     int light = 0;
@@ -975,6 +967,19 @@ void ui_frame(SDL_Renderer *ren, App *a)
     if (a->kind != APP_KIND_NONE && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_W, ImGuiInputFlags_RouteGlobal)) app_ask(a, APP_ACT_MAIN, "");   // Cmd+W: the main menu
     const bool reset = g_reset_in > 0 && --g_reset_in == 0 && a->kind != APP_KIND_NONE;   // Reset layout's countdown ends: this frame rebuilds the dock
     g_app = a;
+    a->drive_window[0] = '\0';
+    if (g_win != nullptr) {   // the Test drive's game (a window 854 wide) opens beside this one: to its right, or at the display's right edge when there is no room, so this window's left side stays in view
+        int wx = 0, wy = 0, ww = 0, wh = 0;
+        SDL_Rect room = { 0, 0, 0, 0 };
+        SDL_GetWindowPosition(g_win, &wx, &wy);
+        SDL_GetWindowSize(g_win, &ww, &wh);
+        if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(g_win), &room)) {
+            int x = wx + ww + 8;
+            if (x + 854 > room.x + room.w) x = room.x + room.w - 854;
+            if (x < room.x) x = room.x;
+            snprintf(a->drive_window, sizeof a->drive_window, "%d,%d", x, wy > room.y ? wy : room.y);
+        }
+    }
     if (a->kind == APP_KIND_CAR) {   // the Preview's Night light and tint are the editor's: kept for the next car and the next run (the ini is written when marked)
         int light = 0;
         float tint[3] = { 0, 0, 0 };

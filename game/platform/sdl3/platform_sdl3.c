@@ -69,14 +69,15 @@ void sdl3_open_log(void)
 /* port: the window's size in points and in pixels, the renderer's output and the presentation rectangle, so a log shows what a retina display gave */
 static void log_window_sizes(const char *when)
 {
-    int w = 0, h = 0, pw = 0, ph = 0, ow = 0, oh = 0;
+    int w = 0, h = 0, pw = 0, ph = 0, ow = 0, oh = 0, wx = 0, wy = 0;
+    SDL_GetWindowPosition(sdl3_window, &wx, &wy);
     SDL_GetWindowSize(sdl3_window, &w, &h);
     SDL_GetWindowSizeInPixels(sdl3_window, &pw, &ph);
     SDL_GetRenderOutputSize(sdl3_renderer, &ow, &oh);
     SDL_FRect frect = { 0, 0, 0, 0 };
     SDL_GetRenderLogicalPresentationRect(sdl3_renderer, &frect);
-    port_log("platform: window %s: %dx%d points, %dx%d pixels (density %.2f), render output %dx%d, presentation rect %.0f,%.0f %.0fx%.0f for %dx%d\n",
-             when, w, h, pw, ph, (double)SDL_GetWindowPixelDensity(sdl3_window), ow, oh,
+    port_log("platform: window %s: at %d,%d %dx%d points, %dx%d pixels (density %.2f), render output %dx%d, presentation rect %.0f,%.0f %.0fx%.0f for %dx%d\n",
+             when, wx, wy, w, h, pw, ph, (double)SDL_GetWindowPixelDensity(sdl3_window), ow, oh,
              (double)frect.x, (double)frect.y, (double)frect.w, (double)frect.h, sdl3_fb_width, sdl3_fb_height);
 }
 

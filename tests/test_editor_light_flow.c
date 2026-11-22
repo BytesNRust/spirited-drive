@@ -387,7 +387,7 @@ static void test_drive_flow(void)
     double now = 1;
     // an edit reaches the drive's copy at once, with no Save and no photo
     char why[LIGHT_WHY];
-    const LightBrightness b = { 120, 180, 70 };
+    const LightBrightness b = { 120, 180, 70, LIGHT_SIDE_BOTH, 0 };
     CHECK(light_file_set_brightness(&a->light.session.file, -1, &b, why, sizeof why));
     app_light_touch(a);
     now += 0.05;

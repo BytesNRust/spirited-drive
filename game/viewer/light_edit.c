@@ -4,6 +4,7 @@
 #include "viewer/drive_light.h"
 #include "game/viewer/view_pick.h"
 #include "game/platform/platform.h"
+#include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/text.h"
 #include "game/sys/video.h"
@@ -87,6 +88,7 @@ int light_edit_poll(LightEdit *e, uint32_t now_ms)
     if (hash == e->hash) return 0;
     e->hash = hash;
     if (!drive_light_reload()) return 0;
+    port_log("light edit: %s changed, the light is made again\n", path);
     say(e, "a file changed: the light is made again (snow: restart)", now_ms);
     return 1;
 }

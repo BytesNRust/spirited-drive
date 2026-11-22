@@ -70,6 +70,8 @@ echo "$out" | grep -q '^drive: running AL1 B node 0 rain$' || fail "the drive di
 echo "$out" | grep -q '^drive: failed AL1 B node 0 rain$' || fail "Stop did not end the drive: $(echo "$out" | grep '^drive:')"
 echo "$out" | grep -q '^drive why: $' || fail "a Stop was reported as a failure: $(echo "$out" | grep '^drive why')"
 grep -q 'edit=1 time=day weather=rain video=$' "$LIVE_RECORD" || fail "the game was not started with the light editor, the day and the rain (and a real window): $(cat "$LIVE_RECORD" 2>&1)"
+out=$(run --game "$work/live_game" --frames 40 --steps open-original:0,light-drive,poll-wait:4,light-bright:40,poll-wait:4,print-drive,drive-stop 2>&1) || fail "test drive edit: $out"
+echo "$out" | grep -q '^drive copy: brightness 0 9 40' || fail "an edit made while the game runs did not reach the drive's copy of the file: $(echo "$out" | grep '^drive')"
 out=$(run --game /no/such/game --frames 10 --steps open-original:0,light-drive 2>&1) && fail "a drive started without a game: $out"
 echo "$out" | grep -q "the game's program is not there" || fail "no game: the refusal does not say so: $out"
 
