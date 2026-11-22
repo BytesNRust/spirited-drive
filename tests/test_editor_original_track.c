@@ -80,6 +80,15 @@ int main(void)
     path_of(ws, sizeof ws, "ws"), path_of(data, sizeof data, "data"), path_of(art, sizeof art, "art");
     make("ws/tracks");
 
+    {   /* a mask PNG that changed size says so: a count of texels would read "+0 -0" for a mask that is all different (retouch QA) */
+        OriginalPublish p;
+        memset(&p, 0, sizeof p);
+        snprintf(p.item[0].file, sizeof p.item[0].file, "track_masks/AL1/scenery_01.png");
+        p.item[0].state = OT_CHANGED, p.item[0].lines_added = p.item[0].lines_removed = -1, p.count = 1;
+        char said[300];
+        original_track_publish_text(&p, "AL1", said, sizeof said);
+        CHECK(strstr(said, "size differs") != NULL && strstr(said, "+-1") == NULL && strstr(said, "+0 -0") == NULL, "a mask of another size: %s", said);
+    }
     CHECK(strcmp(original_track_stem(0), "AL1") == 0 && strcmp(original_track_stem(15), "TR7") == 0 && original_track_stem(16) == NULL, "stems");
     CHECK(!original_track_dir(ws, "XX9", dir, sizeof dir), "a stem that is not one of the sixteen has no folder");
     CHECK(original_track_dir(ws, "AL1", dir, sizeof dir) && strstr(dir, "/ws/tracks/AL1") != NULL, "the folder: %s", dir);

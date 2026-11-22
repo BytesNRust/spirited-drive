@@ -80,10 +80,13 @@ void track_masks_panel(App *a, ImTextureID picture)
     }
     if (ImGui::BeginTable("##trackmasks", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Borders, ImVec2(0, bounded(ImGui::GetContentRegionAvail().y * 0.42f, 120.0f, 600.0f)))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("Texture", ImGuiTableColumnFlags_WidthFixed, 190.0f);   // wide enough for the «Not painted yet (N)» line, which a column clips
-        ImGui::TableSetupColumn("Size");
-        ImGui::TableSetupColumn("Mask");
-        ImGui::TableSetupColumn("State");
+        // widths from the font, not pixels, so a narrow window (the laptop's 854 px) still reads every column: Texture is as wide as a texture's name; the «Not painted
+        // yet (N)» line overflows its cell (NoClip) over the empty ones of its row; Size and Mask take their numbers, and State the rest
+        const float pad = 2 * ImGui::GetStyle().CellPadding.x;
+        ImGui::TableSetupColumn("Texture", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoClip, ImGui::CalcTextSize("scenery_00").x + ImGui::GetFrameHeight() + pad);
+        ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("256x256").x + pad);
+        ImGui::TableSetupColumn("Mask", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("0000").x + pad);
+        ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableHeadersRow();
         int unpainted = 0;
         for (int i = 0; i < m.count; ++i) unpainted += unpainted_row(m.row[i]) ? 1 : 0;

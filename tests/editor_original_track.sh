@@ -56,6 +56,10 @@ echo "$out" | grep -q '^status: copied to the game repo: 1 file written' || fail
 [ "$(grep -c brightness "$work/data/track_light/CL1B.txt")" = 0 ] || fail "an untouched file was changed"
 
 # the masks: PSDs make the PNGs when the track opens (never from an empty mask layer); the panel's rows say the state
+# the laptop's 854 px window, a fresh layout: the three panels share the width, none squeezed (the masks table's columns are checked in the captures)
+out=$(run --window 854x560 --reset-layout --frames 30 --steps open-original:0,poll-wait:6,print-panels 2>&1) || fail "854 px layout: $out"
+masks_w=$(echo "$out" | grep '^widths:' | sed -n 's/.*\[Track masks \([0-9]*\)\].*/\1/p')
+[ -n "$masks_w" ] && [ "$masks_w" -ge 250 ] || fail "the Track masks panel is $masks_w px wide in an 854 px window (250 needed): $(echo "$out" | grep '^widths:')"
 out=$(run --frames 60 --steps open-original:0,masks-print 2>&1) || fail "masks-print: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "three masks, all made: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective, 0 lamps$' || fail "scenery_00 ok: $out"

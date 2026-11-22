@@ -54,7 +54,7 @@ typedef enum { OT_SAME = 0, OT_CHANGED, OT_NEW } OriginalState;
 typedef struct {
     char file[OT_NAME];   /* relative to data/: "track_light/AL1B.txt" */
     OriginalState state;
-    int lines_added, lines_removed;   /* changed: the lines the project's file has that data/'s has not, and the other way round; for a mask PNG ("track_masks/CL1/slot_06.png"): the texels it marks that data/'s does not, and the reverse */
+    int lines_added, lines_removed;   /* changed: the lines the project's file has that data/'s has not, and the other way round; for a mask PNG ("track_masks/CL1/slot_06.png"): the texels it marks that data/'s does not, and the reverse; both -1 when its size is not data/'s */
 } OriginalPublishItem;
 
 #define OT_PUBLISH_MAX 264   /* the 5 light files and the masks (track_masks.h adds one item for each PNG, up to 256) */

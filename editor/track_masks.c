@@ -305,7 +305,9 @@ int track_masks_publish_plan(const char *dir, const char *data_dir, const char *
         else if (same(&a, &b)) it->state = OT_SAME, ++plan->same;
         else {
             it->state = OT_CHANGED, ++plan->changed;
-            if (a.w == b.w && a.h == b.h) {
+            if (a.w != b.w || a.h != b.h) {
+                it->lines_added = it->lines_removed = -1;   // another size: texels cannot be matched, the text says so
+            } else {
                 for (size_t i = 0; i < (size_t)a.w * a.h; ++i) {
                     if (a.marks[i] == b.marks[i]) continue;   // a texel that changes class (reflective to lamp) counts as the old mark lost and the new one gained
                     it->lines_added += a.marks[i] != TRACK_MASK_NONE;

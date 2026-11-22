@@ -791,6 +791,12 @@ void ui_print_panels(const App *a)
         if (!listed) printf(" [%s]", w->Name);
     }
     printf("\n");
+    printf("widths:");   // each drawn panel's width in pixels, so a layout that squeezes one (the laptop's 854 px window) is a test failure
+    for (int i = 0; i < n; ++i) {
+        const ImGuiWindow *w = ImGui::FindWindowByName(names[i]);
+        if (w != nullptr && w->Active) printf(" [%s %.0f]", names[i], w->Size.x);
+    }
+    printf("\n");
 }
 
 

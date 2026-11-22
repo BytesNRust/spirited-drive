@@ -296,7 +296,8 @@ void original_track_publish_text(const OriginalPublish *p, const char *stem, cha
     for (int i = 0; i < p->count && n < cap; ++i) {
         const OriginalPublishItem *it = &p->item[i];
         const int mask = strncmp(it->file, "track_masks/", 12) == 0;
-        if (it->state == OT_CHANGED) n += (size_t)snprintf(out + n, cap - n, "\n  %s changed (+%d -%d %s)", it->file, it->lines_added, it->lines_removed, mask ? "texels" : "lines");
+        if (it->state == OT_CHANGED && it->lines_added < 0) n += (size_t)snprintf(out + n, cap - n, "\n  %s changed (size differs from the game's)", it->file);
+        else if (it->state == OT_CHANGED) n += (size_t)snprintf(out + n, cap - n, "\n  %s changed (+%d -%d %s)", it->file, it->lines_added, it->lines_removed, mask ? "texels" : "lines");
         else if (it->state == OT_NEW) n += (size_t)snprintf(out + n, cap - n, "\n  %s new", it->file);
     }
     if (n < cap) snprintf(out + n, cap - n, "\n  %d unchanged", p->same);
