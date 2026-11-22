@@ -106,6 +106,16 @@ int ui_card_photo(App *a)
     return model_panel_card_photo(a);
 }
 
+void ui_camera_nudge(void)
+{
+    model_panel_nudge();
+}
+
+void ui_camera(int *yaw, int *pitch, int *dist)
+{
+    model_panel_camera(yaw, pitch, dist);
+}
+
 int ui_card_backdrop(App *a, int kind, int r, int g, int b, int bottom)
 {
     return model_panel_backdrop(a, kind, r, g, b, bottom);

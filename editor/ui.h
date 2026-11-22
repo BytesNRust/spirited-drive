@@ -16,6 +16,9 @@ extern "C" {
 void ui_double_click_by_frames(void);
 /* the Model window's «Use as card photo» (the step card-photo), without the question about a card.png that is there: 1 when card.png was made */
 int ui_card_photo(App *a);
+/* the Model's camera (the step camera): moved as a hand would, and where it is (1/16 degrees, model units) */
+void ui_camera_nudge(void);
+void ui_camera(int *yaw, int *pitch, int *dist);
 /* the Model window's Card view and As on the card boxes (the step card-view): 1 when the car is open to show them */
 int ui_card_view(App *a, int card, int as_card);
 /* the card photo's backdrop (the steps card-backdrop:KIND,R,G,B and card-bd-bottom:R,G,B, and --card-backdrop FILE): 1 when the car is open to show it */

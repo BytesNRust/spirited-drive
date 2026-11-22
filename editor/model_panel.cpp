@@ -142,13 +142,13 @@ void remember(const App *a, const uint8_t *rgb)
 // the car file read and the scene opened on it; the camera starts at home (or at the command line's orbit)
 void load(App *a, const uint8_t *rgb)
 {
+    const bool again = g.scene != nullptr && strcmp(g.loaded, a->car.cfm) == 0;   // the same car read again (Convert PSD, Build, a file changed on disk): the camera stays
     snprintf(g.loaded, sizeof g.loaded, "%s", a->car.cfm);
     g.loaded_serial = a->cdisk.serial;
     open_scene(a, rgb);
     remember(a, rgb);
     if (g.scene == nullptr) return;
-    orbit_init(&g.orbit, model_scene_radius(g.scene));
-    g.fit = true;
+    if (!again) orbit_init(&g.orbit, model_scene_radius(g.scene)), g.fit = true;
     if (g.preset) {
         orbit_set_degrees(&g.orbit, g.preset_yaw, g.preset_pitch);
         if (g.preset_dist > 0) orbit_set_dist(&g.orbit, g.preset_dist), g.fit = false;   // a distance asked for is kept
@@ -494,6 +494,18 @@ int model_panel_card_photo(App *a)
 void model_panel_preset(double yaw, double pitch, int dist)
 {
     g.preset = 1, g.preset_yaw = yaw, g.preset_pitch = pitch, g.preset_dist = dist;
+}
+
+void model_panel_nudge(void)
+{
+    orbit_drag(&g.orbit, 40, 25);
+    orbit_zoom(&g.orbit, 2);
+    g.fit = false, g.dirty = true;
+}
+
+void model_panel_camera(int *yaw, int *pitch, int *dist)
+{
+    *yaw = g.orbit.yaw, *pitch = g.orbit.pitch, *dist = g.orbit.dist;
 }
 
 void model_panel(App *a, SDL_Renderer *ren)

@@ -51,6 +51,8 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet);   // Test in race
 void photo_view_panel(App *a, ImTextureID photo);   // the photo in a large window of its own (a->photo_view_open)
 void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
 void model_panel_preset(double yaw, double pitch, int dist);
+void model_panel_nudge(void);   // the camera moved as a hand would (a drag and two wheel notches): the step camera:1
+void model_panel_camera(int *yaw, int *pitch, int *dist);   // where the camera is now (1/16 degrees, model units): the step camera:0
 int model_panel_backdrop(App *a, int kind, int r, int g, int b, int bottom);   // the card photo's backdrop (the step card-backdrop): kind 0 plain, 1 gradient, 2 picture; the colour is the top one, or the bottom one when `bottom`
 const char *model_panel_backdrop_path();   // the backdrop's picture now ("" for none)
 void model_panel_backdrop_file(const char *path);   // a picture as the backdrop (--card-backdrop)

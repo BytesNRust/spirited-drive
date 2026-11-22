@@ -75,4 +75,10 @@ echo "$out" | grep -q 'car new' || fail "no word why: $out"
 run --frames 6 --steps new-car-open --shot "$work/dialog.png" > "$work/log" 2>&1 || fail "the New car window did not draw: $(cat "$work/log")"
 [ -s "$work/dialog.png" ] || fail "no picture of the New car window"
 
+# the Model's camera stays when the car is read again (Convert PSD ends, a watch finds a changed file, Build): the same yaw, pitch and distance, not the first view
+out=$(run --frames 20 "$ws/cars/car-supra" --steps camera:0,camera:1,camera:0,camera:2,camera:0 2>&1) || fail "camera steps: $out"
+cam() { echo "$out" | grep '^camera: ' | sed -n "$1p"; }
+[ "$(cam 1)" != "$(cam 2)" ] || fail "the camera did not move: $out"
+[ "$(cam 2)" = "$(cam 3)" ] || fail "the camera changed when the car was read again: $out"
+
 [ "$failures" = 0 ] || exit 1
