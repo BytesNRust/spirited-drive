@@ -24,8 +24,9 @@ bool light_strip_bar(const char *id, unsigned *mask)
     ImGui::InvisibleButton("##bar", ImVec2(cell_w * LIGHT_STRIP_POINTS, cell_h));
     static int anchor = -1;
     const ImVec2 mouse = ImGui::GetIO().MousePos;
-    int cell = static_cast<int>((mouse.x - origin.x) / cell_w);
-    cell = cell < 0 ? 0 : cell >= LIGHT_STRIP_POINTS ? LIGHT_STRIP_POINTS - 1 : cell;
+    float at = cell_w > 0.0f ? (mouse.x - origin.x) / cell_w : 0.0f;   // no mouse is a huge negative: clamp in floats before the cast
+    at = !(at > 0.0f) ? 0.0f : at > static_cast<float>(LIGHT_STRIP_POINTS - 1) ? static_cast<float>(LIGHT_STRIP_POINTS - 1) : at;
+    const int cell = static_cast<int>(at);
     if (ImGui::IsItemActivated()) anchor = cell;
     if (ImGui::IsItemActive() && anchor >= 0) {
         const unsigned picked = light_strip_span(anchor, cell);

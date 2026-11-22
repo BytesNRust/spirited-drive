@@ -1,5 +1,6 @@
 /* The Track light window's side of the App (app.h, light_ui.h): the mode's session, the photo and its auto-refresh. */
 #include "app.h"
+#include "original_track_trace.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,12 +52,18 @@ void app_set_light_dir(App *a, const char *dir)
     snprintf(a->light_dir, sizeof a->light_dir, "%s", dir != NULL ? dir : "");
 }
 
-/* opens (track, time) of the light folder into `ui`'s session, the old one closed only when this opens; 1, or 0 with `why` */
-static int open_session(LightUi *ui, const char *dir, int track, int time, char *why, size_t cap)
+/* opens the track's light file of the light folder into `ui`'s session (one file holds the four times; `time` is the one the window shows), the old one closed only when this
+ * opens; the node count is the game's TRI's, so `cd` must be known; 1, or 0 with `why` */
+static int open_session(LightUi *ui, const char *dir, const char *cd, int track, int time, char *why, size_t cap)
 {
-    LightSession next;
-    if (!light_session_open(&next, dir, light_ui_track(track), light_ui_time_letter(time), why, cap)) return 0;
-    if (ui->open) light_session_close(&ui->session);
+    LightTrackSession next;
+    unsigned nodes = 0;
+    if (light_ui_track(track) == NULL) return snprintf(why, cap, "no such track"), 0;
+    if (!light_track_session_check_folder(dir, why, cap)) return 0;   /* the folder's own reason first */
+    if (cd == NULL || cd[0] == '\0') return snprintf(why, cap, "the game's files (the CD data) are not known: the track's node count is read from them (start the editor with --cd DIR)"), 0;
+    if (!original_track_nodes(cd, light_ui_track(track), &nodes, why, cap)) return 0;
+    if (!light_track_session_open(&next, dir, light_ui_track(track), nodes, why, cap)) return 0;
+    if (ui->open) light_track_session_close(&ui->session);
     ui->session = next;
     ui->open = 1;
     ui->track = track;
@@ -108,7 +115,7 @@ int app_light_set_folder(App *a, const char *dir)
     const int track = ui->open ? ui->track : 0, time = ui->open ? ui->time : 1;
     char why[APP_MSG];
     why[0] = '\0';
-    if (!open_session(ui, dir, track, time, why, sizeof why)) {
+    if (!open_session(ui, dir, a->export_src.cd, track, time, why, sizeof why)) {
         set_error(a, why);
         return 0;
     }
@@ -135,7 +142,7 @@ int app_open_light_on(App *a, int track)
     if (a->light_dir[0] == '\0') app_light_default_dir(a->game, a->light_dir, sizeof a->light_dir);   /* the game's own light files, when it has them */
     if (a->light_dir[0] == '\0') {   /* no folder: the window opens to ask for one (Choose...) */
         snprintf(next->light.error, sizeof next->light.error, "%s", NO_FOLDER);
-    } else if (!open_session(&next->light, a->light_dir, track, 1, why, sizeof why)) {
+    } else if (!open_session(&next->light, a->light_dir, a->export_src.cd, track, 1, why, sizeof why)) {
         snprintf(a->open_error, sizeof a->open_error, "%s", why);
         snprintf(a->status, sizeof a->status, "%s", why);
         app_free(next);
@@ -166,13 +173,18 @@ int app_light_select(App *a, int track, int time)
         set_error(a, "no such track or time of day");
         return 0;
     }
+    if (track == ui->track) {   /* the same track: the file holds every time, nothing is read again */
+        ui->time = time;
+        changed(a);
+        return 1;
+    }
     if (app_modified(a)) {
-        set_error(a, "the file has unsaved changes: Save or Revert before another track or time");
+        set_error(a, "the file has unsaved changes: Save or Revert before another track");
         return 0;
     }
     char why[APP_MSG];
     why[0] = '\0';
-    if (!open_session(ui, a->light_dir, track, time, why, sizeof why)) {
+    if (!open_session(ui, a->light_dir, a->export_src.cd, track, time, why, sizeof why)) {
         set_error(a, why);
         return 0;
     }
@@ -184,7 +196,7 @@ int app_light_select(App *a, int track, int time)
 void app_light_set_node(App *a, long node)
 {
     LightUi *ui = &a->light;
-    const int now = (int)light_session_clamp_node(&ui->session, node);
+    const int now = (int)light_track_session_clamp_node(&ui->session, node);
     if (now != ui->node) {
         ui->node = now;
         changed(a);
@@ -220,7 +232,7 @@ void app_light_touch(App *a)
 
 void app_light_revert(App *a)
 {
-    light_session_revert(&a->light.session);
+    light_track_session_revert(&a->light.session);
     a->light.error[0] = '\0';
     changed(a);
 }
@@ -229,19 +241,19 @@ int app_light_save(App *a)
 {
     char why[APP_MSG];
     why[0] = '\0';
-    char where[LIGHT_SESSION_PATH];
-    light_session_path(&a->light.session, where, sizeof where);
+    char where[LIGHT_TRACK_SESSION_PATH];
+    light_track_session_path(&a->light.session, where, sizeof where);
     if (app_light_in_bundle(where) || app_light_in_bundle(a->light_dir)) {
         set_error(a, "not saved: this light file is inside an app bundle (*.app), and writing there breaks the app's signature: choose another light folder");
         return 0;
     }
-    if (!light_session_save(&a->light.session, why, sizeof why)) {
+    if (!light_track_session_save(&a->light.session, why, sizeof why)) {
         set_error(a, why);
         return 0;
     }
     a->light.error[0] = '\0';
-    char path[LIGHT_SESSION_PATH];
-    light_session_path(&a->light.session, path, sizeof path);
+    char path[LIGHT_TRACK_SESSION_PATH];
+    light_track_session_path(&a->light.session, path, sizeof path);
     snprintf(a->status, sizeof a->status, "saved %s", path);
     return 1;
 }
@@ -271,19 +283,14 @@ int app_light_drive(App *a)
     if (a->game[0] == '\0') return set_error(a, "the game's program is not known: the test drive is the game in a window"), 0;
     if (a->export_src.cd[0] == '\0') return set_error(a, "the game's files (the CD data) are not known: the test drive needs them"), 0;
     if (ui->photo.state == LIGHT_PHOTO_RUNNING) light_photo_stop(&ui->photo);   /* one game at a time: the photo is made again after the drive */
-    size_t size = 0, places_size = 0;
-    char *text = light_session_text(&ui->session, &size);
-    char *places = light_session_places_text(&ui->session, &places_size);   /* NULL without a places file: the game's own is used */
-    if (text == NULL) {
-        free(places);
-        return set_error(a, "out of memory"), 0;
-    }
+    size_t size = 0;
+    char *text = light_track_session_text(&ui->session, &size);
+    if (text == NULL) return set_error(a, "out of memory"), 0;
     char why[LIGHT_DRIVE_WHY];
     set_masks(a);
     snprintf(ui->drive.masks, sizeof ui->drive.masks, "%s", ui->photo.masks);
     snprintf(ui->drive.window, sizeof ui->drive.window, "%s", a->drive_window);
-    const int ok = light_drive_start(&ui->drive, a->game, a->export_src.cd, ui->session.track, ui->session.letter, (unsigned)ui->node, ui->weather, text, size, places, places_size, why, sizeof why);
-    free(places);
+    const int ok = light_drive_start(&ui->drive, a->game, a->export_src.cd, ui->session.track, light_ui_time_letter(ui->time), (unsigned)ui->node, ui->weather, text, size, why, sizeof why);
     free(text);
     if (!ok) return set_error(a, why), 0;
     ui->drive_serial = ui->edit_serial;
@@ -313,18 +320,16 @@ static void drive_follow(App *a, double now)
     LightUi *ui = &a->light;
     const LightDriveJob *d = &ui->drive;
     if (ui->edit_serial == ui->drive_serial) return;
-    const int moved = strcmp(d->track, ui->session.track) != 0 || d->letter != ui->session.letter || d->node != (unsigned)ui->node || d->weather != ui->weather;
+    const int moved = strcmp(d->track, ui->session.track) != 0 || d->letter != light_ui_time_letter(ui->time) || d->node != (unsigned)ui->node || d->weather != ui->weather;
     if (moved && now - ui->edit_at < LIGHT_UI_SETTLE) return;
     if (moved) {
         app_light_drive(a);
         return;
     }
-    size_t size = 0, places_size = 0;
-    char *text = light_session_text(&ui->session, &size);
-    char *places = light_session_places_text(&ui->session, &places_size);
+    size_t size = 0;
+    char *text = light_track_session_text(&ui->session, &size);
     char why[LIGHT_DRIVE_WHY];
-    if (text == NULL || !light_drive_update(&ui->drive, text, size, places, places_size, why, sizeof why)) set_error(a, text == NULL ? "out of memory" : why);
-    free(places);
+    if (text == NULL || !light_drive_update(&ui->drive, text, size, why, sizeof why)) set_error(a, text == NULL ? "out of memory" : why);
     free(text);
     ui->drive_serial = ui->edit_serial;
 }
@@ -346,18 +351,15 @@ int app_light_photo(App *a)
         return 0;
     }
     size_t size = 0;
-    char *text = light_session_text(&ui->session, &size);
+    char *text = light_track_session_text(&ui->session, &size);
     if (text == NULL) {
         set_error(a, "out of memory");
         return 0;
     }
     char why[LIGHT_PHOTO_WHY];
-    size_t places_size = 0;
     set_masks(a);   /* an original track: the masks of its folder go in front of the game's */
-    char *places = light_session_places_text(&ui->session, &places_size);   /* NULL without a places file: the game's own is used */
-    const int ok = light_photo_start(&ui->photo, a->game, a->export_src.cd, ui->session.track, ui->session.letter, (unsigned)ui->node, ui->view, ui->hud, light_photo_view_ticks(ui->view), text, size,
-                                     places, places_size, why, sizeof why);
-    free(places);
+    const int ok = light_photo_start(&ui->photo, a->game, a->export_src.cd, ui->session.track, light_ui_time_letter(ui->time), (unsigned)ui->node, ui->view, ui->hud, light_photo_view_ticks(ui->view), text, size,
+                                     why, sizeof why);
     free(text);
     if (!ok) {
         set_error(a, why);
@@ -394,7 +396,7 @@ int app_light_poll(App *a, double now)
     /* the comparison pictures wait for the window's own photo (one game at a time) and for a change to settle */
     const int waiting = ui->photo.state == LIGHT_PHOTO_RUNNING || ui->edit_serial != ui->photo_serial || now - ui->edit_at < LIGHT_UI_SETTLE;
     set_masks(a);
-    return light_compare_poll(&ui->compare, &ui->session, ui->node, ui->view, ui->hud, a->game, a->export_src.cd, waiting);
+    return light_compare_poll(&ui->compare, &ui->session, light_ui_time_letter(ui->time), ui->node, ui->view, ui->hud, a->game, a->export_src.cd, waiting);
 }
 
 void app_light_free(App *a)
@@ -402,6 +404,6 @@ void app_light_free(App *a)
     light_drive_free(&a->light.drive);
     light_photo_free(&a->light.photo);
     light_compare_free(&a->light.compare);
-    if (a->light.open) light_session_close(&a->light.session);
+    if (a->light.open) light_track_session_close(&a->light.session);
     memset(&a->light, 0, sizeof a->light);
 }

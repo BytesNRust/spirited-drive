@@ -368,7 +368,7 @@ int app_track_undo(App *a, int redo)
 int app_modified(const App *a)
 {
     if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit);
-    if (a->kind == APP_KIND_LIGHT) return light_session_dirty(&a->light.session);
+    if (a->kind == APP_KIND_LIGHT) return light_track_session_dirty(&a->light.session);
     return a->kind == APP_KIND_TRACK && track_undo_modified(&a->track_undo, &a->project, &a->trace);
 }
 

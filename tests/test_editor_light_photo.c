@@ -191,7 +191,6 @@ static void test_command_refusals(void)
 }
 
 static const char NIGHT_FILE[] = "# tnfs track light 1\ntrack CY1 time N nodes 100 flags fff\nlamp 5 100\n";
-static const char PLACES[] = "# tnfs track places 1\ntrack CY1\ntunnel 10 20\n";
 
 static void test_job_done(void)
 {
@@ -202,7 +201,7 @@ static void test_job_done(void)
     setenv("FAKE_MODE", "", 1);
     setenv("TNFS_PERSON", "1", 1);
     setenv("KEEP_ME", "yes", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), PLACES, strlen(PLACES), why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     CHECK(job.state == LIGHT_PHOTO_RUNNING);
     char temp[EXPORT_PATH];
     snprintf(temp, sizeof temp, "%s", job.temp);
@@ -216,14 +215,14 @@ static void test_job_done(void)
     CHECK(stat(temp, &st) != 0 && job.temp[0] == '\0');   // the scratch folder is gone with the working copy in it
     const char *rec = read_all(record);
     CHECK(strstr(rec, "track=CY1 ticks=4 time=night start=70 video=dummy person= kept=yes") != NULL);   // the person's TNFS_* dropped, their other variables kept
-    CHECK(strstr(rec, "CY1N.txt\n") != NULL);                                                            // the working copy is named as the game reads it
-    CHECK(strstr(rec, NIGHT_FILE) != NULL && strstr(rec, "---\n# tnfs track places 1\ntrack CY1\ntunnel 10 20\n") != NULL);
+    CHECK(strstr(rec, "CY1.txt\n") != NULL);                                                             // the track's one light file, named as the game reads it
+    CHECK(strstr(rec, NIGHT_FILE) != NULL && strstr(rec, "---\n") != NULL);
     // a second photo, another time: the serial moves and the picture changes
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'B', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'B', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_DONE && job.serial == 2 && job.rgba != NULL && job.rgba[0] == 200);
     rec = read_all(record);
-    CHECK(strstr(rec, "time=day") != NULL && strstr(rec, "---\n") != NULL && strstr(rec, "tunnel 10 20") == NULL);   // no places text: none in the folder
+    CHECK(strstr(rec, "time=day") != NULL && strstr(rec, "---\n") != NULL);   // another time: the same one file
     light_photo_free(&job);
     CHECK(job.rgba == NULL);
 }
@@ -255,7 +254,7 @@ static void test_masks(void)
     setenv("FAKE_RECORD", record, 1);
     setenv("FAKE_MODE", "", 1);
     snprintf(job.masks, sizeof job.masks, "%s", from);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     char temp[EXPORT_PATH];
     snprintf(temp, sizeof temp, "%s", job.temp);
     run_to_end(&job);
@@ -268,7 +267,7 @@ static void test_masks(void)
     light_photo_free(&job);
     // no masks: the variable is empty
     memset(&job, 0, sizeof job);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     run_to_end(&job);
     CHECK(strstr(read_all(record), "masks=\n") != NULL);
     light_photo_free(&job);
@@ -280,7 +279,7 @@ static void test_job_failures(void)
     memset(&job, 0, sizeof job);
     char why[LIGHT_PHOTO_WHY];
     setenv("FAKE_MODE", "fail", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     char temp[EXPORT_PATH];
     snprintf(temp, sizeof temp, "%s", job.temp);
     run_to_end(&job);
@@ -289,24 +288,24 @@ static void test_job_failures(void)
     CHECK(stat(temp, &st) != 0);
     CHECK(job.rgba == NULL);
     setenv("FAKE_MODE", "none", 1);   // exits 0 and writes nothing
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_FAILED && strstr(job.why, "no picture") != NULL);
     // a good photo, then a failing one: the last good picture stays
     setenv("FAKE_MODE", "", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'A', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'A', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_DONE && job.rgba != NULL && job.rgba[0] == 30);
     setenv("FAKE_MODE", "fail", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'A', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'A', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_FAILED && job.rgba != NULL && job.rgba[0] == 30);
     // a game that is not there, and a track or time that is not one: refused before anything runs, no folder left
-    CHECK(!light_photo_start(&job, "/no/such/game", dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why) && why[0] != '\0');
+    CHECK(!light_photo_start(&job, "/no/such/game", dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why) && why[0] != '\0');
     CHECK(job.state == LIGHT_PHOTO_FAILED && job.temp[0] == '\0');
-    CHECK(!light_photo_start(&job, fake, dir, "cy1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
-    CHECK(!light_photo_start(&job, fake, dir, "CY1", 'Q', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
-    CHECK(!light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NULL, 0, NULL, 0, why, sizeof why));   // no file text
+    CHECK(!light_photo_start(&job, fake, dir, "cy1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
+    CHECK(!light_photo_start(&job, fake, dir, "CY1", 'Q', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
+    CHECK(!light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NULL, 0, why, sizeof why));   // no file text
     light_photo_free(&job);
 }
 
@@ -316,7 +315,7 @@ static void test_job_stop(void)
     memset(&job, 0, sizeof job);
     char why[LIGHT_PHOTO_WHY];
     setenv("FAKE_MODE", "slow", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     char temp[EXPORT_PATH];
     snprintf(temp, sizeof temp, "%s", job.temp);
     CHECK(light_photo_poll(&job));   // still running
@@ -324,10 +323,10 @@ static void test_job_stop(void)
     struct stat st;
     CHECK(job.state == LIGHT_PHOTO_FAILED && strstr(job.why, "stopped") != NULL && stat(temp, &st) != 0);
     // a new photo while one runs ends the first
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     snprintf(temp, sizeof temp, "%s", job.temp);
     setenv("FAKE_MODE", "", 1);
-    CHECK(light_photo_start(&job, fake, dir, "CY1", 'B', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'B', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), why, sizeof why));
     CHECK(stat(temp, &st) != 0);   // the first run's folder went with it
     run_to_end(&job);
     CHECK(job.state == LIGHT_PHOTO_DONE);

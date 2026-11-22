@@ -123,7 +123,7 @@ static void test_job(void)
     setenv("KEEP_ME", "yes", 1);
     unlink(record);
     unsetenv("FAKE_MODE");
-    const char light[] = "# tnfs track light 1\ntrack CY1 time B nodes 10 flags 3ff\nbrightness 1 2 90\n", places[] = "tunnel 3 4\n";
+    const char light[] = "# tnfs track light 2\ntrack CY1\ntunnel 3 4\ntime B\n  brightness 1 2 90\n";
     char player[512];   /* the person's own settings: the drive shows the game as they set it up */
     snprintf(player, sizeof player, "%s/drive_player_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
     CHECK(mkdtemp(player) != NULL);
@@ -133,14 +133,14 @@ static void test_job(void)
     CHECK(pf != NULL && fputs("fov_adjust=10\nfullscreen=1\n", pf) >= 0);
     if (pf != NULL) fclose(pf);
     car_race_set_player(player);
-    CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 77, 1, light, strlen(light), places, strlen(places), why, sizeof why));
+    CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 77, 1, light, strlen(light), why, sizeof why));
     CHECK_EQ_INT(job.state, LIGHT_DRIVE_RUNNING);
     wait_record();
     char *seen = read_all(record);
     CHECK(strstr(seen, "track=CY1") != NULL && strstr(seen, "time=day") != NULL && strstr(seen, "start=77") != NULL && strstr(seen, "weather=fog") != NULL && strstr(seen, "edit=1") != NULL);
     CHECK(strstr(seen, "video= ") != NULL && strstr(seen, "audio=dummy") == NULL && strstr(seen, "frames= ") != NULL && strstr(seen, "auto= ") != NULL);   /* a real window, a person at the wheel */
     CHECK(strstr(seen, "person= ") != NULL && strstr(seen, "kept=yes") != NULL);
-    CHECK(strstr(seen, "CY1B.txt") != NULL);
+    CHECK(strstr(seen, "CY1.txt") != NULL);
     CHECK(strstr(seen, "brightness 1 2 90") != NULL && strstr(seen, "tunnel 3 4") != NULL);
     char file[EXPORT_PATH + 64], scratch[EXPORT_PATH];
     snprintf(scratch, sizeof scratch, "%s", job.temp);
@@ -152,18 +152,14 @@ static void test_job(void)
     unlink(player_cfg);
     rmdir(player);
     /* an edit: the copy is rewritten whole, the game sees it, nothing half written is left beside it */
-    const char light2[] = "# tnfs track light 1\ntrack CY1 time B nodes 10 flags 3ff\nbrightness 1 2 50\n", places2[] = "tunnel 5 6\n";
-    CHECK(light_drive_update(&job, light2, strlen(light2), places2, strlen(places2), why, sizeof why));
-    snprintf(file, sizeof file, "%s/track_light/CY1B.txt", job.mods);
+    const char light2[] = "# tnfs track light 2\ntrack CY1\ntunnel 5 6\ntime B\n  brightness 1 2 50\n";
+    CHECK(light_drive_update(&job, light2, strlen(light2), why, sizeof why));
+    snprintf(file, sizeof file, "%s/track_light/CY1.txt", job.mods);
     CHECK(strcmp(read_all(file), light2) == 0);
-    snprintf(file, sizeof file, "%s/track/CY1.txt", job.mods);
-    CHECK(strcmp(read_all(file), places2) == 0);
-    CHECK(light_drive_update(&job, light2, strlen(light2), NULL, 0, why, sizeof why));   /* no places: the one there stays */
-    CHECK(strcmp(read_all(file), places2) == 0);
     light_drive_stop(&job);
     CHECK(job.state != LIGHT_DRIVE_RUNNING && strcmp(job.why, "stopped") == 0);
     CHECK(access(scratch, F_OK) != 0);   /* the scratch folder is gone */
-    CHECK(!light_drive_update(&job, light2, strlen(light2), NULL, 0, why, sizeof why) && why[0] != '\0');   /* nothing runs: nothing to update */
+    CHECK(!light_drive_update(&job, light2, strlen(light2), why, sizeof why) && why[0] != '\0');   /* nothing runs: nothing to update */
     light_drive_free(&job);
 }
 
@@ -172,22 +168,22 @@ static void test_ends(void)
     LightDriveJob job;
     memset(&job, 0, sizeof job);
     char why[LIGHT_DRIVE_WHY] = "";
-    const char light[] = "# tnfs track light 1\ntrack CY1 time B nodes 10 flags 3ff\n";
+    const char light[] = "# tnfs track light 2\ntrack CY1\n";
     setenv("FAKE_MODE", "fail", 1);
-    CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 1, 0, light, strlen(light), NULL, 0, why, sizeof why));
+    CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 1, 0, light, strlen(light), why, sizeof why));
     run_to_end(&job);
     CHECK_EQ_INT(job.state, LIGHT_DRIVE_FAILED);
     CHECK(strstr(job.why, "code 3") != NULL && strstr(job.why, "no such track") != NULL);
     CHECK(job.temp[0] == '\0');
     setenv("FAKE_MODE", "quit", 1);   /* the person closed the game's window: not an error */
-    CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 1, 0, light, strlen(light), NULL, 0, why, sizeof why));
+    CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 1, 0, light, strlen(light), why, sizeof why));
     run_to_end(&job);
     CHECK_EQ_INT(job.state, LIGHT_DRIVE_ENDED);
     CHECK(job.why[0] == '\0' && job.temp[0] == '\0');
     unsetenv("FAKE_MODE");
-    CHECK(!light_drive_start(&job, "/no/such/game", "/cd", "CY1", 'B', 1, 0, light, strlen(light), NULL, 0, why, sizeof why) && strstr(why, "game") != NULL);
-    CHECK(!light_drive_start(&job, fake, "/cd", "CY1", 'B', 1, 0, NULL, 0, NULL, 0, why, sizeof why) && strstr(why, "light file") != NULL);
-    CHECK(!light_drive_start(&job, fake, "/cd", "CY1", 'Z', 1, 0, light, strlen(light), NULL, 0, why, sizeof why) && strstr(why, "time") != NULL);
+    CHECK(!light_drive_start(&job, "/no/such/game", "/cd", "CY1", 'B', 1, 0, light, strlen(light), why, sizeof why) && strstr(why, "game") != NULL);
+    CHECK(!light_drive_start(&job, fake, "/cd", "CY1", 'B', 1, 0, NULL, 0, why, sizeof why) && strstr(why, "light file") != NULL);
+    CHECK(!light_drive_start(&job, fake, "/cd", "CY1", 'Z', 1, 0, light, strlen(light), why, sizeof why) && strstr(why, "time") != NULL);
     CHECK_EQ_INT(job.state, LIGHT_DRIVE_FAILED);
     light_drive_free(&job);
 }

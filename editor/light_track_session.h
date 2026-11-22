@@ -26,6 +26,9 @@ typedef struct {
 int light_track_session_open(LightTrackSession *s, const char *dir, const char *track, unsigned nodes, char *why, size_t cap);
 void light_track_session_close(LightTrackSession *s);
 
+/* The folder's rules alone: 1 when `dir` is a light folder (has a track_light/, is not under original/), else 0 with `why`. */
+int light_track_session_check_folder(const char *dir, char *why, size_t cap);
+
 /* The file's path in the light folder, "" without a file. */
 void light_track_session_path(const LightTrackSession *s, char *out, size_t cap);
 /* The working copy's bytes (malloc'd, NUL-terminated; NULL without a file or out of memory), as the jobs take them. */

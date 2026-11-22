@@ -1,12 +1,12 @@
 /* The Track light window's comparison pictures (dep98 step 2, part D): BEFORE, the photo of the files as they are on disk beside the photo of the working copy, and FOUR, the
- * photos of the four times of day at the same node (the working copy for the time being edited, the light folder's files for the others). One game run at a time: the
+ * photos of the four times of day at the same node (all of the track's one light file, the working copy). One game run at a time: the
  * comparison waits for the window's own photo, then takes its pictures one by one, and a picture is made again only when what it shows changed (light_compare_key). No window,
  * POSIX only. */
 #ifndef TNFS_EDITOR_LIGHT_COMPARE_H
 #define TNFS_EDITOR_LIGHT_COMPARE_H
 
 #include "light_photo.h"
-#include "light_session.h"
+#include "light_track_session.h"
 
 #include <stdint.h>
 
@@ -30,12 +30,12 @@ void light_compare_free(LightCompare *c);
 int light_compare_count(int mode);
 char light_compare_letter(int slot);
 
-/* What a picture shows, as a number that changes when the picture would: the track, time, node, view and the bytes of the light file and the places file it was made with.
- * `file` and `places` may be NULL (none). Never 0. */
-uint64_t light_compare_key(const char *track, char letter, unsigned node, int view, int hud, const char *file, size_t file_size, const char *places, size_t places_size);
+/* What a picture shows, as a number that changes when the picture would: the track, time, node, view and the bytes of the light file it was made with.
+ * `file` may be NULL (none). Never 0. */
+uint64_t light_compare_key(const char *track, char letter, unsigned node, int view, int hud, const char *file, size_t file_size);
 
-/* Every frame: takes the running game's output; when none runs and `main_busy` is 0, starts the first picture of the mode whose key is out of date. `node`, `view` and `hud` are the window's
+/* Every frame: takes the running game's output; when none runs and `main_busy` is 0, starts the first picture of the mode whose key is out of date. `time` is the window's time letter, `node`, `view` and `hud` its
  * photo node, view and HUD. 1 while a game runs or a picture is still due, 0 when every picture is current (or the mode is off). The game and the CD data are the window's. */
-int light_compare_poll(LightCompare *c, const LightSession *s, int node, int view, int hud, const char *game, const char *cd, int main_busy);
+int light_compare_poll(LightCompare *c, const LightTrackSession *s, char time, int node, int view, int hud, const char *game, const char *cd, int main_busy);
 
 #endif

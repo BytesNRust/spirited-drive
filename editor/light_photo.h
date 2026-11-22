@@ -76,10 +76,10 @@ typedef struct {
     char why[LIGHT_PHOTO_WHY];   /* FAILED: the reason, with the game's last line when it said one */
 } LightPhotoJob;
 
-/* Starts a photo: the scratch folder with `file_text` as mods/track_light/<TRACK><letter>.txt (and `places_text`, when given, as mods/track/<TRACK>.txt), the player
+/* Starts a photo: the scratch folder with `file_text` as mods/track_light/<TRACK>.txt (the track's one light file; `letter` is the time photographed), the player
  * files, and the game. A job that runs is stopped first. 1, or 0 with `why` (and the state FAILED). */
 int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int hud, int ticks,
-                      const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap);
+                      const char *file_text, size_t file_size, char *why, size_t why_cap);
 /* every frame: takes the game's output and sees whether it ended. 1 while it runs; when it ends the state is DONE (the picture in `rgba`) or FAILED (`why`), and the
  * scratch folder is gone. */
 int light_photo_poll(LightPhotoJob *job);

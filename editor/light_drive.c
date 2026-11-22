@@ -123,14 +123,13 @@ static int write_whole(const char *path, const char *text, size_t size, char *wh
     return 1;
 }
 
-static int mods_files(const LightDriveJob *job, char light[EXPORT_PATH + 100], char places[EXPORT_PATH + 100])
+static int mods_file(const LightDriveJob *job, char light[EXPORT_PATH + 100])
 {
-    return snprintf(light, EXPORT_PATH + 100, "%s/track_light/%s%c.txt", job->mods, job->track, job->letter) < EXPORT_PATH + 100 &&
-           snprintf(places, EXPORT_PATH + 100, "%s/track/%s.txt", job->mods, job->track) < EXPORT_PATH + 100;
+    return snprintf(light, EXPORT_PATH + 100, "%s/track_light/%s.txt", job->mods, job->track) < EXPORT_PATH + 100;
 }
 
 int light_drive_start(LightDriveJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int weather, const char *file_text, size_t file_size,
-                      const char *places_text, size_t places_size, char *why, size_t why_cap)
+                      char *why, size_t why_cap)
 {
     if (job->state == LIGHT_DRIVE_RUNNING) light_drive_stop(job);
     job->state = LIGHT_DRIVE_FAILED;
@@ -150,14 +149,13 @@ int light_drive_start(LightDriveJob *job, const char *game, const char *cd, cons
             snprintf(job->mods, sizeof job->mods, "%s/mods", job->temp);
             snprintf(job->track, sizeof job->track, "%s", track);
             job->letter = letter;
-            char light[EXPORT_PATH + 100], places[EXPORT_PATH + 100];
-            if (snprintf(path, sizeof path, "%s/track_light", job->mods) >= (int)sizeof path || mkdir(job->mods, 0777) != 0 || mkdir(path, 0777) != 0 ||
-                snprintf(path, sizeof path, "%s/track", job->mods) >= (int)sizeof path || mkdir(path, 0777) != 0 || !mods_files(job, light, places)) {
+            char light[EXPORT_PATH + 100];
+            if (snprintf(path, sizeof path, "%s/track_light", job->mods) >= (int)sizeof path || mkdir(job->mods, 0777) != 0 || mkdir(path, 0777) != 0 || !mods_file(job, light)) {
                 refuse(why, why_cap, "cannot make the scratch folders: %s", strerror(errno));
             } else {
                 LightDriveSetup s = { game, cd, user, job->mods, { 0 }, letter, node, weather, NULL, job->window };
                 snprintf(s.track, sizeof s.track, "%s", track);
-                ok = write_whole(light, file_text, file_size, why, why_cap) && (places_text == NULL || places_size == 0 || write_whole(places, places_text, places_size, why, why_cap));
+                ok = write_whole(light, file_text, file_size, why, why_cap);
                 char masks[EXPORT_PATH + 16];
                 masks[0] = '\0';
                 if (ok && job->masks[0] != '\0') {   // the track's masks of the workspace in front of the game's: <scratch>/masks/<TRACK>/<name>.png
@@ -181,13 +179,13 @@ int light_drive_start(LightDriveJob *job, const char *game, const char *cd, cons
     return 1;
 }
 
-int light_drive_update(LightDriveJob *job, const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap)
+int light_drive_update(LightDriveJob *job, const char *file_text, size_t file_size, char *why, size_t why_cap)
 {
     if (job->state != LIGHT_DRIVE_RUNNING || job->temp[0] == '\0') return refuse(why, why_cap, "no test drive is running");
     if (file_text == NULL || file_size == 0) return refuse(why, why_cap, "there is no light file to drive with");
-    char light[EXPORT_PATH + 100], places[EXPORT_PATH + 100];
-    if (!mods_files(job, light, places)) return refuse(why, why_cap, "the path is too long");
-    return write_whole(light, file_text, file_size, why, why_cap) && (places_text == NULL || places_size == 0 || write_whole(places, places_text, places_size, why, why_cap));
+    char light[EXPORT_PATH + 100];
+    if (!mods_file(job, light)) return refuse(why, why_cap, "the path is too long");
+    return write_whole(light, file_text, file_size, why, why_cap);
 }
 
 int light_drive_poll(LightDriveJob *job)

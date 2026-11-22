@@ -42,7 +42,7 @@ static int is_dir(const char *path)
 }
 
 /* the light folder's rules, at open and again at Save */
-static int check_folder(const char *dir, char *why, size_t cap)
+int light_track_session_check_folder(const char *dir, char *why, size_t cap)
 {
     char sub[LIGHT_TRACK_SESSION_PATH + 16];
     if (dir == NULL || dir[0] == '\0') return refuse(why, cap, "there is no light folder");
@@ -81,7 +81,7 @@ void light_track_session_path(const LightTrackSession *s, char *out, size_t cap)
 int light_track_session_open(LightTrackSession *s, const char *dir, const char *track, unsigned nodes, char *why, size_t cap)
 {
     memset(s, 0, sizeof *s);
-    if (!check_folder(dir, why, cap)) return 0;
+    if (!light_track_session_check_folder(dir, why, cap)) return 0;
     if (!stem_ok(track)) return refuse(why, cap, "%s is not a CD track's stem such as CY1 or TR7", track != NULL ? track : "(none)");
     if (nodes == 0) return refuse(why, cap, "the track's node count is not known (is the game's folder set?)");
     if (snprintf(s->dir, sizeof s->dir, "%s", dir) >= (int)sizeof s->dir) return refuse(why, cap, "the light folder's path is too long");
@@ -167,7 +167,7 @@ static int write_temp(const char *tmp, const char *text, size_t size, char *why,
 int light_track_session_save(LightTrackSession *s, char *why, size_t cap)
 {
     if (!s->has_file) return refuse(why, cap, "there is no file to save: this track's light is made in code");
-    if (!check_folder(s->dir, why, cap)) return 0;
+    if (!light_track_session_check_folder(s->dir, why, cap)) return 0;
     size_t size = 0;
     char *text = light_track_format(&s->file, &size);
     if (text == NULL) return refuse(why, cap, "out of memory");

@@ -6,7 +6,7 @@
 #include "light_compare.h"
 #include "light_drive.h"
 #include "light_photo.h"
-#include "light_session.h"
+#include "light_track_session.h"
 
 enum {
     LIGHT_UI_TRACKS = 16,        /* the combo's entries: the 15 CD tracks that have light files and TR5, whose light is made in code */
@@ -23,7 +23,7 @@ const char *light_ui_time_name(int time);
 
 typedef struct {
     int open;                    /* the mode's session is on (kind APP_KIND_LIGHT) */
-    LightSession session;        /* the working copy of the file of (track, time); session.has_file 0 for a track with none */
+    LightTrackSession session;   /* the working copy of the track's one light file (all four times); session.has_file 0 for a track with none */
     int track;                   /* light_ui_track's index */
     int time;                    /* 0..3 */
     int node;                    /* the photo's node, within the road of the file */

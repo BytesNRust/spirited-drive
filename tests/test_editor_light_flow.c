@@ -2,8 +2,9 @@
  * at night, add a brightness line, see the unsaved mark, the photo of the WORKING copy (a fake game records what it was given), Revert, Save into the folder, and the
  * refusals (a folder that is no light folder, a track or time change over unsaved edits, TR5 with no file, no game, a node out of the road). The folder is a temp copy of
  * repo light files, so it needs no CD data. With a game and the CD data given, the same loop runs against the real game too.
- * usage: test_editor_light_flow REPO [GAME CD] */
+ * usage: test_editor_light_flow [REPO GAME CD] (REPO is not read any more: the light files and the TRIs are made here) */
 #include "app.h"
+#include "fake_tri.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -37,16 +38,19 @@ static void write_file(const char *path, const char *text, size_t size, int exec
     if (exec) chmod(path, 0755);
 }
 
-static void copy_repo_file(const char *repo, const char *name)
+/* the game's files: a TRI for each track the test opens (the Studio reads the node count from it) */
+static void write_cd(const char *cd)
 {
-    char from[EXPORT_PATH + 64], to[EXPORT_PATH + 64];
-    snprintf(from, sizeof from, "%s/data/track_light/%s", repo, name);
-    snprintf(to, sizeof to, "%s/track_light/%s", light, name);
-    size_t n = 0;
-    char *text = read_file(from, &n);
-    CHECK(text != NULL);
-    if (text != NULL) write_file(to, text, n, 0);
-    free(text);
+    char dir[EXPORT_PATH + 32], file[EXPORT_PATH + 64];
+    snprintf(dir, sizeof dir, "%s/SIMDATA", cd);
+    mkdir(dir, 0777);
+    snprintf(dir, sizeof dir, "%s/SIMDATA/MISC", cd);
+    mkdir(dir, 0777);
+    static const char *const TRACKS[] = { "AL1", "CY1", "CY2", "TR5" };
+    for (size_t i = 0; i < sizeof TRACKS / sizeof *TRACKS; ++i) {
+        snprintf(file, sizeof file, "%s/%s.TRI", dir, TRACKS[i]);
+        CHECK(fake_tri_write(file, 30));
+    }
 }
 
 static const char FAKE[] =
@@ -105,23 +109,23 @@ static void test_flow(void)
     CHECK(strstr(title, "Track light") != NULL && strstr(title, " *") == NULL);
     // CY1 at night: its lamps are listed; the photo is of node 70
     const int cy1 = track_index("CY1"), night = 3;
-    CHECK(cy1 >= 0 && app_light_select(a, cy1, night) && a->light.session.has_file && a->light.session.letter == 'N');
+    CHECK(cy1 >= 0 && app_light_select(a, cy1, night) && a->light.session.has_file && a->light.time == night);
     app_light_set_node(a, 70);
     CHECK(a->light.node == 70);
-    CHECK(light_file_count(&a->light.session.file, LIGHT_KIND_LAMP) > 0);
+    CHECK(light_track_count(&a->light.session.file, LT_TIME_N, LT_LAMP) > 0);
     double now = 1;
     CHECK(run_photo(a, &now));                                         // the photo that opening and selecting made due starts once the settle time passed, and ends
     CHECK(a->light.photo.state == LIGHT_PHOTO_DONE && a->light.photo.w == 1280 && a->light.photo.rgba[0] == 5);   // night: the fake's grey 5
     const int first_serial = a->light.photo.serial;
     // an edit: the unsaved mark; the photo is due but waits for the settle time; it is of the working copy, not the file on disk
     size_t before_size = 0;
-    snprintf(disk_file, sizeof disk_file, "%s/track_light/CY1N.txt", light);
+    snprintf(disk_file, sizeof disk_file, "%s/track_light/CY1.txt", light);
     char *before = read_file(disk_file, &before_size);
     CHECK(before != NULL);
-    char why[LIGHT_WHY];
-    const LightBrightness b = { 120, 180, 70, LIGHT_SIDE_BOTH, 0 };
-    const int brightness = light_file_count(&a->light.session.file, LIGHT_KIND_BRIGHTNESS);
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &b, why, sizeof why));
+    char why[LT_WHY];
+    const LightTrackBrightness b = { 100, 110, 70, LT_ALL_POINTS };
+    const int brightness = light_track_count(&a->light.session.file, LT_TIME_N, LT_BRIGHTNESS);
+    CHECK(light_track_set_brightness(&a->light.session.file, LT_TIME_N, -1, &b, why, sizeof why));
     app_light_touch(a);
     CHECK(app_modified(a));
     app_title(a, title, sizeof title);
@@ -134,42 +138,43 @@ static void test_flow(void)
     CHECK(run_photo(a, &now) && a->light.photo.state == LIGHT_PHOTO_DONE && a->light.photo.serial == first_serial + 1);
     size_t rec_size = 0;
     char *rec = read_file(record, &rec_size);
-    CHECK(rec != NULL && strstr(rec, "brightness 120 180 70") != NULL);   // the game was given the working copy
+    CHECK(rec != NULL && strstr(rec, "brightness 100 110 70") != NULL);   // the game was given the working copy
     free(rec);
     size_t disk_size = 0;
     char *disk = read_file(disk_file, &disk_size);
     CHECK(disk != NULL && disk_size == before_size && memcmp(disk, before, disk_size) == 0);   // and the file on disk is as it was
     free(disk);
-    // a track or time change over unsaved edits is refused, with the reason; so is leaving the mode
+    // another time of the same track needs no read (the file holds them all); another track over unsaved edits is refused, with the reason; so is leaving the mode
+    CHECK(app_light_select(a, cy1, 1) && a->light.time == 1 && app_modified(a) && app_light_select(a, cy1, night));
     CHECK(!app_light_select(a, track_index("CY2"), night) && strstr(a->light.error, "unsaved") != NULL && a->light.track == cy1);
     app_ask(a, APP_ACT_QUIT, "");
     CHECK(a->confirm == APP_ACT_QUIT);
     app_answer(a, APP_ANSWER_CANCEL);
     // Revert: the file as loaded, no mark
     app_light_revert(a);
-    CHECK(!app_modified(a) && light_file_count(&a->light.session.file, LIGHT_KIND_BRIGHTNESS) == brightness);
+    CHECK(!app_modified(a) && light_track_count(&a->light.session.file, LT_TIME_N, LT_BRIGHTNESS) == brightness);
     // edit again, Save: the file on disk has the line after every line the owner wrote, no other file changed
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &b, why, sizeof why));
+    CHECK(light_track_set_brightness(&a->light.session.file, LT_TIME_N, -1, &b, why, sizeof why));
     app_light_touch(a);
     CHECK(app_light_save(a) && !app_modified(a));
     disk = read_file(disk_file, &disk_size);
-    CHECK(disk != NULL && disk_size > before_size && memcmp(disk, before, before_size) == 0 && strcmp(disk + before_size, "brightness 120 180 70\n") == 0);
+    CHECK(disk != NULL && disk_size > before_size && memcmp(disk, before, before_size) == 0 && strstr(disk + before_size, "brightness 100 110 70") != NULL);   // the new line after every line the owner wrote
     free(disk);
-    // the same line given a side and Only shadows (as the panel's combo and box do), saved: the words are in the file, and a window opened on it again reads them
-    const LightBrightness safe = { 120, 180, 70, LIGHT_SIDE_RIGHT, 1 };
-    CHECK(light_file_set_brightness(&a->light.session.file, brightness, &safe, why, sizeof why));
+    // the same line given a strip (as the panel's bar does), saved: the word is in the file, and a window opened on it again reads it
+    const LightTrackBrightness safe = { 100, 110, 70, LT_STRIP_RIGHT };
+    CHECK(light_track_set_brightness(&a->light.session.file, LT_TIME_N, brightness, &safe, why, sizeof why));
     app_light_touch(a);
     CHECK(app_light_save(a) && !app_modified(a));
     disk = read_file(disk_file, &disk_size);
-    CHECK(disk != NULL && disk_size > before_size && memcmp(disk, before, before_size) == 0 && strcmp(disk + before_size, "brightness 120 180 70 right shade\n") == 0);
+    CHECK(disk != NULL && disk_size > before_size && memcmp(disk, before, before_size) == 0 && strstr(disk + before_size, "brightness 100 110 70 right") != NULL);
     free(disk);
     CHECK(app_light_select(a, track_index("CY2"), night) && app_light_select(a, cy1, night));   // away and back: read again from the disk
-    LightBrightness again;
-    CHECK(light_file_get_brightness(&a->light.session.file, brightness, &again) && again.from == 120 && again.to == 180 && again.percent == 70 && again.side == LIGHT_SIDE_RIGHT && again.shade == 1);
+    LightTrackBrightness again;
+    CHECK(light_track_get_brightness(&a->light.session.file, LT_TIME_N, brightness, &again) && again.from == 100 && again.to == 110 && again.percent == 70 && again.mask == LT_STRIP_RIGHT);
     free(before);
     // a node out of the road is clamped
     app_light_set_node(a, 999999);
-    CHECK(a->light.node == (int)a->light.session.file.nodes - 1);
+    CHECK(a->light.node == (int)a->light.session.nodes - 1 && a->light.session.nodes == 120);
     app_light_set_node(a, -4);
     CHECK(a->light.node == 0);
     // TR5 has no file: it opens with the reason, nothing to Save or photograph
@@ -194,7 +199,7 @@ static double mean_of(const uint8_t *rgba, int w, int h)
 }
 
 /* the real game: CY1 at night, node 70: a photo is taken; a brightness line makes the next one darker; after Save, a fresh window on the saved folder gives the same picture */
-static void test_real_game(const char *repo, const char *game, const char *cd)
+static void test_real_game(const char *game, const char *cd)
 {
     char user[EXPORT_PATH], why[200], dir[EXPORT_PATH], sub[EXPORT_PATH + 16];
     char tmp[EXPORT_PATH];
@@ -204,7 +209,7 @@ static void test_real_game(const char *repo, const char *game, const char *cd)
     snprintf(sub, sizeof sub, "%s/track_light", dir);
     mkdir(sub, 0777);
     snprintf(light, sizeof light, "%s", dir);
-    copy_repo_file(repo, "CY1N.txt");
+    fake_light_write(light, "CY1");
     App *a = calloc(1, sizeof *a);
     CHECK(a != NULL);
     if (a == NULL) return;
@@ -219,8 +224,8 @@ static void test_real_game(const char *repo, const char *game, const char *cd)
     const double before = mean_of(a->light.photo.rgba, a->light.photo.w, a->light.photo.h);
     uint8_t *first = malloc((size_t)a->light.photo.w * a->light.photo.h * 4);
     memcpy(first, a->light.photo.rgba, (size_t)a->light.photo.w * a->light.photo.h * 4);
-    const LightBrightness dark = { 0, a->light.session.file.nodes - 1, 30, LIGHT_SIDE_BOTH, 0 };
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &dark, why, sizeof why));
+    const LightTrackBrightness dark = { 0, a->light.session.nodes - 1, 30, LT_ALL_POINTS };
+    CHECK(light_track_set_brightness(&a->light.session.file, LT_TIME_N, -1, &dark, why, sizeof why));
     app_light_touch(a);
     now += LIGHT_UI_SETTLE + 0.1;
     CHECK(app_light_poll(a, now));
@@ -265,7 +270,7 @@ static void test_not_a_light_folder(void)
 
 /* the packaged app has no source tree: the window opens saying no folder is set, Choose... (app_light_set_folder) refuses what is no light folder and what would drop
  * unsaved edits, then takes the folder and keeps it; the game's own data folder is the default when it has track_light/ */
-static void test_choose_folder(const char *repo)
+static void test_choose_folder(void)
 {
     char pack[EXPORT_PATH + 64], dir[EXPORT_PATH + 64], found[EXPORT_PATH + 128];
     snprintf(pack, sizeof pack, "%s/pack", root);
@@ -306,22 +311,23 @@ static void test_choose_folder(const char *repo)
     char keep[EXPORT_PATH + 64];
     snprintf(keep, sizeof keep, "%s", light);
     snprintf(light, sizeof light, "%s/Contents/Resources/data", bundle);
-    copy_repo_file(repo, "AL1B.txt");
+    fake_light_write(light, "AL1");
     snprintf(light, sizeof light, "%s", keep);
     App *b = calloc(1, sizeof *b);
     CHECK(b != NULL);
     if (b == NULL) return;
     app_begin(b, program, "", NULL);
+    snprintf(b->export_src.cd, sizeof b->export_src.cd, "%s", root);
     CHECK(app_open_light(b) && !b->light.open && strstr(b->light.error, "Choose a light folder") != NULL && b->light_dir[0] == '\0');
     snprintf(dir, sizeof dir, "%s/Contents/Resources/data", bundle);
     CHECK(app_light_set_folder(b, dir) && b->light.open);   // looking at it is allowed
-    snprintf(saved, sizeof saved, "%s/Contents/Resources/data/track_light/AL1B.txt", bundle);
+    snprintf(saved, sizeof saved, "%s/Contents/Resources/data/track_light/AL1.txt", bundle);
     size_t n0 = 0;
     char *before = read_file(saved, &n0);
     CHECK(before != NULL);
-    const LightBrightness e = { 0, b->light.session.file.nodes - 1, 40, LIGHT_SIDE_BOTH, 0 };
+    const LightTrackBrightness e = { 0, b->light.session.nodes - 1, 40, LT_ALL_POINTS };
     char reason[200];
-    CHECK(light_file_set_brightness(&b->light.session.file, -1, &e, reason, sizeof reason));
+    CHECK(light_track_set_brightness(&b->light.session.file, LT_TIME_B, -1, &e, reason, sizeof reason));
     app_light_touch(b);
     CHECK(!app_light_save(b) && strstr(b->light.error, "app bundle") != NULL);
     size_t n1 = 0;
@@ -336,6 +342,7 @@ static void test_choose_folder(const char *repo)
     CHECK(a != NULL);
     if (a == NULL) return;
     app_begin(a, fake, "", NULL);   // a game with no data folder beside it, and no folder set
+    snprintf(a->export_src.cd, sizeof a->export_src.cd, "%s", root);
     CHECK(a->light_dir[0] == '\0');
     CHECK(app_open_light(a) && a->kind == APP_KIND_LIGHT && !a->light.open && strstr(a->light.error, "Choose a light folder") != NULL && a->light_dir[0] == '\0');
     CHECK(!app_modified(a) && !app_light_select(a, 1, 1) && !app_light_photo(a) && !app_light_busy(a));
@@ -344,9 +351,9 @@ static void test_choose_folder(const char *repo)
     CHECK(app_light_set_folder(a, light) && a->light.open && strcmp(a->light_dir, light) == 0 && a->light.error[0] == '\0');
     CHECK(strcmp(light_ui_track(a->light.track), "AL1") == 0 && a->light.time == 1);
     // unsaved edits: another folder is refused until they are saved or reverted
-    const LightBrightness br = { 0, a->light.session.file.nodes - 1, 40, LIGHT_SIDE_BOTH, 0 };
+    const LightTrackBrightness br = { 0, a->light.session.nodes - 1, 40, LT_ALL_POINTS };
     char why[200];
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &br, why, sizeof why));
+    CHECK(light_track_set_brightness(&a->light.session.file, LT_TIME_B, -1, &br, why, sizeof why));
     app_light_touch(a);
     CHECK(app_modified(a) && !app_light_set_folder(a, light) && strstr(a->light.error, "unsaved") != NULL);
     app_light_revert(a);
@@ -386,15 +393,15 @@ static void test_drive_flow(void)
     free(rec);
     double now = 1;
     // an edit reaches the drive's copy at once, with no Save and no photo
-    char why[LIGHT_WHY];
-    const LightBrightness b = { 120, 180, 70, LIGHT_SIDE_BOTH, 0 };
-    CHECK(light_file_set_brightness(&a->light.session.file, -1, &b, why, sizeof why));
+    char why[LT_WHY];
+    const LightTrackBrightness b = { 100, 110, 70, LT_ALL_POINTS };
+    CHECK(light_track_set_brightness(&a->light.session.file, LT_TIME_N, -1, &b, why, sizeof why));
     app_light_touch(a);
     now += 0.05;
     app_light_poll(a, now);
-    snprintf(scratch_file, sizeof scratch_file, "%s/track_light/CY1N.txt", a->light.drive.mods);
+    snprintf(scratch_file, sizeof scratch_file, "%s/track_light/CY1.txt", a->light.drive.mods);
     char *copy = read_file(scratch_file, &n);
-    CHECK(copy != NULL && strstr(copy, "brightness 120 180 70") != NULL);
+    CHECK(copy != NULL && strstr(copy, "brightness 100 110 70") != NULL);
     free(copy);
     CHECK(a->light.photo.state != LIGHT_PHOTO_RUNNING);
     now += LIGHT_UI_SETTLE + 1;
@@ -430,7 +437,6 @@ static void test_drive_flow(void)
 
 int main(int argc, char **argv)
 {
-    const char *repo = argc > 1 ? argv[1] : ".";
     char user[EXPORT_PATH], why[200];
     CHECK(car_race_temp(root, sizeof root, user, sizeof user, why, sizeof why));
     snprintf(light, sizeof light, "%s/light", root);
@@ -438,17 +444,18 @@ int main(int argc, char **argv)
     char sub[EXPORT_PATH + 16];
     snprintf(sub, sizeof sub, "%s/track_light", light);
     mkdir(sub, 0777);
-    copy_repo_file(repo, "AL1B.txt");
-    copy_repo_file(repo, "CY1N.txt");
-    copy_repo_file(repo, "CY2N.txt");
+    fake_light_write(light, "AL1");
+    fake_light_write(light, "CY1");
+    fake_light_write(light, "CY2");
+    write_cd(root);
     snprintf(fake, sizeof fake, "%s/fake-game", root);
     write_file(fake, FAKE, strlen(FAKE), 1);
     snprintf(record, sizeof record, "%s/record", root);
     test_flow();
     test_drive_flow();
     test_not_a_light_folder();
-    test_choose_folder(repo);
+    test_choose_folder();
     car_race_temp_remove(root);
-    if (argc > 3) test_real_game(repo, argv[2], argv[3]);
+    if (argc > 3) test_real_game(argv[2], argv[3]);
     return TEST_REPORT();
 }

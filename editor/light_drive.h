@@ -55,13 +55,13 @@ typedef struct {
     char why[LIGHT_DRIVE_WHY];
 } LightDriveJob;
 
-/* Starts the drive: the scratch folder with `file_text` as mods/track_light/<TRACK><letter>.txt (and `places_text`, when given, as mods/track/<TRACK>.txt), the player files, and the
+/* Starts the drive: the scratch folder with `file_text` as mods/track_light/<TRACK>.txt (the track's one light file; `letter` is the time), the player files, and the
  * game. A drive that runs is stopped first. 1, or 0 with `why` (and the state FAILED). */
 int light_drive_start(LightDriveJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int weather, const char *file_text, size_t file_size,
-                      const char *places_text, size_t places_size, char *why, size_t why_cap);
-/* an edit: the working copy rewritten whole (a temporary file, then a rename, so the game never reads half a file); a NULL `places_text` leaves the places file as it is. 1, or 0 with
+                      char *why, size_t why_cap);
+/* an edit: the working copy rewritten whole (a temporary file, then a rename, so the game never reads half a file); 1, or 0 with
  * `why` (no drive runs, a write failed). */
-int light_drive_update(LightDriveJob *job, const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap);
+int light_drive_update(LightDriveJob *job, const char *file_text, size_t file_size, char *why, size_t why_cap);
 /* every frame: takes the game's output and sees whether it ended. 1 while it runs; when it ends the state is ENDED or FAILED and the scratch folder is gone. */
 int light_drive_poll(LightDriveJob *job);
 /* ends the run (SIGTERM to the game's group), removes the scratch folder; the state is FAILED "stopped" */

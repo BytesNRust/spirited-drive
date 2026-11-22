@@ -1,5 +1,5 @@
-// The Track light window (panels.h): a CD track's light file at one time of day, the retouch lines the game's light editor lists (brightness, lamp, tunnel tone) as rows,
-// and the photo of the working copy (the game run headless at the photo's node). Every edit goes through the model (light_file.h): a refused value shows the game's rule.
+// The Track light window (panels.h): a CD track's light file (one file, a block for each time of day): the sun, the tunnels, the lamps and the retouches of the time shown,
+// and the photo of the working copy (the game run headless at the photo's node). Every edit goes through the model (light_track.h): a refused value shows the game's rule.
 #include "panels.h"
 
 #include "command_keys.h"
@@ -23,12 +23,6 @@ void bad_text(const char *text)
     ImGui::PopStyleColor();
 }
 
-// the model refused an edit: its reason is the caption until the next one that works
-void refused(App *a, const char *why)
-{
-    snprintf(a->light.error, sizeof a->light.error, "%s", why);
-}
-
 void picker(App *a)
 {
     LightUi &ui = a->light;
@@ -45,8 +39,8 @@ void picker(App *a)
         }
     }
     ImGui::SameLine();
-    help_marker(a->original_dir[0] != '\0' ? "This original track's light files, in its folder in the workspace: one per time of day. Changing the time asks for Save or Revert first. Publish to the game (File menu) copies them into the game's data/."
-                                           : "The CD's tracks, as the game's files name them. Their light files are the repo's data/track_light, one per time of day. Changing track or time asks for "
+    help_marker(a->original_dir[0] != '\0' ? "This original track's light file, in its folder in the workspace: one file, a block for each time of day. Changing the track asks for Save or Revert first. Publish to the game (File menu) copies them into the game's data/."
+                                           : "The CD's tracks, as the game's files name them. Their light files are the repo's data/track_light, one per track, with a block for each time of day. Changing the track asks for "
                                              "Save or Revert first.");
     for (int t = 0; t < LIGHT_UI_TIMES; ++t) {
         if (t > 0) ImGui::SameLine();
@@ -71,7 +65,7 @@ void picker(App *a)
 void node_row(App *a)
 {
     LightUi &ui = a->light;
-    const int last = ui.session.has_file ? static_cast<int>(ui.session.file.nodes) - 1 : 0;
+    const int last = ui.session.has_file ? static_cast<int>(ui.session.nodes) - 1 : 0;
     ImGui::TextUnformatted("Photo at node");
     ImGui::SameLine();
     help_marker("The road node the car is put at for the photo (the game's TNFS_START_NODE). The photo is the game run headless, a moment after each change.");
@@ -124,145 +118,10 @@ void file_buttons(App *a)
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (dirty) ImGui::TextDisabled("unsaved changes");
-    else if (ui.session.has_file) ImGui::TextDisabled("%s%c.txt", ui.session.track, ui.session.letter);
+    else if (ui.session.has_file) ImGui::TextDisabled("%s.txt", ui.session.track);
     ImGui::SameLine();
     help_marker("Save writes only this track's light file in the light folder (the one in the Window's caption), and never a folder under original/. The file's other lines "
                 "stay exactly as they are; a new line goes after the last. Revert goes back to the file as it was read or saved.");
-}
-
-// each kind's rows: i is the line's index within its kind; an edit that the model takes is an edit, one it refuses shows its rule
-void brightness_rows(App *a)
-{
-    LightFile &f = a->light.session.file;
-    char why[LIGHT_WHY];
-    const int count = light_file_count(&f, LIGHT_KIND_BRIGHTNESS);
-    int remove = -1;
-    if (count > 0 && ImGui::BeginTable("##brightness", 6, ImGuiTableFlags_SizingStretchProp)) {
-        static const char *const SIDES[] = { "both", "left", "right" };
-        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-        ImGui::TableSetupColumn("Percent", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-        ImGui::TableSetupColumn("Side", ImGuiTableColumnFlags_WidthFixed, 72.0f);
-        ImGui::TableSetupColumn("Only shadows", ImGuiTableColumnFlags_WidthFixed, 92.0f);
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 62.0f);
-        ImGui::TableHeadersRow();
-        for (int i = 0; i < count; ++i) {
-            LightBrightness b;
-            if (!light_file_get_brightness(&f, i, &b)) continue;
-            int v[3] = { static_cast<int>(b.from), static_cast<int>(b.to), static_cast<int>(b.percent) };
-            bool changed = false;
-            ImGui::PushID(i);
-            ImGui::TableNextRow();
-            for (int c = 0; c < 3; ++c) {
-                ImGui::TableSetColumnIndex(c);
-                ImGui::SetNextItemWidth(-FLT_MIN);
-                changed = ImGui::InputInt(c == 0 ? "##from" : c == 1 ? "##to" : "##pct", &v[c], 0, 0) || changed;
-            }
-            int side = b.side;
-            bool shade = b.shade != 0;
-            ImGui::TableSetColumnIndex(3);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::BeginCombo("##side", SIDES[side])) {
-                for (int k = 0; k < 3; ++k)
-                    if (ImGui::Selectable(SIDES[k], side == k)) side = k, changed = true;
-                ImGui::EndCombo();
-            }
-            ImGui::TableSetColumnIndex(4);
-            changed = ImGui::Checkbox("##shade", &shade) || changed;
-            ImGui::TableSetColumnIndex(5);
-            if (ImGui::Button("Remove")) remove = i;
-            ImGui::PopID();
-            if (changed) {
-                const LightBrightness next = { static_cast<unsigned>(v[0] < 0 ? 0 : v[0]), static_cast<unsigned>(v[1] < 0 ? 0 : v[1]), static_cast<unsigned>(v[2] < 0 ? 0 : v[2]), side, shade ? 1 : 0 };
-                if (light_file_set_brightness(&f, i, &next, why, sizeof why)) app_light_touch(a);
-                else refused(a, why);
-            }
-        }
-        ImGui::EndTable();
-    }
-    if (remove >= 0 && light_file_remove(&f, LIGHT_KIND_BRIGHTNESS, remove)) app_light_touch(a);
-    if (ImGui::Button("Add brightness")) {
-        const unsigned node = static_cast<unsigned>(a->light.node), last = f.nodes - 1;
-        const LightBrightness b = { node, node + 50 < last ? node + 50 : last, 100, LIGHT_SIDE_BOTH, 1 };   // born as the safe one: both sides, Only shadows
-        if (light_file_set_brightness(&f, -1, &b, why, sizeof why)) app_light_touch(a);
-        else refused(a, why);
-    }
-    ImGui::SameLine();
-    help_marker("Brightness: from node, to node, percent. The road's light between those nodes is scaled (100 is as it is). A later line wins over an earlier one.\n"
-                "Side: the left or the right of the road, as you drive (the middle counts for both).\n"
-                "Only shadows: the line acts only on what the sun left in shade; a point in full light never changes, and the road stays as it is. Those lines go first, then the others.");
-}
-
-// a night file has hundreds of lamps: the list is folded, with its count, and scrolls inside its own box
-void lamp_rows(App *a)
-{
-    LightFile &f = a->light.session.file;
-    char why[LIGHT_WHY];
-    const int count = light_file_count(&f, LIGHT_KIND_LAMP);
-    char label[48];
-    snprintf(label, sizeof label, "Lamps (%d)###lamps", count);
-    const bool open = ImGui::CollapsingHeader(label);
-    ImGui::SameLine();
-    help_marker("Lamp: node, light percent. A lamp lights the road around its node at night (a night file's only; the game takes 2048 at most). Its colour and radius stay as "
-                "the file has them.");
-    if (!open) return;
-    int remove = -1;
-    if (count > 0 && ImGui::BeginChild("##lamplist", ImVec2(0, 220), ImGuiChildFlags_Borders)) {
-        if (ImGui::BeginTable("##lamps", 3, ImGuiTableFlags_SizingStretchProp)) {
-            ImGui::TableSetupColumn("Node");
-            ImGui::TableSetupColumn("Light %");
-            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-            ImGui::TableHeadersRow();
-            for (int i = 0; i < count; ++i) {
-                LightLamp l;
-                if (!light_file_get_lamp(&f, i, &l)) continue;
-                int v[2] = { static_cast<int>(l.node), static_cast<int>(l.percent) };
-                bool changed = false;
-                ImGui::PushID(i);
-                ImGui::TableNextRow();
-                for (int c = 0; c < 2; ++c) {
-                    ImGui::TableSetColumnIndex(c);
-                    ImGui::SetNextItemWidth(-FLT_MIN);
-                    changed = ImGui::InputInt(c == 0 ? "##node" : "##pct", &v[c], 0, 0) || changed;
-                }
-                ImGui::TableSetColumnIndex(2);
-                if (ImGui::Button("Remove")) remove = i;
-                ImGui::PopID();
-                if (changed) {
-                    l.node = static_cast<unsigned>(v[0] < 0 ? 0 : v[0]);
-                    l.percent = static_cast<unsigned>(v[1] < 0 ? 0 : v[1]);
-                    if (light_file_set_lamp(&f, i, &l, why, sizeof why)) app_light_touch(a);
-                    else refused(a, why);
-                }
-            }
-            ImGui::EndTable();
-        }
-    }
-    if (count > 0) ImGui::EndChild();
-    if (remove >= 0 && light_file_remove(&f, LIGHT_KIND_LAMP, remove)) app_light_touch(a);
-    if (ImGui::Button("Add lamp")) {
-        LightLamp l;
-        memset(&l, 0, sizeof l);
-        l.node = static_cast<unsigned>(a->light.node);
-        l.percent = 100;
-        if (light_file_set_lamp(&f, -1, &l, why, sizeof why)) app_light_touch(a);
-        else refused(a, why);
-    }
-}
-
-// the lines the window does not edit: shown as they are, with a count
-void other_lines(const App *a)
-{
-    const LightFile &f = a->light.session.file;
-    const int other = light_file_count(&f, LIGHT_KIND_OTHER) + light_file_count(&f, LIGHT_KIND_BAD);
-    char label[64];
-    snprintf(label, sizeof label, "Other lines (%d)###lightother", other);
-    if (!ImGui::CollapsingHeader(label)) return;
-    if (ImGui::BeginChild("lightotherlines", ImVec2(0, 140), ImGuiChildFlags_Borders)) {
-        for (int i = 0; i < f.count; ++i)
-            if (f.lines[i].kind >= LIGHT_KIND_BAD) ImGui::TextUnformatted(f.lines[i].text);
-    }
-    ImGui::EndChild();
 }
 
 // the light folder this window tunes (or, in red, that none is set) and the button that asks for another
@@ -308,24 +167,7 @@ void light_panel(App *a)
             file_buttons(a);
             drive_row(a);
             if (ui.error[0] != '\0') bad_text(ui.error);
-            // from the whole track to the local: the tunnels (and the places), the stretches, the night's lamps, then what the window does not edit
-            ImGui::SeparatorText("Tunnels");
-            ImGui::PushID("tunnels");
-            light_tunnel_rows(a);
-            ImGui::PopID();
-            light_place_rows(a);
-            ImGui::SeparatorText("Stretches");
-            ImGui::PushID("brightness");   // each list numbers its rows from 0 in this one window: its own ID scope, or two Remove buttons share an ID
-            brightness_rows(a);
-            ImGui::PopID();
-            light_stretch_rows(a);
-            if (ui.session.letter == 'N') {
-                ImGui::SeparatorText("Night");
-                ImGui::PushID("lamps");
-                lamp_rows(a);
-                ImGui::PopID();
-            }
-            other_lines(a);
+            light_track_rows(a);   // the time's sun, the tunnels, the lamps and the retouches (light_track_panel.cpp)
         }
     }
     ImGui::End();

@@ -163,7 +163,7 @@ int light_photo_copy_masks(const char *from, const char *to, const char *track, 
 }
 
 int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int hud, int ticks,
-                      const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap)
+                      const char *file_text, size_t file_size, char *why, size_t why_cap)
 {
     if (job->state == LIGHT_PHOTO_RUNNING) light_photo_stop(job);
     job->state = LIGHT_PHOTO_FAILED;
@@ -188,16 +188,12 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
             } else {
                 snprintf(path, sizeof path, "%s/track", mods);
                 char file[EXPORT_PATH + 80];
-                snprintf(file, sizeof file, "%s/track_light/%s%c.txt", mods, track, letter);
+                snprintf(file, sizeof file, "%s/track_light/%s.txt", mods, track);
                 const LightPhotoSetup setup = { game, cd, user, mods, { 0 }, letter, node, view, hud, ticks, job->shot, NULL };
                 LightPhotoSetup s = setup;
                 snprintf(s.track, sizeof s.track, "%s", track);
                 ok = mkdir(path, 0777) == 0 && write_file(file, file_text, file_size, why, why_cap);
                 if (!ok && why[0] == '\0') refuse(why, why_cap, "cannot make the scratch folders: %s", strerror(errno));
-                if (ok && places_text != NULL && places_size > 0) {
-                    snprintf(file, sizeof file, "%s/%s.txt", path, track);
-                    ok = write_file(file, places_text, places_size, why, why_cap);
-                }
                 char masks[EXPORT_PATH + 16];
                 masks[0] = '\0';
                 if (ok && job->masks[0] != '\0') {   // the track's masks of the workspace in front of the game's: <scratch>/masks/<TRACK>/<name>.png

@@ -9,7 +9,6 @@
 #include "app_points.h"
 #include "app_select.h"
 #include "app_colour.h"
-#include "light_tunnels.h"
 #include "app_sheet.h"
 #include "ui.h"
 
@@ -24,8 +23,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "print-tunnels", "tunnel-own", "tunnel-unown", "tunnel-strength", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 2, 0, 1, 0, 4, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "print-tunnels", "tunnel-lamps", "sun", "light-print", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 2, 3, 0, 0, 1, 0, 4, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -351,50 +350,71 @@ static int at_once(App *a, const char *name, const double *arg)
         const char *dir = getenv("TNFS_STUDIO_PICK");
         return dir != NULL && (app_repo_data_choose(a, dir), 1);
     }
-    if (strcmp(name, "print-tunnels") == 0 || strncmp(name, "tunnel-own", 10) == 0 || strncmp(name, "tunnel-unown", 12) == 0 || strncmp(name, "tunnel-strength", 15) == 0) {   /* the Tunnels section of the Track light window */
-        LightSession *s = &a->light.session;
-        LightTunnelRow rows[LIGHT_TUNNEL_ROWS];
-        const int n = a->kind == APP_KIND_LIGHT && s->has_file ? light_tunnels_list(&s->file, s->has_places ? &s->places : NULL, rows, LIGHT_TUNNEL_ROWS) : 0;
-        char why[LIGHT_WHY] = "";
+    if (strcmp(name, "print-tunnels") == 0 || strncmp(name, "tunnel-lamps", 12) == 0) {   /* the Tunnels section of the Track light window: the track's tunnel facts with the time's look of each */
+        if (a->kind != APP_KIND_LIGHT || !a->light.session.has_file) return fprintf(stderr, "tunnels: no light file open\n"), 0;
+        LightTrack *f = &a->light.session.file;
+        const int time = a->light.time, n = light_track_count(f, LT_TIME_FACTS, LT_TUNNEL), looks = light_track_count(f, time, LT_LOOK);
         if (strcmp(name, "print-tunnels") == 0) {
-            LightTunnelLook all;
-            light_tunnels_all(&s->file, &all);
-            fprintf(stdout, "tunnels: %d; all: light %s%.1f lamps %.0f reach %.1f\n", n, all.has_light ? "" : "as made ", all.light, all.strength, all.reach);
+            fprintf(stdout, "tunnels: %d\n", n);
+            for (int j = 0; j < looks; ++j) {
+                LightTrackLook v;
+                if (light_track_get_look(f, time, j, &v) && !v.has_nodes) fprintf(stdout, "default: light %s%g lamps %s%g reach %s%g\n", v.has_light ? "" : "- ", v.light, v.has_lamps ? "" : "- ", v.lamps, v.has_reach ? "" : "- ", v.reach);
+            }
             for (int i = 0; i < n; ++i) {
-                LightTunnelLook look;
-                light_tunnels_look(&s->file, &rows[i], &look);
-                fprintf(stdout, "tunnel %d: %u-%u place %d%s%s light %.1f%s lamps %.0f%s reach %.1f%s\n", i, rows[i].from, rows[i].to, rows[i].place, rows[i].hall ? " hall" : "", rows[i].zone >= 0 || rows[i].lamp >= 0 ? " own" : " as all",
-                        look.light, look.light_own ? "*" : "", look.strength, look.strength_own ? "*" : "", look.reach, look.reach_own ? "*" : "");
+                LightTrackTunnel t;
+                if (!light_track_get_tunnel(f, i, &t)) continue;
+                LightTrackLook own;
+                int have = 0;
+                for (int j = 0; j < looks && !have; ++j) have = light_track_get_look(f, time, j, &own) && own.has_nodes && own.from == t.from && own.to == t.to;
+                fprintf(stdout, "tunnel %d: %u-%u%s", i, t.from, t.to, t.lit ? " hall" : "");
+                if (have) fprintf(stdout, " own: light %s%g lamps %s%g reach %s%g", own.has_light ? "" : "- ", own.light, own.has_lamps ? "" : "- ", own.lamps, own.has_reach ? "" : "- ", own.reach);
+                fprintf(stdout, "\n");
             }
             return 1;
         }
-        const int at = (int)arg[0];
-        if (at < 0 || at >= n) return fprintf(stderr, "tunnels: no tunnel %d\n", at), 0;
-        if (strncmp(name, "tunnel-unown", 12) == 0) {
-            if (!light_tunnels_remove_own(&s->file, &rows[at])) return fprintf(stderr, "tunnels: tunnel %d has no look of its own\n", at), 0;
-            return app_light_touch(a), 1;
-        }
-        if (!light_tunnels_own_look(&s->file, &rows[at], why, sizeof why)) return fprintf(stderr, "tunnels: %s\n", why), 0;
-        if (strncmp(name, "tunnel-strength", 15) == 0) {   /* tunnel-strength:I,S: its lamps' strength over its own look */
-            LightTunnelRow again[LIGHT_TUNNEL_ROWS];
-            const int m = light_tunnels_list(&s->file, s->has_places ? &s->places : NULL, again, LIGHT_TUNNEL_ROWS);
-            LightTunnelLamp l;
-            if (at >= m || again[at].lamp < 0 || !light_file_get_tunnel_lamp(&s->file, again[at].lamp, &l)) return 0;
-            l.strength = arg[1];
-            if (!light_file_set_tunnel_lamp(&s->file, again[at].lamp, &l, why, sizeof why)) return fprintf(stderr, "tunnels: %s\n", why), 0;
-        }
+        const int at = (int)arg[0];   /* tunnel-lamps:I,S: the lamps' strength of tunnel I's look at the time shown, S percent */
+        LightTrackTunnel t;
+        char why[LT_WHY] = "";
+        if (at < 0 || at >= n || !light_track_get_tunnel(f, at, &t)) return fprintf(stderr, "tunnels: no tunnel %d\n", at), 0;
+        LightTrackLook v;
+        int index = -1;
+        for (int j = 0; j < looks && index < 0; ++j)
+            if (light_track_get_look(f, time, j, &v) && v.has_nodes && v.from == t.from && v.to == t.to) index = j;
+        if (index < 0) memset(&v, 0, sizeof v), v.has_nodes = 1, v.from = t.from, v.to = t.to;
+        v.has_lamps = 1, v.lamps = (double)arg[1];
+        if (!light_track_set_look(f, time, index, &v, why, sizeof why)) return fprintf(stderr, "tunnels: %s\n", why), 0;
         return app_light_touch(a), 1;
+    }
+    if (strncmp(name, "sun:", 4) == 0) {   /* sun:AZ,EL,SH: the time's sun (direction and height in degrees, the shadow's strength in percent) */
+        if (a->kind != APP_KIND_LIGHT || !a->light.session.has_file) return fprintf(stderr, "sun: no light file open\n"), 0;
+        const LightTrackSun s = { 1, 1, 1, (double)arg[0], (double)arg[1], (double)arg[2] };
+        char why[LT_WHY];
+        if (!light_track_set_sun(&a->light.session.file, a->light.time, &s, why, sizeof why)) return fprintf(stderr, "sun: %s\n", why), 0;
+        return app_light_touch(a), 1;
+    }
+    if (strcmp(name, "light-print") == 0) {   /* the open light file as the panel sees it: path, nodes, the time shown and what its block holds */
+        if (a->kind != APP_KIND_LIGHT) return fprintf(stderr, "light-print: no light window\n"), 0;
+        const LightTrackSession *s = &a->light.session;
+        if (!s->has_file) return fprintf(stdout, "light: %s no file\n", s->track), 1;
+        const LightTrack *f = &s->file;
+        const int time = a->light.time;
+        LightTrackSun sun;
+        const int has_sun = light_track_get_sun(f, time, &sun);
+        fprintf(stdout, "light: %s nodes %u time %c%s tunnels %d looks %d lamps %d brightness %d tones %d", s->track, s->nodes, light_ui_time_letter(time), light_track_session_dirty(s) ? " (unsaved)" : "",
+                light_track_count(f, LT_TIME_FACTS, LT_TUNNEL), light_track_count(f, time, LT_LOOK), light_track_count(f, time, LT_LAMP), light_track_count(f, time, LT_BRIGHTNESS), light_track_count(f, time, LT_TONE));
+        if (has_sun) fprintf(stdout, " sun %s%g %s%g %s%g", sun.has_azimuth ? "" : "-", sun.azimuth, sun.has_elevation ? "" : "-", sun.elevation, sun.has_shadow ? "" : "-", sun.shadow);
+        return fprintf(stdout, "\n"), 1;
     }
     if (strcmp(name, "print-repo") == 0) return fprintf(stdout, "repo data: %s\n", app_repo_data(a)[0] != '\0' ? app_repo_data(a) : "none"), 1;   /* where Copy to game repo writes, none when it is hidden */
     if (strcmp(name, "masks-poll") == 0) return app_track_masks_poll(a), 1;   /* the panel's look at the PSDs (once a second by the clock) */
     if (strncmp(name, "mask-select:", 12) == 0) return app_track_masks_load(a) && app_track_mask_select(a, (int)arg[0]);   /* the I-th mask shown over its texture */
     if (strcmp(name, "mask-regen") == 0) return app_track_mask_regenerate(a);   /* Regenerate from PSD on the shown mask */
     if (strncmp(name, "light-bright:", 13) == 0) {   /* light-bright:P: the Add brightness button, its percent P (a change the drive carries to the game) */
-        LightFile *f = &a->light.session.file;
-        const unsigned node = (unsigned)a->light.node, last = f->nodes - 1;
-        const LightBrightness b = { node, node + 50 < last ? node + 50 : last, (unsigned)arg[0], LIGHT_SIDE_BOTH, 0 };
-        char why[LIGHT_WHY];
-        if (!light_file_set_brightness(f, -1, &b, why, sizeof why)) return fprintf(stderr, "light-bright: %s\n", why), 0;
+        LightTrack *f = &a->light.session.file;
+        const unsigned node = (unsigned)a->light.node, last = a->light.session.nodes - 1;
+        const LightTrackBrightness b = { node, node + 50 < last ? node + 50 : last, (unsigned)arg[0], LT_ALL_POINTS };
+        char why[LT_WHY];
+        if (!light_track_set_brightness(f, a->light.time, -1, &b, why, sizeof why)) return fprintf(stderr, "light-bright: %s\n", why), 0;
         return app_light_touch(a), 1;
     }
     if (strcmp(name, "light-drive") == 0) return app_light_drive(a);   /* the Track light window's Test drive button */
@@ -405,7 +425,7 @@ static int at_once(App *a, const char *name, const double *arg)
         static const char *const STATES[] = { "idle", "running", "ended", "failed" };
         printf("drive: %s %s %c node %u %s\n", STATES[d->state], d->track, d->letter != '\0' ? d->letter : '-', d->node, light_drive_weather_word(d->weather));
         char file[APP_PATH + 80];
-        snprintf(file, sizeof file, "%s/track_light/%s%c.txt", d->mods, d->track, d->letter);
+        snprintf(file, sizeof file, "%s/track_light/%s.txt", d->mods, d->track);
         FILE *f = d->state == LIGHT_DRIVE_RUNNING ? fopen(file, "rb") : NULL;
         char line[256];
         while (f != NULL && fgets(line, sizeof line, f) != NULL)
