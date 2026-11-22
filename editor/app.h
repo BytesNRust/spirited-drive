@@ -279,6 +279,7 @@ typedef struct {
 
     char zip[APP_PATH];          /* the last package built, "" before one */
     char status[APP_MSG];        /* the last thing done, for the window's bottom line */
+    char drive_window[24];       /* "X,Y": where the Test drive's game window opens, beside this window (ui_frame sets it every frame); "": the game's own place */
     char open_error[APP_MSG];    /* why the last Open, New or recent could not open its folder, until it is acknowledged (the window says it in a message); "" for none */
 } App;
 

@@ -71,7 +71,7 @@ static int has(char *const *v, const char *want)
 static void test_command(void)
 {
     char *const base[] = { "PATH=/usr/bin", "TNFS_PERSON=1", "SDL_VIDEO_DRIVER=dummy", "KEEP_ME=yes", NULL };
-    LightDriveSetup s = { "/g/tnfs", "/cd", "/u", "/m", { 0 }, 'N', 1596, 2, NULL };
+    LightDriveSetup s = { "/g/tnfs", "/cd", "/u", "/m", { 0 }, 'N', 1596, 2, NULL, NULL };
     snprintf(s.track, sizeof s.track, "CY1");
     RaceCommand c;
     char why[LIGHT_DRIVE_WHY] = "";
@@ -86,6 +86,11 @@ static void test_command(void)
     car_race_command_free(&c);
     s.masks = "/scratch/masks";
     CHECK(light_drive_command(&s, NULL, &c, why, sizeof why) && has(c.envp, "TNFS_TRACK_MASKS=/scratch/masks"));
+    car_race_command_free(&c);
+    CHECK(light_drive_command(&s, NULL, &c, why, sizeof why) && !has(c.envp, "TNFS_WINDOW_POS=1500,40"));   /* no place given: the game's own */
+    car_race_command_free(&c);
+    s.window = "1500,40";
+    CHECK(light_drive_command(&s, NULL, &c, why, sizeof why) && has(c.envp, "TNFS_WINDOW_POS=1500,40"));   /* beside Studio */
     car_race_command_free(&c);
     s.letter = 'X';
     CHECK(!light_drive_command(&s, NULL, &c, why, sizeof why) && strstr(why, "time") != NULL);

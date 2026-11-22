@@ -281,6 +281,7 @@ int app_light_drive(App *a)
     char why[LIGHT_DRIVE_WHY];
     set_masks(a);
     snprintf(ui->drive.masks, sizeof ui->drive.masks, "%s", ui->photo.masks);
+    snprintf(ui->drive.window, sizeof ui->drive.window, "%s", a->drive_window);
     const int ok = light_drive_start(&ui->drive, a->game, a->export_src.cd, ui->session.track, ui->session.letter, (unsigned)ui->node, ui->weather, text, size, places, places_size, why, sizeof why);
     free(places);
     free(text);

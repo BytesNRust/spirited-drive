@@ -204,6 +204,14 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
 void ui_settings_to(App *a)
 {
     g_app = a;
+    a->drive_window[0] = '\0';
+    if (g_win != nullptr) {   // the Test drive's game opens to the right of this window when the display has room for it, else where the game puts it
+        int wx = 0, wy = 0, ww = 0, wh = 0;
+        SDL_Rect room = { 0, 0, 0, 0 };
+        SDL_GetWindowPosition(g_win, &wx, &wy);
+        SDL_GetWindowSize(g_win, &ww, &wh);
+        if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(g_win), &room) && room.x + room.w - (wx + ww) >= 680) snprintf(a->drive_window, sizeof a->drive_window, "%d,%d", wx + ww + 8, wy);
+    }
     if (g_drive_read >= 0) a->drive_pick = g_drive_read;
     g_drive_read = -1;
     int light = 0;

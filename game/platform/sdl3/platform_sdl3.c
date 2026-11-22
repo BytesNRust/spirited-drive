@@ -100,6 +100,11 @@ bool platform_init(const PlatformConfig *config)
         platform_shutdown();
         return false;
     }
+    {   /* the editor's Test drive puts the window beside its own: TNFS_WINDOW_POS=X,Y */
+        const char *at = SDL_getenv("TNFS_WINDOW_POS");
+        int px = 0, py = 0;
+        if (at != NULL && SDL_sscanf(at, "%d,%d", &px, &py) == 2) SDL_SetWindowPosition(sdl3_window, px, py);
+    }
     SDL_SetRenderLogicalPresentation(sdl3_renderer, sdl3_fb_width, sdl3_fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);

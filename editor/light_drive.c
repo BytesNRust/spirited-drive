@@ -78,7 +78,8 @@ int light_drive_command(const LightDriveSetup *s, char *const *base, RaceCommand
     for (char *const *v = base; ok && v != NULL && *v != NULL; ++v)
         if (strncmp(*v, "TNFS_", 5) != 0 && strncmp(*v, "SDL_", 4) != 0) ok = push(e, ec, RACE_ENVS, "%s", *v);
     ok = ok && push(e, ec, RACE_ENVS, "TNFS_LIGHT_EDIT=1") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=%s", WORDS[s->weather]) && push(e, ec, RACE_ENVS, "TNFS_LIGHT_TIME=%s", light_photo_time_word(s->letter)) &&
-         push(e, ec, RACE_ENVS, "TNFS_START_NODE=%u", s->node) && (s->masks == NULL || s->masks[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_TRACK_MASKS=%s", s->masks));
+         push(e, ec, RACE_ENVS, "TNFS_START_NODE=%u", s->node) && (s->masks == NULL || s->masks[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_TRACK_MASKS=%s", s->masks)) &&
+         (s->window == NULL || s->window[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_WINDOW_POS=%s", s->window));
     if (ok) return 1;
     car_race_command_free(out);
     return refuse(why, why_cap, "the command is too long");
@@ -154,7 +155,7 @@ int light_drive_start(LightDriveJob *job, const char *game, const char *cd, cons
                 snprintf(path, sizeof path, "%s/track", job->mods) >= (int)sizeof path || mkdir(path, 0777) != 0 || !mods_files(job, light, places)) {
                 refuse(why, why_cap, "cannot make the scratch folders: %s", strerror(errno));
             } else {
-                LightDriveSetup s = { game, cd, user, job->mods, { 0 }, letter, node, weather, NULL };
+                LightDriveSetup s = { game, cd, user, job->mods, { 0 }, letter, node, weather, NULL, job->window };
                 snprintf(s.track, sizeof s.track, "%s", track);
                 ok = write_whole(light, file_text, file_size, why, why_cap) && (places_text == NULL || places_size == 0 || write_whole(places, places_text, places_size, why, why_cap));
                 char masks[EXPORT_PATH + 16];
