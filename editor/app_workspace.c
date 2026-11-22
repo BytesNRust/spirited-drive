@@ -51,6 +51,33 @@ int app_repo_data_set(App *a, const char *dir_or_empty)
     return workspace_save_repo(a->workspace_file, a->repo_cfg);
 }
 
+void app_repo_data_pick(App *a)
+{
+    if (a->go == APP_ACT_NONE && a->confirm == APP_ACT_NONE) a->go = APP_ACT_REPO_PICK;
+}
+
+static int is_dir(const char *dir, const char *sub)
+{
+    char path[APP_PATH];
+    struct stat st;
+    return snprintf(path, sizeof path, "%s/%s", dir, sub) < (int)sizeof path && stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+int app_repo_data_choose(App *a, const char *dir)
+{
+    char data[APP_PATH];
+    snprintf(data, sizeof data, "%s", dir != NULL ? dir : "");
+    if (!(is_dir(data, "car_masks") && is_dir(data, "track_light")) && is_dir(data, "data")) strncat(data, "/data", sizeof data - strlen(data) - 1);   /* the repo itself was chosen */
+    if (data[0] == '\0' || !is_dir(data, "car_masks") || !is_dir(data, "track_light"))
+        return snprintf(a->status, sizeof a->status, "game repo folder: %s is not the repo's data/ (it needs car_masks/ and track_light/ in it): nothing changed", data), 0;
+    if (app_light_in_bundle(data))
+        return snprintf(a->status, sizeof a->status, "game repo folder: %s is inside an app bundle: choose the repo's own data/", data), 0;
+    if (!app_repo_data_set(a, data) && a->workspace_file[0] != '\0')   /* a headless run keeps no file: the choice holds for the run */
+        return snprintf(a->status, sizeof a->status, "game repo folder: could not keep %s in the settings file", data), 0;
+    snprintf(a->status, sizeof a->status, "game repo folder: %s (Copy to game repo writes there)", data);
+    return 1;
+}
+
 int app_workspace_set(App *a, const char *dir)
 {
     char why[APP_MSG];

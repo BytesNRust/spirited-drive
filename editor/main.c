@@ -359,7 +359,7 @@ static int run_go(SDL_Window *win, App *a)
     if (act == APP_ACT_NEW && a->workspace[0] != '\0') a->new_track_dialog = 1, a->new_track_name[0] = a->new_track_id[0] = a->new_track_error[0] = '\0', a->new_track_id_typed = 0;   /* a workspace: only a name is asked for */
     else if (act == APP_ACT_EXPORT_TRACK) a->export_track_dialog = 1, a->export_track_name[0] = a->export_track_id[0] = a->export_track_error[0] = '\0', a->export_track_id_typed = 0, a->export_track_pick = 0;
     else if (act == APP_ACT_NEW_CAR) a->new_car_dialog = 1, a->new_car_name[0] = a->new_car_id[0] = a->new_car_error[0] = '\0', a->new_car_id_typed = 0, a->new_car_template = 0;
-    else if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK || act == APP_ACT_LIGHT_PICK || act == APP_ACT_WORKSPACE_PICK) dialog_start(win, a, act);
+    else if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK || act == APP_ACT_LIGHT_PICK || act == APP_ACT_WORKSPACE_PICK || act == APP_ACT_REPO_PICK) dialog_start(win, a, act);
     else if (act == APP_ACT_EXPORT_AT) app_export_car(a, path);
     else if (act == APP_ACT_RECENT) app_open_recent(a, path);
     else if (act == APP_ACT_OPEN_AT) app_open_project(a, path);
@@ -421,6 +421,10 @@ static void take_dialog(App *a)
     }
     if (kind == APP_ACT_BACKDROP_PICK) {   /* a picture for the card photo: nothing in the project changes, no question */
         ui_card_backdrop_file(path);
+        return;
+    }
+    if (kind == APP_ACT_REPO_PICK) {   /* a setting, no project: no question */
+        app_repo_data_choose(a, path);
         return;
     }
     if (kind == APP_ACT_WORKSPACE_PICK) {   /* it changes no project: no question about unsaved changes */

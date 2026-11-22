@@ -468,7 +468,7 @@ bool track_edit_done()
 }
 
 // The File menu holds the actions of the room on screen only (Cars, Tracks, the main menu), New before Open: a car's room has no New track, a track's no Open car.
-enum FileItem { FILE_NEW_CAR, FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_EXPORT_TRACK, FILE_COPY, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
+enum FileItem { FILE_NEW_CAR, FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_EXPORT_TRACK, FILE_COPY, FILE_REPO, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
 
 static const char *file_label(FileItem item)
 {
@@ -479,6 +479,7 @@ static const char *file_label(FileItem item)
     case FILE_LIGHT: return "Open original track...";
     case FILE_EXPORT_TRACK: return "Export original track...";
     case FILE_COPY: return "Copy to game repo";
+    case FILE_REPO: return "Game repo folder...";
     case FILE_OPEN_CAR: return "Open car...";
     case FILE_EXPORT: return "Export original car...";
     case FILE_RECENT: return "Open recent";
@@ -496,10 +497,12 @@ static int file_items(const App *a, FileItem out[12])
     int n = 0;
     const AppRoom room = app_room(a);
     if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_EXPORT_TRACK, out[n++] = FILE_RECENT;
-    if (room == APP_ROOM_TRACKS && app_original_can_copy(a)) out[n++] = FILE_COPY;
+    if (room == APP_ROOM_TRACKS && (app_original_can_copy(a) || app_repo_copy_unset(a))) out[n++] = FILE_COPY;   // off, with the reason, while the repo folder is not set
+    if (room == APP_ROOM_TRACKS) out[n++] = FILE_REPO;
     if (room == APP_ROOM_CARS) out[n++] = FILE_NEW_CAR, out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
-    if (room == APP_ROOM_CARS && app_car_copy_can(a)) out[n++] = FILE_COPY;
-    if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE;   // the workspace is for both rooms: its menu is the main menu's, not a room's
+    if (room == APP_ROOM_CARS && (app_car_copy_can(a) || app_repo_copy_unset(a))) out[n++] = FILE_COPY;
+    if (room == APP_ROOM_CARS) out[n++] = FILE_REPO;
+    if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE, out[n++] = FILE_REPO;   // the workspace is for both rooms: its menu is the main menu's, not a room's
     if (room == APP_ROOM_HUB) out[n++] = FILE_SEPARATOR;
     if (room != APP_ROOM_HUB) out[n++] = FILE_SAVE, out[n++] = FILE_MAIN;
     out[n++] = FILE_QUIT;
@@ -555,6 +558,9 @@ void main_menu(App *a)
                 char keys[16];
                 shortcut_label(keys, sizeof keys, SHORTCUT_MAC, "W");
                 if (ImGui::MenuItem("Main menu", keys)) app_ask(a, APP_ACT_MAIN, "");
+            } else if (item == FILE_COPY && app_repo_copy_unset(a)) {   // not hidden: off, and the tooltip says what to do
+                ImGui::MenuItem(file_label(item), nullptr, false, false);
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Set the game repo folder first: File > Game repo folder...");
             } else if (ImGui::MenuItem(file_label(item))) {
                 if (item == FILE_NEW_CAR) app_ask(a, APP_ACT_NEW_CAR, "");
                 else if (item == FILE_NEW_TRACK) app_ask(a, APP_ACT_NEW, "");
@@ -562,6 +568,7 @@ void main_menu(App *a)
                 else if (item == FILE_LIGHT) a->original_dialog = 1;
                 else if (item == FILE_EXPORT_TRACK) app_ask(a, APP_ACT_EXPORT_TRACK, "");
                 else if (item == FILE_COPY) app_original_copy_ask(a);
+                else if (item == FILE_REPO) app_repo_data_pick(a);
                 else if (item == FILE_OPEN_CAR) app_ask(a, APP_ACT_OPEN_CAR, "");
                 else if (item == FILE_EXPORT) a->export_dialog = 1;
                 else if (item == FILE_QUIT) app_ask(a, APP_ACT_QUIT, "");
@@ -783,7 +790,7 @@ void ui_print_menu(const App *a)
     const AppRoom room = app_room(a);
     printf("room: %s\nfile:", room == APP_ROOM_CARS ? "cars" : room == APP_ROOM_TRACKS ? "tracks" : "hub");
     for (int i = 0; i < n; ++i)
-        if (items[i] != FILE_SEPARATOR) printf("%s%s", i == 0 ? " " : " | ", file_label(items[i]));
+        if (items[i] != FILE_SEPARATOR) printf("%s%s%s", i == 0 ? " " : " | ", file_label(items[i]), items[i] == FILE_COPY && app_repo_copy_unset(a) ? " (off: set the game repo folder first)" : "");
     printf("\n");
 }
 

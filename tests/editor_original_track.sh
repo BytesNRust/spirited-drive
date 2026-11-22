@@ -43,7 +43,7 @@ out=$(run --frames 60 --steps open-original:3,repo-ask,print-original,print-menu
 echo "$out" | grep -q "^original: $work/ws/tracks/CL1$" || fail "the original track is open: $out"
 echo "$out" | grep -q "^light: $work/ws/tracks/CL1/light$" || fail "the light folder is the track's own: $out"
 echo "$out" | grep -q '^track: CL1 time: B$' || fail "CL1 at day: $out"
-echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Export original track... | Open recent | Copy to game repo | Save | Main menu | Quit$' || fail "the room's File menu: $out"
+echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Export original track... | Open recent | Copy to game repo | Game repo folder... | Save | Main menu | Quit$' || fail "the room's File menu: $out"
 echo "$out" | grep -q '^preview: CL1:.*5 unchanged' || fail "an untouched track has nothing to publish: $out"
 
 # an edited light file: the preview names it, Copy writes it into data/ and nothing else
@@ -150,8 +150,17 @@ echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "the PSD
 
 # the copy action is hidden unless the game repo's data/ is given (--port-data): without it the room's File menu has no Copy item and print-repo says none
 out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --window 1280x800 --frames 20 --steps open-original:3,print-menu,print-repo 2>&1) || fail "no repo: $out"
-echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Export original track... | Open recent | Save | Main menu | Quit$' || fail "no Copy item without the repo's data/: $out"
+echo "$out" | grep -qF 'Export original track... | Open recent | Copy to game repo (off: set the game repo folder first) | Game repo folder... | Save' || fail "Copy is shown off, with Game repo folder..., without the repo's data/: $out"
 echo "$out" | grep -q '^repo data: none$' || fail "no repo data is given: $out"
+# File > Game repo folder...: a folder without car_masks/ and track_light/ is refused, the repo's data/ (or the repo itself) is kept, and Copy turns on
+mkdir -p "$work/notrepo" "$work/repo2/data/car_masks" "$work/repo2/data/track_light"
+bare() { "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --art-dir "$work/art" --window 1280x800 "$@"; }
+out=$(TNFS_STUDIO_PICK="$work/notrepo" bare --frames 20 --steps open-original:3,repo-choose,status,print-repo 2>&1) || fail "repo refused: $out"
+echo "$out" | grep -q 'is not the repo.s data/' || fail "a folder without car_masks/ and track_light/ is refused: $out"
+echo "$out" | grep -q '^repo data: none$' || fail "nothing changed after a refusal: $out"
+out=$(TNFS_STUDIO_PICK="$work/repo2" bare --frames 20 --steps open-original:3,repo-choose,status,print-repo,print-menu 2>&1) || fail "repo chosen: $out"
+echo "$out" | grep -q "^repo data: $work/repo2/data$" || fail "the repo's data/ is kept when the repo is chosen: $out"
+echo "$out" | grep -q '^file: .*| Copy to game repo | Game repo folder... |' || fail "Copy is on once the folder is set: $out"
 out=$(run --frames 20 --steps print-repo 2>&1) || fail "repo: $out"
 echo "$out" | grep -q "^repo data: $work/data$" || fail "--port-data is the repo data: $out"
 

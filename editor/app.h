@@ -59,6 +59,7 @@ typedef enum {
     APP_ACT_EXPORT_TRACK,   /* the Export original track window (a->export_track_dialog) is asked for, after the question about unsaved changes */
     APP_ACT_NEW_CAR,    /* the New car window (a->new_car_dialog) is asked for, after the question about unsaved changes */
     APP_ACT_PHOTO_PICK, /* main.c's file dialog is on screen for a showcase photo (a->photo_dialog asks for it): the picture is copied into the car's folder when it comes back, so no question */
+    APP_ACT_REPO_PICK,  /* the game repo folder is asked for (main.c's dialog); what it gives goes through app_repo_data_choose at once, no question about unsaved changes */
     APP_ACT_BACKDROP_PICK /* main.c's file dialog is on screen for the card photo's backdrop picture (a->backdrop_dialog asks for it): nothing in the project changes, so no question */
 } AppAction;
 
@@ -502,6 +503,12 @@ void app_recent_remove(App *a, int index);
 void app_recent_clear(App *a, int kind);
 /* the folder dialog for a workspace, from the menu or the start screen: it does not ask about unsaved changes (it changes no project) */
 void app_workspace_pick(App *a);
+/* File > Game repo folder...: the folder dialog for the repo's data/ (main.c), and what it gives: the folder (or the repo whose data/ holds them) when it has car_masks/ and track_light/,
+ * kept by app_repo_data_set; else the status says what is missing and nothing changes. 1 when it was kept. */
+void app_repo_data_pick(App *a);
+int app_repo_data_choose(App *a, const char *dir);
+/* the open project is one Copy to game repo is for (an original car or track) but the repo folder is not set: the File menu shows the item off, saying so */
+int app_repo_copy_unset(const App *a);
 /* where the folder dialog `kind` (APP_ACT_NEW, _OPEN, _OPEN_CAR, _EXPORT_PICK, _WORKSPACE_PICK) starts: the workspace's cars/ or tracks/, else the open project's parent, else "" */
 void app_dialog_dir(const App *a, AppAction kind, char *out, size_t cap);
 

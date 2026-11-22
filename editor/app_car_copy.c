@@ -12,11 +12,17 @@ static int folders(const App *a, char *project, size_t pcap, char *repo, size_t 
 {
     *car = a->kind == APP_KIND_CAR ? car_race_original_of(&a->car) : NULL;
     if (*car == NULL) return snprintf(why, why_cap, "only one of the game's own cars has masks in the game repo"), 0;
-    if (app_repo_data(a)[0] == '\0') return snprintf(why, why_cap, "the game repo's data/ is not set (--port-data, or repo data in workspace.txt)"), 0;
+    if (app_repo_data(a)[0] == '\0') return snprintf(why, why_cap, "the game repo's data/ is not set (File > Game repo folder...)"), 0;
     if (!a->car.has_masks_dir) return snprintf(why, why_cap, "the car has no masks folder yet"), 0;
     car_project_masks_dir(&a->car, project, pcap);
     snprintf(repo, rcap, "%s/car_masks/%s", app_repo_data(a), (*car)->folder);
     return 1;
+}
+
+int app_repo_copy_unset(const App *a)
+{
+    if (app_repo_data(a)[0] != '\0') return 0;
+    return a->kind == APP_KIND_CAR ? car_race_original_of(&a->car) != NULL : a->kind == APP_KIND_LIGHT && a->original_dir[0] != '\0';
 }
 
 int app_car_copy_can(const App *a)
