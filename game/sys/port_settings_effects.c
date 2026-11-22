@@ -259,6 +259,13 @@ int port_tunnel_lamps(void)
     return port_settings_load().tunnel_lamps;
 }
 
+int port_sun_shadow(void)
+{
+    const char *v = getenv("TNFS_SUN_SHADOW");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] != '0';
+    return port_settings_load().sun_shadow;
+}
+
 int port_wrong_way(void)
 {
     const char *v = getenv("TNFS_WRONG_WAY");

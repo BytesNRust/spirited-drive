@@ -89,7 +89,11 @@ typedef struct {
     int lamp_count;
     TrackLightTunnelLamp tunnel_lamps[TRACK_LIGHT_MAX_TUNNEL_LAMPS];   /* tunnel_lamp: in file order */
     int tunnel_lamp_count;
+    int sun_set;                           /* the `sun AZIMUTH ELEVATION SHADOW` line (one a time; a word may be `-`, the generator's own): bit 0 the azimuth, 1 the elevation, 2 the shadow are given */
+    float sun_azimuth, sun_elevation;      /* degrees: the azimuth in the world's axes (0 toward +x of the track's units, 90 toward +z), the elevation over the horizon */
+    float sun_shadow;                      /* percent of light left in full shadow (100: no shadow) */
 } TrackLightTweaks;
+enum { TRACK_LIGHT_SUN_AZIMUTH = 1, TRACK_LIGHT_SUN_ELEVATION = 2, TRACK_LIGHT_SUN_SHADOW = 4 };
 
 /* What the file says about the lamps of the tunnel at `node`: the bits of TRACK_LIGHT_TUNNEL_LAMP_* it gives, with *strength (percent), cast[3] and *reach (nodes) set for those bits only. The last
  * general line is the base, the last line over `node` replaces it for what it gives; 0 (nothing set) with no line: the caller keeps the values the code has. */

@@ -193,10 +193,86 @@ static void test_the_night_has_no_sun_to_cast_shadows(void)
     LightPos pts[NODES * TRACK_NODE_LIGHT_POINTS];
     uint8_t a[NODES * TRACK_NODE_LIGHT_POINTS], b[NODES * TRACK_NODE_LIGHT_POINTS];
     flat(pts);
-    const TerrainLightSun east = { 0.0f, 0.3f }, west = { 3.14159265f, 0.3f };
+    const TerrainLightSun east = { 0.0f, 0.3f, 1.0f, 0.0f }, west = { 3.14159265f, 0.3f, 1.0f, 0.0f };
     CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_NIGHT, &east, a));
     CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_NIGHT, &west, b));
     CHECK(memcmp(a, b, sizeof a) == 0);
+}
+
+/* the same flat track with the right chain's far end raised: (x, y) of point 5 on every node */
+static void ridge(LightPos *pts, float x, float y)
+{
+    flat(pts);
+    for (int n = 0; n < NODES; n++) pts[n * TRACK_NODE_LIGHT_POINTS + 5] = (LightPos){ x, y, (float)n * 6 };
+}
+
+static void test_the_sun_casts_a_shadow_from_a_ridge_toward_it(void)
+{
+    LightPos pts[NODES * TRACK_NODE_LIGHT_POINTS];
+    uint8_t lit[NODES * TRACK_NODE_LIGHT_POINTS], shaded[NODES * TRACK_NODE_LIGHT_POINTS], other[NODES * TRACK_NODE_LIGHT_POINTS];
+    ridge(pts, 60.0f, 30.0f);   /* a ridge toward +x, 27 degrees up from the road */
+    TerrainLightSun sun;
+    terrain_light_sun_shadowed(LIGHT_SYNTH_DAWN, &sun);   /* 15 degrees, azimuth 0: toward the ridge */
+    CHECK(sun.shadow < 1.0f && sun.reach > 80.0f);
+    CHECK(terrain_light_make_rows(pts, NODES, 0, LIGHT_SYNTH_DAWN, lit));
+    CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_DAWN, &sun, shaded));
+    for (int n = 5; n < NODES - 5; n++)
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
+            if (p == 5) continue;
+            CHECK(shaded[n * TRACK_NODE_LIGHT_POINTS + p] < lit[n * TRACK_NODE_LIGHT_POINTS + p]);   /* every point, the road's too */
+        }
+    CHECK_EQ_INT(shaded[20 * TRACK_NODE_LIGHT_POINTS + 0], terrain_light_level(sun.shadow));   /* the road in full shadow: the strength */
+    sun.azimuth = 3.14159265f;   /* the sun on the other side: the ridge is behind it */
+    CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_DAWN, &sun, other));
+    CHECK(memcmp(other, lit, sizeof lit) == 0);
+}
+
+static void test_a_sun_without_shadow_or_reach_changes_nothing(void)
+{
+    LightPos pts[NODES * TRACK_NODE_LIGHT_POINTS];
+    uint8_t lit[NODES * TRACK_NODE_LIGHT_POINTS], same[NODES * TRACK_NODE_LIGHT_POINTS];
+    ridge(pts, 60.0f, 30.0f);
+    for (int time = LIGHT_SYNTH_DAWN; time <= LIGHT_SYNTH_DUSK; time++) {
+        TerrainLightSun sun;
+        terrain_light_sun_default(time, &sun);
+        CHECK(sun.shadow == 1.0f && sun.reach == 0.0f);
+        CHECK(terrain_light_make_rows(pts, NODES, 0, time, lit));
+        sun.azimuth = 0.0f;
+        CHECK(terrain_light_make_rows_sun(pts, NODES, 0, time, &sun, same));
+        CHECK(memcmp(same, lit, sizeof lit) == 0);   /* the default sun: today's bytes */
+        sun.shadow = 0.5f;   /* a strength but no reach */
+        CHECK(terrain_light_make_rows_sun(pts, NODES, 0, time, &sun, same));
+        CHECK(memcmp(same, lit, sizeof lit) == 0);
+    }
+}
+
+static void test_the_shadow_reaches_further_than_the_sky(void)
+{
+    LightPos pts[NODES * TRACK_NODE_LIGHT_POINTS];
+    uint8_t lit[NODES * TRACK_NODE_LIGHT_POINTS], far_[NODES * TRACK_NODE_LIGHT_POINTS], near_[NODES * TRACK_NODE_LIGHT_POINTS];
+    ridge(pts, 300.0f, 150.0f);   /* 300 units out: past the sky's 80, inside the sun's reach */
+    TerrainLightSun sun;
+    terrain_light_sun_shadowed(LIGHT_SYNTH_DAWN, &sun);
+    CHECK(terrain_light_make_rows(pts, NODES, 0, LIGHT_SYNTH_DAWN, lit));
+    CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_DAWN, &sun, far_));
+    CHECK(far_[20 * TRACK_NODE_LIGHT_POINTS + 0] < lit[20 * TRACK_NODE_LIGHT_POINTS + 0]);
+    sun.reach = 250.0f;
+    CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_DAWN, &sun, near_));
+    CHECK(memcmp(near_, lit, sizeof lit) == 0);   /* a ridge past the reach shades nothing */
+}
+
+static void test_the_nights_sun_is_the_moon_and_casts_no_shadow(void)
+{
+    LightPos pts[NODES * TRACK_NODE_LIGHT_POINTS];
+    uint8_t lit[NODES * TRACK_NODE_LIGHT_POINTS], same[NODES * TRACK_NODE_LIGHT_POINTS];
+    ridge(pts, 60.0f, 30.0f);
+    TerrainLightSun sun;
+    terrain_light_sun_shadowed(LIGHT_SYNTH_NIGHT, &sun);
+    CHECK(sun.shadow == 1.0f);
+    CHECK(terrain_light_make_rows(pts, NODES, 0, LIGHT_SYNTH_NIGHT, lit));
+    sun.shadow = 0.3f, sun.reach = 400.0f;   /* even a shadow asked for at night is not cast */
+    CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_NIGHT, &sun, same));
+    CHECK(memcmp(same, lit, sizeof lit) == 0);
 }
 
 static void test_a_lamp_pools_light_on_the_terrain_near_it(void)
@@ -455,6 +531,10 @@ int main(void)
     test_the_rules_set_their_points_in_the_levels();
     test_the_night_is_dark_on_the_terrain_and_lit_on_the_road();
     test_the_night_has_no_sun_to_cast_shadows();
+    test_the_sun_casts_a_shadow_from_a_ridge_toward_it();
+    test_a_sun_without_shadow_or_reach_changes_nothing();
+    test_the_shadow_reaches_further_than_the_sky();
+    test_the_nights_sun_is_the_moon_and_casts_no_shadow();
     test_a_lamp_pools_light_on_the_terrain_near_it();
     test_a_lamp_beside_the_closing_node_lights_across_it_on_a_ring();
     test_smoothing_spreads_a_spike_and_keeps_the_road();

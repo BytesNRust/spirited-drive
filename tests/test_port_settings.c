@@ -154,7 +154,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .light_effects = 1, .car_soft_shadow = 1,
-                       .light_time = LIGHT_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .records_unified = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .lamp_flares = 1, .rally_gravel_shoulder = 1, .snow_weather = 1, .lamp_halos = 1, .snow_fx = 1, .close_houses = 1, .brake_over_gas = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1, .reflectors = 1, .handbrake_lamps = 1, .rally_spray = 1, .wipers = 1, .weather_fog = 2, .spray_v4 = 1, .menu_pad_cancel = 1, .tunnel_lamps = 1, .wrong_way = 1 };
+                       .light_time = LIGHT_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .records_unified = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .lamp_flares = 1, .rally_gravel_shoulder = 1, .snow_weather = 1, .lamp_halos = 1, .snow_fx = 1, .close_houses = 1, .brake_over_gas = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1, .reflectors = 1, .handbrake_lamps = 1, .rally_spray = 1, .wipers = 1, .weather_fog = 2, .spray_v4 = 1, .menu_pad_cancel = 1, .tunnel_lamps = 1, .wrong_way = 1, .sun_shadow = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -194,6 +194,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.menu_pad_cancel, 1);
     CHECK_EQ_INT(back.tunnel_lamps, 1);
     CHECK_EQ_INT(back.wrong_way, 1);
+    CHECK_EQ_INT(back.sun_shadow, 1);
     CHECK_EQ_INT(back.brake_over_gas, 1);
     CHECK_EQ_INT(back.render_bands, 4);
     /* the old car_draw_distance line is ignored, and no longer written */

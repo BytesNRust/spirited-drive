@@ -18,7 +18,8 @@ uint8_t terrain_light_level(float v)
 enum {
     SKY_SECTORS = 16,       /* azimuths round a point: the highest terrain in each is its horizon */
     SKY_WINDOW = 20,        /* nodes either side whose points can shade it */
-    SKY_REACH = 80          /* units: what is further does not shade (the hills are the sky's) */
+    SKY_REACH = 80,         /* units: what is further does not shade (the hills are the sky's) */
+    SUN_WINDOW = 64         /* nodes either side whose points can shade a point from the sun (the sun's reach is longer) */
 };
 
 static const float SUN_BEAM_COS = 0.98f;    /* the terrain within about 11 degrees of the sun's azimuth can shade it */
@@ -117,6 +118,17 @@ void terrain_light_sun_default(int time, TerrainLightSun *out)
     if (out == NULL) return;
     out->azimuth = 0.0f;
     out->elevation = time == LIGHT_SYNTH_DAY ? 0.87f : time == LIGHT_SYNTH_DAWN ? 0.26f : 0.21f;   /* about 50, 15 and 12 degrees */
+    out->shadow = 1.0f;
+    out->reach = 0.0f;
+}
+
+void terrain_light_sun_shadowed(int time, TerrainLightSun *out)
+{
+    if (out == NULL) return;
+    terrain_light_sun_default(time, out);
+    if (time == LIGHT_SYNTH_NIGHT) return;   /* the moon casts no shadow */
+    out->shadow = TERRAIN_LIGHT_SUN_SHADOW;
+    out->reach = (float)TERRAIN_LIGHT_SUN_REACH;
 }
 
 void terrain_light_smooth(float *light, uint32_t count, int ring)
@@ -190,6 +202,38 @@ void terrain_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const ui
     }
 }
 
+/* The tangent of the highest terrain within `sun->reach` units of the point in the sun's direction (0 when none rises): the same beam as horizon_of's, a longer reach and a window of nodes to match */
+static float sun_horizon(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, const TerrainLightSun *sun)
+{
+    const LightPos *at = &pts[node * TRACK_NODE_LIGHT_POINTS + (uint32_t)point];
+    const float sun_x = cosf(sun->azimuth), sun_z = sinf(sun->azimuth), reach2 = sun->reach * sun->reach;
+    float best = 0.0f;
+    for (int d = -SUN_WINDOW; d <= SUN_WINDOW; d++) {
+        int64_t other = (int64_t)node + d;
+        if (ring) other = ((other % count) + count) % count;
+        else if (other < 0 || other >= count) continue;
+        const LightPos *row = &pts[(uint32_t)other * TRACK_NODE_LIGHT_POINTS];
+        for (int q = 0; q < TRACK_NODE_LIGHT_POINTS; q++) {
+            const float dx = row[q].x - at->x, dz = row[q].z - at->z, dy = row[q].y - at->y;
+            if (!(dy > 0.0f)) continue;
+            const float run2 = dx * dx + dz * dz;
+            if (run2 < 0.25f || run2 > reach2) continue;
+            const float run = sqrtf(run2);
+            if ((dx * sun_x + dz * sun_z) / run > SUN_BEAM_COS && dy / run > best) best = dy / run;
+        }
+    }
+    return best;
+}
+
+/* 1 in the sun, down to sun->shadow when the terrain toward the sun is TERRAIN_LIGHT_SUN_RAMP over it */
+static float sun_factor(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, const TerrainLightSun *sun)
+{
+    const float over = atanf(sun_horizon(pts, count, ring, node, point, sun)) - sun->elevation;
+    if (!(over > 0.0f)) return 1.0f;
+    const float k = over >= TERRAIN_LIGHT_SUN_RAMP ? 1.0f : over / TERRAIN_LIGHT_SUN_RAMP;
+    return 1.0f - (1.0f - sun->shadow) * k;
+}
+
 int terrain_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const TerrainLightSun *sun, uint8_t *data)
 {
     if (pts == NULL || data == NULL || count < 2 || time < LIGHT_SYNTH_DAWN || time > LIGHT_SYNTH_NIGHT) return 0;
@@ -197,11 +241,13 @@ int terrain_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, i
     if (sun == NULL) terrain_light_sun_default(time, &own), sun = &own;
     float *light = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *light);
     if (light == NULL) return 0;
+    const int cast = time != LIGHT_SYNTH_NIGHT && sun->shadow < 1.0f && sun->reach > 0.0f;   /* the night's sun is the moon: no shadow */
     for (uint32_t n = 0; n < count; n++)
         for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
             float *out = &light[n * TRACK_NODE_LIGHT_POINTS + (uint32_t)p];
             if (is_road_point(p)) {
                 *out = 1.0f;
+                if (cast) *out *= sun_factor(pts, count, ring, n, p, sun);
                 continue;
             }
             if (time == LIGHT_SYNTH_NIGHT) {
@@ -210,10 +256,11 @@ int terrain_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, i
             }
             if (p == 5 || p == 10) {
                 *out = OUTER[time][p == 10];
-                continue;
+            } else {
+                const LightPos nm = normal_of(pts, count, ring, n, p);
+                *out = LAMBERT[time][0] + LAMBERT[time][1] * nm.y + LAMBERT[time][2] * nm.x;
             }
-            const LightPos nm = normal_of(pts, count, ring, n, p);
-            *out = LAMBERT[time][0] + LAMBERT[time][1] * nm.y + LAMBERT[time][2] * nm.x;
+            if (cast) *out *= sun_factor(pts, count, ring, n, p, sun);
         }
     if (time == LIGHT_SYNTH_NIGHT) terrain_light_smooth(light, count, ring);   /* the day's light follows each node's own normal, as the CD's does: smoothing it blurs what matches */
     for (size_t i = 0; i < (size_t)count * TRACK_NODE_LIGHT_POINTS; i++) data[i] = terrain_light_level(light[i]);
@@ -289,12 +336,17 @@ int terrain_light_tri_points(const Tri *tri, LightPos *out)
 
 int terrain_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int lamps, TrackNodeLight *out)
 {
+    return terrain_light_make_lit_sun(tri, time, NULL, lamp_nodes, lamps, out);
+}
+
+int terrain_light_make_lit_sun(const Tri *tri, int time, const TerrainLightSun *sun, const uint32_t *lamp_nodes, int lamps, TrackNodeLight *out)
+{
     if (tri == NULL || out == NULL || tri->node_count < 2) return 0;
     const uint32_t count = tri->node_count;
     LightPos *pts = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *pts);
     uint8_t *data = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS);
     int ok = pts != NULL && data != NULL && terrain_light_tri_points(tri, pts);
-    ok = ok && terrain_light_make_rows(pts, count, tri_is_circuit(tri), time, data);
+    ok = ok && terrain_light_make_rows_sun(pts, count, tri_is_circuit(tri), time, sun, data);
     if (ok && time == LIGHT_SYNTH_NIGHT) terrain_light_add_lamps(data, count, tri_is_circuit(tri), lamp_nodes, lamps);
     if (ok) {
         memset(out, 0, sizeof *out);

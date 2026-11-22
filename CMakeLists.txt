@@ -1798,6 +1798,8 @@ if(NOT EMSCRIPTEN)
         add_test(NAME track_light_fingerprint COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
                  ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(track_light_fingerprint PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+        add_test(NAME sun_shadow_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/sun_shadow_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+        set_tests_properties(sun_shadow_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         # the same, from the one file a track that tools/track_light_convert.py makes from the old files: converting changes no light
         add_test(NAME track_light_convert COMMAND ${CMAKE_COMMAND} -E env CONVERT=1 sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
                  ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

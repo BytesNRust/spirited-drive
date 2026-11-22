@@ -262,6 +262,8 @@ static int take_look(TrackLightTweaks *tweaks, int has_light, double light, int 
 
 /* a `lamp` line (after its word): the node, the light in percent (1..TRACK_LIGHT_MAX_LAMP_PERCENT), then the colour (six hex digits, `:strength` 0..100 after them) and the radius (one or two
  * decimal digits), each optional, in that order */
+static int parse_sun(const char *rest, TrackLightTweaks *tweaks);
+
 static int parse_lamp(const char *rest, uint32_t nodes, TrackLightTweaks *tweaks)
 {
     unsigned node, percent;
@@ -492,6 +494,7 @@ static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks 
         tweaks->car_tone[tweaks->car_tone_count++] = (TrackLightCarTone){ from, to, { (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb }, percent };
         return 1;
     }
+    if (strcmp(key, "sun") == 0) return parse_sun(rest, tweaks);
     if (strcmp(key, "tunnel_tone") == 0) {   /* the tunnels' look this time: tunnel_tone <light> [RRGGBB[:strength]] */
         int lit = 0, has_light = 0, has_colour = 0;
         double value = 0.0;
@@ -512,6 +515,36 @@ int track_light_tweak_line(const char *line, uint32_t nodes, TrackLightTweaks *t
 int track_light_tweaks_finish(TrackLightTweaks *tweaks, int *bad_line)
 {
     return zone_slots(tweaks, bad_line);
+}
+
+/* `sun AZIMUTH ELEVATION SHADOW`: degrees, degrees, percent; a word may be `-` for the generator's own. One a file. */
+static int sun_word(const char **at, double lo, double hi, double *out, int *given)
+{
+    while (**at == ' ' || **at == '\t') (*at)++;
+    if (**at == '-' && ((*at)[1] == '\0' || (*at)[1] == ' ' || (*at)[1] == '\t' || (*at)[1] == '\r')) {
+        (*at)++;
+        *given = 0;
+        return 1;
+    }
+    char *end = NULL;
+    *out = strtod(*at, &end);
+    if (end == *at || !(*out >= lo && *out <= hi) || (*end != '\0' && *end != ' ' && *end != '\t' && *end != '\r')) return 0;
+    *at = end;
+    *given = 1;
+    return 1;
+}
+
+static int parse_sun(const char *rest, TrackLightTweaks *tweaks)
+{
+    double az = 0, el = 0, shadow = 100;
+    int has_az, has_el, has_shadow;
+    if (tweaks->sun_set != 0 || !sun_word(&rest, -360, 360, &az, &has_az) || !sun_word(&rest, 1, 90, &el, &has_el) || !sun_word(&rest, 0, 100, &shadow, &has_shadow)) return 0;
+    while (*rest == ' ' || *rest == '\t' || *rest == '\r') rest++;
+    if (*rest != '\0') return 0;   /* a fourth word */
+    if (!has_az && !has_el && !has_shadow) return 0;   /* nothing said: not a line */
+    tweaks->sun_set = (has_az ? TRACK_LIGHT_SUN_AZIMUTH : 0) | (has_el ? TRACK_LIGHT_SUN_ELEVATION : 0) | (has_shadow ? TRACK_LIGHT_SUN_SHADOW : 0);
+    tweaks->sun_azimuth = (float)az, tweaks->sun_elevation = (float)el, tweaks->sun_shadow = (float)shadow;
+    return 1;
 }
 
 int track_light_parse(const char *text, size_t size, const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, int *bad_line)

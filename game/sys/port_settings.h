@@ -86,6 +86,7 @@ typedef struct {
     int weather_fog;    /* 1: the weather's fog in snow and in the rain storm (modern 3D): snow fog whiter, closer and with the exponential curve (heavier in the snow storm), the rain storm's denser than the rain's, and no dark rain mood over the snow; an older file's 2 reads as 1; 0 the exe's */
     int spray_v4;      /* 1: the wheels' spray and dust as the generated sprites of each material (water drops and a flat mist, the desert's cottony dust, the snow's powder and lumps, gravel stones and a fine dust), thrown by physics with gravity and landing on the road, born each simulation tick at the wheel's place; replaces rain_fx's spray and the rally's dust; 0 as before */
     int menu_pad_cancel;   /* 0..1: the gamepad's second button (B by default, the exe's Enter) is Escape in the menus and the name box (back / exit / cancel); the first (A) keeps accepting; 0 the exe's: both accept */
+    int sun_shadow;     /* 0..1 (Restomod '26): the made light has the sun's cast shadow on every point of the road and its sides, long at dawn and dusk (terrain_light.h), only in a clear race; 0 the light as it was made */
     int wrong_way;      /* 0..1: a centred blinking WRONG WAY (FALSCHE RICHTUNG in German) when the player's car drives forwards with its nose more than a quarter turn from the road, above 30 km/h, for 1.5 s (wrong_way.h); reversing never; 0 the exe's: none */
     int light_edit;     /* 0..1, the machine's (port.cfg, as profile and psx_dir; no mode file holds it): the live light editor in a race (light_edit.h); 0 off in every mode */
     int tunnel_lamps;   /* 1 (day and night; an older file's 2 reads as 1): the lamps of the tunnels and caverns (tunnel_lamp_textures.c's table: CY1/2/3, TR3, TR4) light the walls and the road in a pool under each, ADDED over the tunnel's own light (tunnel_tone), so a dark tunnel still has bright pools; 0 the exe's */
@@ -214,6 +215,9 @@ int port_menu_pad_cancel(void);
 int port_tunnel_lamps(void);
 /* 0..1 wrong_way: TNFS_WRONG_WAY=0 or 1 when set, else the mode's. */
 int port_wrong_way(void);
+
+/* 0..1 sun_shadow: TNFS_SUN_SHADOW=0 or 1 when set, else the setting (default 0). */
+int port_sun_shadow(void);
 /* 1 when snow_fx: TNFS_SNOW_FX=0/1 when set, else the mode's. */
 int port_snow_fx(void);
 /* 1 when lamp_halos: TNFS_LAMP_HALOS=0/1 when set, else the mode's. */

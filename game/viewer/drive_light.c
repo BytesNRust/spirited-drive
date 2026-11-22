@@ -20,6 +20,7 @@
 #include "game/race/finish_gate_light.h"
 #include "game/race/window_lights.h"
 #include "game/race/terrain_light.h"
+#include "game/race/weather.h"
 #include "game/race/light_synth.h"
 #include "game/race/track_light_fingerprint.h"
 #include "game/race/track_light_file.h"
@@ -403,12 +404,28 @@ static void made_hall_canyon(TrackNodeLight *made, TrackNodeLight *tunnels, cons
     }
 }
 
+/* port (sun_shadow): the sun the light is made with, set by make_light before the rows are made; on only with the setting, a clear race and a time that has a sun */
+static TerrainLightSun made_sun;
+static int made_sun_on;
+
+static void made_sun_set(const TrackLightTweaks *tweaks)
+{
+    made_sun_on = port_sun_shadow() && port_weather() == WEATHER_CLEAR && synth_time != LIGHT_SYNTH_NIGHT;
+    if (!made_sun_on) return;
+    terrain_light_sun_shadowed(synth_time, &made_sun);
+    const float deg = 0.01745329252f;
+    if (tweaks != NULL && (tweaks->sun_set & TRACK_LIGHT_SUN_AZIMUTH)) made_sun.azimuth = tweaks->sun_azimuth * deg;
+    if (tweaks != NULL && (tweaks->sun_set & TRACK_LIGHT_SUN_ELEVATION)) made_sun.elevation = tweaks->sun_elevation * deg;
+    if (tweaks != NULL && (tweaks->sun_set & TRACK_LIGHT_SUN_SHADOW)) made_sun.shadow = tweaks->sun_shadow / 100.0f;
+    port_log("sun shadow: on, azimuth %.0f elevation %.0f shadow %.0f%%\n", made_sun.azimuth / deg, made_sun.elevation / deg, made_sun.shadow * 100.0f);
+}
+
 static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *out)
 {
     TrackNodeLight made = { 0 };
     static uint32_t lamp_nodes[MAX_LAMP_NODES];
     const size_t lamps = synth_time == LIGHT_SYNTH_NIGHT ? street_lamp_pool_nodes(tri, lamp_nodes) : 0;
-    if (!terrain_light_make_lit(tri, synth_time, lamp_nodes, (int)lamps, &made)) return 0;
+    if (!terrain_light_make_lit_sun(tri, synth_time, made_sun_on ? &made_sun : NULL, lamp_nodes, (int)lamps, &made)) return 0;
     if (lamps > 0) port_log("light_effects: %zu street lamp pools\n", lamps);
     lamp_pool_classes(tri, &made, lamp_nodes, lamps);
     TrackNodeLight tunnels = { 0 };
@@ -679,13 +696,21 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
     const int files_on = port_settings_profile() == PROFILE_RESTOMOD && (off == NULL || off[0] != '0');
     const int from_track = files_on && track_light_track_load(track, light_letter, nodes, &file, path, sizeof path);   /* data/track_light/<TRACK>.txt: the one file of the track */
     const int have = from_track || (files_on && track_light_load(track, light_letter, nodes, flags, &file, path, sizeof path, why, sizeof why));   /* else the old files of the track: a file for each time and the places */
+    made_sun_set(have ? &file.tweaks : NULL);
     if (have && !from_track) write_rows_diff(tri, track, &file);
     if (have && from_track && !made_from_track_file(tri, track, &file, &made)) {
         track_light_file_free(&file);
         return 0;
     }
     if (have) {
-        if (!from_track) made = file.light;
+        if (!from_track) {
+            made = file.light;
+            if (made_sun_on) {   /* an old file's stored rows are the code's without the sun (checked: 0 nodes differ): the rows made with it take their place */
+                TrackNodeLight sunny = { 0 };
+                if (made_rows(tri, track, &sunny) && sunny.nodes == made.nodes) free(made.data), made.data = sunny.data, sunny.data = NULL;
+                track_node_light_free(&sunny);
+            }
+        }
         else free(file.light.data), file.light.data = NULL;   /* the file's `rows` were laid over the code's: its own array is not the light */
         memset(&file.light, 0, sizeof file.light);
         made.from_file = 1;

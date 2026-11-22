@@ -232,6 +232,33 @@ static void test_weather_closed_zones(void)
     track_light_file_free(&f);
 }
 
+/* `sun AZIMUTH ELEVATION SHADOW`: degrees, degrees, percent; `-` leaves a word to the generator; one a file */
+static void test_the_sun_line(void)
+{
+    const char *head = "track CY1 time A nodes 40 flags 1\nrows 0 39 200 200 200 200 200 200 200 200 200 200 200\n";
+    char text[512];
+    TrackLightFile f;
+    int bad = 0;
+    snprintf(text, sizeof text, "%ssun 150 20 55\n", head);
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad));
+    CHECK(f.tweaks.sun_set == (TRACK_LIGHT_SUN_AZIMUTH | TRACK_LIGHT_SUN_ELEVATION | TRACK_LIGHT_SUN_SHADOW));
+    CHECK(f.tweaks.sun_azimuth == 150.0f && f.tweaks.sun_elevation == 20.0f && f.tweaks.sun_shadow == 55.0f);
+    track_light_file_free(&f);
+    snprintf(text, sizeof text, "%ssun - - 60\n", head);   /* only the shadow: the direction and the height are the generator's */
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad));
+    CHECK(f.tweaks.sun_set == TRACK_LIGHT_SUN_SHADOW && f.tweaks.sun_shadow == 60.0f);
+    track_light_file_free(&f);
+    snprintf(text, sizeof text, "%sbrightness 1 2 90\n", head);   /* no line: nothing set */
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad) && f.tweaks.sun_set == 0);
+    track_light_file_free(&f);
+    const char *bads[] = { "sun - - -\n", "sun 150 20\n", "sun 150 95 50\n", "sun 0 0 50\n", "sun 0 20 120\n", "sun 0 20 50 1\n", "sun 150 20 55\nsun 10 20 30\n", "sun x 20 50\n", "sun 15o 20 50\n" };
+    for (size_t i = 0; i < sizeof bads / sizeof bads[0]; i++) {
+        snprintf(text, sizeof text, "%s%s", head, bads[i]);
+        bad = 0;
+        CHECK(!track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad) && bad == 3 + (i == 6));
+    }
+}
+
 /* the new lines: tunnel [light] [colour | lit], tunnel_tone, the colours' three spellings, one look a time, and what is no longer read */
 static void test_the_tunnel_lines(void)
 {
@@ -644,6 +671,7 @@ int main(void)
 {
     test_weather_closed_zones();
     test_the_tunnel_lines();
+    test_the_sun_line();
     test_a_made_look_and_its_file_agree();
     test_tones();
     test_round_trip();

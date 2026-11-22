@@ -65,6 +65,14 @@ static void test_lamp_halos_values(void)
     unsetenv("TNFS_LAMP_HALOS");
 }
 
+static void test_sun_shadow_values(void)
+{
+    const char *const on = "sun_shadow=1\n", *const bad = "sun_shadow=2\n";
+    CHECK_EQ_INT(port_settings_parse("", 0).sun_shadow, 0);   /* off unless asked */
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).sun_shadow, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).sun_shadow, 0);
+}
+
 static void test_wrong_way_values(void)
 {
     const char *const on = "wrong_way=1\n", *const bad = "wrong_way=2\n";
@@ -478,6 +486,7 @@ int main(void)
     test_spray_v4_values();
     test_menu_pad_cancel_values();
     test_tunnel_lamps_values();
+    test_sun_shadow_values();
     test_wrong_way_values();
     test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();

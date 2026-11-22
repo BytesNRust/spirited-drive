@@ -29,10 +29,19 @@ void terrain_light_smooth(float *light, uint32_t count, int ring);
 /* The sun of a time of day: the direction in the ground's plane (radians, 0 toward +x, pi/2 toward +z) and its elevation over the horizon (radians). */
 typedef struct {
     float azimuth, elevation;
+    float shadow;   /* the light left in full shadow, 0..1: 1 casts none (the default, and every row is then the one made without a cast shadow) */
+    float reach;    /* units: how far the terrain can shade a point from the sun (0: none; a shadow needs more than SKY's 80) */
 } TerrainLightSun;
 
 /* The time's own sun (LIGHT_SYNTH_DAWN .. LIGHT_SYNTH_DUSK): the day's high, the dawn's and the dusk's low; the azimuth the track's own (the default is 0). */
 void terrain_light_sun_default(int time, TerrainLightSun *out);
+
+/* The same sun with its cast shadow on (day, dawn, dusk: TERRAIN_LIGHT_SUN_SHADOW, TERRAIN_LIGHT_SUN_REACH; the night's is the moon, which casts none: shadow 1). Every point of a row takes it, the road's too: a point
+ * is in shadow when the terrain toward the sun rises over the sun, softly (TERRAIN_LIGHT_SUN_RAMP radians). */
+enum { TERRAIN_LIGHT_SUN_REACH = 400 };
+#define TERRAIN_LIGHT_SUN_SHADOW 0.55f
+#define TERRAIN_LIGHT_SUN_RAMP 0.0873f   /* 5 degrees */
+void terrain_light_sun_shadowed(int time, TerrainLightSun *out);
 
 /* What the light of a point is made from, for a tool that fits it to the CD's (tools/psx_light_fit.c): the share of the dome it sees, the tangent of the horizon
  * toward the default sun, its surface's upward normal, how far it is over the node's centre point and across from it (units). */
@@ -107,5 +116,8 @@ int terrain_light(const Tri *tri, int time, TrackNodeLight *out);
 
 /* As terrain_light, with the night's lamps at `lamp_nodes` (the scenery placements' nodes of the street lamp boards): ignored by day. */
 int terrain_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int lamps, TrackNodeLight *out);
+
+/* As terrain_light_make_lit with the sun given (NULL: the time's default, no cast shadow). */
+int terrain_light_make_lit_sun(const Tri *tri, int time, const TerrainLightSun *sun, const uint32_t *lamp_nodes, int lamps, TrackNodeLight *out);
 
 #endif
