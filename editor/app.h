@@ -273,7 +273,8 @@ typedef struct {
     int export_track_pick;
     char export_track_error[APP_MSG];   /* why Create was refused */
     int physics_dialog;          /* the Physics from question (what it overwrites) is up: Copy or Cancel */
-    int physics_pick;            /* the car it names, 0..CAR_PHYSICS_WORDS-1 (editor/car_physics_from.h) */
+    int physics_pick;            /* the car it names, 0..CAR_PHYSICS_WORDS-1 (editor/car_physics_from.h); meaningful once physics_chosen */
+    int physics_chosen;          /* the row's car was picked: until then the row says «not set» and Copy... is off (nothing is the car's own value there) */
     WorkspaceList workspace_list;  /* the projects in it, scanned when it is set and when the window starts */
 
     char zip[APP_PATH];          /* the last package built, "" before one */

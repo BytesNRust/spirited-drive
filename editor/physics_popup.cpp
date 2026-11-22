@@ -23,13 +23,15 @@ void physics_row(App *a)
     ImGui::TextUnformatted("Physics from");
     ImGui::SameLine(130);
     ImGui::SetNextItemWidth(140);
-    if (ImGui::BeginCombo("##physics", word_at(a->physics_pick))) {
+    if (ImGui::BeginCombo("##physics", a->physics_chosen ? word_at(a->physics_pick) : "not set")) {
         for (int i = 0; i < n; ++i)
-            if (ImGui::Selectable(words[i], i == a->physics_pick)) a->physics_pick = i;
+            if (ImGui::Selectable(words[i], a->physics_chosen && i == a->physics_pick)) a->physics_pick = i, a->physics_chosen = 1;
         ImGui::EndCombo();
     }
     ImGui::SameLine();
+    ImGui::BeginDisabled(!a->physics_chosen);
     if (ImGui::Button("Copy...")) a->physics_dialog = 1;
+    ImGui::EndDisabled();
     ImGui::EndDisabled();
     ImGui::SameLine();
     help_marker("Copies the handling of one of the game's cars into this car: its specs (power, gears, grip, brakes), mass and the AI's speeds. The model's size, the assist words and the collision body stay the car's own.");

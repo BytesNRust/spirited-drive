@@ -53,6 +53,9 @@ out=$(run --frames 6 --steps physics-from:1 2>&1) && fail "Physics from with no 
 echo "$out" | grep -q 'open a car kit' || fail "no word why: $out"
 # the Warrior (the last of the nine) is offered and copies
 out=$(run --frames 10 "$ws/cars/car-supra" --steps physics-from:8,status 2>&1) || fail "Physics from the Warrior: $out"
+# the row says «not set» until a car is picked (it is no value of the open car), then the car picked
+out=$(run --frames 6 "$ws/cars/car-supra" --steps physics-print 2>&1) && echo "$out" | grep -q "physics row: not set" || fail "Physics from row before a pick: $out"
+out=$(run --frames 6 "$ws/cars/car-supra" --steps physics-open:2,physics-print 2>&1) && echo "$out" | grep -q "physics row: 911" || fail "Physics from row after a pick: $out"
 # the question that asks first is drawn
 run --frames 8 "$ws/cars/car-supra" --steps physics-open:2 --shot "$work/physics.png" > "$work/log" 2>&1 || fail "the Physics from question did not draw: $(cat "$work/log")"
 [ -s "$work/physics.png" ] || fail "no picture of the Physics from question"
