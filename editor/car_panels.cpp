@@ -514,21 +514,17 @@ void masks_panel(App *a, ImTextureID tex)
         car_project_masks_dir(&c, masks_path, sizeof masks_path);
         masks_changes_section(a);   // what the project's masks have changed from the game's: first, it is what a hand-over needs
         ImGui::Spacing();
-        {   // the owner's PSDs of this car, turned into the masks above (tools/car_mask_from_psd.py, and the dash's when the folder has a dash.psd)
+        {   // the owner's PSDs of this car, turned into the masks above (the C reader, and the dash's when the folder has a dash.psd)
             char psd[APP_PATH];
             const bool found = app_psd_psd_dir(a, psd, sizeof psd);
             const bool busy = app_psd_busy(a);
-            char python_note[800];
-            app_psd_python_note(a, python_note, sizeof python_note);
-            ImGui::BeginDisabled(!found || busy || a->tools[0] == '\0' || !app_psd_python_ready(a));
+            ImGui::BeginDisabled(!found || busy);
             if (ImGui::Button("Convert PSD")) app_psd_start(a);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                if (busy) ImGui::SetTooltip("Converting: the masks are replaced when every script has ended well");
-                else if (a->tools[0] == '\0') ImGui::SetTooltip("The converter scripts (the repository's tools folder) are not beside this program");
-                else if (!app_psd_python_ready(a)) ImGui::SetTooltip("%s", python_note);
+                if (busy) ImGui::SetTooltip("Converting: the masks are replaced when every PSD has been read");
                 else if (!found) ImGui::SetTooltip("No folder named %s in %s", c.folder, a->psd_root[0] != '\0' ? a->psd_root : "the PSD folder (--psd-root)");
-                else ImGui::SetTooltip("Make this car's masks again from the PSDs in %s.\nThe masks it makes replace the same ones here; the PSDs are never written.\n%s", psd, python_note);
+                else ImGui::SetTooltip("Make this car's masks again from the PSDs in %s.\nThe masks it makes replace the same ones here; the PSDs are never written.", psd);
             }
             ImGui::SameLine();
             char why[800];

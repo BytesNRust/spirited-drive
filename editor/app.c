@@ -70,7 +70,6 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     a->race_look = car_race_look_default();
     install_job_init(&a->install);
     psd_job_init(&a->psd);
-    py_probe_init(&a->py, getenv("TNFS_PYTHON"));
     a->export_pick = -1;
     a->preview_paint = -1;
     a->photo_view_open = 0;   /* the large photo belongs to the car that took it */
@@ -229,7 +228,6 @@ void app_free(App *a)
     sheet_free(&a->sheet);
     install_job_free(&a->install);
     psd_job_free(&a->psd);
-    py_probe_free(&a->py);
     car_build_job_free(&a->car_build);
     car_edit_free(&a->edit);
     mask_edit_free(&a->mask.me);
@@ -456,7 +454,6 @@ void app_carry_window(App *to, const App *from)
     memcpy(to->repo_arg, from->repo_arg, sizeof to->repo_arg);
     memcpy(to->repo_cfg, from->repo_cfg, sizeof to->repo_cfg);
     memcpy(to->art_dir, from->art_dir, sizeof to->art_dir);
-    memcpy(to->tools, from->tools, sizeof to->tools);   /* Convert PSD's folders are the window's too */
     memcpy(to->psd_root, from->psd_root, sizeof to->psd_root);
 }
 
@@ -521,12 +518,6 @@ static int open_in(App *a, const char *dir, AppKind kind)
         return 0;
     }
     app_carry_window(next, a);
-    if (a->py.state == 2) {   /* the python found is the session's (the log below now belongs to the old window's app_free); a probe not done is made again by the new project, with the same TNFS_PYTHON */
-        py_probe_free(&next->py);
-        next->py = a->py;
-        memset(&next->py.run, 0, sizeof next->py.run);
-        next->py.run.fd = -1;
-    }
     app_free(a);
     *a = *next;   // the new project's arrays belong to `a` now
     free(next);
@@ -550,12 +541,6 @@ int app_close_project(App *a)
     }
     app_begin(next, a->game, a->user, a->generic[0] != '\0' ? a->generic : NULL);
     app_carry_window(next, a);
-    if (a->py.state == 2) {   // the python found is the session's, as open_in keeps it
-        py_probe_free(&next->py);
-        next->py = a->py;
-        memset(&next->py.run, 0, sizeof next->py.run);
-        next->py.run.fd = -1;
-    }
     app_free(a);
     *a = *next;
     free(next);

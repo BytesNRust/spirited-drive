@@ -1,5 +1,6 @@
 /* The hand-made dash masks (dash_mask.h): the colours class as they are painted, a draft written as a PNG reads back as it was, a mask of another size is
  * scaled by nearest neighbour, the lookup finds <root>/<CAR>/dash_mask.png (as given or in upper case), and what is not a PNG is refused. */
+#include "formats/dash_png.h"
 #include "formats/png.h"
 #include "game/race/dash_mask.h"
 #include "game/sys/data_path.h"
@@ -179,11 +180,28 @@ static void test_mod_before_data(void)
     data_path_set_mods(NULL, 0), data_path_set_base(NULL);
 }
 
+/* the editor's writer (core/formats/dash_png.h, which cannot link the game) makes the very bytes the game's own writer makes */
+static void test_the_editors_writer_is_the_games(void)
+{
+    uint8_t mask[W * H];
+    static const uint8_t CLASSES[7] = { DASH_MASK_AUTO, DASH_MASK_DASH, DASH_MASK_DIAL, DASH_MASK_LIT, DASH_MASK_BLADE, DASH_MASK_NOSE, 77 };   /* 77: not a class, 0 for both */
+    for (int i = 0; i < W * H; i++) mask[i] = CLASSES[(i * 5 + i / W) % 7];
+    uint8_t *game = NULL, *editor = NULL;
+    size_t game_len = 0, editor_len = 0;
+    CHECK(dash_mask_write(mask, W, H, &game, &game_len));
+    CHECK(dash_png_write(mask, W, H, &editor, &editor_len));
+    CHECK(game != NULL && editor != NULL && game_len == editor_len && memcmp(game, editor, game_len) == 0);
+    CHECK(!dash_png_write(NULL, W, H, &editor, &editor_len) && !dash_png_write(mask, 0, H, &editor, &editor_len));
+    png_free(game);
+    png_free(editor);
+}
+
 int main(void)
 {
     scratch_make("/tmp/tnfs_test_dash_masks.XXXXXX");
     test_colours();
     test_round_trip_and_scale();
+    test_the_editors_writer_is_the_games();
     test_lookup();
     test_mod_before_data();
     scratch_remove();

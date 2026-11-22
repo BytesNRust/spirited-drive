@@ -112,6 +112,32 @@ static void test_edges(void)
     CHECK(text[0] == '\0');
 }
 
+/* a kit (dep100): the masks flat in art-generated/car_masks and art-generated/dash_masks, no folder of the car's name below them */
+static void test_flat(void)
+{
+    dir("kit", ""), dir("kit", "art-source"), dir("kit", "art-source/masks"), dir("kit", "art-generated"), dir("kit", "art-generated/car_masks"), dir("kit", "art-generated/dash_masks");
+    const time_t base = 1700000000;
+    touch("kit/art-source/masks", "frnt.psd", "", base + 100);
+    touch("kit/art-generated/car_masks", "frnt_mask.png", "", base + 50);     /* older: stale */
+    touch("kit/art-source/masks", "rear.psd", "", base + 100);                 /* no PNG */
+    touch("kit/art-source/masks", "dash.psd", "", base + 100);
+    touch("kit/art-generated/dash_masks", "dash_mask.png", "", base + 200);    /* newer than its PSD: fine */
+    char psds[1024], masks[1024], dash[1024];
+    path(psds, sizeof psds, "kit/art-source", "masks", "");
+    path(masks, sizeof masks, "kit/art-generated", "car_masks", "");
+    path(dash, sizeof dash, "kit/art-generated", "dash_masks", "");
+    StaleReport r;
+    CHECK(psd_stale_check_flat(psds, masks, dash, 1, &r) && r.count == 3 && r.stale == 2);
+    CHECK(find(&r, "frnt.psd") != NULL && find(&r, "frnt.psd")->state == STALE_NEWER);
+    CHECK(find(&r, "rear.psd") != NULL && find(&r, "rear.psd")->state == STALE_MISSING);
+    CHECK(find(&r, "dash.psd") != NULL && find(&r, "dash.psd")->state == STALE_OK && find(&r, "dash.psd")->dash == 1);
+    CHECK(psd_stale_check_flat(psds, masks, dash, 0, &r) && r.count == 2 && find(&r, "dash.psd") == NULL);   /* a car with no dash: its dash.psd is nobody's */
+    char none[1024];
+    path(none, sizeof none, "kit", "no-such", "");
+    CHECK(psd_stale_check_flat(psds, none, none, 1, &r) && r.stale == 3 && find(&r, "dash.psd")->state == STALE_MISSING);   /* the output folders not made yet: all missing */
+    CHECK(!psd_stale_check_flat(none, masks, dash, 1, &r));   /* no PSD folder */
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp";
@@ -119,6 +145,7 @@ int main(void)
     mkdir(root, 0777);
     test_judging();
     test_edges();
+    test_flat();
     nftw(root, drop, 8, FTW_DEPTH | FTW_PHYS);
     return TEST_REPORT();
 }

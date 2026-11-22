@@ -204,6 +204,16 @@ int app_redo(App *a)
     return car_edit_redo(&a->edit);
 }
 
+const char *app_mask_dash_state(const App *a)
+{
+    if (a->stale_ok)
+        for (int i = 0; i < a->stale.count; ++i) {
+            const StaleItem *it = &a->stale.item[i];
+            if (it->dash) return it->state == STALE_OK ? "in sync" : it->state == STALE_NEWER ? "PSD newer" : "PSD found, no mask yet";
+        }
+    return NULL;
+}
+
 const char *app_mask_state(const App *a, int index)
 {
     if (index < 0 || index >= a->mask.tex_count) return "no mask";

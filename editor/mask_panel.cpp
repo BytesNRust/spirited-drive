@@ -32,7 +32,8 @@ void mask_list(App *a)
         muted("The car file has no textures to show (%s).", a->car.cfm[0] != '\0' ? "it could not be read or has none" : "no car file");
         return;
     }
-    const float rows = fminf((float)m.tex_count, 7.0f);
+    const char *dash_state = app_mask_dash_state(a);   // the dash's mask is made from dash.psd: a row of its own, read only (no texture to show it over)
+    const float rows = fminf((float)(m.tex_count + (dash_state != nullptr ? 1 : 0)), 7.0f);
     if (ImGui::BeginTable("masklist", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * (rows + 1.2f)))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Texture", ImGuiTableColumnFlags_WidthStretch, 2.0f);
@@ -53,6 +54,17 @@ void mask_list(App *a)
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(app_mask_state(a, i));
             ImGui::EndDisabled();
+            ImGui::PopID();
+        }
+        if (dash_state != nullptr) {
+            ImGui::PushID("dash_row");
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextDisabled("dash (dash.psd)");
+            ImGui::TableNextColumn();
+            ImGui::TextDisabled("-");
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(dash_state);
             ImGui::PopID();
         }
         ImGui::EndTable();

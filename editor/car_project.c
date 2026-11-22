@@ -295,3 +295,15 @@ void car_project_masks_dir(const CarProject *c, char *out, size_t cap)
     if (c->masks_only || c->legacy) snprintf(out, cap, "%s/car_masks/%s", c->piece, c->folder);
     else snprintf(out, cap, "%s/%s", c->root, car_kit_path(CAR_KIT_GEN_CAR_MASKS));
 }
+
+void car_project_dash_dir(const CarProject *c, char *out, size_t cap)
+{
+    if (c->masks_only || c->legacy) snprintf(out, cap, "%s/dash_masks/%s", c->piece, c->folder);
+    else snprintf(out, cap, "%s/%s", c->root, car_kit_path(CAR_KIT_GEN_DASH_MASKS));
+}
+
+void car_project_manifest(const CarProject *c, char *out, size_t cap)
+{
+    if (c->masks_only || c->legacy) snprintf(out, cap, "%s", "");
+    else snprintf(out, cap, "%s/%s", c->root, car_kit_path(CAR_KIT_GEN_MANIFEST));
+}

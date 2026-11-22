@@ -1,6 +1,9 @@
 /* Convert PSD in the background (psd_job.h). */
 #include "psd_job.h"
 
+#include "psd_convert.h"
+#include "psd_manifest.h"
+
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
@@ -8,17 +11,11 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
-#include <time.h>
 #include <unistd.h>
-
-extern char **environ;
-
-static const char BODY_SCRIPT[] = "car_mask_from_psd.py", DASH_SCRIPT[] = "dash_mask_from_psd.py";
 
 void psd_job_init(PsdJob *job)
 {
     memset(job, 0, sizeof *job);
-    job->run.fd = -1;
 }
 
 static int is_dir(const char *path)
@@ -39,6 +36,21 @@ static int join(char *out, size_t cap, const char *a, const char *b)
     return n > 0 && (size_t)n < cap;
 }
 
+/* mkdir -p: 1 when the folder is there at the end */
+static int make_dirs(const char *path)
+{
+    char part[PSD_PATH];
+    if (strlen(path) >= sizeof part) return 0;
+    snprintf(part, sizeof part, "%s", path);
+    for (char *c = part + 1; *c != '\0'; ++c) {
+        if (*c != '/') continue;
+        *c = '\0';
+        if (mkdir(part, 0755) != 0 && errno != EEXIST) return 0;
+        *c = '/';
+    }
+    return (mkdir(part, 0755) == 0 || errno == EEXIST) && is_dir(part);
+}
+
 int psd_job_find(const char *psd_root, const char *folder, char *out, size_t cap)
 {
     DIR *d = psd_root != NULL && folder != NULL ? opendir(psd_root) : NULL;
@@ -51,20 +63,6 @@ int psd_job_find(const char *psd_root, const char *folder, char *out, size_t cap
     }
     closedir(d);
     return found;
-}
-
-static int run_script(PsdJob *job, const char *script, const char *src_root, const char *out_dir, char *why, size_t why_cap)
-{
-    char path[PSD_PATH];
-    if (!join(path, sizeof path, job->tools, script)) return snprintf(why, why_cap, "the tools path is too long"), 0;
-    if (access(path, R_OK) != 0) return snprintf(why, why_cap, "%s is not in %s: Convert PSD needs the repository's tools folder", script, job->tools), 0;
-    char *argv[6];
-    int n = 0;
-    if (job->python[0] == '\0') argv[n++] = "/usr/bin/env", argv[n++] = "python3";
-    else argv[n++] = job->python;
-    argv[n++] = path, argv[n++] = (char *)src_root, argv[n++] = (char *)out_dir, argv[n] = NULL;
-    proc_free(&job->run);
-    return proc_start(&job->run, argv, environ, NULL, why, why_cap);
 }
 
 static void remove_files_in(const char *dir)
@@ -114,11 +112,9 @@ static void unstage(Staged *st)
     st->count = 0;
 }
 
-/* every PNG the script wrote below `from` (one folder a car, PNG files) copied beside its place in <piece>/<kind>/<folder>/; the count, -1 on a failure */
-static int stage_pngs(const PsdJob *job, const char *from, const char *kind, Staged *st)
+/* every PNG written below `from` (one folder a car, PNG files) copied beside its place in `dest`; the count, -1 on a failure */
+static int stage_pngs(const char *from, const char *dest, Staged *st)
 {
-    char top[PSD_PATH], dest[PSD_PATH];
-    if (!join(top, sizeof top, job->piece, kind) || !join(dest, sizeof dest, top, job->folder)) return -1;
     DIR *d = opendir(from);
     if (d == NULL) return 0;
     int count = 0;
@@ -131,7 +127,7 @@ static int stage_pngs(const PsdJob *job, const char *from, const char *kind, Sta
             char src[PSD_PATH];
             if (len < 5 || strcmp(f->d_name + len - 4, ".png") != 0 || !join(src, sizeof src, sub, f->d_name)) continue;
             const int slot = st->count;
-            if (slot >= STAGE_MAX || (mkdir(top, 0755) != 0 && errno != EEXIST) || (mkdir(dest, 0755) != 0 && errno != EEXIST) || !join(st->to[slot], sizeof st->to[slot], dest, f->d_name) ||
+            if (slot >= STAGE_MAX || !make_dirs(dest) || !join(st->to[slot], sizeof st->to[slot], dest, f->d_name) ||
                 snprintf(st->tmp[slot], sizeof st->tmp[slot], "%s.psdtmp", st->to[slot]) >= (int)sizeof st->tmp[slot])
                 count = -1;
             else {
@@ -148,14 +144,8 @@ static int stage_pngs(const PsdJob *job, const char *from, const char *kind, Sta
 
 static void fail(PsdJob *job, const char *what)
 {
-    const char *log = job->run.log != NULL ? job->run.log : "";
-    const size_t len = strlen(log), keep = len > 160 ? 160 : len;
-    char tail[200];
-    snprintf(tail, sizeof tail, "%s", log + len - keep);
-    for (char *c = tail; *c != '\0'; c++) if (*c == '\n') *c = ' ';
-    if (strstr(log, "No module named") != NULL) what = "python3 has no psd-tools or Pillow: run  pip3 install psd-tools Pillow  and try again";
-    snprintf(job->text, sizeof job->text, "Convert PSD failed: %s%s%s", what, tail[0] != '\0' ? ": " : "", tail);
-    job->finished = 1, job->ok = 0, job->stage = 0;
+    snprintf(job->text, sizeof job->text, "Convert PSD failed: %s", what);
+    job->finished = 1, job->ok = 0;
     clean_scratch(job);
 }
 
@@ -172,8 +162,8 @@ static void finish(PsdJob *job)
         free(st);
         return;
     }
-    job->masks = stage_pngs(job, from, "car_masks", st);
-    if (job->masks > 0 && join(from, sizeof from, job->scratch, "dash")) job->dash_files = stage_pngs(job, from, "dash_masks", st);
+    job->masks = stage_pngs(from, job->masks_dst, st);
+    if (job->masks > 0 && join(from, sizeof from, job->scratch, "dash")) job->dash_files = stage_pngs(from, job->dash_dst, st);
     if (job->masks < 0 || job->dash_files < 0) {
         unstage(st);
         free(st);
@@ -182,7 +172,7 @@ static void finish(PsdJob *job)
     }
     if (job->masks == 0) {
         free(st);
-        fail(job, "the script wrote no masks (does each PSD have a \"mask\" layer?)");
+        fail(job, "no PSD of the car was found in its PSD folder");
         return;
     }
     int renamed = 0;
@@ -193,193 +183,108 @@ static void finish(PsdJob *job)
         fail(job, "some files could not be put in place: the project may hold part of the new masks");
         return;
     }
+    Manifest *manifest = job->manifest[0] != '\0' ? calloc(1, sizeof *manifest) : NULL;
+    int written = manifest == NULL || manifest_load(job->manifest, manifest);
+    for (int i = 0; manifest != NULL && i < st->count; i++) {   /* what was made, hashed: a later edit of it by hand is told from it */
+        const char *base = strrchr(st->to[i], '/');
+        char sha[MANIFEST_SHA];
+        written &= manifest_file_sha(st->to[i], sha) && manifest_set(manifest, base != NULL ? base + 1 : st->to[i], sha);
+    }
     free(st);
+    if (job->dash_files == 1) {   /* a dash.psd with no colour layer: the colour of an older conversion goes */
+        char file[PSD_PATH];
+        if (join(file, sizeof file, job->dash_dst, "dash_color.png")) unlink(file);
+        if (manifest != NULL) manifest_forget(manifest, "dash_color.png");
+    }
+    if (manifest != NULL) written &= manifest_save(job->manifest, manifest);
+    free(manifest);
+    if (!written) {
+        fail(job, "the masks were made, but their manifest (.generated.tsv) could not be written");
+        return;
+    }
     snprintf(job->text, sizeof job->text, "Converted %d mask%s from %s%s.", job->masks, job->masks == 1 ? "" : "s", job->psd_dir, job->dash_files > 0 ? ", and the dash" : "");
-    job->finished = 1, job->ok = 1, job->stage = 0;
+    job->finished = 1, job->ok = 1;
     clean_scratch(job);
 }
 
-static int has_dash_psd(const PsdJob *job)
+/* the thread: every PSD of the folder into the scratch folder */
+static void *convert_thread(void *arg)
 {
-    char path[PSD_PATH];
-    return join(path, sizeof path, job->psd_dir, "dash.psd") && access(path, R_OK) == 0;
+    PsdJob *job = arg;
+    char masks[PSD_PATH], dash[PSD_PATH], why[PSD_TEXT] = "";
+    PsdConverted done = { 0 };
+    int ok = join(masks, sizeof masks, job->scratch, "masks") && join(dash, sizeof dash, job->scratch, "dash") && mkdir(masks, 0755) == 0 && mkdir(dash, 0755) == 0;
+    if (ok) ok = psd_convert(job->psd_dir, job->folder, masks, dash, &job->cancel, &done, why, sizeof why);
+    else snprintf(why, sizeof why, "no scratch folder for the conversion");
+    pthread_mutex_lock(&job->lock);
+    job->conv_ok = ok;
+    snprintf(job->conv_why, sizeof job->conv_why, "%s", why);
+    job->running = 0;
+    pthread_mutex_unlock(&job->lock);
+    return NULL;
 }
 
-/* The scripts take a folder of car folders and turn every PSD of each into a mask (the body script would make masks of dash.psd and of a backup too): so they are
- * given a scratch tree of links to just this car's PSDs, one for the body masks and one for the dash. The PSDs themselves are only ever read. */
-static int link_sources(PsdJob *job)
+int psd_job_start(PsdJob *job, const char *psd_dir, const char *folder, const char *masks_dst, const char *dash_dst, const char *manifest, char *why, size_t why_cap)
 {
-    char body[PSD_PATH], dash[PSD_PATH], root[PSD_PATH];
-    if (!join(root, sizeof root, job->scratch, "body_src") || !join(body, sizeof body, root, job->folder) || mkdir(root, 0755) != 0 || mkdir(body, 0755) != 0) return 0;
-    if (!join(root, sizeof root, job->scratch, "dash_src") || !join(dash, sizeof dash, root, job->folder) || mkdir(root, 0755) != 0 || mkdir(dash, 0755) != 0) return 0;
-    DIR *d = opendir(job->psd_dir);
-    if (d == NULL) return 0;
-    int ok = 1;
-    for (const struct dirent *e = readdir(d); e != NULL && ok; e = readdir(d)) {
-        const size_t len = strlen(e->d_name);
-        char from[PSD_PATH], to[PSD_PATH];
-        if (len < 5 || strcmp(e->d_name + len - 4, ".psd") != 0 || !join(from, sizeof from, job->psd_dir, e->d_name)) continue;
-        const int is_dash = strcmp(e->d_name, "dash.psd") == 0;
-        if (!is_dash && memchr(e->d_name, '.', len - 4) != NULL) continue;   /* a backup such as frnt.before-1603.psd */
-        if (!join(to, sizeof to, is_dash ? dash : body, e->d_name) || symlink(from, to) != 0) ok = 0;
-    }
-    closedir(d);
-    return ok;
-}
-
-static double now_s(void)
-{
-    struct timespec t;
-    clock_gettime(CLOCK_MONOTONIC, &t);
-    return (double)t.tv_sec + (double)t.tv_nsec / 1e9;
-}
-
-void py_probe_init_list(PyProbe *probe, const char *const *cands, int count)
-{
-    memset(probe, 0, sizeof *probe);
-    probe->run.fd = -1;
-    probe->timeout_s = 12;
-    for (int i = 0; i < count && probe->count < PY_CANDIDATES; i++)
-        if (cands[i] != NULL && strlen(cands[i]) < PSD_PATH) snprintf(probe->cand[probe->count++], PSD_PATH, "%s", cands[i]);
-}
-
-void py_probe_init(PyProbe *probe, const char *env_python)
-{
-    const char *list[4];
-    int n = 0;
-    if (env_python != NULL && env_python[0] != '\0') list[n++] = env_python;
-    list[n++] = "/opt/homebrew/bin/python3";
-    list[n++] = "/usr/local/bin/python3";
-    list[n++] = "";
-    py_probe_init_list(probe, list, n);
-}
-
-static void tried_add(PyProbe *probe, const char *name)
-{
-    const size_t len = strlen(probe->tried);
-    snprintf(probe->tried + len, sizeof probe->tried - len, "%s%s", len > 0 ? ", " : "", name[0] != '\0' ? name : "python3 of PATH");
-}
-
-/* starts the candidate at probe->next that can run, skipping the ones that are not there; 0 when none is left */
-static int probe_start_next(PyProbe *probe)
-{
-    while (probe->next < probe->count) {
-        const char *cand = probe->cand[probe->next];
-        char why[120];
-        char *env_argv[] = { "/usr/bin/env", "python3", "-c", "import psd_tools, PIL", NULL };
-        char *own_argv[] = { (char *)cand, "-c", "import psd_tools, PIL", NULL };
-        if (cand[0] != '\0' && access(cand, X_OK) != 0) {
-            tried_add(probe, cand);   /* not installed there */
-            probe->next++;
-            continue;
-        }
-        proc_free(&probe->run);
-        if (proc_start(&probe->run, cand[0] == '\0' ? env_argv : own_argv, environ, NULL, why, sizeof why)) {
-            probe->started = now_s();
-            return 1;
-        }
-        tried_add(probe, cand);
-        probe->next++;
-    }
-    return 0;
-}
-
-int py_probe_poll(PyProbe *probe)
-{
-    if (probe->state == 2) return 0;
-    if (probe->state == 0) {
-        probe->state = 1;
-        if (!probe_start_next(probe)) probe->state = 2;
-        return probe->state == 1;
-    }
-    if (proc_poll(&probe->run)) {
-        if (now_s() - probe->started < probe->timeout_s) return 1;
-        proc_free(&probe->run);   /* ends it: this candidate did not answer in time */
-        char name[PSD_PATH + 16];
-        snprintf(name, sizeof name, "%s (no answer in %d s)", probe->cand[probe->next][0] != '\0' ? probe->cand[probe->next] : "python3 of PATH", (int)probe->timeout_s);
-        tried_add(probe, name);
-        probe->next++;
-        if (!probe_start_next(probe)) probe->state = 2;
-        return probe->state == 1;
-    }
-    if (probe->run.exit_code == 0 && !probe->run.stopped) {
-        snprintf(probe->python, sizeof probe->python, "%s", probe->cand[probe->next]);
-        probe->found = 1;
-        probe->state = 2;
-        return 0;
-    }
-    tried_add(probe, probe->cand[probe->next]);
-    probe->next++;
-    if (!probe_start_next(probe)) probe->state = 2;
-    return probe->state == 1;
-}
-
-void py_probe_free(PyProbe *probe)
-{
-    proc_free(&probe->run);
-}
-
-int psd_job_start(PsdJob *job, const char *python, const char *tools, const char *psd_dir, const char *folder, const char *piece, char *why, size_t why_cap)
-{
-    if (job->stage != 0 || job->run.running) return snprintf(why, why_cap, "a conversion is running already"), 0;
-    if ((python != NULL && strlen(python) >= PSD_PATH) || strlen(tools) >= PSD_PATH || strlen(psd_dir) >= PSD_PATH || strlen(piece) >= PSD_PATH || strlen(folder) >= sizeof job->folder || folder[0] == '\0' || folder[0] == '.' || strchr(folder, '/') != NULL)
+    if (job->started) return snprintf(why, why_cap, "a conversion is running already"), 0;
+    if (strlen(psd_dir) >= PSD_PATH || strlen(masks_dst) >= PSD_PATH || strlen(dash_dst) >= PSD_PATH || strlen(manifest) >= PSD_PATH || strlen(folder) >= sizeof job->folder || folder[0] == '\0' || folder[0] == '.' || strchr(folder, '/') != NULL)
         return snprintf(why, why_cap, "a path is too long"), 0;
-    proc_free(&job->run);
+    if (job->ready) pthread_mutex_destroy(&job->lock);
     psd_job_init(job);
-    snprintf(job->python, sizeof job->python, "%s", python != NULL ? python : "");
-    snprintf(job->tools, sizeof job->tools, "%s", tools);
+    pthread_mutex_init(&job->lock, NULL);
+    job->ready = 1;
     snprintf(job->psd_dir, sizeof job->psd_dir, "%s", psd_dir);
     snprintf(job->folder, sizeof job->folder, "%s", folder);
-    snprintf(job->piece, sizeof job->piece, "%s", piece);
+    snprintf(job->masks_dst, sizeof job->masks_dst, "%s", masks_dst);
+    snprintf(job->dash_dst, sizeof job->dash_dst, "%s", dash_dst);
+    snprintf(job->manifest, sizeof job->manifest, "%s", manifest);
     const char *tmp = getenv("TMPDIR");
     if (snprintf(job->scratch, sizeof job->scratch, "%s/tnfs-psd-XXXXXX", tmp != NULL && tmp[0] != '\0' ? tmp : "/tmp") >= (int)sizeof job->scratch || mkdtemp(job->scratch) == NULL)
         return job->scratch[0] = '\0', snprintf(why, why_cap, "no scratch folder for the conversion"), 0;
-    char body[PSD_PATH], src[PSD_PATH];
-    if (!join(body, sizeof body, job->scratch, "masks") || mkdir(body, 0755) != 0 || !link_sources(job)) return clean_scratch(job), snprintf(why, why_cap, "no scratch folder for the conversion"), 0;
-    char dash[PSD_PATH];
-    if (!join(dash, sizeof dash, job->scratch, "dash") || mkdir(dash, 0755) != 0) return clean_scratch(job), snprintf(why, why_cap, "no scratch folder for the conversion"), 0;
-    job->stage = 1;
-    if (!join(src, sizeof src, job->scratch, "body_src") || !run_script(job, BODY_SCRIPT, src, body, why, why_cap)) {
-        job->stage = 0;
+    job->running = 1;
+    if (pthread_create(&job->thread, NULL, convert_thread, job) != 0) {
+        job->running = 0;
         clean_scratch(job);
-        return 0;
+        return snprintf(why, why_cap, "the conversion could not start"), 0;
     }
+    job->started = 1;
     return 1;
 }
 
 int psd_job_poll(PsdJob *job)
 {
-    if (job->stage == 0) return 0;
-    if (proc_poll(&job->run)) return 1;
-    char why[200], out[PSD_PATH];
-    if (job->run.stopped) return fail(job, "it was stopped"), 0;
-    if (job->run.exit_code != 0) {
-        snprintf(why, sizeof why, "%s stopped with status %d (nothing was copied into the project)", job->stage == 1 ? BODY_SCRIPT : DASH_SCRIPT, job->run.exit_code);
-        return fail(job, why), 0;
-    }
-    if (job->stage == 1 && has_dash_psd(job)) {
-        job->stage = 2;
-        char src[PSD_PATH];
-        if (!join(out, sizeof out, job->scratch, "dash") || !join(src, sizeof src, job->scratch, "dash_src") || !run_script(job, DASH_SCRIPT, src, out, why, sizeof why)) return fail(job, why), 0;
-        return 1;
-    }
+    if (!job->started) return 0;
+    pthread_mutex_lock(&job->lock);
+    const int running = job->running;
+    pthread_mutex_unlock(&job->lock);
+    if (running) return 1;
+    pthread_join(job->thread, NULL);
+    job->started = 0;
+    if (!job->conv_ok) return fail(job, job->conv_why), 0;
     finish(job);
     return 0;
 }
 
 int psd_job_busy(const PsdJob *job)
 {
-    return job->stage != 0;
+    return job->started;
 }
 
 void psd_job_stop(PsdJob *job)
 {
-    if (job->run.running) proc_stop(&job->run);
+    if (!job->started) return;
+    __atomic_store_n(&job->cancel, 1, __ATOMIC_RELAXED);
+    pthread_join(job->thread, NULL);
+    job->started = 0;
+    snprintf(job->text, sizeof job->text, "Convert PSD failed: it was stopped");
+    job->finished = 1, job->ok = 0;
+    clean_scratch(job);
 }
 
 void psd_job_free(PsdJob *job)
 {
-    proc_free(&job->run);
+    psd_job_stop(job);
     clean_scratch(job);
-    job->stage = 0;
+    if (job->ready) pthread_mutex_destroy(&job->lock);
+    job->ready = 0;
 }

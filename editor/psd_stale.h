@@ -15,6 +15,7 @@ typedef struct {
     char psd[STALE_NAME];   /* "frnt.psd" as the PSD folder spells it */
     char png[STALE_NAME];   /* "frnt_mask.png", "dash_mask.png" */
     int dash;               /* the dash's, not a body texture's */
+    long psd_time;          /* the PSD's modification time: a PSD saved again is a new state, whatever the PNG says */
     StaleState state;
 } StaleItem;
 
@@ -27,6 +28,9 @@ typedef struct {
 /* `piece` is the project's folder that holds car_masks/ and dash_masks/, `folder` the masks folder name below car_masks/; `drivable` a car you drive (it has a dash).
  * 1 with `out` filled (a PSD folder with no PSD is 0 items); 0 when the PSD folder cannot be read. */
 int psd_stale_check(const char *psd_dir, const char *piece, const char *folder, int drivable, StaleReport *out);
+
+/* The same for a car kit (art-source/masks, art-generated/car_masks and art-generated/dash_masks): `masks` and `dash` are the folders the PNGs are in, flat (no folder of the car's name below them). */
+int psd_stale_check_flat(const char *psd_dir, const char *masks, const char *dash, int drivable, StaleReport *out);
 
 /* the stale ones in a sentence for the person: "dash.psd is newer than dash_mask.png; frnt.psd has no frnt_mask.png"; "" when none is stale */
 void psd_stale_text(const StaleReport *r, char *out, size_t cap);

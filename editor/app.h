@@ -150,10 +150,8 @@ typedef struct {
     char race_mod[64];           /* "": the track is race_track's; else the id of an installed track chosen in the Track picker (race_mods_scan over the player's folder) */
     int photo_view_open;         /* the In-game photo's large window (photo_view_panel) is asked for */
     RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
-    PyProbe py;                  /* the python that has psd-tools, looked for once in the background (psd_job.h) */
     PsdJob psd;                  /* Convert PSD: the owner's PSDs of this car turned into its masks, in the background (psd_job.h, app_psd.c) */
     char psd_root[APP_PATH];     /* the folder of the owner's PSDs, one folder a car ("" for none): --psd-root, TNFS_PSD_ROOT, else art/tnfs-masks in the workspace */
-    char tools[APP_PATH];        /* the repository's tools folder, where the converter scripts are ("" when not found) */
     CarBuildJob car_build;       /* the kit built in a thread: when the car file is not there at Open, and by Build (car_build_job.h) */
     int model_wheels;            /* the Model window's Wheels: 0 Still, 1 Slow (the slow pair swapped at the game's rate), 2 Fast (the blur); the window's, not the project's */
     int model_wheels_fixed;      /* a headless run: Slow shows its first frame, so a picture is the same every time */
@@ -164,6 +162,9 @@ typedef struct {
     int dash_stale_ticks;        /* frames since it was last worked out */
     StaleReport stale;           /* each PSD of the car against its mask (psd_stale.h), when stale_ok: the Masks window's state column */
     int stale_ok;                /* stale was worked out for this project (a PSD folder was found) */
+    unsigned psd_auto_sig;       /* the stale state (which PSDs, how, and when they were saved) Convert PSD was last started for by itself, when psd_auto_set: the same state is not tried again */
+    int psd_auto_set;
+    int psd_auto_fail;           /* a conversion failed: the next stale state seen is the one that is not tried again (blocked after failure) */
     RaceSheet sheet;             /* the Race window's Sheet / Traffic sheet: the cells and their photos (app_sheet.h) */
     int sheet_active, sheet_cur, sheet_stop, sheet_serial;   /* it runs; the cell being photographed (-1 none); it is being stopped; changes when a cell does */
     char sheet_saved[APP_PATH];  /* the PNG the last Save sheet wrote */
@@ -323,6 +324,8 @@ int app_can_redo(const App *a);
 /* How texture `index`'s mask stands, for the Masks window's list: "in sync", "PSD newer" or "PSD found, no mask yet" when the car has PSDs to compare with
  * (a->stale, a->stale_ok), else "PNG only" (the PNG is the source) or "no mask". Never NULL. */
 const char *app_mask_state(const App *a, int index);
+/* the state of the dash's mask against its dash.psd, as app_mask_state words it; NULL when the car has no dash.psd to show (the Masks window's read-only row) */
+const char *app_mask_dash_state(const App *a);
 /* Masks changed on disk by another program (W4). app_mask_watch looks at the car's mask files when `now` (seconds, any clock that only grows) is a
  * second or more after its last look: a changed, new or removed file moves mask.generation (the Preview and the Model read the masks again) and
  * has_mask; the open mask is read again (closed when its file went). 1 when something changed. */
@@ -537,18 +540,21 @@ int app_car_building(const App *a);
 /* 1 when the open car is a kit in the current layout: the shape Build and Install are for (build_car: the build in a thread, then Install takes build/<id>.zip) */
 int app_car_is_kit(const App *a);
 int app_install_busy(const App *a);
-/* Convert PSD (dep98): app_psd_setup finds the tools folder (TNFS_TOOLS, else tools/ above the program at `base`) and the PSD folder (`root`, else TNFS_PSD_ROOT, else
- * ~/workspace/bytes-n-rust/art/tnfs-masks). app_psd_psd_dir gives this car's PSD folder (names match without case; 0 when there is none). app_psd_start runs the
- * converters into a scratch folder and copies the PNGs into the project only when they ended well; it refuses with the status when the open mask has unsaved changes.
+/* Convert PSD (dep98): app_psd_setup finds the PSD folder (`root`, else TNFS_PSD_ROOT, else
+ * ~/workspace/bytes-n-rust/art/tnfs-masks). app_psd_psd_dir gives this car's PSD folder (names match without case; 0 when there is none). app_psd_start converts
+ * the PSDs (the C reader, in a thread) into a scratch folder and copies the PNGs into the project only when all were made.
  * app_psd_poll (every frame) tells the result in the status and reads the car's lists again (the open mask is closed: it was just remade). 1 while it runs. */
 void app_psd_setup(App *a, const char *base, const char *root);
 int app_psd_psd_dir(const App *a, char *out, size_t cap);
 int app_psd_start(App *a);
+/* where this car's masks, dash masks and manifest are (car_project.h): a kit's art-generated, else the piece's folders */
+void app_psd_dirs(const App *a, char *masks, char *dash, char *manifest, size_t cap);
+/* Convert PSD by itself (the stale refresh calls it with what it found): when some PSD is newer than its mask or has none, it starts, once for each state: a state it
+ * already tried (a conversion that failed, or left a PSD with no mask) is not tried again until a PSD is saved again, or another is stale, or Convert PSD is pressed.
+ * 1 when it started. */
+int app_psd_auto(App *a, const StaleReport *r);
 int app_psd_poll(App *a);
 int app_psd_busy(const App *a);
-/* what the Convert PSD button's tooltip says about the python it uses (found, still looking, or none of the ones tried); the text is in `out` */
-int app_psd_python_ready(const App *a);
-void app_psd_python_note(const App *a, char *out, size_t cap);
 void app_psd_stop(App *a);
 /* the car's lists (project, textures, masks) and its card read again, as after Convert PSD */
 void app_car_reread(App *a);

@@ -44,6 +44,10 @@ int car_project_is_masks(const char *dir);
 
 /* The folder of the project's masks: root/art-generated/car_masks for a kit (flat), piece/car_masks/<folder> for a masks project. */
 void car_project_masks_dir(const CarProject *c, char *out, size_t cap);
+/* where dash_mask.png and dash_color.png are: a kit's art-generated/dash_masks (flat), else <piece>/dash_masks/<folder> */
+void car_project_dash_dir(const CarProject *c, char *out, size_t cap);
+/* the manifest of the generated PNGs (psd_manifest.h): a kit's art-generated/.generated.tsv; "" for a project that has none */
+void car_project_manifest(const CarProject *c, char *out, size_t cap);
 /* The folder that holds the card's own files (mod.ini, card.png): the kit's folder for a kit, the piece itself for the other shapes. Never build/piece: that is rebuilt. */
 void car_project_card_dir(const CarProject *c, char *out, size_t cap);
 /* Where the showcase's pictures (photos= names them) are: root/photos for a kit (the build copies them into the piece), the piece itself for the other shapes. */

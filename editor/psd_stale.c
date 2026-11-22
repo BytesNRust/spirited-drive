@@ -55,7 +55,7 @@ static long dash_mtime(const char *piece)
     return when;
 }
 
-static int add(StaleReport *r, const char *psd, const char *png, int dash, StaleState state)
+static int add(StaleReport *r, const char *psd, const char *png, int dash, StaleState state, long psd_time)
 {
     if (r->count >= STALE_MAX) return 0;
     StaleItem *i = &r->item[r->count++];
@@ -63,19 +63,17 @@ static int add(StaleReport *r, const char *psd, const char *png, int dash, Stale
     snprintf(i->png, sizeof i->png, "%s", png);
     i->dash = dash;
     i->state = state;
+    i->psd_time = psd_time;
     r->stale += state != STALE_OK;
     return 1;
 }
 
-int psd_stale_check(const char *psd_dir, const char *piece, const char *folder, int drivable, StaleReport *out)
+/* `folder_path` holds the body masks ("" when there is no such folder); the dash's is `dash_flat` (a kit's flat folder) or, NULL, the legacy dash_masks/<any folder> of `piece` */
+static int check(const char *psd_dir, const char *folder_path, const char *dash_flat, const char *piece, int drivable, StaleReport *out)
 {
     memset(out, 0, sizeof *out);
     DIR *d = opendir(psd_dir);
     if (d == NULL) return 0;
-    char masks[PATH];
-    const int have_masks = join(masks, sizeof masks, piece, "car_masks") && strlen(masks) + strlen(folder) + 2 < sizeof masks;
-    char folder_path[PATH] = "";
-    if (have_masks) join(folder_path, sizeof folder_path, masks, folder);
     for (struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
         const char *dot = strrchr(e->d_name, '.');
         char stem[STALE_NAME], path[PATH];
@@ -89,15 +87,27 @@ int psd_stale_check(const char *psd_dir, const char *piece, const char *folder, 
         long made;
         if (dash) {
             snprintf(png, sizeof png, "dash_mask.png");
-            made = dash_mtime(piece);
+            made = dash_flat != NULL ? (dash_flat[0] != '\0' ? find_mtime(dash_flat, "dash_mask.png", NULL, 0) : 0) : dash_mtime(piece);
         } else {
             snprintf(png, sizeof png, "%s_mask.png", stem);
             made = folder_path[0] != '\0' ? find_mtime(folder_path, png, NULL, 0) : 0;
         }
-        add(out, e->d_name, png, dash, made == 0 ? STALE_MISSING : made < (long)st.st_mtime ? STALE_NEWER : STALE_OK);
+        add(out, e->d_name, png, dash, made == 0 ? STALE_MISSING : made < (long)st.st_mtime ? STALE_NEWER : STALE_OK, (long)st.st_mtime);
     }
     closedir(d);
     return 1;
+}
+
+int psd_stale_check(const char *psd_dir, const char *piece, const char *folder, int drivable, StaleReport *out)
+{
+    char masks[PATH], folder_path[PATH] = "";
+    if (join(masks, sizeof masks, piece, "car_masks") && strlen(masks) + strlen(folder) + 2 < sizeof masks) join(folder_path, sizeof folder_path, masks, folder);
+    return check(psd_dir, folder_path, NULL, piece, drivable, out);
+}
+
+int psd_stale_check_flat(const char *psd_dir, const char *masks, const char *dash, int drivable, StaleReport *out)
+{
+    return check(psd_dir, masks, dash, "", drivable, out);
 }
 
 void psd_stale_text(const StaleReport *r, char *out, size_t cap)

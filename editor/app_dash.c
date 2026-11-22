@@ -25,11 +25,16 @@ void app_dash_stale_refresh(App *a)
     a->dash_stale[0] = '\0';
     a->dash_stale_ticks = 0;
     a->stale_ok = 0;
-    if (a->kind != APP_KIND_CAR || car_race_original_of(&a->car) == NULL || !app_psd_psd_dir(a, dir, sizeof dir)) return;
-    if (!psd_stale_check(dir, a->car.piece, a->car.folder, drivable(a) != NULL, &r)) return;
+    if (a->kind != APP_KIND_CAR || (!app_car_is_kit(a) && car_race_original_of(&a->car) == NULL) || !app_psd_psd_dir(a, dir, sizeof dir)) return;
+    if (app_car_is_kit(a)) {   // a kit: its PSDs in art-source/masks, the PNGs flat in art-generated
+        char masks[APP_PATH], dash[APP_PATH], manifest[APP_PATH];
+        app_psd_dirs(a, masks, dash, manifest, sizeof masks);
+        if (!psd_stale_check_flat(dir, masks, dash, drivable(a) != NULL, &r)) return;
+    } else if (!psd_stale_check(dir, a->car.piece, a->car.folder, drivable(a) != NULL, &r)) return;
     psd_stale_text(&r, a->dash_stale, sizeof a->dash_stale);
     a->stale = r;
     a->stale_ok = 1;
+    app_psd_auto(a, &r);   // a PSD saved since its mask was made: the masks are made again
 }
 
 int app_dash_possible(const App *a, char *why, size_t why_cap)
@@ -37,8 +42,6 @@ int app_dash_possible(const App *a, char *why, size_t why_cap)
     char dir[APP_PATH];
     if (drivable(a) == NULL) return snprintf(why, why_cap, "Check dash is for the cars you drive: open one exported with Export original car"), 0;
     if (!app_psd_psd_dir(a, dir, sizeof dir)) return snprintf(why, why_cap, "No folder named %s in the PSD folder: the dash comes from its dash.psd", a->car.folder), 0;
-    if (a->tools[0] == '\0') return snprintf(why, why_cap, "The converter scripts (the repository's tools folder) are not beside this program"), 0;
-    if (!app_psd_python_ready(a)) return app_psd_python_note(a, why, why_cap), 0;
     if (app_psd_busy(a) || car_race_busy(&a->race) || a->sheet_active) return snprintf(why, why_cap, "Wait for the run in progress"), 0;
     return 1;
 }
