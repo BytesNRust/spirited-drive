@@ -114,5 +114,12 @@ for sc in 1 2 3; do
     echo "$out" | grep -q 'no such widget' && fail "the Side button was not on screen: $out"
     python3 -I "$work/whole.py" "$work/side_$sc.png" || fail "the car is cut by the frame's edge in the Side view at render scale $sc"
 done
+# an ini from an older Studio (before the dock was kept per car kind: its windows are floating, there are no dock nodes at all): the layout is built, the Model is docked and Enlarge / Dock back work
+mkdir -p "$work/u10"
+printf '[Window][Model]\nPos=40,40\nSize=1100,700\nCollapsed=0\n\n[Window][Car]\nPos=60,60\nSize=500,500\nCollapsed=0\n' > "$work/u10/track-editor.ini"
+out=$(run u10 --frames 90 "$kit" --steps psd-wait:3,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3 2>&1) || fail "old ini: $out"
+[ "$(state 1 | cut -d' ' -f2-9)" = "big 0 docked 1 scale 2 soft 1" ] || fail "an older ini did not give the Model its dock and the player's scale and soft edges: $(state 1)"
+[ "$(state 2 | cut -d' ' -f2-5)" = "big 1 docked 0" ] || fail "Enlarge did not work with an older ini: $(state 2)"
+[ "$(state 3 | cut -d' ' -f2-5)" = "big 0 docked 1" ] || fail "Dock back did not work with an older ini: $(state 3)"
 
 [ "$failures" = 0 ] || exit 1
