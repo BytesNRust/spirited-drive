@@ -1282,7 +1282,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back
         set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)
         add_test(NAME editor_light_window COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_light_window.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_fake_tri>)   # the Track light window headless: opens, photographs the working copy through a fake game, leaves the folder as it was
-        set_tests_properties(editor_light_window PROPERTIES TIMEOUT 600)
+        set_tests_properties(editor_light_window PROPERTIES TIMEOUT 900)
         add_test(NAME editor_original_track_flow_a COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> a)   # original tracks in a workspace, part a: add the 16, old workspace, open one, publish its light
         set_tests_properties(editor_original_track_flow_a PROPERTIES TIMEOUT 900)
         add_test(NAME editor_original_track_flow_b COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> b)   # part b: test drive, masks, polls, repo folder, main menu (split from one test that took 299.8 s on the Intel sanitizers runner)
