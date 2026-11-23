@@ -598,6 +598,21 @@ static int made_from_track_file(const Tri *tri, const char *track, TrackLightFil
     return 1;
 }
 
+/* TNFS_LIGHT_ROWS_DUMP=<file>: the rows the game made, one line a node (`node N p0 .. p10 T`, T 1 inside a tunnel), overwritten at each load (tests/sun_shadow_game.sh) */
+static void rows_dump(const TrackNodeLight *made)
+{
+    const char *const path = getenv("TNFS_LIGHT_ROWS_DUMP");
+    if (path == NULL || path[0] == '\0' || made->data == NULL) return;
+    FILE *const f = fopen(path, "wb");
+    if (f == NULL) return;
+    for (uint32_t n = 0; n < made->nodes; n++) {
+        fprintf(f, "node %u", (unsigned)n);
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) fprintf(f, " %u", (unsigned)made->data[(size_t)n * TRACK_NODE_LIGHT_POINTS + (size_t)p]);
+        fprintf(f, " %d\n", made->tunnel != NULL && made->tunnel[n] != 0);
+    }
+    fclose(f);
+}
+
 static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
 {
     const char *off = getenv("TNFS_TRACK_LIGHT_FILE");
@@ -645,6 +660,7 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
             fclose(f);
         }
     }
+    rows_dump(&made);
     track_light_file_free(&file);
     if (port_settings_profile() == PROFILE_RESTOMOD && getenv("TNFS_CAR_ROW") != NULL && atoi(getenv("TNFS_CAR_ROW")) != 0) made.car_row = 1;   /* port (cars read the row): the owner's drive on a light with no file, Restomod '26 only */
     *out = made;
