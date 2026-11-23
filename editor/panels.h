@@ -57,6 +57,8 @@ const char *model_panel_backdrop_path();   // the backdrop's picture now ("" for
 void model_panel_backdrop_file(const char *path);   // a picture as the backdrop (--card-backdrop)
 int model_panel_card_view(App *a, bool card, bool as_card);   // the Card view and As on the card boxes set (the step card-view): 1 when the car is open
 int model_panel_card_photo(App *a);   // «Use as card photo» as its button does it, without the question about a card.png that is there (the step card-photo, through ui_card_photo): 1 when it was made
+void model_panel_big(bool on);   // the Model window floating large (Enlarge) or docked again
+void model_panel_pixel(int pixel);   // the Pixels choice 1..4 (the car drawn at 1/N of the panel's pixels, each shown N x N)
 void model_panel_shine(bool on);   // the body shine on or off (on by default)   // an orbit for the next car opened (degrees, degrees, model units; dist 0 keeps the home distance)
 void mask_view_section(App *a, ImTextureID picture);   // in Masks: the list of masks with their state and the open mask over its texture
 void preview_panel(App *a, struct SDL_Renderer *ren);   // Preview: the textures as the race paints them, in a paint of the card's

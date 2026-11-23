@@ -14,6 +14,13 @@ void model_view_flags(ModelView view, int *card_view, int *as_card)
     *as_card = view == MODEL_VIEW_GAME;
 }
 
+int model_view_pixel(int area_w, int area_h, int want)
+{
+    int k = want < 1 ? 1 : want > MODEL_PIXEL_MAX ? MODEL_PIXEL_MAX : want;
+    while (k > 1 && (area_w / k < MODEL_PIXEL_MIN_SIDE || area_h / k < MODEL_PIXEL_MIN_SIDE)) k--;
+    return k;
+}
+
 const char *model_view_name(ModelView view)
 {
     static const char *const NAMES[MODEL_VIEWS] = { "Model", "Card", "As the game draws it" };

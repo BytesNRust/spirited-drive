@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--pixel 1..4] [--big] [--shine on|off] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as <workspace>/tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * <workspace>/cars/<kit>/ (the workspace: one folder with cars/ and tracks/, --workspace or File > Workspace): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -80,6 +80,8 @@ typedef struct {
     int race_cockpit;       /* --race-view cockpit: a photo from the dash (follow, the default, is 0) */
     int gauge_light;        /* --gauge-light 0..5 (a cockpit photo's night dash), 0 for none given; stored as the value + 1 */
     const char *card_backdrop;   /* --card-backdrop FILE: the card photo's backdrop is that PNG */
+    int big;                 /* --big: the Model window floating large (Enlarge) */
+    int pixel;               /* --pixel N: the Model window's Pixels, 1..4 (0 as it is) */
     const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
     const char *shine;       /* --shine on|off: the Model window's body shine (on by default) */
     const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in the mask view before the first frame */
@@ -163,6 +165,8 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--photo-view") == 0) o->photo_view = 1;
         else if (strcmp(argv[i], "--night") == 0) o->night = 1;
         else if (strcmp(argv[i], "--orbit") == 0 && has_value) o->orbit = argv[++i];
+        else if (strcmp(argv[i], "--big") == 0) o->big = 1;
+        else if (strcmp(argv[i], "--pixel") == 0 && has_value) o->pixel = atoi(argv[++i]);
         else if (strcmp(argv[i], "--add-photo") == 0 && has_value && o->add_photo_count < 8) o->add_photo[o->add_photo_count++] = argv[++i];
         else if (strcmp(argv[i], "--card-backdrop") == 0 && has_value) o->card_backdrop = argv[++i];
         else if (strcmp(argv[i], "--shine") == 0 && has_value) o->shine = argv[++i];
@@ -642,6 +646,8 @@ static int run(App *a, const Options *o)
         }
         ui_model_orbit(yaw, pitch, dist);
     }
+    if (o->pixel > 0) ui_model_pixel(o->pixel);
+    if (o->big) ui_model_big(1);
     if (o->shine != NULL) {
         if (strcmp(o->shine, "on") != 0 && strcmp(o->shine, "off") != 0) {
             fprintf(stderr, "--shine %s: on or off expected\n", o->shine);

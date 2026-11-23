@@ -42,9 +42,22 @@ static void test_paint_caption(void)
     CHECK(model_paint_caption("x", 1, text, 0) == 0);
 }
 
+static void test_pixel_size(void)
+{
+    CHECK_EQ_INT(model_view_pixel(800, 600, 1), 1);
+    CHECK_EQ_INT(model_view_pixel(800, 600, 4), 4);
+    CHECK_EQ_INT(model_view_pixel(800, 600, 9), MODEL_PIXEL_MAX);   /* more than the most: the most */
+    CHECK_EQ_INT(model_view_pixel(800, 600, 0), 1);
+    CHECK_EQ_INT(model_view_pixel(800, 600, -3), 1);
+    CHECK_EQ_INT(model_view_pixel(300, 200, 4), 4);   /* 200 / 4 = 50 is at least a side of 32 */
+    CHECK_EQ_INT(model_view_pixel(100, 100, 4), 3);   /* 100 / 3 = 33; 100 / 4 = 25 is under a side of 32 */
+    CHECK_EQ_INT(model_view_pixel(0, 0, 2), 1);
+}
+
 int main(void)
 {
     test_view_flags();
     test_paint_caption();
+    test_pixel_size();
     return TEST_REPORT();
 }

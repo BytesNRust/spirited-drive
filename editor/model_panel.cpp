@@ -52,6 +52,10 @@ struct Model {
     uint8_t cpal[768] = {};       // Central's palette, read from the game's files (cpal_cd says where from)
     bool cpal_ok = false;
     char cpal_cd[APP_PATH] = "", cpal_why[240] = "";
+    int big_ask = 0;              // 1: float the window large on the next frame, -1: dock it back where it was (Enlarge / Dock back)
+    bool big = false;             // the window is floating, enlarged
+    ImGuiID dock_id = 0;          // where it was docked, to go back to
+    int pixel = 1;                // the Pixels choice: the car drawn at 1/N of the panel's pixels, each shown N x N (model_view_pixel)
     bool shine = true;            // the body shine, on: the owner checks the shine and matte masks with it
     bool shines = false;          // the car has texels the shine reaches
     bool shine_asked = false;     // the box (or the command line) changed it: set when the window is next drawn
@@ -222,9 +226,9 @@ void draw_picture(const App *a, int phase, int w, int h)
 }
 
 // the picture's size: the whole area, scaled down to what the rasterizer takes (at most MAX_W x its rows) with the area's shape kept; 0 when too small
-bool picture_size(int area_w, int area_h, int *w, int *h)
+bool picture_size(int area_w, int area_h, int *w, int *h, int least = 64)
 {
-    if (area_w < 64 || area_h < 64) return false;
+    if (area_w < least || area_h < least) return false;
     double scale = 1.0;
     if (area_w > MAX_W) scale = static_cast<double>(MAX_W) / area_w;
     if (area_h * scale > model_scene_max_rows()) scale = static_cast<double>(model_scene_max_rows()) / area_h;
@@ -415,6 +419,30 @@ void toolbar(App *a)
                           "Slow: turning, tire2 and tire3 swapped at the game's pace (30 a second).\n"
                           "Fast: the blur (tire4), from the speed the race stops swapping.");
 
+    ImGui::SameLine();
+    if (ImGui::Button(g.big ? "Dock back" : "Enlarge")) g.big_ask = g.big ? -1 : 1;
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip(g.big ? "Put the Model window back in the layout where it was." : "Float the Model window at nearly the size of the Studio, to see the car larger (its camera stays). Drag its edges to resize.");
+    ImGui::SameLine();
+    ImGui::TextUnformatted("Pixels");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(ImGui::CalcTextSize("4x").x + ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+    ImGui::BeginDisabled(g.card_view);   // the card's picture is 309 x 166 whatever
+    char current[8];
+    snprintf(current, sizeof current, "%dx", g.pixel);
+    if (ImGui::BeginCombo("##pixels", current)) {
+        for (int i = 1; i <= MODEL_PIXEL_MAX; i++) {
+            char label[8];
+            snprintf(label, sizeof label, "%dx", i);
+            if (ImGui::Selectable(label, g.pixel == i)) g.pixel = i, g.dirty = true;
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("The size of a pixel of the picture. 1x: the car drawn at the panel's own pixels. 2x to 4x: drawn at that much fewer and shown larger, as coarse as the game's own picture, so the\n"
+                          "shine's soft edges and their dither can be seen. The camera stays; the panel's size is the window's (drag its edge).%s", g.card_view ? "\nNot in the Card views: their picture is 309 x 166." : "");
+
     row_label("View");
     view_controls(a);
 
@@ -442,6 +470,17 @@ void turn_and_zoom()
 }
 
 }   // namespace
+
+void model_panel_big(bool on)
+{
+    if (on != g.big) g.big_ask = on ? 1 : -1;
+}
+
+void model_panel_pixel(int pixel)
+{
+    g.pixel = pixel < 1 ? 1 : pixel > MODEL_PIXEL_MAX ? MODEL_PIXEL_MAX : pixel;
+    g.dirty = true;
+}
 
 void model_panel_shine(bool on)
 {
@@ -510,7 +549,18 @@ void model_panel_camera(int *yaw, int *pitch, int *dist)
 
 void model_panel(App *a, SDL_Renderer *ren)
 {
+    if (g.big_ask > 0) {   // Enlarge: out of the dock, over nearly the whole window, for this frame (then it is an ordinary window: resize it)
+        const ImGuiViewport *vp = ImGui::GetMainViewport();
+        ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.04f, vp->Pos.y + vp->Size.y * 0.06f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(vp->Size.x * 0.92f, vp->Size.y * 0.88f), ImGuiCond_Always);
+        g.big = true, g.big_ask = 0, g.fit = true, g.dirty = true;
+    } else if (g.big_ask < 0) {   // Dock back
+        if (g.dock_id != 0) ImGui::SetNextWindowDockID(g.dock_id, ImGuiCond_Always);
+        g.big = false, g.big_ask = 0, g.fit = true, g.dirty = true;
+    }
     if (ImGui::Begin(PANEL_MODEL)) {
+        if (ImGui::IsWindowDocked()) g.dock_id = ImGui::GetWindowDockID();
         const int paint = a->preview_paint;
         const ExportCar *oc = car_race_original_of(&a->car);   // the paints as the Preview window has them: a masks project and the game's traffic have none
         const int count = a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE) ? 0 : a->edit.now.paint_count;
@@ -531,7 +581,8 @@ void model_panel(App *a, SDL_Renderer *ren)
             const int lines = g.shine && !g.shines ? 2 : 1;   // the words under the picture: the state, and "no shine" when Shine has nothing to show
             const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - lines * static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
             int w = 0, h = 0;   // the picture fills the area (car_scene keeps its pixels square, the car whole in the smaller side)
-            const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : picture_size(area_w, area_h, &w, &h);
+            const int k = g.card_view ? 1 : model_view_pixel(area_w, area_h, g.pixel);   // the Pixels choice, kept to what the area allows
+            const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : picture_size(area_w / k, area_h / k, &w, &h, k > 1 ? MODEL_PIXEL_MIN_SIDE : 64);
             if (sized && make_target(ren, w, h)) {
                 if (g.fit && !g.card_view) {   // the car as large as the picture lets it be, whatever the window's shape
                     model_scene_frame(g.scene, &g.orbit, w, h, FRAME_PERCENT);
@@ -548,6 +599,7 @@ void model_panel(App *a, SDL_Renderer *ren)
                 ImGui::InvisibleButton("##orbit", area);
                 turn_and_zoom();
                 ImVec2 from = at, to(at.x + area.x, at.y + area.y);
+                if (k > 1) to = ImVec2(at.x + static_cast<float>(w * k), at.y + static_cast<float>(h * k));   // square pixels of k x k: the picture is at most the area
                 if (g.card_view) {   // the card's proportions, as large as the area lets them be, in the middle (nearest texels: the picture is 309 x 166)
                     const float k = fminf(area.x / CARD_PHOTO_W, area.y / CARD_PHOTO_H);
                     const float fw = CARD_PHOTO_W * k, fh = CARD_PHOTO_H * k;

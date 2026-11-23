@@ -231,6 +231,16 @@ void ui_close(void)
     ImGui::DestroyContext();
 }
 
+void ui_model_big(int on)
+{
+    model_panel_big(on != 0);
+}
+
+void ui_model_pixel(int pixel)
+{
+    model_panel_pixel(pixel);
+}
+
 void ui_model_shine(int on)
 {
     model_panel_shine(on != 0);
