@@ -110,6 +110,9 @@ static void test_extremes(void)
     car_paint_recolour(palette, 0x24, body, 0, weight, black);         /* no body: nothing */
 }
 
+#define GOLD_A 5
+#define GOLD_B 0
+#define GOLD_C 2
 /* a rival's paint: from the race's seed and its slot, never the player's when it drives the same car */
 static void test_pick(void)
 {
@@ -127,6 +130,17 @@ static void test_pick(void)
     for (int id = 0; id < 6; id++) CHECK(seen[id] > 0);                       /* every choice turns up */
     CHECK_EQ_INT(car_paint_pick(7, 2, 5, 5, 0, 0, 0), 0);                     /* nothing else to take: the car's own */
     CHECK_EQ_INT(car_paint_pick(7, 2, 5, -1, 0, 0, 0), 0);
+    /* a row of 8 (CAR_PAINT_MAX): every id 0..9 turns up and none is past the row; a row of up to 4 draws what it drew before the maximum went up */
+    int wide[2 + CAR_PAINT_MAX] = { 0 };
+    for (uint32_t seed = 1; seed < 200; seed++) {
+        const int id = car_paint_pick(seed, 3, 1, 0, 0, CAR_PAINT_MAX, 1);
+        CHECK(id >= 0 && id < 2 + CAR_PAINT_MAX);
+        wide[id]++;
+    }
+    for (int id = 0; id < 2 + CAR_PAINT_MAX; id++) CHECK(wide[id] > 0);
+    CHECK_EQ_INT(car_paint_pick(1, 1, 5, 3, 4, 4, 1), GOLD_A);
+    CHECK_EQ_INT(car_paint_pick(2, 5, 1, 0, 0, 2, 0), GOLD_B);
+    CHECK_EQ_INT(car_paint_pick(33, 7, 6, 2, 3, 3, 1), GOLD_C);
 }
 
 /* a paint near the top of a channel leaves the body's lighter tones room: they do not all clip to one colour (a yellow 242, 197, 0 gave its
@@ -232,6 +246,13 @@ static void replayed(void)
     CHECK(car_paint_replayed(0, 3, 1) == 0);
     CHECK(car_paint_replayed(1, 3, 1) == 1 && car_paint_replayed(1, 3, 0) == 0);   /* the console version livery needs its files */
     CHECK(car_paint_replayed(2 + car_paint_count(3) - 1, 3, 0) == 2 + car_paint_count(3) - 1);
+    /* the ids of a table colour are its position (2 + k), whatever the table's maximum is: every colour a car has replays as itself, one past the row as the car's own (a replay of an older table keeps its colours) */
+    for (int model = 0; model < CAR_PAINT_MODELS; model++) {
+        for (int k = 0; k < car_paint_count(model); k++) CHECK_EQ_INT(car_paint_replayed(2 + k, model, 0), 2 + k);
+        CHECK_EQ_INT(car_paint_replayed(2 + car_paint_count(model), model, 0), 0);
+        CHECK_EQ_INT(car_paint_replayed(2 + CAR_PAINT_MAX, model, 0), 0);
+    }
+    CHECK_EQ_INT(CAR_PAINT_MAX, 8);   /* the owner's 8 colours: PAINT_CATALOGUE + 7 is the last id, one decimal digit of the Color box's `paint_K` */
     CHECK(car_paint_replayed(2 + car_paint_count(3), 3, 1) == 0);   /* a catalogue paint the table no longer has */
 }
 

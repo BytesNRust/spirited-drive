@@ -9,11 +9,13 @@
 
 #include <stddef.h>
 
+#include "formats/car_paint.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-enum { CAR_TABLE_MAX_PAINTS = 4, CAR_TABLE_LIST = 600 };
+enum { CAR_TABLE_MAX_PAINTS = CAR_PAINT_MAX, CAR_TABLE_LIST = 1200 };   /* the game's table: CAR_PAINT_MAX colours a car (8) */
 
 /* The file's `src` (its text, `len` bytes) with `stem`'s row holding the card's `count` paints (1..CAR_TABLE_MAX_PAINTS; names without a quote or a backslash, printable ASCII).
  * Returns a malloc'd NUL-ended text (free it) when the row differs, with `*changed` 1; the same text copy with `*changed` 0 when the row already has these paints. `before` and `after` (CAR_TABLE_LIST bytes each,

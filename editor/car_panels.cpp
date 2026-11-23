@@ -367,7 +367,7 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
         if (bad != nullptr) problem_text(bad->text);
         if (i >= s.paint_count) break;   // the one just removed
     }
-    const int most = app_car_is_original(a) ? CAR_PAINT_MAX : MOD_INI_PAINTS_MAX;   // the game offers up to 4 colors for one of its own cars
+    const int most = app_car_is_original(a) ? CAR_PAINT_MAX : MOD_INI_PAINTS_MAX;   // the game offers up to 8 colors for one of its own cars
     const bool full = s.paint_count >= most;
     ImGui::BeginDisabled(full);
     const bool add_colour = ImGui::Button("Add color");

@@ -135,7 +135,7 @@ char *car_table_rewrite(const char *src, size_t len, const char *stem, const Mod
     static const char DECL[] = "static const CarPaints TABLE[CAR_PAINT_MODELS] = {\n";
     if (before != NULL) before[0] = '\0';
     if (after != NULL) after[0] = '\0';
-    if (count < 1 || count > CAR_TABLE_MAX_PAINTS) return say(why, why_cap, "%s", count < 1 ? "the card has no colors: the game needs at least one" : "the game offers up to 4 colors for a car: take the others off the card"), NULL;
+    if (count < 1 || count > CAR_TABLE_MAX_PAINTS) return say(why, why_cap, "%s", count < 1 ? "the card has no colors: the game needs at least one" : "the game offers up to 8 colors for a car: take the others off the card"), NULL;
     for (int k = 0; k < count; k++)
         if (!name_ok(paints[k].name)) return say(why, why_cap, "a color's name cannot be written into the table (1 to 24 printable characters, no quote or backslash): %s", paints[k].name), NULL;
     char *text = malloc(len + 1);

@@ -102,10 +102,21 @@ static void count_and_names(const char *src, size_t len)
         CHECK(back != NULL && strcmp(back, src) == 0);
         free(out), free(twice), free(back);
     }
-    ModPaint five[5];
-    memcpy(five, p, sizeof p);
-    memset(&five[4], 0, sizeof five[4]);
-    CHECK(car_table_rewrite(src, len, "P911", five, 5, &changed, NULL, NULL, why, sizeof why) == NULL && strstr(why, "up to 4") != NULL);
+    /* the table holds up to CAR_PAINT_MAX (8): a row of 8 is written and read back, a row of 9 is refused in words */
+    ModPaint many[CAR_TABLE_MAX_PAINTS + 1];
+    memset(many, 0, sizeof many);
+    memcpy(many, p, sizeof p);
+    for (int k = 4; k < CAR_TABLE_MAX_PAINTS + 1; k++) snprintf(many[k].name, sizeof many[k].name, "Extra %d", k), many[k].rgb[0] = (uint8_t)(10 * k), many[k].rgb[1] = 7, many[k].rgb[2] = (uint8_t)k;
+    char *eight = car_table_rewrite(src, len, "P911", many, CAR_TABLE_MAX_PAINTS, &changed, NULL, NULL, why, sizeof why);
+    CHECK(eight != NULL && changed == 1 && strstr(eight, "Extra 7") != NULL);
+    if (eight != NULL) {
+        char *again = car_table_rewrite(eight, strlen(eight), "P911", many, CAR_TABLE_MAX_PAINTS, &changed, NULL, NULL, why, sizeof why);
+        CHECK(again != NULL && changed == 0);
+        char *back = car_table_rewrite(eight, strlen(eight), "P911", p, n, &changed, NULL, NULL, why, sizeof why);
+        CHECK(back != NULL && strcmp(back, src) == 0);
+        free(again), free(back), free(eight);
+    }
+    CHECK(car_table_rewrite(src, len, "P911", many, CAR_TABLE_MAX_PAINTS + 1, &changed, NULL, NULL, why, sizeof why) == NULL && strstr(why, "up to 8") != NULL);
     CHECK(car_table_rewrite(src, len, "P911", p, 0, &changed, NULL, NULL, why, sizeof why) == NULL && strstr(why, "no colors") != NULL);
     ModPaint bad[1] = { { "Quote\"d", { 1, 2, 3 } } };
     CHECK(car_table_rewrite(src, len, "P911", bad, 1, &changed, NULL, NULL, why, sizeof why) == NULL && strstr(why, "cannot be written") != NULL);

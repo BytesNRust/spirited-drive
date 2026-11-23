@@ -98,7 +98,7 @@ static int colors_state(const App *a, Plan *p, char **out, char *before, char *a
     size_t len = 0;
     *out = NULL;
     if (p->stem == NULL) return COLORS_SAME;
-    if (a->edit.now.paint_count > CAR_TABLE_MAX_PAINTS) return p->colours_skipped = a->edit.now.paint_count, COLORS_SAME;   /* the table holds up to 4: the masks still go */
+    if (a->edit.now.paint_count > CAR_TABLE_MAX_PAINTS) return p->colours_skipped = a->edit.now.paint_count, COLORS_SAME;   /* the table holds up to CAR_PAINT_MAX (8): the masks still go */
     if (car_edit_modified(&a->edit)) return snprintf(why, why_cap, "save the card first (Cmd+S): the colors copied are the saved ones"), -1;
     table_path(a, path, sizeof path);
     char *src = slurp(path, &len);

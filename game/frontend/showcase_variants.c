@@ -87,12 +87,16 @@ PAINT_ENTRY(0)
 PAINT_ENTRY(1)
 PAINT_ENTRY(2)
 PAINT_ENTRY(3)
+PAINT_ENTRY(4)
+PAINT_ENTRY(5)
+PAINT_ENTRY(6)
+PAINT_ENTRY(7)
 
 #define PAINT_ROW(K) { "paint_" #K, CAR_VARIANT_COLOUR, paint_offered_##K, paint_chosen_##K, paint_apply_##K, paint_draw_##K }
 
 const CarVariant showcase_variants[] = {
     { "second_livery", CAR_VARIANT_COLOUR, second_offered, second_chosen, second_apply, second_draw },
-    PAINT_ROW(0), PAINT_ROW(1), PAINT_ROW(2), PAINT_ROW(3),
+    PAINT_ROW(0), PAINT_ROW(1), PAINT_ROW(2), PAINT_ROW(3), PAINT_ROW(4), PAINT_ROW(5), PAINT_ROW(6), PAINT_ROW(7),
 };
 const int showcase_variant_count = (int)(sizeof showcase_variants / sizeof showcase_variants[0]);
 
