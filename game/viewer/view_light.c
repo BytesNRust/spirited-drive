@@ -274,7 +274,7 @@ static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
             return 1;
         }
     }
-    if (!found && lane < 1.0f) {   /* a light with no ratio for the car, on a lane in shade: the shade alone */
+    if (!found && (lane < 1.0f || car_row_on())) {   /* a light with no ratio for the car, on a lane in shade: the shade alone; on a track light's rows a full-light lane is 1 (it left the ratio unset: the table was made from 0 and the car black in full sun) */
         out[0] = out[1] = out[2] = lane;
         return 1;
     }
@@ -325,7 +325,7 @@ const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t 
     static struct { int key[8]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's car_tone) */
     static uint8_t made_for[768];
     static int next, valid;
-    float ratio[3] = { 0.0f, 0.0f, 0.0f };   /* what a light with no ratio for the car left in it (found 0 left it unset: read as 0, so the car was black), now said */
+    float ratio[3] = { 1.0f, 1.0f, 1.0f };   /* what a light with no ratio for the car leaves in it (found 0 left it unset: read as 0, so the car was black): the car's own light is full */
     ratio_at_xz(node, xz, car, ratio);
     int key[8] = { 0 }, neutral = 1;
     const int floor_level = light_effects->pool != NULL ? port_light_effects() : 0;   /* port (car_night_lift): at night (the headlight pool), a floor of light on the body */
