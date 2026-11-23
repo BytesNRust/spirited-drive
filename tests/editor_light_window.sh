@@ -119,9 +119,8 @@ grep '^light:' "$work/ui2" | tail -1 | grep -q 'brightness 1 tones 0 ' || fail "
 grep -q "^  tone " "$work/light/track_light/AL1.txt" && fail "the removed tone is still in the file"
 cksum < "$work/light/track_light/AL1.txt" > "$work/ui_cksum"
 # the window's other widgets, clicked: the node buttons move the photo's node, Add tunnel adds a tunnel, a moment's button keeps the one file's edits, Revert puts the file back as it was opened.
-# (A tunnel row's Remove is the table's last column and is past the panel's edge at 1280 px: a click on it lands on nothing, so it has no click here; tunnel<N>_remove names it.)
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 \
-    --steps light-node,ui-click:node_p10,ui-click:node_p10,ui-click:node_p1,light-node,ui-click:node_m10,ui-click:node_m1,light-node,ui-at:node_slider,0.9,light-node,ui-click:add_tunnel,light-print,ui-click:time_C,light-print,ui-click:revert,light-print,ui-click:time_B,light-print > "$work/ui4" 2>&1 ||
+    --steps light-node,ui-click:node_p10,ui-click:node_p10,ui-click:node_p1,light-node,ui-click:node_m10,ui-click:node_m1,light-node,ui-at:node_slider,0.9,light-node,ui-click:add_tunnel,light-print,ui-click:time_C,light-print,ui-click:revert,light-print,ui-click:tunnel0_remove,light-print,ui-click:time_B,light-print > "$work/ui4" 2>&1 ||
     fail "the clicked node, tunnel, moment and Revert flow: $(tail -3 "$work/ui4")"
 nodes=$(grep '^light node:' "$work/ui4" | awk '{print $3}' | tr '\n' ' ')
 set -- $nodes
@@ -130,7 +129,8 @@ lines=$(grep '^light: ' "$work/ui4")
 [ "$(echo "$lines" | sed -n 1p | grep -c 'time B (unsaved) tunnels 3 ')" = 1 ] || fail "Add tunnel did not add a tunnel: $(echo "$lines" | sed -n 1p)"
 [ "$(echo "$lines" | sed -n 2p | grep -c 'time C (unsaved) tunnels 3 ')" = 1 ] || fail "the Dusk button lost the unsaved tunnel: $(echo "$lines" | sed -n 2p)"
 echo "$lines" | sed -n 3p | grep -q 'tunnels 2 ' && ! echo "$lines" | sed -n 3p | grep -q 'unsaved' || fail "Revert did not put the file back as it was opened: $(echo "$lines" | sed -n 3p)"
-echo "$lines" | sed -n 4p | grep -q 'time B tunnels 2 looks 2 ' || fail "the Day button did not bring the Day block back: $(echo "$lines" | sed -n 4p)"
+echo "$lines" | sed -n 4p | grep -q 'time C (unsaved) tunnels 1 ' || fail "a tunnel row's Remove (the table's first column, reachable at 1280 px) did not take a tunnel away: $(echo "$lines" | sed -n 4p)"
+echo "$lines" | sed -n 5p | grep -q 'time B (unsaved) tunnels 1 looks 2 ' || fail "the Day button did not bring the Day block back with the edit: $(echo "$lines" | sed -n 5p)"
 [ "$(cksum < "$work/light/track_light/AL1.txt")" = "$(cat "$work/ui_cksum")" ] || fail "an unsaved click flow changed the file"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"

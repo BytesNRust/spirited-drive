@@ -214,11 +214,11 @@ void put_look(App *a, int index, const LightTrackLook &v)
 bool look_cells(LightTrackLook &v, bool hall)
 {
     bool changed = false;
-    ImGui::TableSetColumnIndex(3);
+    ImGui::TableSetColumnIndex(4);
     ImGui::BeginDisabled(hall);
     changed = optional_number("##light", &v.has_light, &v.light, "%g", -FLT_MIN) || changed;
     ImGui::EndDisabled();
-    ImGui::TableSetColumnIndex(4);
+    ImGui::TableSetColumnIndex(5);
     ImGui::BeginDisabled(hall);
     char hex[8] = "ffffff";
     if (v.has_colour && strlen(v.colour) >= 6) snprintf(hex, sizeof hex, "%.6s", v.colour);
@@ -228,9 +228,9 @@ bool look_cells(LightTrackLook &v, bool hall)
         if (ImGui::SmallButton("x")) v.has_colour = 0, changed = true;
     }
     ImGui::EndDisabled();
-    ImGui::TableSetColumnIndex(5);
-    changed = optional_number("##lamps", &v.has_lamps, &v.lamps, "%g", -FLT_MIN) || changed;
     ImGui::TableSetColumnIndex(6);
+    changed = optional_number("##lamps", &v.has_lamps, &v.lamps, "%g", -FLT_MIN) || changed;
+    ImGui::TableSetColumnIndex(7);
     changed = optional_number("##reach", &v.has_reach, &v.reach, "%g", -FLT_MIN) || changed;
     return changed;
 }
@@ -276,6 +276,7 @@ void tunnel_rows(App *a)
     const float row_h = ImGui::GetFrameHeight() + 2.0f * ImGui::GetStyle().CellPadding.y;
     const float table_height = row_h * static_cast<float>(count + 2) + ImGui::GetStyle().ScrollbarSize + 2.0f;
     if (ImGui::BeginTable("##tunnels", 8, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX, ImVec2(0.0f, table_height))) {
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 62.0f);   // Remove first: the table scrolls across at the panel's width, and a last column was past its edge
         ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 56.0f);
         ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 56.0f);
         ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 72.0f);
@@ -283,7 +284,6 @@ void tunnel_rows(App *a)
         ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 48.0f);
         ImGui::TableSetupColumn("Lamps %", ImGuiTableColumnFlags_WidthFixed, 64.0f);
         ImGui::TableSetupColumn("Reach", ImGuiTableColumnFlags_WidthFixed, 56.0f);
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 62.0f);
         ImGui::TableHeadersRow();
         // the default row: the look of every tunnel with no row of its own
         {
@@ -292,7 +292,7 @@ void tunnel_rows(App *a)
             if (default_look >= 0) light_track_get_look(&f, time, default_look, &v);
             ImGui::PushID("default");
             ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
+            ImGui::TableSetColumnIndex(1);
             ImGui::TextDisabled("default");
             if (look_cells(v, false)) {
                 v.has_nodes = 0;
@@ -312,12 +312,19 @@ void tunnel_rows(App *a)
             ImGui::TableNextRow();
             bool tunnel_changed = false;
             ImGui::TableSetColumnIndex(0);
+            const bool remove_row = ImGui::Button("Remove");
+            char scope[16];
+            snprintf(scope, sizeof scope, "tunnel%d", r);
+            ui_probe_scope(scope);
+            ui_probe("remove");
+            ui_probe_scope("");
+            ImGui::TableSetColumnIndex(1);
             if (rows[r].tunnel >= 0) tunnel_changed = node_box("##from", &t.from, -FLT_MIN) || tunnel_changed;
             else ImGui::Text("%u", t.from);
-            ImGui::TableSetColumnIndex(1);
+            ImGui::TableSetColumnIndex(2);
             if (rows[r].tunnel >= 0) tunnel_changed = node_box("##to", &t.to, -FLT_MIN) || tunnel_changed;
             else ImGui::Text("%u", t.to);
-            ImGui::TableSetColumnIndex(2);
+            ImGui::TableSetColumnIndex(3);
             if (rows[r].tunnel >= 0) {
                 ImGui::SetNextItemWidth(-FLT_MIN);
                 if (ImGui::BeginCombo("##kind", t.lit ? "hall" : "tunnel")) {
@@ -329,13 +336,6 @@ void tunnel_rows(App *a)
                 ImGui::TextDisabled("inside");
             }
             const bool look_changed = look_cells(v, rows[r].tunnel >= 0 && t.lit != 0);
-            ImGui::TableSetColumnIndex(7);
-            const bool remove_row = ImGui::Button("Remove");
-            char scope[16];
-            snprintf(scope, sizeof scope, "tunnel%d", r);
-            ui_probe_scope(scope);
-            ui_probe("remove");
-            ui_probe_scope("");
             if (remove_row) {
                 remove_tunnel = rows[r].tunnel;
                 remove_look = rows[r].look;
