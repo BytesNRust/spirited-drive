@@ -7,6 +7,10 @@
 # usage: editor_headless_track.sh EDITOR
 . "$(dirname "$0")/editor_headless_common.sh"
 
+part=${2:-all}   # a: new project .. Copy, Paste, Mirror; b: Add curve .. Window menu; all: both (CMake runs a and b as two tests: ~70 editor runs in one took 450 s on a slow runner)
+want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
+
+if want a; then
 # ==== New project: made, saved and drawn ====
 "$editor" "$work/proj" --window 960x1200 --frames 6 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
 [ -f "$work/proj/project.ini" ] && [ -f "$work/proj/trace.json" ] || fail "no project files"
@@ -246,6 +250,20 @@ grep -q "copy a run of points first" "$work/log" || fail "Paste's refusal does n
 [ "$(grep '^points:' "$work/log" | head -1 | awk '{print $NF}')" = "0.000,0.000" ] || fail "the end dragged 2 m from the start did not land on it: $(grep '^points:' "$work/log")"
 [ "$(grep '^points:' "$work/log" | tail -1 | awk '{print $NF}')" != "0.000,0.000" ] || fail "the end 40 m from the start was pulled onto it"
 
+fi
+
+if want b; then
+if [ "$part" = b ]; then   # what part a leaves for the sections below (fixtures: the project, the mild, amber and red S, the shoulder surfaces)
+"$editor" "$work/proj" --window 960x1200 --frames 6 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
+mkdir "$work/mild"
+printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [15.0, 80.0], [15.0, 120.0], [0.0, 160.0], [0.0, 200.0]]\n}\n' > "$work/mild/trace.json"   # an S of 6.5 degrees a node at most: nothing is marked (the old limit was 6)
+mkdir "$work/warn"
+printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, -40.0], [0.0, 0.0], [20.0, 40.0], [20.0, 80.0], [0.0, 120.0], [0.0, 160.0]]\n}\n' > "$work/warn/trace.json"   # an S that turns about 9 degrees a node: amber
+mkdir "$work/bad"
+printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 80.0], [20.0, 90.0], [0.0, 100.0], [0.0, 180.0]]\n}\n' > "$work/bad/trace.json"
+mkdir "$work/surface"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "shoulder_l_surface": "tarmac"}, {"point": 3, "shoulder_l_surface": "verge", "shoulder_r_surface": "tarmac"}]\n}\n' > "$work/surface/trace.json"
+fi
 # ==== Add curve and Add straight (dep88): after the last point or the selected one, going on the road's way; one undo; red under Build's radius ====
 # a straight north of 4 points 100 m apart. A quarter right of radius 60 m after the last point ends 60 m on and 60 m east (6 points, the
 # default: 15 degrees each); after point 1 the road beyond turns with it and runs east; radius 15 m is red in Problems at once, in Build's words
@@ -486,5 +504,7 @@ grep -q '^Closed=Drive$' "$work/u-win/track-editor.ini" || fail "a closed panel 
 panels=$("$editor" "$work/warn" --user "$work/u-win" --window 1280x960 --frames 6 --steps print-panels,panel:9,print-panels 2>&1)
 echo "$panels" | grep -q '^panel 9: Drive: closed, not drawn' || fail "the panel closed in the last run is open again: $panels"
 echo "$panels" | tail -11 | grep -q '^panel 9: Drive: open, drawn, docked$' || fail "Window > Drive did not open the panel again, docked: $panels"
+fi
+
 [ "$failures" -eq 0 ] && echo "editor_headless_track: ok"
 exit "$failures"
