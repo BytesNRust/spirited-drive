@@ -644,3 +644,8 @@ void model_panel(App *a, SDL_Renderer *ren)
     }
     ImGui::End();
 }
+
+int model_panel_animating(const App *a)
+{
+    return a->kind == APP_KIND_CAR && (g.auto_rotate || a->night.police || (a->model_wheels == 1 && !a->model_wheels_fixed));
+}

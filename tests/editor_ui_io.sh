@@ -8,7 +8,7 @@ editor=$1 make_psd=$2 dylib=$3
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
-MAX_TOTAL=150 MAX_OPEN=8   # 100 frames at rest (about 8 s on the dummy driver): the watches (card, masks: once a second) and a manifest look a second; no per-frame work, no hashing of PNGs
+MAX_TOTAL=60 MAX_OPEN=8 MAX_DIR=10   # 100 frames at rest (about 8 s on the dummy driver): the watches (the card's files, the masks: every 2.5 s) and a manifest look; the card's files read the two banks' folders, so a look is 2 directory reads: more than 10 in this run means a look per second or per frame; no per-frame work, no hashing of PNGs
 fail() { echo "FAIL: $*" >&2; exit 1; }
 [ "$(uname)" = Darwin ] || { echo "skip: DYLD_INSERT_LIBRARIES is macOS"; exit 0; }
 
@@ -29,5 +29,5 @@ set -- $(count 120); b_open=$1 b_dir=$2 b_stat=$3
 open=$((b_open - a_open)) dir=$((b_dir - a_dir)) stat=$((b_stat - a_stat))
 total=$((open + dir + stat))
 echo "100 frames at rest: open $open, opendir $dir, stat $stat (total $total; limits $MAX_TOTAL and $MAX_OPEN opens)"
-[ "$total" -le "$MAX_TOTAL" ] && [ "$open" -le "$MAX_OPEN" ] || fail "the UI thread did file work per frame at rest: open $open, opendir $dir, stat $stat in 100 frames"
+[ "$total" -le "$MAX_TOTAL" ] && [ "$open" -le "$MAX_OPEN" ] && [ "$dir" -le "$MAX_DIR" ] || fail "the UI thread did file work per frame at rest: open $open, opendir $dir, stat $stat in 100 frames"
 echo "editor_ui_io: ok"

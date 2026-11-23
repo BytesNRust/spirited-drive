@@ -12,6 +12,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
+/* the look at the car's files (mod.ini, the car file, the folders of textures): a directory read and a stat for each PNG, so about every 2.5 s like the masks' and the PSDs', never per frame (the workspace may be on a network folder) */
+#define CARD_WATCH_EVERY 2.5
+
 static int same(MaskStamp x, MaskStamp y)
 {
     return x.mtime_ns == y.mtime_ns && x.size == y.size;
@@ -132,7 +135,12 @@ static int files_look(App *a)
 int app_card_watch(App *a, double now)
 {
     CarDisk *d = &a->cdisk;
-    if (a->kind != APP_KIND_CAR || (d->looked > 0 && now - d->looked < 1.0)) return 0;
+    if (a->kind != APP_KIND_CAR) return 0;
+    if (d->looked <= 0) {   // the first call: the card was armed when the car opened, the first look is CARD_WATCH_EVERY seconds on, as the other watches do
+        d->looked = now > 0 ? now : 1e-3;
+        return 0;
+    }
+    if (now - d->looked < CARD_WATCH_EVERY) return 0;
     d->looked = now;
     const int card = card_look(a);
     const int files = files_look(a);

@@ -24,6 +24,7 @@
 #include "light_photo.h"
 #include "mask_changes.h"
 #include "formats/png.h"
+#include "idle.h"
 #include "steps.h"
 #include "ui.h"
 #include "window_fit.h"
@@ -748,10 +749,13 @@ static int run(App *a, const Options *o)
     int ok = run_requested(a, o), frame = 0, quit = 0;
     static Steps steps;   /* --steps: after what the command line asked for, on what it opened (the mask --mask opened, the card --set changed) */
     if (o->steps != NULL && !steps_read(&steps, o->steps)) ok = 0, steps.failed = 1;
+    Idle idle = { 0, 0, 0 };
     while (!quit) {
+        int events = 0;
         for (SDL_Event ev; SDL_PollEvent(&ev);) {
             ui_event(&ev);
             window_event(a, &ev);
+            events = 1;
         }
         take_dialog(a);
         if (a->backdrop_dialog) {   /* the Model window's Choose... (a headless run has the typed path and --card-backdrop) */
@@ -787,6 +791,14 @@ static int run(App *a, const Options *o)
         perf_end(PERF_POLL, t), t = perf_begin();
         app_recompute(a);
         perf_end(PERF_RECOMPUTE, t), t = perf_begin();
+        const double clock = SDL_GetTicks() / 1000.0;
+        const int busy = light_busy || app_race_busy(a) || app_sheet_busy(a) || app_car_building(a) || app_install_busy(a) || app_psd_busy(a) || app_light_drive_running(a) ||
+                         a->confirm != APP_ACT_NONE || ui_animating(a);
+        if (!headless && !idle_draw(&idle, clock, events, busy)) {   // at rest: nothing is drawn or presented (the polls above went on); wait for an event
+            SDL_Event ev;
+            if (SDL_WaitEventTimeout(&ev, IDLE_WAIT_MS)) SDL_PushEvent(&ev);
+            continue;
+        }
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
         SDL_RenderClear(ren);
         ui_frame(ren, a);
