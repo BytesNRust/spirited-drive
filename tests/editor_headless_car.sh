@@ -4,6 +4,10 @@
 # (original/) are skipped without them.
 # usage: editor_headless_car.sh EDITOR
 . "$(dirname "$0")/editor_headless_common.sh"
+part=${2:-all}   # a: export .. mask view; b: Preview .. Window menu (both start with the Export block, which the rest uses); all: both. CMake runs a and b as two tests: one test of ~100 editor runs passed the 450 s limit on a loaded machine
+want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
+repo_src="$(cd "$(dirname "$0")/.." && pwd)"
+repo=$(cd "$(dirname "$0")/.." && pwd)
 
 # ==== Export original car ====
 # Export original car makes a kit (the real-original blocks below). With a fixture game folder (a synthetic car file, masks that are PNG headers) it is refused in
@@ -42,6 +46,8 @@ except subprocess.TimeoutExpired:
 " "$work/log" "$editor" "$work/exports/wagon-masks" --frames 100 --steps poll-wait:1 || fail "poll-wait on a car did not end (rc $?): $(cat "$work/log")"
 grep -q "poll: watching" "$work/log" || fail "poll-wait on a car did not start: $(cat "$work/log")"
 
+
+if want a; then
 # ==== Open: the start screen, a car's kit, a card that is not a car ====
 # no PROJECT: the start screen (nothing is made anywhere); a car's kit (the current layout) opens as a car and writes nothing; an old coche/ + modelo/ kit and a card
 # that is not a car are refused in words
@@ -243,6 +249,14 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     grep -q "^usage: " "$work/log" || fail "an option that is gone was not refused with the usage: $(cat "$work/log")"
 fi
 
+fi
+
+if want b; then
+if [ "$part" = b ] && [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then   # what part a leaves for the blocks below: the real Wagon's kit, its side mask changed from outside
+    mkdir "$work/real"
+    "$editor" --export-car Wagon --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real Wagon: $(cat "$work/log")"
+    python3 -I "$(dirname "$0")/mask_poke.py" "$work/real/wagon/art-generated/car_masks/side_mask.png" 142 26 8 5 248 || fail "the outside change of the mask"
+fi
 # ==== Preview: a paint, Day and Night ====
 if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then
     "$editor" --export-car P911 --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real 911: $(cat "$work/log")"
@@ -517,5 +531,6 @@ for proj in "$work/kit" "$work/exports/wagon-masks"; do
     echo "$panels" | grep -q '^unlisted:$' || fail "a panel of $(basename "$proj") is drawn that the Window menu does not list: $(echo "$panels" | grep '^unlisted')"
     [ "$(echo "$panels" | grep -c '^panel [0-9]*: .*: open, drawn')" -ge 5 ] || fail "the panels of $(basename "$proj") are not drawn: $panels"
 done
+fi
 [ "$failures" -eq 0 ] && echo "editor_headless_car: ok"
 exit "$failures"
