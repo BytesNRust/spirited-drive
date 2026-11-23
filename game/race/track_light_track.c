@@ -2,11 +2,12 @@
 #include "game/race/track_light_track.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-enum { MAX_LINE = 512, ALL_POINTS = (1 << TRACK_NODE_LIGHT_POINTS) - 1 };
+enum { MAX_LINE = 512, ALL_POINTS = (1 << TRACK_NODE_LIGHT_POINTS) - 1, ROWS_NODE_WRITES_PER_NODE = 64 };   /* the rows lines of a time may write each node of the track this many times in all (a hostile file of 100 000 whole-track lines took 5 s) */
 
 /* a whole unsigned number token: 1 and its value, 0 when the word is anything else */
 static int number(const char *word, unsigned *value)
@@ -29,6 +30,12 @@ static int next_word(const char **at, char *word, size_t cap)
     word[n] = '\0';
     *at += n;
     return 1;
+}
+
+/* 1 when a word is left on the line: next_word gives 0 both at the end and for a word too long for its buffer, so a caller that means "nothing more" asks this too (a 36-character word after `time B` is not nothing) */
+static int junk_follows(const char *at)
+{
+    return at[strspn(at, " \t\r\n")] != '\0';
 }
 
 /* a point word `pN` (0..10) */
@@ -153,7 +160,7 @@ static int tone(const char *rest, uint32_t nodes, TrackLightTweaks *tw)
 }
 
 /* `rows A B v0..v10` into the file's rows */
-static int rows(const char *rest, uint32_t nodes, TrackLightFile *out, int active)
+static int rows(const char *rest, uint32_t nodes, TrackLightFile *out, int active, uint64_t *written)
 {
     unsigned a, b, v[TRACK_NODE_LIGHT_POINTS];
     int n = 0;
@@ -164,6 +171,8 @@ static int rows(const char *rest, uint32_t nodes, TrackLightFile *out, int activ
         rest += n;
     }
     if (rest[strspn(rest, " \t\r\n")] != '\0') return 0;
+    *written += (uint64_t)(b - a) + 1u;
+    if (*written > (uint64_t)ROWS_NODE_WRITES_PER_NODE * nodes) return 0;   /* the budget is the block's, active or not, so a file is well-formed or not at every time alike */
     if (!active) return 1;
     for (unsigned node = a; node <= b; node++) {
         for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) out->light.data[(size_t)node * TRACK_NODE_LIGHT_POINTS + (size_t)p] = (uint8_t)v[p];
@@ -185,7 +194,7 @@ static int sun(const char *rest, TrackLightSun *sun_out)
         if (has[i]) {
             char *end = NULL;
             v[i] = strtod(w[i], &end);
-            if (end == w[i] || *end != '\0') return 0;
+            if (end == w[i] || *end != '\0' || !isfinite(v[i])) return 0;   /* nan and inf pass every range test below, as false comparisons */
         }
     }
     int has_reach = 0;
@@ -194,9 +203,9 @@ static int sun(const char *rest, TrackLightSun *sun_out)
         has_reach = strcmp(fourth, "-") != 0;
         char *end = NULL;
         if (has_reach) reach = strtod(fourth, &end);
-        if (has_reach && (end == fourth || *end != '\0' || reach < 1.0 || reach > 2000.0)) return 0;
+        if (has_reach && (end == fourth || *end != '\0' || !isfinite(reach) || reach < 1.0 || reach > 2000.0)) return 0;
     }
-    if (next_word(&at, extra, sizeof extra) || (has[2] && (v[2] < 0.0 || v[2] > 100.0)) || (has[1] && (v[1] < -90.0 || v[1] > 90.0))) return 0;
+    if (next_word(&at, extra, sizeof extra) || junk_follows(at) || (has[2] && (v[2] < 0.0 || v[2] > 100.0)) || (has[1] && (v[1] < -90.0 || v[1] > 90.0))) return 0;
     *sun_out = (TrackLightSun){ 1, has[0], has[1], has[2], v[0], v[1], v[2], has_reach, reach };
     return 1;
 }
@@ -217,6 +226,7 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
     int line_no = 0, header = 0, in_block = 0, active = 0, blocks_seen = 0;
     TrackLightTweaks *cur = &file.tweaks;
     int halls[TRACK_LIGHT_MAX_BRIGHT][2], hall_count = 0, tunnel_facts = 0, ok = 0;
+    uint64_t rows_written = 0;   /* the nodes the time block's rows lines have written (ROWS_NODE_WRITES_PER_NODE) */
     if (scratch == NULL || st.fact == NULL || file.row_set == NULL || file.light.data == NULL || places.tunnel == NULL) goto done;
     st.scratch = scratch;
     for (size_t at = 0; at < size;) {
@@ -236,16 +246,16 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
         if (!next_word(&rest, key, sizeof key)) continue;
         if (!header) {
             char name[32], extra[32];
-            if (strcmp(key, "track") != 0 || !next_word(&rest, name, sizeof name) || next_word(&rest, extra, sizeof extra)) goto bad;
+            if (strcmp(key, "track") != 0 || !next_word(&rest, name, sizeof name) || next_word(&rest, extra, sizeof extra) || junk_follows(rest)) goto bad;
             if (strcmp(name, track) != 0) goto done;   /* another track's file: no line is bad */
             header = 1;
             continue;
         }
         if (strcmp(key, "time") == 0) {
             char name[32], extra[32];
-            if (!next_word(&rest, name, sizeof name) || next_word(&rest, extra, sizeof extra) || name[1] != '\0' || time_index(name[0]) < 0 || st.has_time[time_index(name[0])]) goto bad;
+            if (!next_word(&rest, name, sizeof name) || next_word(&rest, extra, sizeof extra) || junk_follows(rest) || name[1] != '\0' || time_index(name[0]) < 0 || st.has_time[time_index(name[0])]) goto bad;
             st.has_time[time_index(name[0])] = 1;
-            in_block = 1, blocks_seen++;
+            in_block = 1, blocks_seen++, rows_written = 0;
             active = time_index(name[0]) == want;
             if (!active) memset(scratch, 0, sizeof *scratch);
             cur = active ? &file.tweaks : scratch;
@@ -263,8 +273,10 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
                 if (!next_word(&rest, w, sizeof w) || !number(w, &a) || !next_word(&rest, w, sizeof w) || !number(w, &b) || a > b || b >= nodes) goto bad;
                 int is_hall = 0;
                 if (next_word(&rest, lit, sizeof lit)) {
-                    if (strcmp(lit, "lit") != 0 || next_word(&rest, lit, sizeof lit)) goto bad;
+                    if (strcmp(lit, "lit") != 0 || next_word(&rest, lit, sizeof lit) || junk_follows(rest)) goto bad;
                     is_hall = 1;
+                } else if (junk_follows(rest)) {
+                    goto bad;
                 }
                 if (is_hall && hall_count >= TRACK_LIGHT_MAX_BRIGHT) goto bad;
                 for (unsigned node = a; node <= b; node++) st.fact[node] = is_hall ? 2 : 1;
@@ -299,7 +311,7 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
         } else if (strcmp(key, "tone") == 0) {
             good = tone(rest, nodes, cur);
         } else if (strcmp(key, "rows") == 0) {
-            good = rows(rest, nodes, &file, active);
+            good = rows(rest, nodes, &file, active, &rows_written);
         }
         if (!good) goto bad;
         if (!active) continue;

@@ -30,6 +30,7 @@ static int find_relative(const char *relative, char *out, size_t out_size)
 int track_light_track_find(const char *track, char *out, size_t out_size)
 {
     if (track == NULL || out == NULL || out_size == 0) return 0;
+    if (track[0] == '\0' || strchr(track, '/') != NULL || strchr(track, '\\') != NULL || strstr(track, "..") != NULL) return 0;   /* a track's id is a stem, never a path out of track_light/ */
     char relative[128];
     snprintf(relative, sizeof relative, "track_light/%s.txt", track);
     return find_relative(relative, out, out_size);

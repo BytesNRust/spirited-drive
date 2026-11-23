@@ -412,6 +412,20 @@ static void test_car_lane_side(void)
     track_node_light_free(&l), track_light_file_free(&f);
 }
 
+/* port (cars read the row): the nodes whose line is the heading: the next one on a circuit (wrapping), on an open track too, but at its last node the one before it (the node past the end is the origin: AL1's node 2080 is at 0, 0) */
+static void test_car_heading_nodes(void)
+{
+    uint32_t at, from, to;
+    CHECK(track_node_light_heading_nodes(5, 100, 0, &at, &from, &to) && at == 5 && from == 5 && to == 6);
+    CHECK(track_node_light_heading_nodes(99, 100, 0, &at, &from, &to) && at == 99 && from == 98 && to == 99);   /* the open track's last node: not toward the node past its end */
+    CHECK(track_node_light_heading_nodes(150, 100, 0, &at, &from, &to) && at == 99 && from == 98 && to == 99);   /* past the end: the last */
+    CHECK(track_node_light_heading_nodes(-3, 100, 0, &at, &from, &to) && at == 0 && from == 0 && to == 1);
+    CHECK(track_node_light_heading_nodes(99, 100, 1, &at, &from, &to) && at == 99 && from == 99 && to == 0);    /* a circuit wraps */
+    CHECK(track_node_light_heading_nodes(103, 100, 1, &at, &from, &to) && at == 3 && from == 3 && to == 4);
+    CHECK(track_node_light_heading_nodes(-1, 100, 1, &at, &from, &to) && at == 99 && to == 0);
+    CHECK(!track_node_light_heading_nodes(0, 1, 0, &at, &from, &to) && !track_node_light_heading_nodes(0, 0, 1, &at, &from, &to));
+}
+
 /* Only shadows: the darkness the sun left (255 - v) is scaled by 100 / percent: a point in full light never changes, 100 changes nothing, less than 100 darkens, more lightens */
 static void test_brightness_only_shadows(void)
 {
@@ -516,6 +530,7 @@ int main(void)
     test_brightness_side();
     test_car_lane();
     test_car_lane_side();
+    test_car_heading_nodes();
     test_brightness_only_shadows();
     test_brightness_shade_before_plain();
     test_tunnel_lamp_lines();

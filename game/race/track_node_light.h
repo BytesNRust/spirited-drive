@@ -160,6 +160,11 @@ int track_node_light_car_pool(const TrackNodeLight *light, uint32_t node, float 
 /* port (cars read the row): the metres a car at (px, pz) is to the right of the road's centre line at the node (ax, az), the road running on to the next node (bx, bz): the heading's right is (fz, -fx). Checked in a
  * real run: TNFS_START_SIDE=-5 (left) reads about -5, +5 about +5. 0 when the two nodes are the same place. */
 double track_node_light_side(double ax, double az, double bx, double bz, double px, double pz);
+
+/* The two nodes whose line is the road's heading at `node` of a track of `count` nodes: `node` and the next on a circuit (wrapping), on an open track the next too, but at its last node the
+ * one before it and `node` (the node past the end holds no position: a heading to it pointed at the origin). `*at` is the node itself, kept inside the track (a node past the end of an open track is
+ * its last). 0 when the track has fewer than two nodes. */
+int track_node_light_heading_nodes(int32_t node, uint32_t count, int circuit, uint32_t *at, uint32_t *from, uint32_t *to);
 float track_node_light_lane(const TrackNodeLight *light, uint32_t node, double side, double left_half, double right_half);
 
 /* The intensity of terrain-row point `point` (0..10, TriRow order) of node `node` (taken modulo the nodes); the file's last

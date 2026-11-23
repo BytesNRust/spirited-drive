@@ -200,6 +200,23 @@ float track_node_light_road_light(const TrackNodeLight *light, uint32_t node)
     return ((float)light_at(light, node, 0) + (float)light_at(light, node, 1) + (float)light_at(light, node, 6)) / (3.0f * (float)TRACK_NODE_LIGHT_FULL);
 }
 
+int track_node_light_heading_nodes(int32_t node, uint32_t count, int circuit, uint32_t *at, uint32_t *from, uint32_t *to)
+{
+    if (count < 2 || at == NULL || from == NULL || to == NULL) return 0;
+    int64_t n = node;
+    if (circuit) {
+        n %= (int64_t)count;
+        if (n < 0) n += count;
+    } else {
+        n = n < 0 ? 0 : n >= (int64_t)count ? (int64_t)count - 1 : n;
+    }
+    *at = (uint32_t)n;
+    if (circuit) *from = *at, *to = (*at + 1u) % count;
+    else if (*at + 1u < count) *from = *at, *to = *at + 1u;
+    else *from = *at - 1u, *to = *at;
+    return 1;
+}
+
 double track_node_light_side(double ax, double az, double bx, double bz, double px, double pz)
 {
     const double fx = bx - ax, fz = bz - az, len = sqrt(fx * fx + fz * fz);

@@ -211,9 +211,14 @@ static float car_lane_light(int32_t node, const double *xz)
 {
     double side = 0.0, left = 0.0, right = 0.0;
     if (xz != NULL && shadow_race != NULL) {
-        const TriNode at = race_node(shadow_race, node), next = race_node(shadow_race, node + 1);
-        side = track_node_light_side(at.position.x / 65536.0, at.position.z / 65536.0, next.position.x / 65536.0, next.position.z / 65536.0, xz[0], xz[1]);
-        left = at.left_verge / 8.0, right = at.right_verge / 8.0;
+        uint32_t here_i, from_i, to_i;
+        if (shadow_race->tri != NULL && track_node_light_heading_nodes(node, shadow_race->tri->node_count, tri_is_circuit(shadow_race->tri), &here_i, &from_i, &to_i)) {   /* not race_node(node + 1): past an open track's end it is the origin */
+            TriNode here, from, to;
+            if (tri_node(shadow_race->tri, here_i, &here) == TRI_OK && tri_node(shadow_race->tri, from_i, &from) == TRI_OK && tri_node(shadow_race->tri, to_i, &to) == TRI_OK) {
+                side = track_node_light_side(from.position.x / 65536.0, from.position.z / 65536.0, to.position.x / 65536.0, to.position.z / 65536.0, xz[0], xz[1]);
+                left = here.left_verge / 8.0, right = here.right_verge / 8.0;
+            }
+        }
     }
     return track_node_light_lane(light_effects, light_tint_ring_node(node, light_effects->nodes), side, left, right);
 }

@@ -30,12 +30,12 @@ line. A time appears at most once; a time with no block is the made light with n
 
 | line | meaning |
 |---|---|
-| `sun AZ EL SHADOW` | the time's sun (at night the moon). Read and kept; the generator uses it where the sun's shadows are on. |
+| `sun AZ EL SHADOW [REACH]` | the time's sun (at night the moon). Read and kept; the generator uses it where the sun's shadows are on. Every number is finite (`nan` and `inf` are refused). |
 | `tunnel_look [A B] [LIGHT] [COLOUR] [lamps S [COLOUR]] [reach R]` | how the tunnels look at this time. Without `A B`: the default look of every tunnel with no look of its own. With `A B`: those nodes, which must lie inside a `tunnel` fact. LIGHT = percent of full light inside, COLOUR = `RRGGBB[:strength]` or `r/g/b`, `lamps S` = the lamps' strength in percent (0..1000), `reach R` = the pools' reach in nodes (0.5..4). What a line leaves out comes from the default look, and then from the code's. A hall takes only `lamps` and `reach`. |
 | `lamp NODE PERCENT [COLOUR[:S]] [RADIUS]` | a street lamp or any light: its light in percent (1..1000), its colour (the warm street lamp's when none) and radius in nodes (1..64). Allowed at every time. |
 | `brightness A B PERCENT [STRIP]` | the light of those nodes times PERCENT (0..1000) on the strip (the whole row when none). |
 | `tone A B [STRIP] RRGGBB:PERCENT` | a colour cast on the strip (exact: a polygon takes it when its four corners have it). 16 different tones a time at most. |
-| `rows A B p0..p10` | the hand override of the made rows of those nodes (11 values, 0..255). |
+| `rows A B p0..p10` | the hand override of the made rows of those nodes (11 values, 0..255). A time's `rows` lines may write each node of the track 64 times in all (a longer file is refused at the line that passes it). |
 
 STRIP is `pA pB` (the points A..B of the row's 11, inclusive; `pA` alone is one point) or a word: `right` = p1..p5, `left` = p6..p10, `road` = p0 p1 p6, `all` = p0..p10. Point 0 is the centre, 1..5 a chain to the right,
 6..10 one to the left.
