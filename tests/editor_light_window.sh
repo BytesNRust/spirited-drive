@@ -181,14 +181,12 @@ grep -q '^light state: track AL1 view 4 hud 0 ' "$work/lout" || fail "the View c
 grep -q '^light state: track AL1 view 4 hud 1 ' "$work/lout" || fail "the HUD box did not turn the HUD on: $(grep '^light state' "$work/lout")"
 light_flow ui-click:node_p1,ui-click:compare_1,light-state,ui-click:compare_2,light-state,ui-click:compare_0,light-state
 [ "$(grep '^light state' "$work/lout" | sed 's/.* compare \([a-z]*\) .*/\1/' | tr '\n' ' ')" = "before four off " ] || fail "the Light compare radios (Before, Four times, Off) did not set the mode: $(grep '^light state' "$work/lout")"
-light_flow ui-click:node_p1,ui-click:drive,print-drive,light-state
-# a game that stays up (the fake one ends at once, and a second click then starts a new drive): the same button, now Stop test drive, stops it
+# the Test drive button starts a drive on this track, time and node, and the same button, now Stop test drive, stops it: with a game that stays up (the fake one ends at once, and a second click then starts a new drive)
 printf '#!/bin/sh\nexec sleep 30\n' > "$work/slow_game"
 chmod +x "$work/slow_game"
-"$editor" --game "$work/slow_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --steps ui-click:node_p1,ui-click:drive,light-state,ui-click:drive,light-state > "$work/lout2" 2>&1 || fail "the Test drive / Stop flow: $(tail -3 "$work/lout2")"
+"$editor" --game "$work/slow_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --steps ui-click:node_p1,ui-click:drive,print-drive,light-state,ui-click:drive,light-state > "$work/lout2" 2>&1 || fail "the Test drive / Stop flow: $(tail -3 "$work/lout2")"
+grep -q '^drive: running AL1 B node ' "$work/lout2" || fail "the Test drive button did not start a drive on AL1's Day: $(grep '^drive' "$work/lout2")"
 [ "$(grep '^light state' "$work/lout2" | sed 's/.* drive \([a-z]*\) .*/\1/' | tr '\n' ' ')" = "running stopped " ] || fail "Test drive then Stop test drive did not start and stop the drive: $(grep '^light state' "$work/lout2")"
-grep -q '^drive: running AL1 B node ' "$work/lout" || fail "the Test drive button did not start a drive on AL1's Day: $(grep '^drive' "$work/lout")"
-grep -q '^light state: .* drive running ' "$work/lout" || fail "the panel does not show the drive as running: $(grep '^light state' "$work/lout")"
 light_flow ui-click:add_brightness,light-print,ui-click:brightness0_remove,light-print
 counts=$(grep '^light:' "$work/lout" | sed 's/.* brightness \([0-9]*\) .*/\1/' | tr '\n' ' ')
 [ "$(echo "$counts" | awk '{ print ($2 + 1 == $1) ? "yes" : "no" }')" = yes ] || fail "a brightness line's Remove did not take the line away (counts after Add, after Remove: $counts): $(grep '^light:' "$work/lout")"
