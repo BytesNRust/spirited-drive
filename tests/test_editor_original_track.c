@@ -180,6 +180,18 @@ int main(void)
         CHECK(original_track_acceptance(migrated, "ZZ9", data, report, sizeof report, why, sizeof why) == -1 && why[0] != '\0', "a stem that is not a track: %s", why);
     }
 
+    {   // the words of the copy dialog: a changed mask counts pixels (not "texels"), a changed light file lines
+        OriginalPublish words = { 0 };
+        snprintf(words.item[0].file, sizeof words.item[0].file, "track_masks/AL1/slot_03.png");
+        words.item[0].state = OT_CHANGED, words.item[0].lines_added = 8192, words.item[0].lines_removed = 0;
+        snprintf(words.item[1].file, sizeof words.item[1].file, "track_light/AL1.txt");
+        words.item[1].state = OT_CHANGED, words.item[1].lines_added = 2, words.item[1].lines_removed = 1;
+        words.count = 2;
+        char said[400];
+        original_track_publish_text(&words, "AL1", said, sizeof said);
+        CHECK(strstr(said, "slot_03.png changed (+8192 -0 pixels)") != NULL && strstr(said, "AL1.txt changed (+2 -1 lines)") != NULL && strstr(said, "texel") == NULL, "the changes are counted in pixels and lines: %s", said);
+    }
+
     printf("test_editor_original_track: %s\n", g_fail == 0 ? "ok" : "FAILED");
     return g_fail != 0;
 }

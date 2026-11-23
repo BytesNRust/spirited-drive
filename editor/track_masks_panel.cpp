@@ -28,7 +28,7 @@ void summary(const TrackMasks &m)
 {
     int n[8] = { 0 };
     for (int i = 0; i < m.count; ++i) ++n[m.row[i].state];
-    ImGui::Text("%d textures: %d ok", m.count, n[TM_OK]);
+    ImGui::Text("%d texture%s: %d with mask", m.count, m.count == 1 ? "" : "s", n[TM_OK]);
     if (n[TM_NONE] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d without mask", n[TM_NONE]);
     if (n[TM_PNG_SOURCE] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d PNG only", n[TM_PNG_SOURCE]);
     if (n[TM_EMPTY] > 0) ImGui::SameLine(), ImGui::TextDisabled("%d PSD not painted", n[TM_EMPTY]);
@@ -65,6 +65,8 @@ void mask_row(App *a, int i)
     ImGui::TableNextColumn();
     ImGui::TextColored(state_colour(r.state), "%s", track_mask_state_text(r.state));
     if (r.note[0] != '\0' && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", r.note);
+    else if (r.state == TM_NONE && ImGui::IsItemHovered())
+        ImGui::SetTooltip("This texture has no mask. To give it one, save a PSD named %s.psd in the track's art-source/masks folder, with a layer named mask where the shiny parts are painted;\nStudio makes the PNG from it by itself.", r.name);
 }
 
 }   // namespace
@@ -79,7 +81,7 @@ void track_masks_panel(App *a, ImTextureID picture)
     summary(m);
     ImGui::SameLine();
     help_marker("The owner's PSDs (art-source/masks) make the PNGs the game reads (art-generated/track_masks), on their own when a PSD changes. A texture with a PNG and no PSD uses the PNG. "
-                "A PSD with nothing painted in its mask layer is not used. A PNG edited by hand is kept until Update masks from PSD. Click a row to see its mask over the texture.");
+                "A PSD with nothing painted in its mask layer is not used. A PNG edited by hand is kept until you press Update this mask from its PSD. Click a row to see its mask over the texture.");
     bool only = a->tmask_masked_only != 0;
     if (ImGui::Checkbox("With mask only", &only)) a->tmask_masked_only = only;
     ui_probe("tmask_only");
@@ -97,9 +99,10 @@ void track_masks_panel(App *a, ImTextureID picture)
         const float pad = 2 * ImGui::GetStyle().CellPadding.x;
         ImGui::TableSetupColumn("Texture", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoClip, ImGui::CalcTextSize("scenery_00").x + ImGui::GetFrameHeight() + pad);
         ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("256x256").x + pad);
-        ImGui::TableSetupColumn("Mask", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("0000").x + pad);
+        ImGui::TableSetupColumn("Shiny px", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("Shiny px").x + pad);
         ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableHeadersRow();
+        if (ImGui::TableGetHoveredColumn() == 2) ImGui::SetTooltip("Shiny px: how many pixels of the texture's mask shine (the reflections of the wet road, the windows and the signs).\nA lamp's pixels are counted apart, as \"+N lamp\".");
         int unpainted = 0;
         for (int i = 0; i < m.count; ++i) unpainted += unpainted_row(m.row[i]) ? 1 : 0;
         for (int i = 0; i < m.count; ++i)
@@ -125,7 +128,7 @@ void track_masks_panel(App *a, ImTextureID picture)
         ImGui::Text("%s", r.name);
         if (r.has_psd && r.state != TM_EMPTY && r.state != TM_BAD) {
             ImGui::SameLine();
-            if (ImGui::SmallButton("Update masks from PSD")) {
+            if (ImGui::SmallButton("Update this mask from its PSD")) {
                 if (r.state == TM_EDITED) ImGui::OpenPopup("Replace the edited mask?");   // asks before replacing what was edited by hand
                 else app_track_mask_regenerate(a);
             }

@@ -194,6 +194,8 @@ PY
 out=$(run --frames 60 --steps open-original:0,masks-print 2>&1) || fail "edited: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "one PNG is edited by hand: $out"
 echo "$out" | grep -q '^mask scenery_00: edited by hand, 4x1, 4 reflective' || fail "it is kept as it is: $out"
+out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_only,masks-print,status" 2>&1) || fail "the status of an edited mask: $out"
+echo "$out" | grep -qF 'masks: 1 PNG edited by hand, kept as they are (Update this mask from its PSD makes it again)' || fail "the words about a PNG edited by hand name the button as it is: $out"
 # Update masks from PSD on the edited one asks first (Replace / Keep / Cancel, as a car's does): Cancel and Keep leave the PNG byte for byte as it is, Replace puts the PSD's mask back
 edited_png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
 cp "$edited_png" "$work/edited_scenery.png"
