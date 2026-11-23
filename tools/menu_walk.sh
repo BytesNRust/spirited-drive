@@ -166,6 +166,8 @@ esac
 
 mkdir -p "$out" || exit 1
 work=$(mktemp -d "${TMPDIR:-/tmp}/menu_walk.XXXXXX") || exit 1
+trap '[ -n "$KEEP" ] || rm -rf "$work"' EXIT   # an early exit, a kill or a timeout must not leave ~350 MB behind; the keep paths below disarm it
+trap 'exit 143' INT TERM HUP
 mkdir -p "$work/user" "$work/cap" "$work/mods" "$work/shots"
 [ -n "$MODS" ] && cp -R "$MODS"/. "$work/mods/"   # a mod piece the walk runs with
 printf 'format=%s\n' "$format" > "$work/user/port.cfg"   # the clicks above are shifted for it
@@ -246,7 +248,7 @@ if [ -n "$pack" ]; then
     pkill -TERM -f "$work/user" 2>/dev/null
     rc=0; [ $never -gt 0 ] && rc=6; [ $missing -gt 0 ] && rc=3
     [ $rc -ne 0 ] && grep -E "mark:screen|input script" "$work/user/spirited-drive.log" | tail -8 >&2
-    { [ -n "$KEEP" ] || { [ -n "$KEEP_FAILED" ] && [ $rc -ne 0 ]; }; } && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
+    { [ -n "$KEEP" ] || { [ -n "$KEEP_FAILED" ] && [ $rc -ne 0 ]; }; } && { trap - EXIT; echo "kept: $work" >&2; } || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
     exit $rc
 fi
 # the screen the game ended on: a key or click that went on past the target (a repeat) leaves another page up, and its picture is not the target's
@@ -283,5 +285,5 @@ if [ $rc -ne 0 ]; then
     [ -s "$work/log" ] && { echo "menu_walk $target: the game's own output, last lines:" >&2; tail -5 "$work/log" >&2; }
     grep -E "mark:screen|input script" "$work/user/spirited-drive.log" | tail -12 >&2
 fi
-{ [ -n "$KEEP" ] || { [ -n "$KEEP_FAILED" ] && [ $rc -ne 0 ]; }; } && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
+{ [ -n "$KEEP" ] || { [ -n "$KEEP_FAILED" ] && [ $rc -ne 0 ]; }; } && { trap - EXIT; echo "kept: $work" >&2; } || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
 exit $rc
