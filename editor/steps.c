@@ -24,8 +24,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "masks-only", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "light-tone", "light-lamp", "light-remove", "ui-click", "ui-at", "ui-span", "print-tunnels", "tunnel-lamps", "sun", "light-print", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print", "psd-wait" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 2, 0, 2, 3, 0, 0, 1, 0, 4, 0, 1 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "masks-only", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "light-tone", "light-lamp", "light-remove", "ui-click", "ui-at", "ui-span", "ui-text", "ui-focus", "print-tunnels", "tunnel-lamps", "sun", "light-print", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print", "psd-wait" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 2, 0, 0, 0, 2, 3, 0, 0, 1, 0, 4, 0, 1 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -783,6 +783,21 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         if (p == 0 && !app_sheet_start(a)) return s->failed = 1, 0;
         if (p >= SHEET_FRAMES) return fprintf(stderr, "--steps sheet: it did not end\n"), s->failed = 1, 0;
         return app_sheet_busy(a);
+    }
+    if (strncmp(name, "ui-focus:", 9) == 0) {   /* ui-focus:WINDOW the docked window brought to the front (its panel draws from the next frame; the step waits for it) */
+        if (p == 0) ui_probe_focus(name + 9);
+        return p < 2;
+    }
+    if (strncmp(name, "ui-text:", 8) == 0) {   /* ui-text:TEXT typed into the box that has the focus (a click on it first; Backspace keys clear what it holds), as the keyboard's text events */
+        if (p == 0) {
+            SDL_Event ev;
+            memset(&ev, 0, sizeof ev);
+            ev.type = SDL_EVENT_TEXT_INPUT;
+            ev.text.windowID = SDL_GetWindowID(win);
+            ev.text.text = name + 8;
+            SDL_PushEvent(&ev);
+        }
+        return p < 2;
     }
     if (strncmp(name, "ui-", 3) == 0) {   /* ui-click:W the widget W clicked in its middle; ui-at:W,F a click F (0..1) of its width along (a slider, a bar's cell); ui-span:W,F0,F1 pressed at F0, dragged, let go at F1 */
         const char *colon = strchr(name, ':');

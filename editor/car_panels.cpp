@@ -1,6 +1,7 @@
 // The start screen and the car's panels (panels.h): what Studio shows with nothing open, and what it shows of an open car (read only for now).
 #include "panels.h"
 #include "help_marker.h"
+#include "ui_probe.h"
 #include "physics_popup.h"
 #include "path_elide.h"
 #include "sheet_ui.h"
@@ -229,6 +230,7 @@ void text_row(App *a, int field, const CarEditProblem *problems, int count)
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (bad != nullptr) ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.45f, 0.10f, 0.10f, 1.0f));
     if (ImGui::InputText("##v", buf, sizeof buf)) car_edit_set(&a->edit, field, buf);
+    ui_probe_scope("card"), ui_probe(car_edit_label(field)), ui_probe_scope("");   // the card row by its label ("card_Name")
     if (bad != nullptr) ImGui::PopStyleColor();
     ImGui::PopID();
     if (bad != nullptr) problem_text(bad->text);
@@ -336,19 +338,24 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
         ImGui::SetNextItemWidth(150);
         if (bad != nullptr) ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.45f, 0.10f, 0.10f, 1.0f));
         if (ImGui::InputText("##name", name, sizeof name)) car_edit_paint_name(&a->edit, i, name);
+        { char scope[16]; snprintf(scope, sizeof scope, "colour%d", i); ui_probe_scope(scope); ui_probe("name"); }
         if (bad != nullptr) ImGui::PopStyleColor();
         ImGui::SameLine();
         ImGui::TextDisabled("#%02x%02x%02x", p.rgb[0], p.rgb[1], p.rgb[2]);
         ImGui::SameLine();
         ImGui::BeginDisabled(i == 0);
         if (ImGui::SmallButton("Up")) car_edit_paint_move(&a->edit, i, -1);
+        ui_probe("up");
         ImGui::EndDisabled();
         ImGui::SameLine();
         ImGui::BeginDisabled(i == s.paint_count - 1);
         if (ImGui::SmallButton("Down")) car_edit_paint_move(&a->edit, i, 1);
+        ui_probe("down");
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (ImGui::SmallButton("Remove")) car_edit_paint_remove(&a->edit, i);
+        ui_probe("remove");
+        ui_probe_scope("");
         ImGui::PopID();
         if (bad != nullptr) problem_text(bad->text);
         if (i >= s.paint_count) break;   // the one just removed
@@ -356,7 +363,9 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
     const int most = app_car_is_original(a) ? CAR_PAINT_MAX : MOD_INI_PAINTS_MAX;   // the game offers up to 4 colors for one of its own cars
     const bool full = s.paint_count >= most;
     ImGui::BeginDisabled(full);
-    if (ImGui::Button("Add color")) {
+    const bool add_colour = ImGui::Button("Add color");
+    ui_probe("add_color");
+    if (add_colour) {
         char name[sizeof s.paints[0].name];
         snprintf(name, sizeof name, "Color %d", s.paint_count + 1);
         const uint8_t grey[3] = { 128, 128, 128 };
@@ -440,6 +449,7 @@ void car_panel(App *a)
             static const char *const OWN = "An original car is the game's own: retouch its masks and copy them to the game repo; it is not installed";
             ImGui::BeginDisabled(own || app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Build")) app_build(a);
+            ui_probe("build");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", own ? OWN : app_car_building(a) ? "The car is being built" : "Make the car from this kit's files: build/piece and build/<id>.zip (save what you changed first)");
@@ -447,7 +457,9 @@ void car_panel(App *a)
             if (own) {   // the game's own car is not installed: what goes on is a copy of its masks and colors into the game repo
                 const bool repo_set = app_repo_data(a)[0] != '\0';
                 ImGui::BeginDisabled(repo_set && !app_car_copy_can(a));   // with no repo folder the button stays on: a click asks for it
-                if (ImGui::Button("Copy to game repo")) repo_set ? (void)app_car_copy_ask(a) : (void)app_repo_data_pick(a);
+                const bool copy_now = ImGui::Button("Copy to game repo");
+                ui_probe("copy_repo");
+                if (copy_now) repo_set ? (void)app_car_copy_ask(a) : (void)app_repo_data_pick(a);
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                     ImGui::SetTooltip("%s", !repo_set ? "Set the game repo folder first: File > Game repo folder..."
@@ -462,6 +474,7 @@ void car_panel(App *a)
             ImGui::SameLine();
             ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Check")) app_check(a);
+            ui_probe("check");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", app_car_building(a) ? "The car is being built or checked" : "What is wrong with this kit before a build: the model, its wheels, its masks (save what you changed first)");
@@ -806,10 +819,14 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet)
                                    traffic ? " A traffic or police car: City, Coastal or Alpine stages only." : "", note[0] != '\0' ? "\n\nTest drive: " : "", note);
             if (n < 0 || static_cast<size_t>(n) >= sizeof help) snprintf(help + sizeof help - 4, 4, "...");
             ImGui::BeginDisabled(busy);
-            if (ImGui::Button("Test drive")) app_race(a, 0);
+            const bool drive_now = ImGui::Button("Test drive");
+            ui_probe("test_drive");
+            if (drive_now) app_race(a, 0);
             ImGui::SameLine();
             ImGui::BeginDisabled(a->race_mod[0] != '\0');
-            if (ImGui::Button("In-game photo")) app_race(a, 1);
+            const bool photo_now = ImGui::Button("In-game photo");
+            ui_probe("in_game_photo");
+            if (photo_now) app_race(a, 1);
             ImGui::EndDisabled();
             if (a->race_mod[0] != '\0' && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("The photo is of the game's own tracks");
             ImGui::EndDisabled();

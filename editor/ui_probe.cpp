@@ -47,3 +47,8 @@ extern "C" int ui_probe_find(const char *name, float *x, float *y, float *w, flo
     }
     return 0;
 }
+
+extern "C" void ui_probe_focus(const char *window)
+{
+    ImGui::SetWindowFocus(window);
+}

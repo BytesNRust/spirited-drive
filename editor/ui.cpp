@@ -20,6 +20,7 @@ extern "C" {
 #include "perf.h"
 #include "physics_popup.h"
 #include "panels.h"
+#include "ui_probe.h"
 #include "shortcut_keys.h"
 #include "command_keys.h"
 #include "edit_clipboard.h"
@@ -694,9 +695,13 @@ void copy_popup(App *a)
     if (ImGui::BeginChild("##publishlist", ImVec2(560.0f, 220.0f), ImGuiChildFlags_Borders)) ImGui::TextWrapped("%s", a->publish_text);   // many new masks: it scrolls
     ImGui::EndChild();
     ImGui::Spacing();
-    if (ImGui::Button("Copy")) app_original_copy(a);
+    const bool copy_go = ImGui::Button("Copy");
+    ui_probe("copy_dialog_copy");
+    if (copy_go) app_original_copy(a);
     ImGui::SameLine();
-    if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->publish_dialog = 0;
+    const bool copy_no = ImGui::Button("Cancel");
+    ui_probe("copy_dialog_cancel");
+    if (copy_no || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->publish_dialog = 0;
     if (!a->publish_dialog) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }

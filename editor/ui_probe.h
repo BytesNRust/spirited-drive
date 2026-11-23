@@ -9,6 +9,8 @@ extern "C" {
 
 /* the rectangle of a drawn widget in window pixels; 1, or 0 when no widget of that name was drawn in the last frame */
 int ui_probe_find(const char *name, float *x, float *y, float *w, float *h);
+/* brings the window of that name to the front (a docked tab shows nothing of its panel until it is), for ui-focus */
+void ui_probe_focus(const char *window);
 
 #ifdef __cplusplus
 }

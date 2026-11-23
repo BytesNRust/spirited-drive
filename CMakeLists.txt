@@ -1251,6 +1251,8 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_headless_track COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_track.sh $<TARGET_FILE:tnfs-track-editor>)
         set_tests_properties(editor_headless_track PROPERTIES TIMEOUT 450)
         add_test(NAME editor_headless_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_car.sh $<TARGET_FILE:tnfs-track-editor>)
+        add_test(NAME editor_car_panel_clicks COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_car_panel_clicks.sh $<TARGET_FILE:tnfs-track-editor>)   # the car panels clicked: a colour name typed, Up, Down, Add color, Remove, Copy to game repo and its window, on the Diablo and the NSX
+        set_tests_properties(editor_car_panel_clicks PROPERTIES TIMEOUT 300)
         add_test(NAME editor_car_two_originals COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_car_two_originals.sh $<TARGET_FILE:tnfs-track-editor>)   # the Diablo and the NSX through Copy to game repo: colours, masks, dash masks, from fixture kits
         set_tests_properties(editor_car_two_originals PROPERTIES TIMEOUT 300)
         add_test(NAME editor_new_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_new_car.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
@@ -1850,6 +1852,8 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_copy_originals PROPERTIES TIMEOUT 900)
             add_test(NAME editor_original_psd_newer COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_psd_newer.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:make_test_psd>)   # the owner's ANSX: the game's own PNG with no manifest gives way to a newer PSD, an edited one is kept, Regenerate from PSD is enabled
             set_tests_properties(editor_original_psd_newer PROPERTIES TIMEOUT 600)
+            add_test(NAME editor_e2e_diablo COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_diablo.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # the Diablo from the game files with the panels clicked
+            set_tests_properties(editor_e2e_diablo PROPERTIES TIMEOUT 300)
             add_test(NAME editor_e2e_cockpit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_cockpit.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
             set_tests_properties(editor_e2e_cockpit PROPERTIES TIMEOUT 300)
             add_test(NAME editor_e2e_kit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_kit.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs-studio>)
