@@ -236,24 +236,25 @@ static void test_a_long_word_after_a_line_is_refused(void)
 /* the rows lines of a time may write each node of the track 64 times in all: 100 000 whole-track lines took 5 s to read, now the 65th is refused at once */
 static void test_the_rows_lines_have_a_budget(void)
 {
-    char *text = malloc(100000u * 48u);
+    const size_t cap = 100000u * 48u;
+    char *text = malloc(cap);
     CHECK(text != NULL);
-    size_t len = (size_t)sprintf(text, "track CY1\ntime A\n");
-    for (int i = 0; i < 100000; i++) len += (size_t)sprintf(text + len, "rows 0 %d 1 2 3 4 5 6 7 8 9 10 11\n", NODES - 1);
+    size_t len = (size_t)snprintf(text, cap, "track CY1\ntime A\n");
+    for (int i = 0; i < 100000; i++) len += (size_t)snprintf(text + len, cap - len, "rows 0 %d 1 2 3 4 5 6 7 8 9 10 11\n", NODES - 1);
     TrackLightFile f;
     int bad = 0;
     CHECK(!track_light_track_parse(text, len, "CY1", 'A', NODES, &f, &bad));
     CHECK_EQ_INT(bad, 2 + 65);   /* the 65th rows line */
-    len = (size_t)sprintf(text, "track CY1\ntime A\n");
-    for (int i = 0; i < 64; i++) len += (size_t)sprintf(text + len, "rows 0 %d 1 2 3 4 5 6 7 8 9 10 11\n", NODES - 1);
+    len = (size_t)snprintf(text, cap, "track CY1\ntime A\n");
+    for (int i = 0; i < 64; i++) len += (size_t)snprintf(text + len, cap - len, "rows 0 %d 1 2 3 4 5 6 7 8 9 10 11\n", NODES - 1);
     memset(&f, 0, sizeof f);
     bad = -1;
     CHECK(track_light_track_parse(text, len, "CY1", 'A', NODES, &f, &bad));   /* 64 whole-track lines: the budget's edge */
     track_light_file_free(&f);
-    len = (size_t)sprintf(text, "track CY1\ntime A\n");
-    for (int i = 0; i < 40; i++) len += (size_t)sprintf(text + len, "rows 0 %d 1 2 3 4 5 6 7 8 9 10 11\n", NODES - 1);
-    len += (size_t)sprintf(text + len, "time B\n");
-    for (int i = 0; i < 40; i++) len += (size_t)sprintf(text + len, "rows 0 %d 1 2 3 4 5 6 7 8 9 10 11\n", NODES - 1);
+    len = (size_t)snprintf(text, cap, "track CY1\ntime A\n");
+    for (int i = 0; i < 40; i++) len += (size_t)snprintf(text + len, cap - len, "rows 0 %d 1 2 3 4 5 6 7 8 9 10 11\n", NODES - 1);
+    len += (size_t)snprintf(text + len, cap - len, "time B\n");
+    for (int i = 0; i < 40; i++) len += (size_t)snprintf(text + len, cap - len, "rows 0 %d 1 2 3 4 5 6 7 8 9 10 11\n", NODES - 1);
     memset(&f, 0, sizeof f);
     CHECK(track_light_track_parse(text, len, "CY1", 'B', NODES, &f, &bad));   /* the budget is each time's own */
     track_light_file_free(&f);
