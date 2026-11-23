@@ -129,6 +129,19 @@ static int copy_keep(const char *from, const char *to)
     return ok;
 }
 
+/* a workspace made before the one-file format holds the old light files (light/track/<STEM>.txt and light/track_light/<STEM>A..N.txt): nothing reads them now, so Add originals takes
+ * those names away (only those, only once the track's one file is there) */
+static void drop_old_light(const char *dir, const char *stem)
+{
+    char path[1100];
+    snprintf(path, sizeof path, "%s/light/track/%s.txt", dir, stem);
+    remove(path);
+    for (const char *t = "ABCN"; *t != '\0'; ++t) {
+        snprintf(path, sizeof path, "%s/light/track_light/%s%c.txt", dir, stem, *t);
+        remove(path);
+    }
+}
+
 static int add_light(const char *dir, const char *stem, const char *data_dir, OriginalAdd *out, char *why, size_t cap)
 {
     char from[1100], to[1100], rel[64];
@@ -139,6 +152,7 @@ static int add_light(const char *dir, const char *stem, const char *data_dir, Or
     if (r == 0) return fail(why, cap, "cannot copy %s from the game's data", rel), 0;
     if (r == 2) ++out->kept;
     else ++out->light_files;
+    drop_old_light(dir, stem);
     return 1;
 }
 

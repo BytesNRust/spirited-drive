@@ -106,6 +106,15 @@ int main(void)
     get("ws/tracks/AL1/light/track_light/AL1.txt", text, sizeof text);
     CHECK(strcmp(text, "edited\n") == 0, "the edited file is kept");
 
+    /* a workspace of the old light format: Add originals takes the old names away and keeps the one file */
+    put("ws/tracks/AL1/light/track/AL1.txt", "old places\n");
+    put("ws/tracks/AL1/light/track_light/AL1B.txt", "old time B\n");
+    OriginalAdd old = { 0 };
+    CHECK(original_track_add_all(ws, data, art, &old, why, sizeof why), "add over old files: %s", why);
+    CHECK(!exists("ws/tracks/AL1/light/track/AL1.txt") && !exists("ws/tracks/AL1/light/track_light/AL1B.txt"), "the old light files are gone");
+    get("ws/tracks/AL1/light/track_light/AL1.txt", text, sizeof text);
+    CHECK(strcmp(text, "edited\n") == 0, "the one file is kept");
+
     /* a missing light file stops the add with a reason */
     OriginalAdd none = { 0 };
     char gone[300];
