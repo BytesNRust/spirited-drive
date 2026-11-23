@@ -124,16 +124,16 @@ if [ -r "$orig/SIMDATA/CARFAMS/LDIABL.CFM" ] && [ -d "$data/car_masks/$ldir" ] &
     [ -f "$dia/mod.ini" ] || { fail "the Diablo's export is not a kit: $(ls "$work/cars")"; exit "$failures"; }
     mkdir -p "$repo3/data/car_masks" "$repo3/data/dash_masks" "$repo3/core/formats" && cp -R "$data/car_masks/$ldir" "$repo3/data/car_masks/$ldir" && cp -R "$data/dash_masks/LDIABL" "$repo3/data/dash_masks/LDIABL" && cp "$data/../core/formats/car_paint.c" "$repo3/core/formats/car_paint.c" || fail "a copy of the repo for the Diablo"
     cp "$data/dash_masks/CZR1/dash_mask.png" "$dia/art-generated/dash_masks/dash_mask.png" || fail "another dash for the Diablo's kit"
-    # the card the owner kept lists 8 colours: give the kit 6, more than the game's table holds
+    # the card the owner kept lists 8 colours (the game's table holds up to 8 now): give the kit 6, and Copy writes them
     sed -i.bak "s/^paints=.*/paints=A:101010,B:202020,C:303030,D:404040,E:505050,F:606060/" "$dia/mod.ini" || fail "six colours on the Diablo's card"
     cp "$repo3/core/formats/car_paint.c" "$work/car_paint.before"
     studio "$dia" --port-data "$repo3/data" --frames 2 --steps repo-ask,print-publish >"$work/log" 2>&1 || fail "Copy to game repo of the Diablo, the list: $(cat "$work/log")"
     grep -q "^changed: dash_mask.png" "$work/log" || fail "the Diablo's window does not list its dash: $(cat "$work/log")"
-    grep -q "colors: .*not compared" "$work/log" || fail "the window does not say the colors are not compared: $(cat "$work/log")"
+    grep -q "the row of LDiabl" "$work/log" && grep -q "now: A #101010, B #202020, C #303030, D #404040, E #505050, F #606060" "$work/log" || fail "the window does not list the six colours it will write: $(cat "$work/log")"
     studio "$dia" --port-data "$repo3/data" --frames 2 --steps repo-ask,repo-copy,status >"$work/log" 2>&1 || fail "Copy to game repo of the Diablo, the copy: $(cat "$work/log")"
     grep -q "^status: copied to the game repo: .*1 dash file" "$work/log" || fail "Copy did not say it wrote the Diablo's dash: $(cat "$work/log")"
     cmp -s "$repo3/data/dash_masks/LDIABL/dash_mask.png" "$dia/art-generated/dash_masks/dash_mask.png" || fail "the repo's Diablo dash is not the kit's"
-    cmp -s "$repo3/core/formats/car_paint.c" "$work/car_paint.before" || fail "Copy rewrote the colour table of a car whose colours it does not compare"
+    grep -q '"LDiabl", 6,' "$repo3/core/formats/car_paint.c" && grep -q '"F", { 96, 96, 96 }' "$repo3/core/formats/car_paint.c" || fail "Copy did not write the Diablo's six colours into car_paint.c: $(grep -n LDiabl "$repo3/core/formats/car_paint.c")"
 fi
 
 [ "$failures" -eq 0 ] && echo "editor_e2e_car: ok"
