@@ -1043,6 +1043,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
             ImGui::MarkIniSettingsDirty();
         }
     }
+    a->tmask_now = ImGui::GetTime();   // the window's clock, every frame, on any project: --steps poll-wait reads it (a car's never moved it)
     main_menu(a);
     if (a->kind == APP_KIND_TRACK) {   // the track editor, as it was; its dock space keeps the layout of the first Studio
         const ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
@@ -1062,7 +1063,6 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (panel_open(PANEL_STRIP)) strip_panel(a);
         if (panel_open(PANEL_NODE)) node_panel(a);
         if (panel_open(PANEL_ROAD_KEY)) road_key_window(a);
-        a->tmask_now = ImGui::GetTime();
         app_track_masks_load(a);   // the masks of an own track: scanned and made from the PSDs once per open, and again when a PSD is saved
         app_track_masks_poll(a);
         if (panel_open(PANEL_TRACK_MASKS)) track_masks_panel(a, track_mask_texture(ren, a));
