@@ -8,6 +8,7 @@
 #include "game/sys/port_log.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* port (the tunnel lamps, tunnel_lamp_textures.h): the lamp textures of the frame, by their bitmaps, and the darkening tables that let their fitting's
@@ -28,7 +29,13 @@ void ported_view_set_tunnel_lamps(const TunnelLampTexture *lamps, int count)
  * across the polygon's corners); once the 3D is done a halo is drawn at each that still shows one of the lamp's own colours at that pixel (nothing nearer
  * covers it; the colours stay unchanged through the lamp tables, shared entries or not), by day and by night. */
 static int flare_on;   /* port (lamp_flares): a soft halo round a lit brake light and the tunnel lamps (lamp_flare.h) */
-enum { TUNNEL_FLARES_MAX = 128, LAMP_SHOWS_BRIGHT_PERCENT = 60 };   /* LAMP_SHOWS_BRIGHT_PERCENT: a pixel is the lamp's own when it is at least this much of the glow's brightness */
+/* LAMP_SHOWS_BRIGHT_PERCENT: a pixel is the lamp's own when it is at least this much of the glow's brightness. A lamp's texels are 60..137 % of it from one frame to the next as it
+ * moves, the road's asphalt and paint that share its colours are 46 %: a halo STARTS at LAMP_SHOWS_BRIGHT_PERCENT and is KEPT at LAMP_KEEP_BRIGHT_PERCENT (above the road's), and a halo that was shown
+ * lingers LAMP_HOLD_FRAMES frames when it is not found (a flicker of the lamp's own pixels), at the place it was within LAMP_MATCH_PX of this frame's. */
+enum { TUNNEL_FLARES_MAX = 128, LAMP_SHOWS_BRIGHT_PERCENT = 55, LAMP_KEEP_BRIGHT_PERCENT = 47, LAMP_HOLD_FRAMES = 10, LAMP_MATCH_PX = 6 };
+typedef struct { int lamp, x, y, hold; } ShownFlare;
+static ShownFlare shown_prev[TUNNEL_FLARES_MAX];   /* the halos drawn in the frame before, with the frames they still linger */
+static int shown_prev_count;
 typedef struct { int lamp, x, y, size; } TunnelFlare;
 static TunnelFlare tunnel_flares[TUNNEL_FLARES_MAX];
 static int tunnel_flare_count;
@@ -142,28 +149,46 @@ void view_lamps_make_tables(const TrackArt *art, const uint8_t (*tunnel_tables)[
 /* port (lamp_flares): the halos of the tunnel lamps noted this frame (tunnel_flare_note), over the finished 3D */
 void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
 {
-    if (!flare_on || tunnel_flare_count <= 0 || t == NULL || t->pixels == NULL) return;
+    if (!flare_on || tunnel_flare_count <= 0 || t == NULL || t->pixels == NULL) {
+        shown_prev_count = 0;   /* no lamp this frame: nothing lingers into the next */
+        return;
+    }
     static const int PERCENT[LAMP_FLARE_LEVELS] = { 30, 60, 100 };
     const uint8_t *const usable = palette_usable();
     const uint8_t *const emissive = palette_emissive();   /* at night the lamp's texels are in entries of their own (drive_light_lamps_night), emissive: they are the lamp too */
     uint8_t maps[LAMPS_MAX][LAMP_FLARE_LEVELS][256];
     int made[LAMPS_MAX] = { 0 };
+    ShownFlare shown_next[TUNNEL_FLARES_MAX];
+    int shown_next_count = 0;
+    static int trace = -1, trace_frame;
+    if (trace < 0) trace = getenv("TNFS_LAMP_FLARE_TRACE") != NULL;
+    trace_frame++;
     for (int i = 0; i < tunnel_flare_count; i++) {
         const TunnelFlare *f = &tunnel_flares[i];
         if (f->x < t->clip_left || f->x >= t->clip_right || f->y < t->clip_top || f->y >= t->clip_bottom) continue;
         const uint8_t entry = lamp_glow[f->lamp];
         const uint8_t *const glow = palette + 3 * entry;
         const int glow_sum = glow[0] + glow[1] + glow[2];
-        int shows = 0;   /* one of the lamp's colours within two pixels of its centre, and as bright as its glow (the lamp's own texels): else what is nearer covers it. The colours alone are shared with the road's asphalt and paint, so a lamp in a tunnel behind a crest was found "showing" on the road in front of it */
-        for (int dy = -2; dy <= 2 && !shows; dy++)
-            for (int dx = -2; dx <= 2 && !shows; dx++) {
+        int best = 0;   /* the brightest of the lamp's colours (and the night's emissive entries) within two pixels of its centre, in percent of the glow's: else what is nearer covers it. The colours alone are shared with the road's asphalt and paint, so a lamp in a tunnel behind a crest was found "showing" on the road in front of it */
+        for (int dy = -2; dy <= 2; dy++)
+            for (int dx = -2; dx <= 2; dx++) {
                 const int x = f->x + dx, y = f->y + dy;
                 if (x < t->clip_left || x >= t->clip_right || y < t->clip_top || y >= t->clip_bottom) continue;
                 const uint8_t px = t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x];
+                if (!(lamp_exempt_set[f->lamp][px] || emissive[px]) || glow_sum <= 0) continue;
                 const uint8_t *const q = palette + 3 * px;
-                shows = (lamp_exempt_set[f->lamp][px] || emissive[px]) && (q[0] + q[1] + q[2]) * 100 >= glow_sum * LAMP_SHOWS_BRIGHT_PERCENT;
+                const int percent = (q[0] + q[1] + q[2]) * 100 / glow_sum;
+                if (percent > best) best = percent;
             }
-        if (!shows) continue;
+        int hold = 0, was = 0;   /* was: a halo of this lamp was drawn here a frame before (hold: the frames it still lingers) */
+        for (int k = 0; k < shown_prev_count && !was; k++)
+            if (shown_prev[k].lamp == f->lamp && abs(shown_prev[k].x - f->x) <= LAMP_MATCH_PX && abs(shown_prev[k].y - f->y) <= LAMP_MATCH_PX) was = 1, hold = shown_prev[k].hold;
+        const int shows = best >= (was ? LAMP_KEEP_BRIGHT_PERCENT : LAMP_SHOWS_BRIGHT_PERCENT);
+        if (shows) hold = LAMP_HOLD_FRAMES;
+        else if (was && hold > 0) hold--;   /* not found this frame: it lingers, fading out over LAMP_HOLD_FRAMES */
+        else continue;
+        if (shown_next_count < TUNNEL_FLARES_MAX) shown_next[shown_next_count++] = (ShownFlare){ f->lamp, f->x, f->y, hold };
+        if (trace) port_log("flare_trace: %d %d %d\n", trace_frame, f->x, f->y);   /* port (dev, env only): TNFS_LAMP_FLARE_TRACE=1 logs each halo drawn with the frame's number, for the flicker test */
         if (!made[f->lamp]) {
             for (int l = 0; l < LAMP_FLARE_LEVELS; l++)
                 for (int d = 0; d < 256; d++) {
@@ -182,6 +207,8 @@ void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
         static int logged;
         if (logged++ < 4) port_log("tunnel_flare: halo at %d,%d size %d (lamp %d, glow entry %d)\n", f->x, f->y, f->size, f->lamp, entry);
     }
+    memcpy(shown_prev, shown_next, sizeof(ShownFlare) * (size_t)shown_next_count);
+    shown_prev_count = shown_next_count;
 }
 
 void view_lamps_set_flares(int on) { flare_on = on != 0; }
