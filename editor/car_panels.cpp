@@ -271,7 +271,11 @@ void photos_section(App *a, const CarEditProblem *problems, int count)
     help_marker("The pictures of this car in the game's Car Showcase, in this order. Add photo... copies a PNG (100x60 to 1280x960; 450x254 fits the page) into the car's folder "
                 "under a safe name and lists it on the card (photos=). Save writes the line, and removes the copies you took off the list.");
     ImGui::Separator();
-    if (n == 0) muted_wrapped("None: the showcase shows only the card photo.");
+    if (n == 0) {
+        muted_wrapped("No photos");
+        ImGui::SameLine();
+        help_marker("With no showcase photos the game's Car Showcase shows only the card photo.");
+    }
     for (int i = 0; i < n; ++i) {
         uint32_t w = 0, h = 0;
         const bool there = car_photos_size(photos_dir, names[i], &w, &h) != 0;
@@ -311,7 +315,11 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
     CarEditState &s = a->edit.now;
     ImGui::PushID("colors");
     ImGui::SeparatorText("Colors");
-    if (s.paint_count == 0) muted_wrapped("No colors of its own: the game offers its standard ones.");
+    if (s.paint_count == 0) {
+        muted_wrapped("No colors of its own");
+        ImGui::SameLine();
+        help_marker("A car with no colors of its own is offered the game's standard ones.");
+    }
     for (int i = 0; i < s.paint_count; ++i) {
         ModPaint &p = s.paints[i];
         const CarEditProblem *bad = problem_for(problems, count, CE_PAINTS, i);

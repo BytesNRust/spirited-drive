@@ -634,7 +634,11 @@ void model_panel(App *a, SDL_Renderer *ren)
                 const bool painted = g.painted && rgb != nullptr;
                 model_paint_caption(painted ? a->edit.now.paints[paint].name : nullptr, painted, caption, sizeof caption);
                 ImGui::TextDisabled("%s", caption);
-                if (g.shine && !g.shines) ImGui::TextDisabled("Shine: no texel of this car shines (its masks mark none as paint or shine).");
+                if (g.shine && !g.shines) {
+                    ImGui::TextDisabled("Shine: nothing shines");
+                    ImGui::SameLine();
+                    help_marker("No texel of this car shines: its masks mark none as paint or shine.");
+                }
             }
         }
     }

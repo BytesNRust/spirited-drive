@@ -1259,6 +1259,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_original_track_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri>)   # original tracks in a workspace: add the 16, open one, publish its light and masks
         set_tests_properties(editor_original_track_flow PROPERTIES TIMEOUT 600)
         add_test(NAME editor_ui_words COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_ui_words.sh ${CMAKE_SOURCE_DIR})   # words Studio never shows ("GIMP")
+        add_test(NAME editor_loose_text COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_loose_text.sh ${CMAKE_SOURCE_DIR})   # no loose explanatory text in the car and Track light panels: (?) or a tooltip
         add_test(NAME editor_game_lookup COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_lookup.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
         set_tests_properties(editor_game_lookup PROPERTIES TIMEOUT 300)
         add_test(NAME editor_bundle COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_bundle.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)

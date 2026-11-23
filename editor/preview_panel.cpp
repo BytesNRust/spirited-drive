@@ -253,8 +253,11 @@ void preview_panel(App *a, SDL_Renderer *ren)
             }
         } else {
             const ExportCar *oc = car_race_original_of(&a->car);
-            ImGui::TextDisabled(a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE) ? "A traffic or police car: the race does not paint it, it shows its own colours with its masks' shine and black."
-                                                                                                  : "The card has no paints: the car is shown as its file has it.");
+            const bool unpainted = a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE);
+            ImGui::TextDisabled(unpainted ? "Not painted in the race" : "The card has no paints");
+            ImGui::SameLine();
+            help_marker(unpainted ? "A traffic or police car: the race does not paint it, it shows its own colours with its masks' shine and black."
+                                  : "The card has no paints: the car is shown as its file has it.");
         }
         if (count > 0) ImGui::SameLine();   // the top row: Paint, Day / Night (a car with no paints has its line of why above)
         day_night_row(a);
