@@ -234,7 +234,7 @@ int main(void)
         for (int i = 0; i < plan.count; ++i) if (plan.item[i].state == OT_CHANGED) at = i;
         CHECK(at >= 0 && strcmp(plan.item[at].file, "track_masks/CL1/slot_01.png") == 0 && plan.item[at].lines_added == 2 && plan.item[at].lines_removed == 1, "+%d -%d texels", at >= 0 ? plan.item[at].lines_added : -1, at >= 0 ? plan.item[at].lines_removed : -1);
         original_track_publish_text(&plan, "CL1", plan_text, sizeof plan_text);
-        CHECK(strstr(plan_text, "slot_01.png changed (+2 -1 texels)") != NULL && strstr(plan_text, "5 unchanged") != NULL, "text: %s", plan_text);
+        CHECK(strstr(plan_text, "slot_01.png changed (+2 -1 pixels)") != NULL && strstr(plan_text, "5 unchanged") != NULL, "text: %s", plan_text);
         n = 0;
         CHECK(track_masks_publish(g_dir, data, &plan, &n, why, sizeof why) && n == 1, "only the changed one is written: %d", n);
     }
