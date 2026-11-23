@@ -50,6 +50,10 @@ void car_export_folder_name(int index, char *out, size_t cap);
  * refused), or a file could not be read or written. */
 int car_export(const ExportSource *src, int index, const char *dir, char *why, size_t why_cap);
 
+/* The colours of a drivable car whose catalogue name is longer than a card's colour names (MOD_INI_PAINT_NAME_MAX characters): the card keeps the first 24. The number of them (0 for a
+ * car with none, a traffic car, an unknown index), and in `text` the sentence that says it, for the person ("" when none). Copy to game repo keeps the game's full name. */
+int car_export_cut_names(int index, char *text, size_t cap);
+
 /* where a masks folder maps to in the game's source tree: "data/car_masks/<folder>/" */
 void car_export_repo_path(const char *folder, char *out, size_t cap);
 

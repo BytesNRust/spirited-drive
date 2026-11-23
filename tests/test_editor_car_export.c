@@ -182,6 +182,29 @@ static int has_substring(const char *rel, const char *text)
     return found;
 }
 
+/* a catalogue colour name longer than a card's (the Diablo's "30th Anniversary Lavender" is 25 characters, the card holds 24): the export cuts it, and says which */
+static void test_cut_names(void)
+{
+    int diablo = 0;
+    char text[400];
+    for (int i = 0; i < EXPORT_CARS; ++i) {
+        const ExportCar *c = car_export_car(i);
+        int longer = 0;
+        for (int k = 0; c->kind == EXPORT_DRIVABLE && k < car_paint_count(c->model); ++k) longer += (int)strlen(car_paint(c->model, k)->name) > MOD_INI_PAINT_NAME_MAX;
+        CHECK_EQ_INT(car_export_cut_names(i, text, sizeof text), longer);
+        CHECK((longer > 0) == (text[0] != '\0'));
+        if (strcmp(c->file, "LDIABL") == 0) {
+            diablo = 1;
+            CHECK_EQ_INT(longer, 1);
+            CHECK(strstr(text, "\"30th Anniversary Lavender\" is \"30th Anniversary Lavende\" on the card") != NULL);
+            CHECK(strstr(text, "24 characters at most") != NULL);
+        }
+    }
+    CHECK(diablo);
+    CHECK_EQ_INT(car_export_cut_names(-1, text, sizeof text), 0);
+    CHECK_EQ_INT(car_export_cut_names(0, NULL, 0) >= 0, 1);
+}
+
 static void test_table(const char *repo_data)
 {
     CHECK_EQ_INT(EXPORT_CARS, 21);
@@ -470,6 +493,7 @@ int main(int argc, char **argv)
     char real[512];
     if (realpath(base, real) != NULL) snprintf(base, sizeof base, "%s", real);
     test_table(argv[1]);
+    test_cut_names();
     make_game();
     test_source();
     test_available();

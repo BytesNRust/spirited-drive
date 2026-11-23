@@ -445,6 +445,26 @@ static int write_card(const ExportCar *car, const char *dir, const char *abs, co
     return join(path, sizeof path, dir, "mod.ini") && write_file(path, (const uint8_t *)card, (size_t)n, why, why_cap);
 }
 
+int car_export_cut_names(int index, char *text, size_t cap)
+{
+    if (cap > 0) text[0] = '\0';
+    const ExportCar *car = car_export_car(index);
+    if (car == NULL || car->kind != EXPORT_DRIVABLE) return 0;
+    int cut = 0;
+    size_t used = 0;
+    for (int k = 0; k < car_paint_count(car->model); ++k) {
+        const CarPaint *p = car_paint(car->model, k);
+        if (strlen(p->name) <= MOD_INI_PAINT_NAME_MAX) continue;
+        if (cap > 0 && used < cap) {
+            const int n = snprintf(text + used, cap - used, "%s\"%s\" is \"%.*s\" on the card", cut > 0 ? "; " : "", p->name, MOD_INI_PAINT_NAME_MAX, p->name);
+            if (n > 0) used += (size_t)n < cap - used ? (size_t)n : cap - used;
+        }
+        cut++;
+    }
+    if (cut > 0 && cap > 0 && used < cap) snprintf(text + used, cap - used, " (%d characters at most)", MOD_INI_PAINT_NAME_MAX);
+    return cut;
+}
+
 /* a drivable car: its CFM, PDN and PBS under its own stem, the masks, the dash masks, the card */
 static int build_drivable(const ExportSource *src, const ExportCar *car, const char *dir, char *why, size_t why_cap)
 {
