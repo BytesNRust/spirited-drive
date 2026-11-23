@@ -84,29 +84,29 @@ static void test_the_card(void)
 
     /* no unsaved edits: read again at the next look a second on */
     CHECK(put("mod.ini", CARD(1985)));
-    CHECK_EQ_INT(app_card_watch(a, 10.4), 0);   /* not yet a second */
+    CHECK_EQ_INT(app_card_watch(a, 10.9), 0);   /* not yet: the watch looks every 2.5 s */
     CHECK(strcmp(year(a), "1984") == 0);
-    CHECK_EQ_INT(app_card_watch(a, 11.1), 1);
+    CHECK_EQ_INT(app_card_watch(a, 12.6), 1);
     CHECK(strcmp(year(a), "1985") == 0 && !a->cdisk.card_changed && !car_edit_modified(&a->edit));
     CHECK(strstr(a->status, "mod.ini changed on disk") != NULL);
-    CHECK_EQ_INT(app_card_watch(a, 12.2), 0);   /* once */
+    CHECK_EQ_INT(app_card_watch(a, 15.2), 0);   /* once */
 
     /* our own Save is not a change on disk */
     CHECK(car_edit_set(&a->edit, CE_YEAR, "1990"));
     CHECK(app_save(a));
-    CHECK_EQ_INT(app_card_watch(a, 13.3), 0);
+    CHECK_EQ_INT(app_card_watch(a, 17.8), 0);
     CHECK(strcmp(year(a), "1990") == 0 && car_edit_can_undo(&a->edit));
 
     /* unsaved edits: kept, the state says so, Save does not write over the file */
     CHECK(car_edit_set(&a->edit, CE_YEAR, "1991"));
     CHECK(put("mod.ini", CARD(1970)));
-    CHECK_EQ_INT(app_card_watch(a, 14.4), 1);
+    CHECK_EQ_INT(app_card_watch(a, 20.4), 1);
     CHECK(a->cdisk.card_changed && car_edit_modified(&a->edit));
     CHECK(strcmp(year(a), "1991") == 0);
     CHECK(!app_save(a));
     CHECK(strstr(a->status, "mod.ini changed on disk") != NULL);
     CHECK(file_has("mod.ini", "year=1970"));   /* the file is the other program's still */
-    CHECK_EQ_INT(app_card_watch(a, 15.5), 0);               /* said once */
+    CHECK_EQ_INT(app_card_watch(a, 23.0), 0);               /* said once */
     app_card_keep_mine(a);
     CHECK(!a->cdisk.card_changed);
     CHECK(app_save(a));
@@ -115,7 +115,7 @@ static void test_the_card(void)
     /* Reload: the file's card, the edits gone */
     CHECK(car_edit_set(&a->edit, CE_YEAR, "1992"));
     CHECK(put("mod.ini", CARD(1960)));
-    CHECK_EQ_INT(app_card_watch(a, 16.6), 1);
+    CHECK_EQ_INT(app_card_watch(a, 25.6), 1);
     CHECK(a->cdisk.card_changed);
     CHECK(app_card_reload(a));
     CHECK(!a->cdisk.card_changed && !car_edit_modified(&a->edit) && strcmp(year(a), "1960") == 0);
@@ -130,10 +130,10 @@ static void test_the_card(void)
 
     /* a card another program is still writing (not a car's card yet): the open one stays, read at a later look */
     CHECK(put("mod.ini", "id=bo"));
-    CHECK_EQ_INT(app_card_watch(a, 17.7), 0);
+    CHECK_EQ_INT(app_card_watch(a, 28.2), 0);
     CHECK(strcmp(year(a), "1950") == 0 && !a->cdisk.card_changed);
     CHECK(put("mod.ini", CARD(1940)));
-    CHECK_EQ_INT(app_card_watch(a, 18.8), 1);
+    CHECK_EQ_INT(app_card_watch(a, 30.8), 1);
     CHECK(strcmp(year(a), "1940") == 0);
     app_free(a);
     free(a);
@@ -150,25 +150,25 @@ static void test_the_car_files(void)
 
     /* a texture added: the list, and the Model and the Preview are told */
     CHECK(put("model/near/bank/0020_bonn.png", "y"));
-    CHECK_EQ_INT(app_card_watch(a, 2.1), 1);
+    CHECK_EQ_INT(app_card_watch(a, 3.6), 1);
     CHECK_EQ_INT(a->car.texture_count, 2);
     CHECK(a->cdisk.serial == serial && strstr(a->status, "textures changed on disk") != NULL);   /* the list only: the car file is as it was */
-    CHECK_EQ_INT(app_card_watch(a, 3.2), 0);
+    CHECK_EQ_INT(app_card_watch(a, 6.2), 0);
 
     /* a texture rewritten, the car file rewritten (a build, a new bank) */
     unsigned s = a->cdisk.serial;
     CHECK(put("model/near/bank/0020_bonn.png", "yy"));
-    CHECK_EQ_INT(app_card_watch(a, 4.3), 1);
+    CHECK_EQ_INT(app_card_watch(a, 8.8), 1);
     CHECK(a->cdisk.serial == s);
     CHECK(put("build/piece/SIMDATA/CARFAMS/C84.CFM", "cfm two, longer"));
-    CHECK_EQ_INT(app_card_watch(a, 5.4), 1);
+    CHECK_EQ_INT(app_card_watch(a, 11.4), 1);
     CHECK(a->cdisk.serial != s && a->mask.generation != generation && strstr(a->status, "car file changed on disk") != NULL);
 
     /* a texture gone */
     char p[700];
     path_of(p, sizeof p, "model/near/bank/0020_bonn.png");
     CHECK(unlink(p) == 0);
-    CHECK_EQ_INT(app_card_watch(a, 6.5), 1);
+    CHECK_EQ_INT(app_card_watch(a, 14.0), 1);
     CHECK_EQ_INT(a->car.texture_count, 1);
 
     /* a mask with unsaved edits is never dropped: the files are read when it is saved or closed */
