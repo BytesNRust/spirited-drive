@@ -915,7 +915,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_path_elide PRIVATE editor tests)
     target_compile_options(test_editor_path_elide PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_idle tests/test_editor_idle.c editor/idle.c)   # the window at rest is drawn every half second, not every frame
-    target_include_directories(test_editor_idle PRIVATE editor tests)
+    target_include_directories(test_editor_idle PRIVATE editor tests ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/core ${CMAKE_SOURCE_DIR}/game ${CMAKE_SOURCE_DIR}/game/sys)
     target_compile_options(test_editor_idle PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_selection tests/test_editor_selection.c editor/selection.c)   # dep87: the selected control points
     target_include_directories(test_editor_selection PRIVATE editor tests)
@@ -1229,6 +1229,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_window_fit COMMAND test_editor_window_fit)
         add_test(NAME editor_path_elide COMMAND test_editor_path_elide)
         add_test(NAME editor_idle COMMAND test_editor_idle)
+        add_test(NAME editor_animated_panels COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_animated_panels.sh ${CMAKE_SOURCE_DIR})   # a panel drawn from the clock is named in app_animating
         add_test(NAME editor_selection COMMAND test_editor_selection)
         add_test(NAME editor_point_ops COMMAND test_editor_point_ops)
         add_test(NAME editor_workspace COMMAND test_editor_workspace)

@@ -4,6 +4,8 @@
 #ifndef TNFS_TRACK_EDITOR_IDLE_H
 #define TNFS_TRACK_EDITOR_IDLE_H
 
+#include "app.h"
+
 #define IDLE_AFTER 2.0   /* seconds with no event and nothing moving before the window is at rest (a tooltip's delay and a click's reaction are inside it) */
 #define IDLE_BEAT 0.5    /* at rest: the longest the picture stays undrawn */
 #define IDLE_WAIT_MS 100 /* at rest: how long the loop waits for an event before it looks at the jobs again */
@@ -18,5 +20,9 @@ typedef struct {
 int idle_draw(Idle *s, double now, int events, int busy);
 /* 1 when the window is at rest as of the last call to idle_draw: the loop then waits for an event (IDLE_WAIT_MS) instead of a frame's sleep */
 int idle_resting(const Idle *s, double now);
+
+/* 1 when something on screen moves by itself and so needs the frame rate with no event: the Model's Auto-rotate, the Slow wheels, the police lights of the Preview and the Model. Every
+ * panel that draws from the clock (ImGui::GetTime, SDL_GetTicks, DeltaTime) must be named here: tests/editor_animated_panels.sh fails on one that is not. */
+int app_animating(const App *a);
 
 #endif

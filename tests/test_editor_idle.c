@@ -2,6 +2,8 @@
 #include "idle.h"
 #include "test.h"
 
+#include <stdlib.h>
+
 int main(void)
 {
     Idle s = { 0, 0, 0 };
@@ -24,5 +26,24 @@ int main(void)
     drawn = 0;
     for (int i = 0; i < 1000; i++) drawn += idle_draw(&s, 40.0 + i * 0.016, 0, 1);
     CHECK(drawn == 1000 && !idle_resting(&s, 55.0));
+    // what moves by itself is named in app_animating: the Model's Auto-rotate, the Slow wheels (not in a headless run, which fixes them), the police lights; only in a car
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a != NULL) {
+        CHECK(!app_animating(a));
+        a->kind = APP_KIND_CAR;
+        CHECK(!app_animating(a));
+        a->model_auto_rotate = 1;
+        CHECK(app_animating(a));
+        a->model_auto_rotate = 0, a->model_wheels = 1;
+        CHECK(app_animating(a));
+        a->model_wheels_fixed = 1;
+        CHECK(!app_animating(a));
+        a->model_wheels = 0, a->night.police = 1;
+        CHECK(app_animating(a));
+        a->kind = APP_KIND_TRACK;
+        CHECK(!app_animating(a));
+        free(a);
+    }
     return TEST_REPORT();
 }

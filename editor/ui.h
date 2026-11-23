@@ -28,8 +28,6 @@ void ui_card_backdrop_file(const char *path);
 const char *ui_card_backdrop_path(void);
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap);
 void ui_close(void);
-/* 1 when something on screen moves by itself (the Model's auto-rotate, the slow wheels, the police lights): the window is then drawn at the frame rate, not only on events */
-int ui_animating(const App *a);
 /* the editor's settings the ini had (ui_open reads it), into `a`: the car Test drive gives the player. Before the first frame, so a headless run has them too. */
 void ui_settings_to(App *a);
 

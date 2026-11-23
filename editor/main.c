@@ -793,7 +793,7 @@ static int run(App *a, const Options *o)
         perf_end(PERF_RECOMPUTE, t), t = perf_begin();
         const double clock = SDL_GetTicks() / 1000.0;
         const int busy = light_busy || app_race_busy(a) || app_sheet_busy(a) || app_car_building(a) || app_install_busy(a) || app_psd_busy(a) || app_light_drive_running(a) ||
-                         a->confirm != APP_ACT_NONE || ui_animating(a);
+                         a->confirm != APP_ACT_NONE || app_animating(a);
         if (!headless && !idle_draw(&idle, clock, events, busy)) {   // at rest: nothing is drawn or presented (the polls above went on); wait for an event
             SDL_Event ev;
             if (SDL_WaitEventTimeout(&ev, IDLE_WAIT_MS)) SDL_PushEvent(&ev);

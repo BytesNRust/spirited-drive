@@ -394,6 +394,7 @@ void toolbar(App *a)
     if (ImGui::Button("Home")) orbit_home(&g.orbit), g.fit = true, g.dirty = true;
     ImGui::SameLine();
     if (ImGui::Checkbox("Auto-rotate", &g.auto_rotate)) g.dirty = true;
+    a->model_auto_rotate = g.auto_rotate ? 1 : 0;
     ImGui::SameLine();
     help_marker(g.shine && g.shines ? "Drag to turn, wheel to zoom; keys F, S, R, T and Home for the views.\n"
                                       "Shine: its tones come from the car's own colours (a race takes them from the screen's)."
@@ -643,9 +644,4 @@ void model_panel(App *a, SDL_Renderer *ren)
         }
     }
     ImGui::End();
-}
-
-int model_panel_animating(const App *a)
-{
-    return a->kind == APP_KIND_CAR && (g.auto_rotate || a->night.police || (a->model_wheels == 1 && !a->model_wheels_fixed));
 }

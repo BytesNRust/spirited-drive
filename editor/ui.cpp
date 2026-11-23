@@ -224,11 +224,6 @@ void ui_settings_to(App *a)
     }
 }
 
-int ui_animating(const App *a)
-{
-    return model_panel_animating(a);
-}
-
 void ui_close(void)
 {
     ImGui_ImplSDLRenderer3_Shutdown();
