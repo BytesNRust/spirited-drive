@@ -15,7 +15,7 @@ kit="$work/cars/ldiabl"
 # 1. Export original car: the note about the cut name is in the status, the card holds the cut name
 studio --export-car LDiabl --into "$work/cars" --cd "$orig" --port-data "$data" --frames 1 || fail "Export original car: $(cat "$work/log")"
 grep -q 'Note: "30th Anniversary Lavender" is "30th Anniversary Lavende" on the card' "$work/log" || fail "the export does not say the colour's name was cut: $(cat "$work/log")"
-grep -q "^paints=Rosso Diablo:b3121e,30th Anniversary Lavende:9878c8$" "$kit/mod.ini" || fail "the card's colours: $(grep paints "$kit/mod.ini")"
+grep -q "^paints=Rosso Diablo:8a0600,30th Anniversary Lavende:b57edc,Giallo Orion:eba628,Grigio Antares:494844,Blue Hera:091a30,Verde Hydra:081815,Celeste:48abb4,Bianco:e1e3db$" "$kit/mod.ini" || fail "the card's colours: $(grep paints "$kit/mod.ini")"
 
 # 2. The first colour's name edited in its box, Save, Copy to game repo against a copy of the repo's source and masks, the window's Copy
 repo="$work/repo"
@@ -25,10 +25,10 @@ cp -R "$data/car_masks/LDiabl" "$repo/data/car_masks/LDiabl"
 [ -d "$data/dash_masks/LDIABL" ] && cp -R "$data/dash_masks/LDIABL" "$repo/data/dash_masks/LDIABL"
 studio "$kit" --port-data "$repo/data" --frames 30 --steps paint-print,ui-at:colour0_name,0.98,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,ui-text:Corsa,paint-print,save,ui-click:copy_repo,print-publish,ui-click:copy_dialog_copy,status \
     || fail "the clicked flow: $(cat "$work/log")"
-grep -q "^paints: Rosso Corsa #b3121e 30th Anniversary Lavende #9878c8$" "$work/log" || fail "the name typed into the box is not in the card: $(grep '^paints' "$work/log")"
-grep -q "was: Rosso Diablo #b3121e, 30th Anniversary Lavender #9878c8" "$work/log" && grep -q "now: Rosso Corsa #b3121e, 30th Anniversary Lavender #9878c8" "$work/log" \
+grep -q "^paints: Rosso Corsa #8a0600 30th Anniversary Lavende #b57edc Giallo Orion #eba628 Grigio Antares #494844 Blue Hera #091a30 Verde Hydra #081815 Celeste #48abb4 Bianco #e1e3db$" "$work/log" || fail "the name typed into the box is not in the card: $(grep '^paints' "$work/log")"
+grep -q "was: Rosso Diablo #8a0600, 30th Anniversary Lavender #b57edc, Giallo Orion #eba628, Grigio Antares #494844, Blue Hera #091a30, Verde Hydra #081815, Celeste #48abb4, Bianco #e1e3db" "$work/log" && grep -q "now: Rosso Corsa #8a0600, 30th Anniversary Lavender #b57edc, Giallo Orion #eba628, Grigio Antares #494844, Blue Hera #091a30, Verde Hydra #081815, Celeste #48abb4, Bianco #e1e3db" "$work/log" \
     || fail "the window does not list the row as was/now with the game's full name: $(cat "$work/log")"
-grep -q '{ "Rosso Corsa", { 179, 18, 30 } }' "$repo/core/formats/car_paint.c" && grep -q '"30th Anniversary Lavender"' "$repo/core/formats/car_paint.c" || fail "the table's row: $(diff "$repo/core/formats/car_paint.c" "$repo_src/core/formats/car_paint.c")"
+grep -q '{ "Rosso Corsa", { 138, 6, 0 } }' "$repo/core/formats/car_paint.c" && grep -q '"Bianco", { 225, 227, 219 }' "$repo/core/formats/car_paint.c" || fail "the table's row: $(diff "$repo/core/formats/car_paint.c" "$repo_src/core/formats/car_paint.c")"
 [ "$(diff "$repo/core/formats/car_paint.c" "$repo_src/core/formats/car_paint.c" | grep -c '^[<>]')" = 2 ] || fail "Copy changed more than the row's one line: $(diff "$repo/core/formats/car_paint.c" "$repo_src/core/formats/car_paint.c")"
 
 # 3. Test drive clicked, the game started on the car, Stop
