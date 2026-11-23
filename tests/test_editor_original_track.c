@@ -105,6 +105,22 @@ int main(void)
     CHECK(original_track_add_all(ws, data, art, &again, why, sizeof why) && again.light_files == 0 && again.psds == 0 && again.kept == 16 + 2, "again: %d copied, %d kept", again.light_files + again.psds, again.kept);
     get("ws/tracks/AL1/light/track_light/AL1.txt", text, sizeof text);
     CHECK(strcmp(text, "edited\n") == 0, "the edited file is kept");
+    /* the PSD he painted, the mask PNG made from it and the card he changed are the owner's: Add originals again (the art folder's PSD differs) does not touch them */
+    char keep_psd[256], keep_mask[256], keep_card[256];
+    get("ws/tracks/AL1/art-source/masks/scenery_00.psd", keep_psd, sizeof keep_psd);
+    get("ws/tracks/AL1/art-generated/track_masks/scenery_00.png", keep_mask, sizeof keep_mask);
+    get("ws/tracks/AL1/original.ini", keep_card, sizeof keep_card);
+    put("ws/tracks/AL1/art-source/masks/scenery_00.psd", "my own psd\n");
+    put("ws/tracks/AL1/art-generated/track_masks/scenery_00.png", "my own mask\n");
+    put("ws/tracks/AL1/original.ini", "my own card\n");
+    CHECK(original_track_add_all(ws, data, art, &again, why, sizeof why) && again.light_files == 0 && again.psds == 0, "again, with edits");
+    get("ws/tracks/AL1/art-source/masks/scenery_00.psd", text, sizeof text);
+    CHECK(strcmp(text, "my own psd\n") == 0, "the edited PSD is kept: %s", text);
+    get("ws/tracks/AL1/art-generated/track_masks/scenery_00.png", text, sizeof text);
+    CHECK(strcmp(text, "my own mask\n") == 0, "the edited mask is kept: %s", text);
+    get("ws/tracks/AL1/original.ini", text, sizeof text);
+    CHECK(strcmp(text, "my own card\n") == 0, "the edited card is kept: %s", text);
+    put("ws/tracks/AL1/art-source/masks/scenery_00.psd", keep_psd), put("ws/tracks/AL1/art-generated/track_masks/scenery_00.png", keep_mask), put("ws/tracks/AL1/original.ini", keep_card);   // as it was, for the rest
 
     /* a workspace of the old light format: Add originals takes the old names away and keeps the one file */
     put("ws/tracks/AL1/light/track/AL1.txt", "old places\n");

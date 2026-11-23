@@ -356,8 +356,14 @@ static void test_drivable(void)
     CHECK(!c.masks_only && strcmp(c.folder, "P911") == 0 && c.has_masks_dir && c.mask_count == 2);
     /* a second export into the same folder is refused, and changes nothing */
     write_text("out/p911-original/marker.txt", "mine");
+    /* what the owner edited in the kit (a longer card of colours, a PSD of his, a mask he painted) is as he left it: the refusal writes nothing, not even the files the export would make the same */
+    write_text("out/p911-original/mod.ini", "id=p911-original\nstem=P911\npaints=A:111111,B:222222,C:333333,D:444444,E:555555,F:666666,G:777777,H:888888\n");
+    write_text("out/p911-original/side.psd", "my own psd");
+    write_text("out/p911-original/car_masks/P911/frnt_mask.png", "my own mask");
     CHECK(!car_export(&s, index_of("P911"), dir, why, sizeof why));
     CHECK(strstr(why, "already there") != NULL);
+    CHECK(has_substring("out/p911-original/mod.ini", "paints=A:111111,B:222222,C:333333,D:444444,E:555555,F:666666,G:777777,H:888888"));
+    CHECK(has_line("out/p911-original/side.psd", "my own psd") && has_line("out/p911-original/car_masks/P911/frnt_mask.png", "my own mask"));
     CHECK(exists("out/p911-original/marker.txt") && !exists("out/p911-original.exporting"));
     /* a car with a mixed-case masks folder: the project keeps the folder's spelling, the stem is the card's */
     write_text("game/cd/SIMDATA/CARFAMS/TSUPRA.PDN", "pdn of the Supra");
