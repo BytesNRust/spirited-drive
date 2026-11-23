@@ -112,6 +112,11 @@ void ui_camera_nudge(void)
     model_panel_nudge();
 }
 
+int ui_model_save_picture(const char *path)
+{
+    return model_panel_save_picture(path);
+}
+
 void ui_model_state(int *big, int *docked, int *scale, int *soft)
 {
     model_panel_state(big, docked, scale, soft);

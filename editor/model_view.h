@@ -18,11 +18,12 @@ ModelView model_view_of(int card_view, int as_card);
 void model_view_flags(ModelView view, int *card_view, int *as_card);
 const char *model_view_name(ModelView view);
 
-/* The Model's render scale (the game's own setting, 1..MODEL_RENDER_SCALE_MAX): the car is drawn on a frame MODEL_GAME_FRAME_H * scale tall (the game's 480 lines at scale 1, 960 at 2) in the area's shape and
- * shown stretched to the whole area, as coarse as the game's picture at that scale. Never finer than the area's own pixels (a small panel is drawn at its size). Fills *w and *h (0 for an empty
- * area) and returns the scale used (the one asked for, kept to 1..MODEL_RENDER_SCALE_MAX). */
-enum { MODEL_RENDER_SCALE_MAX = 3, MODEL_GAME_FRAME_H = 480 };
-int model_view_render_size(int area_w, int area_h, int scale, int *w, int *h);
+/* The Model's render scale (the game's own setting, 1..MODEL_RENDER_SCALE_MAX): the car is drawn on the game's 4:3 frame at that scale (640 x 480 times it: 1280 x 960 at 2),
+ * whatever the panel's size, and the panel shows that frame fitted: as coarse as the game's own picture at that scale, its dither in the buffer as the game has it. Fills *w and *h and returns the scale used (the one asked for, kept to 1..MODEL_RENDER_SCALE_MAX). */
+enum { MODEL_RENDER_SCALE_MAX = 3, MODEL_GAME_FRAME_W = 640, MODEL_GAME_FRAME_H = 480 };
+int model_view_render_size(int scale, int *w, int *h);
+/* a w x h picture fitted into an area_w x area_h panel with its shape kept, in the middle: its place (*x, *y) in the area and its size (all 0 for an empty one) */
+void model_view_fit(int area_w, int area_h, int w, int h, int *x, int *y, int *fw, int *fh);
 
 /* «Paint: <name>» when the car is painted with a colour, «Paint: none (base texture)» otherwise. 1 when it fits, 0 when cut (the text is then still closed) */
 int model_paint_caption(const char *name, int painted, char *out, size_t cap);

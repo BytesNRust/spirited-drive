@@ -14,16 +14,22 @@ void model_view_flags(ModelView view, int *card_view, int *as_card)
     *as_card = view == MODEL_VIEW_GAME;
 }
 
-int model_view_render_size(int area_w, int area_h, int scale, int *w, int *h)
+int model_view_render_size(int scale, int *w, int *h)
 {
     const int s = scale < 1 ? 1 : scale > MODEL_RENDER_SCALE_MAX ? MODEL_RENDER_SCALE_MAX : scale;
-    if (area_w < 1 || area_h < 1) return *w = *h = 0, s;
-    const long frame_h = (long)MODEL_GAME_FRAME_H * s;
-    const long rh = area_h < frame_h ? area_h : frame_h;   /* never finer than the panel's own pixels */
-    long rw = (rh * area_w + area_h / 2) / area_h;
-    if (rw < 1) rw = 1;
-    *w = (int)rw, *h = (int)rh;
+    *w = MODEL_GAME_FRAME_W * s, *h = MODEL_GAME_FRAME_H * s;   /* the game's frame at that scale, whatever the panel's size: the panel shows it fitted */
     return s;
+}
+
+void model_view_fit(int area_w, int area_h, int w, int h, int *x, int *y, int *fw, int *fh)
+{
+    if (area_w < 1 || area_h < 1 || w < 1 || h < 1) {
+        *x = *y = *fw = *fh = 0;
+        return;
+    }
+    if ((long)area_w * h <= (long)area_h * w) *fw = area_w, *fh = (int)(((long)area_w * h + w / 2) / w);   /* as wide as the panel */
+    else *fh = area_h, *fw = (int)(((long)area_h * w + h / 2) / h);                                      /* as tall as the panel */
+    *x = (area_w - *fw) / 2, *y = (area_h - *fh) / 2;
 }
 
 const char *model_view_name(ModelView view)

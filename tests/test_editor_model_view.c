@@ -45,22 +45,28 @@ static void test_paint_caption(void)
 static void test_render_size(void)
 {
     int w = 0, h = 0;
-    CHECK_EQ_INT(model_view_render_size(1400, 850, 1, &w, &h), 1);   /* the game's 480 lines at scale 1, in the area's shape */
-    CHECK_EQ_INT(h, 480);
-    CHECK_EQ_INT(w, 791);   /* 480 * 1400 / 850, rounded */
-    CHECK_EQ_INT(model_view_render_size(1400, 850, 2, &w, &h), 2);   /* 960 lines would be finer than the area's 850: the area's own */
-    CHECK(h == 850 && w == 1400);
-    CHECK_EQ_INT(model_view_render_size(2000, 1200, 2, &w, &h), 2);
-    CHECK(h == 960 && w == 1600);
-    CHECK_EQ_INT(model_view_render_size(2000, 1200, 3, &w, &h), 3);
-    CHECK(h == 1200 && w == 2000);   /* 1440 lines against the area's 1200 */
-    CHECK_EQ_INT(model_view_render_size(180, 100, 1, &w, &h), 1);   /* a small panel is drawn at its own size */
-    CHECK(h == 100 && w == 180);
-    CHECK_EQ_INT(model_view_render_size(800, 600, 9, &w, &h), MODEL_RENDER_SCALE_MAX);   /* more than the most: the most */
-    CHECK_EQ_INT(model_view_render_size(800, 600, 0, &w, &h), 1);
-    CHECK_EQ_INT(model_view_render_size(800, 600, -3, &w, &h), 1);
-    CHECK_EQ_INT(model_view_render_size(0, 0, 2, &w, &h), 2);
-    CHECK(w == 0 && h == 0);
+    CHECK_EQ_INT(model_view_render_size(1, &w, &h), 1);   /* the game's 4:3 frame at the scale: 640 x 480 times it */
+    CHECK(w == 640 && h == 480);
+    CHECK_EQ_INT(model_view_render_size(2, &w, &h), 2);
+    CHECK(w == 1280 && h == 960);
+    CHECK_EQ_INT(model_view_render_size(3, &w, &h), 3);
+    CHECK(w == 1920 && h == 1440);
+    CHECK_EQ_INT(model_view_render_size(9, &w, &h), MODEL_RENDER_SCALE_MAX);   /* more than the most: the most */
+    CHECK_EQ_INT(model_view_render_size(0, &w, &h), 1);
+    CHECK_EQ_INT(model_view_render_size(-3, &w, &h), 1);
+}
+
+static void test_fit(void)
+{
+    int x, y, w, h;
+    model_view_fit(1400, 850, 1280, 960, &x, &y, &w, &h);   /* a wide panel: as tall as it, in the middle */
+    CHECK(h == 850 && w == 1133 && y == 0 && x == 133);
+    model_view_fit(740, 240, 1280, 960, &x, &y, &w, &h);   /* the docked strip */
+    CHECK(h == 240 && w == 320 && x == 210 && y == 0);
+    model_view_fit(400, 600, 1280, 960, &x, &y, &w, &h);   /* a tall panel: as wide as it */
+    CHECK(w == 400 && h == 300 && x == 0 && y == 150);
+    model_view_fit(0, 100, 1280, 960, &x, &y, &w, &h);
+    CHECK(w == 0 && h == 0 && x == 0 && y == 0);
 }
 
 int main(void)
@@ -68,5 +74,6 @@ int main(void)
     test_view_flags();
     test_paint_caption();
     test_render_size();
+    test_fit();
     return TEST_REPORT();
 }

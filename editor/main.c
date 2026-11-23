@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--render-scale 1..3] [--big] [--shine on|off] [--soft on|off] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--render-scale 1..3] [--big] [--shine on|off] [--soft on|off] [--model-shot OUT.png] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as <workspace>/tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * <workspace>/cars/<kit>/ (the workspace: one folder with cars/ and tracks/, --workspace or File > Workspace): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -88,6 +88,7 @@ typedef struct {
     int big;                 /* --big: the Model window floating large (Enlarge) */
     int render_scale;        /* --render-scale N: the Model window's render scale, 1..3 (0: the player's option) */
     const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
+    const char *model_shot;  /* --model-shot OUT.png: the Model's picture as drawn (its buffer, not the screen's copy), written at the end of a headless run */
     const char *soft;        /* --soft on|off: the Model window's soft shine edges (the player's shine_soft by default) */
     const char *shine;       /* --shine on|off: the Model window's body shine (on by default) */
     const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in the mask view before the first frame */
@@ -177,6 +178,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--card-backdrop") == 0 && has_value) o->card_backdrop = argv[++i];
         else if (strcmp(argv[i], "--shine") == 0 && has_value) o->shine = argv[++i];
         else if (strcmp(argv[i], "--soft") == 0 && has_value) o->soft = argv[++i];
+        else if (strcmp(argv[i], "--model-shot") == 0 && has_value) o->model_shot = argv[++i];
         else if (strcmp(argv[i], "--wheels") == 0 && has_value) o->wheels = argv[++i];
         else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
         else if (strcmp(argv[i], "--race-png") == 0 && has_value) o->race_png = argv[++i];
@@ -809,6 +811,10 @@ static int run(App *a, const Options *o)
         ++frame;
         /* a headless run waits for its steps, and for the Track light pictures in the making (bounded: a game that never ends cannot hold it) */
         if (headless && frame >= o->frames && !steps_running(&steps) && !(light_busy && frame < o->frames + LIGHT_WAIT_FRAMES)) {
+            if (o->model_shot != NULL && !ui_model_save_picture(o->model_shot)) {
+                fprintf(stderr, "--model-shot: the Model has no picture to write\n");
+                ok = 0;
+            }
             if (o->shot != NULL) {
                 char why[APP_MSG];
                 if (!capture_save_png(ren, o->shot, why, sizeof why)) {

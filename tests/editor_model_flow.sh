@@ -40,4 +40,17 @@ printf 'render_scale=3\n' > "$work/u4/restomod.cfg"
 out=$(run u4 --frames 40 "$kit" --steps poll-wait:1,camera:3 2>&1) || fail "player scale: $out"
 [ "$(state 1 | cut -d' ' -f6-7)" = "scale 3" ] || fail "the Model did not start at the player's render_scale 3: $(state 1)"
 
+# the picture is the game's frame at the render scale whatever the panel's size (read from the buffer, not the screen's copy: the software renderer cannot show it), and the soft edges are in it
+# from scale 2 and not at 1
+for sc in 1 2; do
+    for sw in on off; do
+        out=$(run u5 --render-scale $sc --soft $sw --shine on --paint 1 --frames 40 "$kit" --steps poll-wait:1 --model-shot "$work/pic_${sc}_$sw.png" 2>&1) || fail "model shot scale $sc soft $sw: $out"
+    done
+done
+echo "$out" | grep -q '^model picture: 1280 x 960, [1-9][0-9]* drawn$' || fail "the scale 2 picture is not the game's 1280 x 960 frame with a car in it: $out"
+out1=$(run u5 --render-scale 1 --soft on --shine on --paint 1 --frames 40 "$kit" --steps poll-wait:1 --model-shot "$work/pic_1_on2.png" 2>&1)
+echo "$out1" | grep -q '^model picture: 640 x 480, [1-9][0-9]* drawn$' || fail "the scale 1 picture is not the game's 640 x 480 frame with a car in it: $out1"
+cmp -s "$work/pic_1_on.png" "$work/pic_1_off.png" || fail "at render scale 1 the soft edges changed the picture"
+cmp -s "$work/pic_2_on.png" "$work/pic_2_off.png" && fail "at render scale 2 the soft edges did not change the picture"
+
 [ "$failures" = 0 ] || exit 1
