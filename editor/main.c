@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--pixel 1..4] [--big] [--shine on|off] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--pixel 1..4] [--big] [--shine on|off] [--soft on|off] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as <workspace>/tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * <workspace>/cars/<kit>/ (the workspace: one folder with cars/ and tracks/, --workspace or File > Workspace): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -86,6 +86,7 @@ typedef struct {
     int big;                 /* --big: the Model window floating large (Enlarge) */
     int pixel;               /* --pixel N: the Model window's Pixels, 1..4 (0 as it is) */
     const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
+    const char *soft;        /* --soft on|off: the Model window's soft shine edges (the player's shine_soft by default) */
     const char *shine;       /* --shine on|off: the Model window's body shine (on by default) */
     const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in the mask view before the first frame */
     const char *view, *lights, *night_tint, *preview_tex;   int night_light;   /* --view day|night, --lights head,side,brake,reverse,police, --night-light PERCENT, --night-tint R,G,B (0..1): the Preview's Day / Night and its lamps, for a headless picture */
@@ -173,6 +174,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--add-photo") == 0 && has_value && o->add_photo_count < 8) o->add_photo[o->add_photo_count++] = argv[++i];
         else if (strcmp(argv[i], "--card-backdrop") == 0 && has_value) o->card_backdrop = argv[++i];
         else if (strcmp(argv[i], "--shine") == 0 && has_value) o->shine = argv[++i];
+        else if (strcmp(argv[i], "--soft") == 0 && has_value) o->soft = argv[++i];
         else if (strcmp(argv[i], "--wheels") == 0 && has_value) o->wheels = argv[++i];
         else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
         else if (strcmp(argv[i], "--race-png") == 0 && has_value) o->race_png = argv[++i];
@@ -661,6 +663,17 @@ static int run(App *a, const Options *o)
             return 0;   /* a run that did not go */
         }
         ui_model_shine(strcmp(o->shine, "on") == 0);
+    }
+    if (o->soft != NULL) {
+        if (strcmp(o->soft, "on") != 0 && strcmp(o->soft, "off") != 0) {
+            fprintf(stderr, "--soft %s: on or off expected\n", o->soft);
+            ui_close();
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return 0;   /* a run that did not go */
+        }
+        ui_model_soft(strcmp(o->soft, "on") == 0);
     }
     if (o->wheels != NULL) {   /* the Model's Wheels, as chosen in its window */
         a->model_wheels = strcmp(o->wheels, "fast") == 0 ? 2 : strcmp(o->wheels, "slow") == 0 ? 1 : 0;

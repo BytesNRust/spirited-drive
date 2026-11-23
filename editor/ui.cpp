@@ -241,6 +241,11 @@ void ui_model_pixel(int pixel)
     model_panel_pixel(pixel);
 }
 
+void ui_model_soft(int on)
+{
+    model_panel_soft(on != 0);
+}
+
 void ui_model_shine(int on)
 {
     model_panel_shine(on != 0);

@@ -19,6 +19,7 @@ extern "C" {
 }
 #include "car_export.h"
 #include "car_race.h"
+extern "C" void shine_draw_set_soft(int on);   // core/raster/shine_draw.h, not included: its View clashes with the editor's
 
 #include <math.h>
 #include <stdio.h>
@@ -56,6 +57,7 @@ struct Model {
     bool big = false;             // the window is floating, enlarged
     ImGuiID dock_id = 0;          // where it was docked, to go back to
     int pixel = 1;                // the Pixels choice: the car drawn at 1/N of the panel's pixels, each shown N x N (model_view_pixel)
+    int soft = -1;                // the shine's soft mask edges: -1 until the player's own choice is read (shine_soft), then 0 or 1
     bool shine = true;            // the body shine, on: the owner checks the shine and matte masks with it
     bool shines = false;          // the car has texels the shine reaches
     bool shine_asked = false;     // the box (or the command line) changed it: set when the window is next drawn
@@ -404,6 +406,14 @@ void toolbar(App *a)
                           "Its tones are taken from the car's own colours; in a race, from the screen's.%s",
                           g.envmap[0] != '\0' ? "\nThe kit's car_envmap.png is the sky it reflects." : "");
     ImGui::SameLine();
+    if (g.soft < 0) g.soft = car_race_player_shine_soft();
+    shine_draw_set_soft(g.soft);   // the window's own choice stands over the start-up value
+    bool soft = g.soft != 0;
+    if (ImGui::Checkbox("Soft edges", &soft)) g.soft = soft ? 1 : 0, shine_draw_set_soft(g.soft), g.dirty = true;
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Where the shine meets a matte or glass texel, the border is mixed by how much of each is near (an ordered dither), not cut at the texel's edge.\n"
+                          "The game's own shine_soft setting (Restomod '26 on, Stock and Restored off); this box is only for this window. Best seen with Pixels 3x or 4x.");
+    ImGui::SameLine();
     static const char *const WHEELS[] = { "Still", "Slow", "Fast" };
     ImGui::TextUnformatted("Wheels");
     ImGui::SameLine();
@@ -479,6 +489,13 @@ void model_panel_big(bool on)
 void model_panel_pixel(int pixel)
 {
     g.pixel = pixel < 1 ? 1 : pixel > MODEL_PIXEL_MAX ? MODEL_PIXEL_MAX : pixel;
+    g.dirty = true;
+}
+
+void model_panel_soft(bool on)
+{
+    g.soft = on ? 1 : 0;
+    shine_draw_set_soft(g.soft);
     g.dirty = true;
 }
 

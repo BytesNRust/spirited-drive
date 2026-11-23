@@ -50,6 +50,7 @@ void ui_model_orbit(double yaw, double pitch, int dist);
 /* The Model window's body shine on or off (on by default). */
 void ui_model_big(int on);
 void ui_model_pixel(int pixel);
+void ui_model_soft(int on);
 void ui_model_shine(int on);
 
 /* 1 when a menu or a popup is open: Escape then closes it and is not the window's own. */
