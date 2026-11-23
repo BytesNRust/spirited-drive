@@ -388,7 +388,7 @@ static int at_once(App *a, const char *name, const double *arg)
     }
     if (strncmp(name, "sun:", 4) == 0) {   /* sun:AZ,EL,SH: the time's sun (direction and height in degrees, the shadow's strength in percent) */
         if (a->kind != APP_KIND_LIGHT || !a->light.session.has_file) return fprintf(stderr, "sun: no light file open\n"), 0;
-        const LightTrackSun s = { 1, 1, 1, (double)arg[0], (double)arg[1], (double)arg[2] };
+        const LightTrackSun s = { 1, 1, 1, (double)arg[0], (double)arg[1], (double)arg[2], 0, 0.0 };
         char why[LT_WHY];
         if (!light_track_set_sun(&a->light.session.file, a->light.time, &s, why, sizeof why)) return fprintf(stderr, "sun: %s\n", why), 0;
         return app_light_touch(a), 1;
