@@ -73,16 +73,16 @@ bool swatch(const char *id, char *hex, size_t cap)
 // an optional number: an empty box is "not set" (the value is the default's), a number sets it. The box keeps what is typed while it is being edited. True when the value changed.
 bool optional_number(const char *id, int *has, double *value, const char *format, float width)
 {
-    static char text[24];
+    static char kept[24];        // what is typed in the box being edited (one box at a time is)
     static ImGuiID editing = 0;
+    char text[24];
     const ImGuiID me = ImGui::GetID(id);
-    if (editing != me) {
-        if (*has) snprintf(text, sizeof text, format, *value);
-        else text[0] = '\0';
-    }
+    if (editing == me) snprintf(text, sizeof text, "%s", kept);
+    else if (*has) snprintf(text, sizeof text, format, *value);
+    else text[0] = '\0';
     ImGui::SetNextItemWidth(width);
     const bool typed = ImGui::InputText(id, text, sizeof text, ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_AutoSelectAll);
-    if (ImGui::IsItemActive()) editing = me;
+    if (ImGui::IsItemActive()) editing = me, snprintf(kept, sizeof kept, "%s", text);
     else if (editing == me) editing = 0;
     if (!typed) return false;
     if (text[0] == '\0') {
@@ -353,10 +353,22 @@ void tunnel_rows(App *a)
         }
         ImGui::EndTable();
     }
-    if (remove_tunnel >= 0 || remove_look >= 0) {
-        if (remove_look >= 0 && !light_track_remove(&f, time, LT_LOOK, remove_look, why, sizeof why)) refused(a, why);
-        else if (remove_tunnel >= 0 && !light_track_remove(&f, LT_TIME_FACTS, LT_TUNNEL, remove_tunnel, why, sizeof why)) refused(a, why);
-        else app_light_touch(a);
+    if (remove_tunnel >= 0 || remove_look >= 0) {   // the row's look of this time first, then the tunnel; the file changed after the first, so the window is touched either way
+        bool dropped = false;
+        if (remove_look >= 0) {
+            if (light_track_remove(&f, time, LT_LOOK, remove_look, why, sizeof why)) dropped = true;
+            else refused(a, why), remove_tunnel = -1;
+        }
+        if (remove_tunnel >= 0) {
+            if (light_track_remove(&f, LT_TIME_FACTS, LT_TUNNEL, remove_tunnel, why, sizeof why)) dropped = true;
+            else refused(a, why);
+        }
+        if (dropped) {
+            char said[sizeof a->light.error];   // the touch clears the error line: a refusal of the second removal stays
+            snprintf(said, sizeof said, "%s", a->light.error);
+            app_light_touch(a);
+            snprintf(a->light.error, sizeof a->light.error, "%s", said);
+        }
     }
     if (ImGui::Button("Add tunnel")) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
@@ -364,6 +376,14 @@ void tunnel_rows(App *a)
         if (light_track_set_tunnel(&f, -1, &t, why, sizeof why)) app_light_touch(a);
         else refused(a, why);
     }
+}
+
+// drops the i-th line of a kind at the time shown; a refusal shows its reason
+void remove_line(App *a, int kind, int i)
+{
+    char why[LT_WHY];
+    if (light_track_remove(&file_of(a), time_of(a), kind, i, why, sizeof why)) app_light_touch(a);
+    else refused(a, why);
 }
 
 // ---- Lamps -------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -428,7 +448,7 @@ void lamp_rows(App *a)
         }
     }
     if (count > 0) ImGui::EndChild();
-    if (remove >= 0 && light_track_remove(&f, time_of(a), LT_LAMP, remove, why, sizeof why)) app_light_touch(a);
+    if (remove >= 0) remove_line(a, LT_LAMP, remove);
     if (ImGui::Button("Add lamp")) {
         LightTrackLamp l;
         memset(&l, 0, sizeof l);
@@ -480,13 +500,16 @@ void brightness_rows(App *a)
         ImGui::Separator();
         ImGui::PopID();
         if (changed) {
-            if (b.mask == 0) continue;   // nothing picked: the strip is the old one until a point is
+            if (b.mask == 0) {   // nothing picked: the strip stays the old one until a point is
+                refused(a, "pick at least one point of the row");
+                continue;
+            }
             b.from = non_negative(v[0]), b.to = non_negative(v[1]), b.percent = non_negative(v[2]);
             if (light_track_set_brightness(&f, time_of(a), i, &b, why, sizeof why)) app_light_touch(a);
             else refused(a, why);
         }
     }
-    if (remove >= 0 && light_track_remove(&f, time_of(a), LT_BRIGHTNESS, remove, why, sizeof why)) app_light_touch(a);
+    if (remove >= 0) remove_line(a, LT_BRIGHTNESS, remove);
     if (ImGui::Button("Add brightness")) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
         const LightTrackBrightness b = { node, node + 50 < last ? node + 50 : last, 100, LT_ALL_POINTS };
@@ -528,13 +551,16 @@ void tone_rows(App *a)
         ImGui::Separator();
         ImGui::PopID();
         if (changed) {
-            if (t.mask == 0) continue;
+            if (t.mask == 0) {
+                refused(a, "pick at least one point of the row");
+                continue;
+            }
             t.from = non_negative(v[0]), t.to = non_negative(v[1]), t.percent = non_negative(v[2]);
             if (light_track_set_tone(&f, time_of(a), i, &t, why, sizeof why)) app_light_touch(a);
             else refused(a, why);
         }
     }
-    if (remove >= 0 && light_track_remove(&f, time_of(a), LT_TONE, remove, why, sizeof why)) app_light_touch(a);
+    if (remove >= 0) remove_line(a, LT_TONE, remove);
     if (ImGui::Button("Add tone")) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
         LightTrackTone t;
