@@ -634,18 +634,19 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
     apply_rules_file(track, &made);
     add_tunnel_lamps(tri, track, &made, have ? &file.tweaks : NULL);   /* the file's tunnel_lamp lines (the tunnels' lamps: strength, colour, reach) */
     if (!from_track && port_light_effects()) terrain_light_forest_apply(&made, track);   /* port (forest_dark): the made light's forest, here so the hash below holds it; a track file says its forest in its own lines */
+    if (have) made.car_row = 1;   /* port (cars read the row): a track's file carries the car's darkening in its rows (canyon, parking, cavern), so the cars read them by lane */
     const char *const print = getenv("TNFS_LIGHT_FINGERPRINT");   /* a hash of the light made, appended to this file (tests/track_light_fingerprint.sh) */
     if (print != NULL && print[0] != '\0') {
         char hash[65];
         track_light_fingerprint(&made, hash);
         FILE *const f = fopen(print, "ab");
         if (f != NULL) {
-            fprintf(f, "%s%c %s\n", track, light_letter, hash);
+            fprintf(f, "%s%c %s car_row=%d\n", track, light_letter, hash, made.car_row);
             fclose(f);
         }
     }
     track_light_file_free(&file);
-    if (port_settings_profile() == PROFILE_RESTOMOD && getenv("TNFS_CAR_ROW") != NULL && atoi(getenv("TNFS_CAR_ROW")) != 0) made.car_row = 1;   /* port (cars read the row): for the owner's drive, Restomod '26 only */
+    if (port_settings_profile() == PROFILE_RESTOMOD && getenv("TNFS_CAR_ROW") != NULL && atoi(getenv("TNFS_CAR_ROW")) != 0) made.car_row = 1;   /* port (cars read the row): the owner's drive on a light with no file, Restomod '26 only */
     *out = made;
     return 1;
 }

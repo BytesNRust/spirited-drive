@@ -44,7 +44,7 @@ typedef struct {
     float warm_cast[2][3];   /* port (made_tunnels): city_tunnel's tunnel look [0 day, 1 night]: the cast of the dim levels (red, green, blue) ... */
     int warm_percent[2];     /* ... and its light, the gain over the made tunnel's own in percent (light_synth_warm_look; 0 none) */
     int neutral_cast;   /* port (made_tunnels): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
-    int car_row;        /* port (cars read the row): 1 the cars take the row's light by their lane (track_node_light_lane) and not canyon, car_dim or car_tone; set by the file's `car_row` or TNFS_CAR_ROW=1 */
+    int car_row;        /* port (cars read the row): 1 the cars take the row's light by their lane (track_node_light_lane) and not canyon, car_dim or car_tone; set when the light comes from a track's file or by TNFS_CAR_ROW=1 */
     uint8_t *canyon;    /* port (canyon_shade): per node (owned), 1 where TR6's property-16 stretch (the canyon) is; NULL none */
     uint8_t *car_dim;   /* port (parking_dark): per node (owned), 1 where the car keeps the darkest tone of the lamp alternation with no alternating (TR7's parking); NULL none */
     int forest_road;    /* port (forest_neutral): 1 and the file's nodes forest_from..forest_to, which the rows mark as a tunnel (a forest's shade), are drawn with the road's tables, not a tunnel's cast */
