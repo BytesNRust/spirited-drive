@@ -212,7 +212,8 @@ static void test_the_sun_casts_a_shadow_from_a_ridge_toward_it(void)
     uint8_t lit[NODES * TRACK_NODE_LIGHT_POINTS], shaded[NODES * TRACK_NODE_LIGHT_POINTS], other[NODES * TRACK_NODE_LIGHT_POINTS];
     ridge(pts, 60.0f, 30.0f);   /* a ridge toward +x, 27 degrees up from the road */
     TerrainLightSun sun;
-    terrain_light_sun_shadowed(LIGHT_SYNTH_DAWN, &sun);   /* 15 degrees, azimuth 0: toward the ridge */
+    terrain_light_sun_shadowed(LIGHT_SYNTH_DAWN, &sun);
+    sun.azimuth = 0.0f;   /* 15 degrees, toward the ridge (the dawn's own default azimuth is another: test_the_default_suns_stand_on_their_own_sides) */
     CHECK(sun.shadow < 1.0f && sun.reach > 80.0f);
     CHECK(terrain_light_make_rows(pts, NODES, 0, LIGHT_SYNTH_DAWN, lit));
     CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_DAWN, &sun, shaded));
@@ -225,6 +226,22 @@ static void test_the_sun_casts_a_shadow_from_a_ridge_toward_it(void)
     sun.azimuth = 3.14159265f;   /* the sun on the other side: the ridge is behind it */
     CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_DAWN, &sun, other));
     CHECK(memcmp(other, lit, sizeof lit) == 0);
+}
+
+/* a light file without a `sun` line: the dawn's, the day's and the dusk's suns stand at their own places (the shadow's side), dawn and dusk on opposite sides, the day's between and high */
+static void test_the_default_suns_stand_on_their_own_sides(void)
+{
+    TerrainLightSun dawn, day, dusk, night;
+    terrain_light_sun_shadowed(LIGHT_SYNTH_DAWN, &dawn), terrain_light_sun_shadowed(LIGHT_SYNTH_DAY, &day), terrain_light_sun_shadowed(LIGHT_SYNTH_DUSK, &dusk);
+    terrain_light_sun_shadowed(LIGHT_SYNTH_NIGHT, &night);
+    const float pi = 3.14159265f;
+    CHECK(fabsf(dawn.azimuth - 0.5f * pi) < 1e-4f && fabsf(dusk.azimuth - 1.5f * pi) < 1e-4f);   /* 90 and 270 degrees: opposite sides */
+    CHECK(fabsf(fabsf(dawn.azimuth - dusk.azimuth) - pi) < 1e-4f);
+    CHECK(fabsf(day.azimuth - pi) < 1e-4f && day.azimuth != dawn.azimuth && day.azimuth != dusk.azimuth);
+    CHECK(day.elevation > dawn.elevation && day.elevation > dusk.elevation);
+    TerrainLightSun plain;
+    terrain_light_sun_default(LIGHT_SYNTH_DAWN, &plain);
+    CHECK(plain.azimuth == 0.0f);   /* the fit's own sun (terrain_light_features, no shadow) is not moved */
 }
 
 static void test_a_sun_without_shadow_or_reach_changes_nothing(void)
@@ -253,6 +270,7 @@ static void test_the_shadow_reaches_further_than_the_sky(void)
     ridge(pts, 300.0f, 150.0f);   /* 300 units out: past the sky's 80, inside the sun's reach */
     TerrainLightSun sun;
     terrain_light_sun_shadowed(LIGHT_SYNTH_DAWN, &sun);
+    sun.azimuth = 0.0f;
     CHECK(terrain_light_make_rows(pts, NODES, 0, LIGHT_SYNTH_DAWN, lit));
     CHECK(terrain_light_make_rows_sun(pts, NODES, 0, LIGHT_SYNTH_DAWN, &sun, far_));
     CHECK(far_[20 * TRACK_NODE_LIGHT_POINTS + 0] < lit[20 * TRACK_NODE_LIGHT_POINTS + 0]);
@@ -551,6 +569,7 @@ int main(void)
     test_the_night_is_dark_on_the_terrain_and_lit_on_the_road();
     test_the_night_has_no_sun_to_cast_shadows();
     test_the_sun_casts_a_shadow_from_a_ridge_toward_it();
+    test_the_default_suns_stand_on_their_own_sides();
     test_a_sun_without_shadow_or_reach_changes_nothing();
     test_the_shadow_reaches_further_than_the_sky();
     test_the_nights_sun_is_the_moon_and_casts_no_shadow();

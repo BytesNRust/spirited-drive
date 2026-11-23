@@ -37,10 +37,11 @@ static char *read_all(const char *path)
 
 static const char FAKE[] =
     "#!/bin/sh\n"
-    "shot= mods= track= ticks=\n"
-    "while [ $# -gt 0 ]; do case $1 in --screenshot) shot=$2; shift;; --mods) mods=$2; shift;; --drive) track=$2; shift;; --node) ticks=$2; shift;; esac; shift; done\n"
+    "shot= mods= track= ticks= user=\n"
+    "while [ $# -gt 0 ]; do case $1 in --screenshot) shot=$2; shift;; --mods) mods=$2; shift;; --user) user=$2; shift;; --drive) track=$2; shift;; --node) ticks=$2; shift;; esac; shift; done\n"
     "if [ -n \"$FAKE_RECORD\" ]; then {\n"
     "  echo \"track=$track ticks=$ticks time=$TNFS_LIGHT_TIME start=$TNFS_START_NODE video=$SDL_VIDEO_DRIVER person=$TNFS_PERSON kept=$KEEP_ME\"\n"
+    "  cat \"$user/restomod.cfg\"\n"
     "  ls \"$mods/track_light\"; cat \"$mods\"/track_light/*.txt; echo ---; cat \"$mods\"/track/*.txt 2>/dev/null\n"
     "  echo \"masks=$TNFS_TRACK_MASKS\"; if [ -n \"$TNFS_TRACK_MASKS\" ]; then ls \"$TNFS_TRACK_MASKS\"/*/*; cat \"$TNFS_TRACK_MASKS\"/*/*.png; echo; fi\n"
     "} > \"$FAKE_RECORD\"; fi\n"
@@ -215,6 +216,7 @@ static void test_job_done(void)
     CHECK(stat(temp, &st) != 0 && job.temp[0] == '\0');   // the scratch folder is gone with the working copy in it
     const char *rec = read_all(record);
     CHECK(strstr(rec, "track=CY1 ticks=4 time=night start=70 video=dummy person= kept=yes") != NULL);   // the person's TNFS_* dropped, their other variables kept
+    CHECK(strstr(rec, "sun_shadow=1\n") != NULL && strstr(rec, "sun_shadow=0") == NULL);   // the sun's cast shadow is on in the picture whatever the profile's default is: a `sun` line shows
     CHECK(strstr(rec, "CY1.txt\n") != NULL);                                                             // the track's one light file, named as the game reads it
     CHECK(strstr(rec, NIGHT_FILE) != NULL && strstr(rec, "---\n") != NULL);
     // a second photo, another time: the serial moves and the picture changes

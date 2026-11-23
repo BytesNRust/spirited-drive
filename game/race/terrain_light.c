@@ -126,6 +126,7 @@ void terrain_light_sun_shadowed(int time, TerrainLightSun *out)
 {
     if (out == NULL) return;
     terrain_light_sun_default(time, out);
+    out->azimuth = time == LIGHT_SYNTH_DAWN ? 1.57079633f : time == LIGHT_SYNTH_DUSK ? 4.71238898f : time == LIGHT_SYNTH_DAY ? 3.14159265f : 0.0f;   /* the shadow's side without a file's `sun` line: dawn and dusk on opposite sides (90 and 270 degrees), the day's between (180) */
     if (time == LIGHT_SYNTH_NIGHT) return;   /* the moon casts no shadow */
     out->shadow = TERRAIN_LIGHT_SUN_SHADOW;
     out->reach = (float)TERRAIN_LIGHT_SUN_REACH;

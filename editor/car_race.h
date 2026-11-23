@@ -148,6 +148,8 @@ int car_race_player_options(const char *user, char *why, size_t why_cap);
  * Restomod on (RACE_LOOK_ON's keys, lamp_halos, shine_soft, reflectors, headlight_beams, sun_shadow). The lines of those keys are taken out of <user>/port.cfg and restomod.cfg
  * (what the person's copy brought, or the file's own), and restomod.cfg ends with the forced ones; the rest of the person's options (the field of view...) stay. 1, or 0 with `why`. */
 int car_race_force_max_look(const char *user, char *why, size_t why_cap);
+/* The same for any `forced` lines (key=value each ending in a newline): their keys are taken out of both files and the lines end restomod.cfg. */
+int car_race_force_lines(const char *user, const char *forced, char *why, size_t why_cap);
 
 /* a scratch folder "<TMPDIR>/studio-race-XXXXXX" with a user/ folder in it: `temp` and `user` filled; 0 with `why` */
 int car_race_temp(char *temp, size_t temp_cap, char *user, size_t user_cap, char *why, size_t why_cap);

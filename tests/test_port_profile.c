@@ -116,6 +116,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.rally_spray, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.snow_fx, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.traffic_halo, 0);   /* Restomod's only */
+    CHECK_EQ_INT(s.sun_shadow, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.rally_dry_lamps, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.shine_soft, 0);   /* Restomod's only */
@@ -146,6 +147,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.rally_spray, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.snow_fx, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.traffic_halo, 0);   /* Restomod's only */
+    CHECK_EQ_INT(s.sun_shadow, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.rally_dry_lamps, 0);   /* Restomod's only */
     CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.shine_soft, 0);   /* Restomod's only */
@@ -175,6 +177,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.rain_grip, 1);   /* the owner: less grip in the rain is Restomod's default */
     CHECK_EQ_INT(s.gauge_light, 5);   /* the owner: the dash's own colours ("Car") are Restomod's default; orange where the car paints none */
     CHECK_EQ_INT(s.traffic_halo, 1);      /* the owner: the traffic's lit headlights keep their halo at night, as the racers' do */
+    CHECK_EQ_INT(s.sun_shadow, 1);        /* the owner (2026-11-23): the sun's cast shadow on by default in Restomod, at every hour (the light file's `sun` line sets it) */
     CHECK_EQ_INT(s.rally_dry_lamps, 1);   /* the owner (2026-11-06): no lamp reflections on a rally's dirt in the rain */
     CHECK_EQ_INT(s.snow_fx, 1);           /* the owner (2026-11-08): "nieve bien" */
     CHECK_EQ_INT(s.rain_v2, 1);   /* the owner: the lighter rain, the storm's thunder, the carriageway reflections */
