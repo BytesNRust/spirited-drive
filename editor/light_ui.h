@@ -14,6 +14,7 @@ enum {
     LIGHT_UI_MSG = 320
 };
 #define LIGHT_UI_SETTLE 0.5   /* seconds from the last change to the photo that follows it */
+#define LIGHT_UI_DRIVE_WRITE 0.1   /* seconds between two writes of the working copy into a running drive's folder */
 
 /* the track combo's entries, in the game's order: "AL1".."TR7"; NULL past LIGHT_UI_TRACKS. TR5 opens with nothing to edit. */
 const char *light_ui_track(int index);
@@ -37,6 +38,7 @@ typedef struct {
     LightDriveJob drive;         /* the test drive's job (light_drive.h): the game in a window of its own, running or last run */
     int weather;                 /* the test drive's weather, 0..LIGHT_DRIVE_WEATHERS-1: kept as light_drive_weather_pref */
     unsigned drive_serial;       /* the edit_serial the running drive's copy was written for */
+    double drive_wrote;          /* the clock of that write: a slider dragged for a second is ten writes, not sixty */
     char error[LIGHT_UI_MSG];    /* why the last Save, select or photo was refused, until the next try; "" for none */
     LightCompare compare;        /* part D: the Before picture or the four times of day beside the photo (light_compare.h) */
 } LightUi;

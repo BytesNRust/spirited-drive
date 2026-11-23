@@ -19,6 +19,7 @@ typedef struct {
     uint64_t started[LIGHT_COMPARE_SLOTS];     /* the key the job in flight was started for */
     int running;                               /* the slot whose game runs, -1 for none */
     int missing[LIGHT_COMPARE_SLOTS];          /* 1: the light folder has no file for that slot's time (a picture cannot be made) */
+    uint64_t settled;                          /* the state (what light_compare_poll was given) every picture was last found current for: while it is the same nothing is formatted or hashed */
     char why[LIGHT_PHOTO_WHY];                 /* the last refusal or failure, "" for none */
     char masks[EXPORT_PATH];   /* the track's mask PNGs of the workspace (flat) the pictures show in front of the game's own; "" for none (set by the App) */
 } LightCompare;
@@ -36,6 +37,6 @@ uint64_t light_compare_key(const char *track, char letter, unsigned node, int vi
 
 /* Every frame: takes the running game's output; when none runs and `main_busy` is 0, starts the first picture of the mode whose key is out of date. `time` is the window's time letter, `node`, `view` and `hud` its
  * photo node, view and HUD. 1 while a game runs or a picture is still due, 0 when every picture is current (or the mode is off). The game and the CD data are the window's. */
-int light_compare_poll(LightCompare *c, const LightTrackSession *s, char time, int node, int view, int hud, const char *game, const char *cd, int main_busy);
+int light_compare_poll(LightCompare *c, const LightTrackSession *s, unsigned edit_serial, char time, int node, int view, int hud, const char *game, const char *cd, int main_busy);
 
 #endif

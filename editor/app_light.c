@@ -226,6 +226,7 @@ void app_light_set_hud(App *a, int hud)
 
 void app_light_touch(App *a)
 {
+    light_track_session_changed(&a->light.session);
     a->light.error[0] = '\0';
     changed(a);
 }
@@ -326,6 +327,8 @@ static void drive_follow(App *a, double now)
         app_light_drive(a);
         return;
     }
+    if (now - ui->drive_wrote < LIGHT_UI_DRIVE_WRITE) return;   // the edit stays due: the next frames after the pause write it
+    ui->drive_wrote = now;
     size_t size = 0;
     char *text = light_track_session_text(&ui->session, &size);
     char why[LIGHT_DRIVE_WHY];
@@ -396,7 +399,7 @@ int app_light_poll(App *a, double now)
     /* the comparison pictures wait for the window's own photo (one game at a time) and for a change to settle */
     const int waiting = ui->photo.state == LIGHT_PHOTO_RUNNING || ui->edit_serial != ui->photo_serial || now - ui->edit_at < LIGHT_UI_SETTLE;
     set_masks(a);
-    return light_compare_poll(&ui->compare, &ui->session, light_ui_time_letter(ui->time), ui->node, ui->view, ui->hud, a->game, a->export_src.cd, waiting);
+    return light_compare_poll(&ui->compare, &ui->session, ui->edit_serial, light_ui_time_letter(ui->time), ui->node, ui->view, ui->hud, a->game, a->export_src.cd, waiting);
 }
 
 void app_light_free(App *a)

@@ -125,13 +125,21 @@ char *light_track_session_text(const LightTrackSession *s, size_t *size)
     return s->has_file ? light_track_format(&s->file, size) : NULL;
 }
 
+void light_track_session_changed(LightTrackSession *s)
+{
+    s->dirty_known = 0;
+}
+
 int light_track_session_dirty(const LightTrackSession *s)
 {
     if (!s->has_file) return 0;
+    if (s->dirty_known) return s->dirty_value;
+    LightTrackSession *keep = (LightTrackSession *)s;   // the kept answer is a cache, not state
     size_t n = 0;
     char *text = light_track_format(&s->file, &n);
     const int same = text != NULL && n == s->loaded_size && memcmp(text, s->loaded, n) == 0;
     free(text);
+    keep->dirty_known = 1, keep->dirty_value = !same;
     return !same;
 }
 
@@ -143,6 +151,7 @@ void light_track_session_revert(LightTrackSession *s)
     if (!light_track_parse(s->loaded, s->loaded_size, s->nodes, &fresh, why, sizeof why)) return;   /* it parsed when it was loaded: keep the copy if it somehow does not */
     light_track_free(&s->file);
     s->file = fresh;
+    s->dirty_known = 0;
 }
 
 unsigned light_track_session_clamp_node(const LightTrackSession *s, long node)
@@ -184,5 +193,7 @@ int light_track_session_save(LightTrackSession *s, char *why, size_t cap)
     free(s->loaded);
     s->loaded = text;
     s->loaded_size = size;
+    s->dirty_known = 1, s->dirty_value = 0;
+    ++s->saves;
     return 1;
 }

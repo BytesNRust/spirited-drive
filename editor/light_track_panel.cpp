@@ -174,7 +174,11 @@ void sun_rows(App *a)
     changed = sun_part("shadow", &s.has_shadow, &s.shadow, 0.0f, 100.0f, "%.0f %%", 55.0f) || changed;
     ImGui::EndGroup();
     if (changed) {
-        if (!s.has_azimuth && !s.has_elevation && !s.has_shadow && !existing) return;
+        if (!s.has_azimuth && !s.has_elevation && !s.has_shadow) {   // everything auto again: the time has no sun line (the generator's own)
+            if (existing && !light_track_remove(&f, time_of(a), LT_SUN, 0, why, sizeof why)) refused(a, why);
+            else if (existing) app_light_touch(a);
+            return;
+        }
         if (light_track_set_sun(&f, time_of(a), &s, why, sizeof why)) app_light_touch(a);
         else refused(a, why);
     }
@@ -410,7 +414,11 @@ void lamp_rows(App *a)
             ImGui::TableSetupColumn("Radius", ImGuiTableColumnFlags_WidthFixed, 80.0f);
             ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
             ImGui::TableHeadersRow();
-            for (int i = 0; i < count; ++i) {
+            // a night file has hundreds of lamps and each row is found by its number in the file: only the rows in view are drawn
+            ImGuiListClipper clipper;
+            clipper.Begin(count, ImGui::GetFrameHeight() + 2.0f * ImGui::GetStyle().CellPadding.y);
+            while (clipper.Step())
+            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
                 LightTrackLamp l;
                 if (!light_track_get_lamp(&f, time_of(a), i, &l)) continue;
                 bool changed = false;

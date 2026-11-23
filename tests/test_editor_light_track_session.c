@@ -73,6 +73,8 @@ static void edit_save(void)
     CHECK(light_track_session_clamp_node(&s, -5) == 0 && light_track_session_clamp_node(&s, 40) == 40 && light_track_session_clamp_node(&s, 4000) == 99);
     LightTrackSun sun = { 1, 1, 1, 100.0, 30.0, 80.0 };
     CHECK(light_track_set_sun(&s.file, LT_TIME_A, &sun, why, sizeof why));
+    CHECK(!light_track_session_dirty(&s));   // the answer is kept until the edit is announced
+    light_track_session_changed(&s);
     CHECK(light_track_session_dirty(&s));
     light_track_session_revert(&s);
     CHECK(!light_track_session_dirty(&s));

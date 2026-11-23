@@ -19,6 +19,8 @@ typedef struct {
     LightTrack file;                      /* the working copy; edit it with light_track_set_*; valid only with has_file */
     char *loaded;                         /* the file's bytes as read or last saved */
     size_t loaded_size;
+    unsigned saves;                       /* counts Saves: the saved file is what Before shows */
+    int dirty_known, dirty_value;         /* light_track_session_dirty's answer, kept until the next change (it formats the whole file): light_track_session_changed drops it */
 } LightTrackSession;
 
 /* Opens <dir>/track_light/<TRACK>.txt for a track of `nodes` nodes. 1 when the folder is a light folder; with no file there, has_file is 0 and `why` says so. 0 with `why` when the
@@ -33,8 +35,10 @@ int light_track_session_check_folder(const char *dir, char *why, size_t cap);
 void light_track_session_path(const LightTrackSession *s, char *out, size_t cap);
 /* The working copy's bytes (malloc'd, NUL-terminated; NULL without a file or out of memory), as the jobs take them. */
 char *light_track_session_text(const LightTrackSession *s, size_t *size);
-/* 1 when the working copy is not what is on disk (the bytes differ). */
+/* 1 when the working copy is not what is on disk (the bytes differ). Asked every frame by the title and the Save button: the answer is kept until light_track_session_changed. */
 int light_track_session_dirty(const LightTrackSession *s);
+/* The working copy changed (an edit through light_track.h, a Revert): the kept answer of Dirty is dropped. */
+void light_track_session_changed(LightTrackSession *s);
 /* The working copy goes back to what was read or last saved. */
 void light_track_session_revert(LightTrackSession *s);
 /* A node of the photo kept inside the road: 0 .. nodes-1 (0 without a file). */

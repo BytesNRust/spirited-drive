@@ -100,7 +100,7 @@ static int start_slot(LightCompare *c, const LightTrackSession *s, char time, in
     return result;
 }
 
-int light_compare_poll(LightCompare *c, const LightTrackSession *s, char time, int node, int view, int hud, const char *game, const char *cd, int main_busy)
+int light_compare_poll(LightCompare *c, const LightTrackSession *s, unsigned edit_serial, char time, int node, int view, int hud, const char *game, const char *cd, int main_busy)
 {
     if (c->running >= 0) {
         LightPhotoJob *job = &c->job[c->running];
@@ -111,7 +111,14 @@ int light_compare_poll(LightCompare *c, const LightTrackSession *s, char time, i
     }
     if (c->mode == LIGHT_COMPARE_OFF || !s->has_file) return 0;
     if (main_busy) return 1;
+    /* a picture's key hashes the whole file: it is worked out only when something that changes it did (an edit, a Save, the time, node, view, HUD or mode) */
+    uint64_t state = 1469598103934665603ull;
+    state = mix(state, &edit_serial, sizeof edit_serial), state = mix(state, &s->saves, sizeof s->saves), state = mix(state, &time, 1);
+    state = mix(state, &node, sizeof node), state = mix(state, &view, sizeof view), state = mix(state, &hud, sizeof hud), state = mix(state, &c->mode, sizeof c->mode);
+    if (state == 0) state = 1;
+    if (c->settled == state) return 0;
     for (int slot = 0; slot < light_compare_count(c->mode); ++slot)
         if (start_slot(c, s, time, slot, node, view, hud, game, cd) == 1) return 1;
+    c->settled = state;
     return 0;
 }
