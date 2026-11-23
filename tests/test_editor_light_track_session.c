@@ -102,7 +102,7 @@ static void under_original_folder(void)
     CHECK(!light_track_session_open(&s, dir, "CY1", 100, why, sizeof why) && strstr(why, "original") != NULL);
 }
 
-/* the TRI's node count is the `nodes` of the old light files (data/track_light/<TRACK>A.txt): `track CY1 time B nodes 1920 flags 3ff` */
+/* the TRI's node count is what the track's file is read against: the 15 tracks' files of data/track_light/<TRACK>.txt parse over it with no line the game would refuse */
 static void nodes_of_the_tri(const char *repo, const char *cd)
 {
     static const char *const TRACKS[] = { "AL1", "AL2", "AL3", "CL1", "CL2", "CL3", "CY1", "CY2", "CY3", "TR1", "TR2", "TR3", "TR4", "TR6", "TR7" };
@@ -114,14 +114,17 @@ static void nodes_of_the_tri(const char *repo, const char *cd)
     }
     for (size_t i = 0; i < sizeof TRACKS / sizeof *TRACKS; i++) {
         char path[900];
-        snprintf(path, sizeof path, "%s/data/track_light/%sA.txt", repo, TRACKS[i]);
+        snprintf(path, sizeof path, "%s/data/track_light/%s.txt", repo, TRACKS[i]);
         size_t size = 0;
         char *text = slurp(path, &size);
-        const char *at = text != NULL ? strstr(text, " nodes ") : NULL;
-        unsigned want = at != NULL ? (unsigned)strtoul(at + 7, NULL, 10) : 0, got = 0;
-        CHECK(want > 0 && original_track_nodes(cd, TRACKS[i], &got, why, sizeof why));
-        if (got != want) fprintf(stderr, "%s: the TRI says %u nodes, the file %u\n", TRACKS[i], got, want);
-        CHECK(got == want);
+        unsigned got = 0;
+        CHECK(text != NULL && original_track_nodes(cd, TRACKS[i], &got, why, sizeof why) && got > 0);
+        LightTrack file;
+        CHECK(text != NULL && light_track_parse(text, size, got, &file, why, sizeof why));
+        if (text != NULL) {
+            CHECK(light_track_first_bad(&file) == 0);
+            light_track_free(&file);
+        }
         free(text);
     }
     unsigned n = 0;
