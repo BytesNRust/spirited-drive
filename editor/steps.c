@@ -23,8 +23,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "print-tunnels", "tunnel-lamps", "sun", "light-print", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 2, 3, 0, 0, 1, 0, 4, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "light-tone", "light-lamp", "light-remove", "print-tunnels", "tunnel-lamps", "sun", "light-print", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 2, 3, 0, 0, 1, 0, 4, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -415,6 +415,33 @@ static int at_once(App *a, const char *name, const double *arg)
         const LightTrackBrightness b = { node, node + 50 < last ? node + 50 : last, (unsigned)arg[0], LT_ALL_POINTS };
         char why[LT_WHY];
         if (!light_track_set_brightness(f, a->light.time, -1, &b, why, sizeof why)) return fprintf(stderr, "light-bright: %s\n", why), 0;
+        return app_light_touch(a), 1;
+    }
+    if (strncmp(name, "light-tone:", 11) == 0) {   /* light-tone:G: the Add tone button at the open node, the road's strip, a grey of level G (0..255) at 60 % */
+        LightTrack *f = &a->light.session.file;
+        const unsigned node = (unsigned)a->light.node, last = a->light.session.nodes - 1;
+        LightTrackTone t;
+        memset(&t, 0, sizeof t);
+        t.from = node, t.to = node + 20 < last ? node + 20 : last, t.mask = LT_STRIP_ROAD, t.percent = 60;
+        snprintf(t.colour, sizeof t.colour, "%02x%02x%02x", (unsigned)arg[0] & 255, (unsigned)arg[0] & 255, (unsigned)arg[0] & 255);
+        char why[LT_WHY];
+        if (!light_track_set_tone(f, a->light.time, -1, &t, why, sizeof why)) return fprintf(stderr, "light-tone: %s\n", why), 0;
+        return app_light_touch(a), 1;
+    }
+    if (strncmp(name, "light-lamp:", 11) == 0) {   /* light-lamp:P: the Add lamp button at the open node, its light P percent */
+        LightTrack *f = &a->light.session.file;
+        LightTrackLamp l;
+        memset(&l, 0, sizeof l);
+        l.node = (unsigned)a->light.node, l.percent = (unsigned)arg[0];
+        char why[LT_WHY];
+        if (!light_track_set_lamp(f, a->light.time, -1, &l, why, sizeof why)) return fprintf(stderr, "light-lamp: %s\n", why), 0;
+        return app_light_touch(a), 1;
+    }
+    if (strncmp(name, "light-remove:", 13) == 0) {   /* light-remove:K: the Remove button of the first line of kind K (0 brightness, 1 tone, 2 lamp) of the time shown */
+        static const int KIND[3] = { LT_BRIGHTNESS, LT_TONE, LT_LAMP };
+        char why[LT_WHY];
+        const int kind = (int)arg[0];
+        if (kind < 0 || kind > 2 || !light_track_remove(&a->light.session.file, a->light.time, KIND[kind], 0, why, sizeof why)) return fprintf(stderr, "light-remove: %s\n", kind < 0 || kind > 2 ? "no such kind" : why), 0;
         return app_light_touch(a), 1;
     }
     if (strcmp(name, "light-drive") == 0) return app_light_drive(a);   /* the Track light window's Test drive button */

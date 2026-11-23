@@ -54,6 +54,27 @@ grep -q '^brightness 0 5 120$' "$work/data/track_light/CL1.txt" || fail "data/ d
 echo "$out" | grep -q '^status: copied to the game repo: 1 file written' || fail "the status says what was written: $out"
 [ "$(grep -c brightness "$work/data/track_light/AL1.txt")" = 0 ] || fail "an untouched file was changed"
 
+# the whole light flow of a user, on CL1: open it, change the sun, a brightness line, a tone, a lamp and a tunnel's look, Save, open it again (the lines are there), take a tone away,
+# Save, Copy to the game repo: data/ gets the edited file, line for line what the workspace has, and no other track's file changes
+: > "$work/ws/tracks/CL1/light/track_light/CL1.txt"
+printf '# tnfs track light 2\ntrack CL1\ntunnel 10 20\n\ntime B\n  sun 150 50 55\n  tunnel_look 100\n' > "$work/ws/tracks/CL1/light/track_light/CL1.txt"
+before=$(cksum < "$work/ws/tracks/CL1/light/track_light/CL1.txt")
+out=$(run --frames 60 --steps open-original:3,sun:120,30,70,light-bright:50,light-tone:64,light-lamp:150,tunnel-lamps:0,200,light-print,save,light-print 2>&1) || fail "user flow, edit: $out"
+echo "$out" | grep -q '^light: CL1 nodes [0-9]* time B (unsaved) tunnels 1 looks 2 lamps 1 brightness 1 tones 1 .*sun 120 30 70$' || fail "the edits are not in the window's model: $(echo "$out" | grep '^light:')"
+echo "$out" | grep '^light:' | tail -1 | grep -q '(unsaved)' && fail "Save left the unsaved mark: $(echo "$out" | grep '^light:')"
+f=$work/ws/tracks/CL1/light/track_light/CL1.txt
+for line in '  sun 120 30 70' '  lamp 0 150' '  tone 0 20 road 404040:60' '  tunnel_look 10 20 lamps 200' ; do grep -q "^$line" "$f" || fail "Save did not write '$line': $(cat "$f")"; done
+grep -q '^  brightness 0 50 50' "$f" || fail "Save did not write the brightness line: $(cat "$f")"
+[ "$(cksum < "$f")" != "$before" ] || fail "Save changed nothing"
+out=$(run --frames 60 --steps open-original:3,light-print,light-remove:1,light-print,save,light-print 2>&1) || fail "user flow, reopen: $out"
+echo "$out" | grep '^light:' | head -1 | grep -q 'lamps 1 brightness 1 tones 1 ' || fail "the saved lines were not read back when the track was opened again: $(echo "$out" | grep '^light:')"
+echo "$out" | grep '^light:' | tail -1 | grep -q 'brightness 1 tones 0 ' || fail "Remove did not take the tone away: $(echo "$out" | grep '^light:')"
+grep -q '^  tone ' "$f" && fail "the removed tone is still in the file: $(cat "$f")"
+out=$(run --frames 60 --steps open-original:3,repo-ask,print-original,repo-copy 2>&1) || fail "user flow, copy: $out"
+echo "$out" | grep -q 'track_light/CL1.txt changed' || fail "the preview does not name the edited file: $out"
+cmp -s "$f" "$work/data/track_light/CL1.txt" || fail "data/ does not have the edited file, line for line: $(cat "$work/data/track_light/CL1.txt")"
+[ "$(grep -c '^  sun\|lamp' "$work/data/track_light/AL1.txt")" = 0 ] || fail "another track's file was changed"
+
 # the masks: PSDs make the PNGs when the track opens (never from an empty mask layer); the panel's rows say the state
 # the test drive in the Track light window (light tuning design, piece 1): the game in a window beside Studio, the working copy in front of the files, weather and stop
 cat > "$work/live_game" <<'SH'

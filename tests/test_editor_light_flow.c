@@ -403,6 +403,15 @@ static void test_drive_flow(void)
     char *copy = read_file(scratch_file, &n);
     CHECK(copy != NULL && strstr(copy, "brightness 100 110 70") != NULL);
     free(copy);
+    // Save while the drive runs: the file on disk is what the drive was given, and the mark is gone
+    CHECK(app_light_save(a) && !app_modified(a) && app_light_drive_running(a));
+    snprintf(disk_file, sizeof disk_file, "%s/track_light/CY1.txt", light);
+    size_t saved_n = 0, copy_n = 0;
+    char *saved = read_file(disk_file, &saved_n);
+    copy = read_file(scratch_file, &copy_n);
+    CHECK(saved != NULL && copy != NULL && saved_n == copy_n && memcmp(saved, copy, saved_n) == 0);
+    free(saved);
+    free(copy);
     CHECK(a->light.photo.state != LIGHT_PHOTO_RUNNING);
     now += LIGHT_UI_SETTLE + 1;
     CHECK(app_light_poll(a, now) == 0 && a->light.photo.state != LIGHT_PHOTO_RUNNING && app_light_drive_running(a));   // the photo waits for the game to be free
