@@ -4,12 +4,15 @@ tunnel 0 15
 tunnel 1016 1023
 
 time A
+  sun 63 - -
   tunnel_look 67.333335 1/0.8/0.15
 
 time B
+  sun 63 - -
   tunnel_look 100 1/0.8/0.15
 
 time C
+  sun 63 - -
   tunnel_look 63.000005 1/0.8/0.15
 
 time N

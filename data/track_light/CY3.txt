@@ -10,6 +10,7 @@ time B
   tunnel_look 115 1/0.68/0.28
 
 time C
+  sun -28 - -
   tunnel_look 72.450005 1/0.68/0.28
 
 time N

@@ -1,2 +1,8 @@
 # tnfs track light 2
 track TR1
+
+time A
+  sun 79 - -
+
+time C
+  sun -67 - -
