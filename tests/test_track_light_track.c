@@ -43,7 +43,7 @@ static const char FILE_TEXT[] =
     "time N\n"
     "  sun - 10 -\n"
     "  tunnel_look 115\n"
-    "  lamp 130 150 ff2000:80 8\n"
+    "  lamp 130 150 ff2000:80 8 left\n"
     "  brightness 852 943 60 left\n"
     "  brightness 10 20 50 p2 p4\n"
     "  tone 30 40 road ffe080:50\n"
@@ -87,6 +87,24 @@ static void test_the_facts_and_a_time(void)
     track_light_file_free(&f);
 }
 
+/* a lamp's strip: after the colour and the radius, each optional; no strip is mask 0 (the lamp stands where it always did) */
+static void test_a_lamps_strip(void)
+{
+    static const char TEXT[] = "track CY1\ntime A\n  lamp 5 100\n  lamp 6 100 right\n  lamp 7 100 8 p2 p4\n  lamp 8 100 ff0000 road\n  lamp 9 100 ff0000:50 3 p6\n";
+    TrackLightFile f;
+    CHECK(parse(TEXT, 'A', &f, NULL));
+    CHECK_EQ_INT(f.tweaks.lamp_count, 5);
+    CHECK_EQ_INT(f.tweaks.lamps[0].mask, 0);
+    CHECK_EQ_INT(f.tweaks.lamps[1].mask, 0x03e);
+    CHECK_EQ_INT(f.tweaks.lamps[2].mask, 0x01c);
+    CHECK_EQ_INT(f.tweaks.lamps[2].radius, 8);
+    CHECK_EQ_INT(f.tweaks.lamps[3].mask, 0x043);
+    CHECK(f.tweaks.lamps[3].coloured);
+    CHECK_EQ_INT(f.tweaks.lamps[4].mask, 0x040);
+    CHECK_EQ_INT(f.tweaks.lamps[4].radius, 3);
+    track_light_file_free(&f);
+}
+
 static void test_the_night_block(void)
 {
     TrackLightFile f;
@@ -94,6 +112,8 @@ static void test_the_night_block(void)
     CHECK(f.sun.has && !f.sun.has_azimuth && f.sun.has_elevation && f.sun.elevation == 10.0 && !f.sun.has_shadow && !f.sun.has_reach);
     CHECK(f.tweaks.look_has_light && f.tweaks.look_light == 115.0 && !f.tweaks.look_has_colour);
     CHECK_EQ_INT(f.tweaks.lamp_count, 1);
+    CHECK_EQ_INT(f.tweaks.lamps[0].mask, 0x7c0);   /* the lamp's strip: left */
+    CHECK_EQ_INT(f.tweaks.lamps[0].radius, 8);
     CHECK_EQ_INT(f.tweaks.brightness_count, 2);
     CHECK_EQ_INT(f.tweaks.brightness[0].mask, 0x7c0);   /* left: p6..p10 */
     CHECK_EQ_INT(f.tweaks.brightness[1].mask, 0x01c);   /* p2 p4: the points 2..4 */
@@ -147,7 +167,10 @@ static void test_bad_lines(void)
         { "track CY1\ntime A\n  brightness 1 2 50 shade\n", 3 },                       /* no `shade` */
         { "track CY1\ntime A\n  brightness 1 2 50 p5 p3\n", 3 },                       /* a strip backwards */
         { "track CY1\ntime A\n  brightness 1 2 50 p11\n", 3 },                         /* a point out of the row */
-        { "track CY1\ntime A\n  lamp 5 100 right\n", 3 },                              /* a lamp's strip is not read yet */
+        { "track CY1\ntime A\n  lamp 5 100 p5 p3\n", 3 },                              /* a lamp's strip backwards */
+        { "track CY1\ntime A\n  lamp 5 100 p11\n", 3 },                                /* a point out of the row */
+        { "track CY1\ntime A\n  lamp 5 100 left right\n", 3 },                         /* one strip a lamp */
+        { "track CY1\ntime A\n  lamp 5 100 left 8\n", 3 },                             /* the strip is the last word */
         { "track CY1\ntime A\n  canyon 1 5\n", 3 },                                    /* the old words are gone */
         { "track CY1\ntime A\n  car_tone ff0000:50\n", 3 },
         { "track CY1\ntime A\ntime A\n", 3 },                                          /* a time once */
@@ -291,6 +314,7 @@ int main(void)
 {
     test_the_facts_and_a_time();
     test_the_night_block();
+    test_a_lamps_strip();
     test_a_brightness_strip_scales_its_points();
     test_a_time_without_a_block_and_another_track();
     test_bad_lines();

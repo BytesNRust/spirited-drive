@@ -516,8 +516,27 @@ static void test_pools_on_a_reversed_track_sit_where_the_lamps_are_now(void)
     track_node_light_free(&cd);
 }
 
+/* a lamp's strip stands at the mean place of its points: the road's centre for point 0, the left chain's points on the left; no strip, the centre */
+static void test_a_strip_centre_is_the_mean_of_its_points(void)
+{
+    LightPos pts[TRACK_NODE_LIGHT_POINTS];
+    for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) pts[p] = (LightPos){ p == 0 ? 0.0f : p <= 5 ? (float)p * 2.0f : -(float)(p - 5) * 2.0f, 0.0f, 100.0f };
+    float x = 99.0f, z = 99.0f;
+    terrain_light_strip_centre(pts, 0, &x, &z);
+    CHECK(x == 0.0f && z == 100.0f);   /* no strip: the centre */
+    terrain_light_strip_centre(pts, 1u << 3, &x, &z);
+    CHECK(x == 6.0f && z == 100.0f);
+    terrain_light_strip_centre(pts, 0x03e, &x, &z);   /* right: points 1..5, x 2 4 6 8 10 */
+    CHECK(x == 6.0f);
+    terrain_light_strip_centre(pts, 0x7c0, &x, &z);   /* left: points 6..10 */
+    CHECK(x == -6.0f);
+    terrain_light_strip_centre(pts, 0x043, &x, &z);   /* road: p0 p1 p6 = 0, 2, -2 */
+    CHECK(x == 0.0f);
+}
+
 int main(void)
 {
+    test_a_strip_centre_is_the_mean_of_its_points();
     test_car_shade_follows_the_pool();
     test_pools_on_a_reversed_track_sit_where_the_lamps_are_now();
     test_pools_go_over_a_light_the_cd_gave();

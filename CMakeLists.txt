@@ -1805,6 +1805,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(track_light_fingerprint PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         add_test(NAME sun_shadow_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/sun_shadow_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(sun_shadow_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
+        add_test(NAME lamp_strip_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lamp_strip_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+        set_tests_properties(lamp_strip_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME sky_glow_heading COMMAND sh ${CMAKE_SOURCE_DIR}/tests/sky_glow_heading.sh $<TARGET_FILE:sky_glow> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(sky_glow_heading PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
         # dep59 step 5 (T7g): a whole race on an added track from the menus, to its results

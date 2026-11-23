@@ -222,7 +222,7 @@ static void test_shoulder_light(void)
 /* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
 static void test_radial_lamps(void)
 {
-    TrackNodeLightLamp lamps[3] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f }, 0, { 0, 0 }, 0 }, { 14, 24.0f, 0.0f, 30.0f, { 1.0f, 0.0f, 0.0f }, 0, { 0, 0 }, 0 }, { 100, 600.0f, 0.0f, 30.0f, { 1, 1, 1 }, 0, { 0, 0 }, 0 } };
+    TrackNodeLightLamp lamps[3] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f }, 0, { 0, 0 }, 0, 0 }, { 14, 24.0f, 0.0f, 30.0f, { 1.0f, 0.0f, 0.0f }, 0, { 0, 0 }, 0, 0 }, { 100, 600.0f, 0.0f, 30.0f, { 1, 1, 1 }, 0, { 0, 0 }, 0, 0 } };
     TrackNodeLight l = { 0 };
     l.nodes = 128, l.lamps = lamps, l.lamp_n = 3, l.lamp_reach_nodes = 5, l.lamp_placed = 1;
     int idx[8];
@@ -233,7 +233,7 @@ static void test_radial_lamps(void)
     CHECK_EQ_INT(track_node_light_lamps_near(&l, none, idx, 8), 0);
     const uint32_t nowhere[4] = { TRACK_NODE_LIGHT_NO_NODE, 0, 0, 0 };
     CHECK_EQ_INT(track_node_light_lamps_near(&l, nowhere, idx, 8), 0);
-    TrackNodeLightLamp edge[1] = { { 2, 0.0f, 0.0f, 30.0f, { 1, 1, 1 }, 0, { 0, 0 }, 0 } };   /* a ring: the lamp at 2 is 5 nodes from node 125 across the seam */
+    TrackNodeLightLamp edge[1] = { { 2, 0.0f, 0.0f, 30.0f, { 1, 1, 1 }, 0, { 0, 0 }, 0, 0 } };   /* a ring: the lamp at 2 is 5 nodes from node 125 across the seam */
     TrackNodeLight r = { 0 };
     r.nodes = 128, r.lamps = edge, r.lamp_n = 1, r.lamp_reach_nodes = 5, r.lamp_ring = 1;
     const uint32_t seam[4] = { 125, 125, 126, 126 };
@@ -261,7 +261,7 @@ static void test_radial_lamps(void)
     track_node_light_lamp_car(&l, 10, 0.0, 0.0, bright);
     CHECK(bright[0] <= 2.0f);   /* the old pool's ceiling */
     /* a tunnel lamp lifts the car to full light at most (the between-lamps level up to the lit one), not to the street lamp's ceiling; a car already above it is left */
-    TrackNodeLightLamp tl[1] = { { 10, 0.0f, 0.0f, 30.0f, { 5.0f, 4.0f, 2.5f }, 1, { 0, 0 }, 0 } };
+    TrackNodeLightLamp tl[1] = { { 10, 0.0f, 0.0f, 30.0f, { 5.0f, 4.0f, 2.5f }, 1, { 0, 0 }, 0, 0 } };
     TrackNodeLight t = { 0 };
     t.nodes = 128, t.lamps = tl, t.lamp_n = 1, t.lamp_reach_nodes = 5, t.lamp_placed = 1;
     float under[3] = { 0.75f, 0.75f, 0.75f };
@@ -276,7 +276,7 @@ static void test_radial_lamps(void)
 /* a lamp with a reach of its own along the road (a tunnel's: `reach_along`, `along` the road's direction) is an ellipse: short along the road, its reach across */
 static void test_lamp_shaped_along_the_road(void)
 {
-    TrackNodeLightLamp lamps[1] = { { 10, 0.0f, 0.0f, 30.0f, { 1, 1, 1 }, 1, { 0.0f, 1.0f }, 10.0f } };
+    TrackNodeLightLamp lamps[1] = { { 10, 0.0f, 0.0f, 30.0f, { 1, 1, 1 }, 1, { 0.0f, 1.0f }, 10.0f, 0 } };
     TrackNodeLight l = { 0 };
     l.nodes = 128, l.lamps = lamps, l.lamp_n = 1, l.lamp_reach_nodes = 5, l.lamp_placed = 1;
     const int one[1] = { 0 };
@@ -295,7 +295,7 @@ static void test_lamp_shaped_along_the_road(void)
 /* an object beside a lamp: raised to what the lamp gives at its own place, less what the rows' bake already put on its terrain's points (not added twice) */
 static void test_object_lamp(void)
 {
-    TrackNodeLightLamp lamp[1] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f }, 0, { 0, 0 }, 0 } };
+    TrackNodeLightLamp lamp[1] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f }, 0, { 0, 0 }, 0, 0 } };
     static uint8_t lift[128 * TRACK_NODE_LIGHT_POINTS];
     TrackNodeLight l = { 0 };
     l.nodes = 128, l.lamps = lamp, l.lamp_n = 1, l.lamp_reach_nodes = 5, l.lamp_placed = 1;

@@ -334,6 +334,16 @@ int terrain_light_tri_points(const Tri *tri, LightPos *out)
     return 1;
 }
 
+void terrain_light_strip_centre(const LightPos *points, unsigned mask, float *x, float *z)
+{
+    float sx = 0.0f, sz = 0.0f;
+    int n = 0;
+    for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++)
+        if (mask & (1u << p)) sx += points[p].x, sz += points[p].z, n++;
+    if (n == 0) sx = points[0].x, sz = points[0].z, n = 1;
+    *x = sx / (float)n, *z = sz / (float)n;
+}
+
 int terrain_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int lamps, TrackNodeLight *out)
 {
     return terrain_light_make_lit_sun(tri, time, NULL, lamp_nodes, lamps, out);

@@ -93,20 +93,49 @@ static int take_look(TrackLightTweaks *tweaks, int has_light, double light, int 
  * decimal digits), each optional, in that order */
 static int parse_sun(const char *rest, TrackLightTweaks *tweaks);
 
+/* a lamp line's STRIP, its first word `word` and the rest of the line at `*rest`: right, left, road or all; or `pA pB` / `pA` (points 0..10, A not above B). Returns 1 when `word` begins a strip, its points in `*mask`
+ * (0 for a malformed one: a point out of the row, B before A), and moves `*rest` past the strip's second word */
+static int lamp_strip_word(const char *word, const char **rest, uint16_t *mask)
+{
+    *mask = 0;
+    if (strcmp(word, "all") == 0) return *mask = 0x7ff, 1;
+    if (strcmp(word, "left") == 0) return *mask = 0x7c0, 1;
+    if (strcmp(word, "right") == 0) return *mask = 0x03e, 1;
+    if (strcmp(word, "road") == 0) return *mask = 0x043, 1;
+    unsigned a, b;
+    char tail;
+    if (word[0] != 'p' || sscanf(word + 1, "%u%c", &a, &tail) != 1) return 0;
+    if (a > 10) return 1;
+    char next[32];
+    int used = 0;
+    b = a;
+    if (sscanf(*rest, "%31s%n", next, &used) == 1 && next[0] == 'p' && sscanf(next + 1, "%u%c", &b, &tail) == 1) {
+        *rest += used;
+        if (b > 10 || b < a) return 1;
+    } else {
+        b = a;
+    }
+    for (unsigned p = a; p <= b; p++) *mask |= (uint16_t)(1u << p);
+    return 1;
+}
+
 static int parse_lamp(const char *rest, uint32_t nodes, TrackLightTweaks *tweaks)
 {
     unsigned node, percent;
     int used = 0;
     if (sscanf(rest, "%u %u%n", &node, &percent, &used) != 2 || node >= nodes || percent < 1 || percent > TRACK_LIGHT_MAX_LAMP_PERCENT || tweaks->lamp_count >= TRACK_LIGHT_MAX_LAMPS) return 0;
     rest += used;
-    TrackLightLamp lamp = { node, (uint16_t)percent, TRACK_NODE_LIGHT_LAMP_RADIUS, 0, 100, { 0, 0, 0 } };
+    TrackLightLamp lamp = { node, (uint16_t)percent, TRACK_NODE_LIGHT_LAMP_RADIUS, 0, 100, { 0, 0, 0 }, 0 };
     int have_radius = 0;
     char token[32];
     while (sscanf(rest, "%31s%n", token, &used) == 1) {
         rest += used;
         const size_t len = strlen(token);
         char *end = NULL;
-        if (len >= 6 && !lamp.coloured && !have_radius) {   /* the colour: RRGGBB or RRGGBB:strength */
+        if (lamp.mask != 0) return 0;   /* the strip is the last word of the line */
+        if (lamp_strip_word(token, &rest, &lamp.mask)) {
+            if (lamp.mask == 0) return 0;
+        } else if (len >= 6 && !lamp.coloured && !have_radius) {   /* the colour: RRGGBB or RRGGBB:strength */
             char hex[7] = { 0 };
             memcpy(hex, token, 6);
             const unsigned long rgb = strtoul(hex, &end, 16);
@@ -379,6 +408,7 @@ static void apply_lamps(const TrackLightTweaks *tweaks, TrackNodeLight *light, i
     for (int i = 0; i < tweaks->lamp_count; i++) {
         const TrackLightLamp *lamp = &tweaks->lamps[i];
         list[i].node = lamp->node;
+        list[i].strip = lamp->mask;
         list[i].reach = (float)lamp->radius;   /* in nodes until track_node_light_lamps_place turns it into metres */
         lamp_colour(lamp, list[i].rgb);
         reach = lamp->radius > reach ? lamp->radius : reach;

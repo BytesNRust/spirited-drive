@@ -110,6 +110,8 @@ int terrain_light_forest_apply(TrackNodeLight *light, const char *track);
 
 /* The terrain's points of a track, node_count * TRACK_NODE_LIGHT_POINTS of them, into `out` (the track's units: 16.16 fixed point scaled to 1 = a unit). 1 on success. */
 int terrain_light_tri_points(const Tri *tri, LightPos *out);
+/* the mean place (x, z) of the points of `mask` (bit k = point k of the 11 `points` of one node); the road's centre (point 0) when the mask is 0 */
+void terrain_light_strip_centre(const LightPos *points, unsigned mask, float *x, float *z);
 
 /* A TrackNodeLight of the track's terrain (the data owned: track_node_light_free). 1 on success, else 0 and `out` is untouched. */
 int terrain_light(const Tri *tri, int time, TrackNodeLight *out);

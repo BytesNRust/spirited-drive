@@ -25,8 +25,8 @@ typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightTon
 /* a `tunnel a b [light] [colour | lit]` line: lit, a hall (a tunnel with a lot of light, lit by its own lamps); else the zone's own look when the line gives a light and / or a colour (what it leaves out is the
  * time's tunnel_tone's), which is a tone slot (`tone`: its number, or -1 when the look is the time's) once the file is read. `line` is the line's number, for the slot that does not fit. */
 typedef struct { uint32_t from, to; int lit; int has_light, has_colour; double light; float cast[3]; int line; int tone; } TrackLightZone;
-/* a `lamp` line: the lamp's node, its light in percent (1..TRACK_LIGHT_MAX_LAMP_PERCENT), its radius in nodes, and its colour (the warm street lamp's when `coloured` is 0; else rgb mixed toward the warm by 100 - strength percent) */
-typedef struct { uint32_t node; uint16_t percent; uint8_t radius; uint8_t coloured, strength; uint8_t rgb[3]; } TrackLightLamp;
+/* a `lamp` line: the lamp's node, its light in percent (1..TRACK_LIGHT_MAX_LAMP_PERCENT), its radius in nodes, and its colour (the warm street lamp's when `coloured` is 0; else rgb mixed toward the warm by 100 - strength percent), and its STRIP (`mask`: bit k = row point k; 0 none: the lamp stands at a scenery post, else the node's centre) */
+typedef struct { uint32_t node; uint16_t percent; uint8_t radius; uint8_t coloured, strength; uint8_t rgb[3]; uint16_t mask; } TrackLightLamp;
 typedef struct {
     TrackLightBrightness brightness[TRACK_LIGHT_MAX_BRIGHT];
     int brightness_count;

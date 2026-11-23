@@ -6,7 +6,7 @@
  *   time A|B|C|N                                                                       a time's block runs to the next `time`
  *   sun AZ EL SHADOW                      degrees, degrees, percent of light left in full shadow; a part may be `-` (the generator's)
  *   tunnel_look [A B] [LIGHT] [COLOUR] [lamps S [COLOUR]] [reach R]
- *   lamp NODE PERCENT [COLOUR[:S]] [RADIUS]     (a STRIP after the radius is not read yet: a bad line)
+ *   lamp NODE PERCENT [COLOUR[:S]] [RADIUS]     (STRIP: the last word, where across the road it stands)
  *   brightness A B PERCENT [STRIP] | tone A B [STRIP] RRGGBB:PERCENT | rows A B p0..p10
  *
  * STRIP: `pA pB` (the points A..B of the row, inclusive), `pA`, or `left` (p6..p10), `right` (p1..p5), `road` (p0 p1 p6), `all` (p0..p10). */

@@ -426,6 +426,22 @@ static void warm_looks(TrackNodeLight *made)
 
 static void bake_lamps(const Tri *tri, TrackNodeLight *made);
 
+/* port (`lamp` STRIP): a lamp with a strip stands at the mean place of the strip's points at its node (over the scenery post, which it does not need) */
+static void place_stripped_lamps(const Tri *tri, TrackNodeLight *made)
+{
+    int any = 0;
+    for (int i = 0; i < made->lamp_n; i++) any |= made->lamps[i].strip != 0 && !made->lamps[i].tunnel;
+    if (!any) return;
+    LightPos *const points = calloc((size_t)tri->node_count * TRACK_NODE_LIGHT_POINTS, sizeof *points);
+    if (points == NULL) return;
+    if (terrain_light_tri_points(tri, points))
+        for (int i = 0; i < made->lamp_n; i++) {
+            TrackNodeLightLamp *const l = &made->lamps[i];
+            if (l->strip != 0 && !l->tunnel && l->node < tri->node_count) terrain_light_strip_centre(&points[(size_t)l->node * TRACK_NODE_LIGHT_POINTS], l->strip, &l->x, &l->z);
+        }
+    free(points);
+}
+
 /* port (`lamp`): where each of the file's lamps stands in the world, in metres. A lamp line that matches a street lamp post (a scenery of the lamp boards at its node) is where the post is; else it is at
  * the node's centre. The reach, which the file gives in nodes, becomes metres by the road's own spacing there. */
 static void place_lamps(const Tri *tri, TrackNodeLight *made)
@@ -450,6 +466,7 @@ static void place_lamps(const Tri *tri, TrackNodeLight *made)
             if (!post[i] && made->lamps[i].node == o.node) post[i] = 1, made->lamps[i].x = (float)(o.origin.x / 65536.0), made->lamps[i].z = (float)(o.origin.z / 65536.0);
     }
     free(post);
+    place_stripped_lamps(tri, made);
     made->lamp_placed = 1;
     bake_lamps(tri, made);
     port_log("lamps: %d placed (first node %u at %.1f, %.1f, reach %.1f m)\n", made->lamp_n, made->lamps[0].node, made->lamps[0].x, made->lamps[0].z, made->lamps[0].reach);
