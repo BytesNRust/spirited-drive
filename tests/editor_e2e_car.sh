@@ -114,5 +114,27 @@ if [ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ]; the
     grep -q '^race end: Stopped.' "$work/log" || fail "Stop did not end the game of the 911: $(grep '^race' "$work/log")"
 fi
 
+# 7. LDIABL, whose kit card lists more colours (8) than the game's table holds: Copy to game repo no longer refuses. It writes the dash (and masks),
+# says the colours are not compared, and leaves core/formats/car_paint.c as it was. The repo has the layout Copy needs (data/ with core/formats/car_paint.c beside it)
+ldir=LDiabl   # the car masks folder; the dash folder is LDIABL
+if [ -r "$orig/SIMDATA/CARFAMS/LDIABL.CFM" ] && [ -d "$data/car_masks/$ldir" ] && [ -d "$data/dash_masks/LDIABL" ]; then
+    repo3="$work/repo3"
+    studio --export-car LDiabl --into "$work/cars" --cd "$orig" --port-data "$data" --frames 1 || fail "Export original car of the Diablo: $(cat "$work/log")"
+    dia=$(ls -d "$work"/cars/*iab* 2>/dev/null | head -n 1)
+    [ -f "$dia/mod.ini" ] || { fail "the Diablo's export is not a kit: $(ls "$work/cars")"; exit "$failures"; }
+    mkdir -p "$repo3/data/car_masks" "$repo3/data/dash_masks" "$repo3/core/formats" && cp -R "$data/car_masks/$ldir" "$repo3/data/car_masks/$ldir" && cp -R "$data/dash_masks/LDIABL" "$repo3/data/dash_masks/LDIABL" && cp "$data/../core/formats/car_paint.c" "$repo3/core/formats/car_paint.c" || fail "a copy of the repo for the Diablo"
+    cp "$data/dash_masks/CZR1/dash_mask.png" "$dia/art-generated/dash_masks/dash_mask.png" || fail "another dash for the Diablo's kit"
+    # the card the owner kept lists 8 colours: give the kit 6, more than the game's table holds
+    sed -i.bak "s/^paints=.*/paints=A:101010,B:202020,C:303030,D:404040,E:505050,F:606060/" "$dia/mod.ini" || fail "six colours on the Diablo's card"
+    cp "$repo3/core/formats/car_paint.c" "$work/car_paint.before"
+    studio "$dia" --port-data "$repo3/data" --frames 2 --steps repo-ask,print-publish >"$work/log" 2>&1 || fail "Copy to game repo of the Diablo, the list: $(cat "$work/log")"
+    grep -q "^changed: dash_mask.png" "$work/log" || fail "the Diablo's window does not list its dash: $(cat "$work/log")"
+    grep -q "colors: .*not compared" "$work/log" || fail "the window does not say the colors are not compared: $(cat "$work/log")"
+    studio "$dia" --port-data "$repo3/data" --frames 2 --steps repo-ask,repo-copy,status >"$work/log" 2>&1 || fail "Copy to game repo of the Diablo, the copy: $(cat "$work/log")"
+    grep -q "^status: copied to the game repo: .*1 dash file" "$work/log" || fail "Copy did not say it wrote the Diablo's dash: $(cat "$work/log")"
+    cmp -s "$repo3/data/dash_masks/LDIABL/dash_mask.png" "$dia/art-generated/dash_masks/dash_mask.png" || fail "the repo's Diablo dash is not the kit's"
+    cmp -s "$repo3/core/formats/car_paint.c" "$work/car_paint.before" || fail "Copy rewrote the colour table of a car whose colours it does not compare"
+fi
+
 [ "$failures" -eq 0 ] && echo "editor_e2e_car: ok"
 exit "$failures"

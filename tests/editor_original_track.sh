@@ -38,6 +38,20 @@ for f in light/track_light/CL1.txt original.ini; do [ -f "$work/ws/tracks/CL1/$f
 [ -f "$work/ws/tracks/AL1/art-source/masks/slot_00.before-x.psd" ] && fail "a PSD backup was copied"
 [ -f "$work/art/AL1/scenery_00.psd" ] || fail "the original PSD is gone from the art folder"
 
+# a workspace made before the new light format: its track folders hold the old light files (light/track/<T>.txt and light/track_light/<T>{A,B,C,N}.txt).
+# Add originals on it puts the one new file in and takes the old ones away; Copy then finds the file and has nothing to publish
+mkdir -p "$work/oldws/tracks/CL1/light/track" "$work/oldws/tracks/CL1/light/track_light"
+printf 'old\n' > "$work/oldws/tracks/CL1/light/track/CL1.txt"
+for t in A B C N; do printf 'old\n' > "$work/oldws/tracks/CL1/light/track_light/CL1$t.txt"; done
+cp "$work/ws/tracks/CL1/original.ini" "$work/oldws/tracks/CL1/original.ini" || fail "no original.ini to copy for the old workspace"
+out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 4 --steps add-originals,print-workspace 2>&1) || fail "add-originals on an old workspace: $out"
+[ -f "$work/oldws/tracks/CL1/light/track_light/CL1.txt" ] || fail "the old workspace did not get the one light file"
+[ -f "$work/oldws/tracks/CL1/light/track/CL1.txt" ] && fail "the old light file light/track/CL1.txt is still there"
+for t in A B C N; do [ -f "$work/oldws/tracks/CL1/light/track_light/CL1$t.txt" ] && fail "the old light file CL1$t.txt is still there"; done
+out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 60 --steps open-original:3,repo-ask,print-original 2>&1) || fail "open on the old workspace: $out"
+echo "$out" | grep -q 'the project has no track_light' && fail "Copy to game repo finds no light file in the old workspace after Add originals: $out"
+echo "$out" | grep -q '^preview: CL1:.*1 unchanged' || fail "the old workspace's CL1 has something to publish after Add originals: $out"
+
 # open one: the Tracks room, its own light folder, the track fixed; the copy item is there
 out=$(run --frames 60 --steps open-original:3,repo-ask,print-original,print-menu 2>&1) || fail "open-original: $out"
 echo "$out" | grep -q "^original: $work/ws/tracks/CL1$" || fail "the original track is open: $out"
