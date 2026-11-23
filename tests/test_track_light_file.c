@@ -142,11 +142,11 @@ static void test_the_sun_line(void)
     CHECK(f.tweaks.sun_set == TRACK_LIGHT_SUN_SHADOW && f.tweaks.sun_shadow == 60.0f);
     track_light_file_free(&f);
     snprintf(text, sizeof text, "%ssun - - - 800\n", head);   /* only the reach (a fourth word, units) */
-    CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad));
+    CHECK(parse_old(text, strlen(text), &f, &bad));
     CHECK(f.tweaks.sun_set == TRACK_LIGHT_SUN_REACH && f.tweaks.sun_reach == 800.0f);
     track_light_file_free(&f);
     snprintf(text, sizeof text, "%ssun 150 20 55 -\n", head);   /* a `-` reach is the generator's */
-    CHECK(track_light_parse(text, strlen(text), "CY1", 'A', NODES, 1, &f, &bad) && !(f.tweaks.sun_set & TRACK_LIGHT_SUN_REACH));
+    CHECK(parse_old(text, strlen(text), &f, &bad) && !(f.tweaks.sun_set & TRACK_LIGHT_SUN_REACH));
     track_light_file_free(&f);
     snprintf(text, sizeof text, "%sbrightness 1 2 90\n", head);   /* no line: nothing set */
     CHECK(parse_old(text, strlen(text), &f, &bad) && f.tweaks.sun_set == 0);

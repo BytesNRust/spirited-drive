@@ -1,5 +1,5 @@
 #!/bin/sh
-# The fingerprint of the light the game makes for each of the 16 tracks at each of the 4 times of day (game/race/track_light_fingerprint.h), against tests/track_light_fingerprint.txt.
+# (each line ends with car_row=1: the cars read the rows when the light comes from a track file, with no environment variable.) The fingerprint of the light the game makes for each of the 16 tracks at each of the 4 times of day (game/race/track_light_fingerprint.h), against tests/track_light_fingerprint.txt.
 # Any change of a light file, of the format or of the generator that changes a light shows here; one that is meant is written with  UPDATE=1 sh tests/track_light_fingerprint.sh ...
 # usage: tests/track_light_fingerprint.sh <tnfs binary> <original/ dir> [expected file]      (run from the repo's root: the game reads data/ from there)
 # Exit 77 (skipped) without the CD's data. TRACKS="CY1 TR3" restricts the tracks (the comparison then covers only them).
