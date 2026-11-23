@@ -128,6 +128,16 @@ void file_buttons(App *a)
     if (ImGui::Button("Revert")) app_light_revert(a);
     ui_probe("revert");
     ImGui::EndDisabled();
+    if (a->original_dir[0] != '\0') {   // an original track: the same window as File > Copy to game repo, from where the light is edited
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!app_original_can_copy(a));
+        if (ImGui::Button("Copy to game repo")) app_original_copy_ask(a);
+        ui_probe("light_copy_repo");
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", app_repo_copy_unset(a) ? "Set the game repo folder first: File > Game repo folder..."
+                                                           : "Lists what would change in the game repo's data/ (this track's light file and mask PNGs); you confirm in the window, nothing is written before.\nSave first: it copies the saved files.");
+    }
     ImGui::SameLine();
     if (dirty) ImGui::TextDisabled("unsaved changes");
     else if (ui.session.has_file) ImGui::TextDisabled("%s.txt", ui.session.track);

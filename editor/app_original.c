@@ -1,6 +1,7 @@
 /* Original tracks of the App (app.h's app_original_*, dep103): added to the workspace from the game's data/, opened on the Track light window, published back. */
 #include "app.h"
 
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +34,23 @@ int app_original_count(const App *a)
     return n;
 }
 
+/* how many of the workspace's original tracks hold at least one PSD in art-source/masks */
+static int tracks_with_psds(const App *a)
+{
+    int n = 0;
+    for (int i = 0; a->workspace[0] != '\0' && i < OT_STEMS; ++i) {
+        char dir[APP_PATH], masks[APP_PATH + 24];
+        if (!original_track_dir(a->workspace, original_track_stem(i), dir, sizeof dir) || snprintf(masks, sizeof masks, "%s/art-source/masks", dir) >= (int)sizeof masks) continue;
+        DIR *d = opendir(masks);
+        for (struct dirent *e; d != NULL && (e = readdir(d)) != NULL;) {
+            const size_t len = strlen(e->d_name);
+            if (len > 4 && strcmp(e->d_name + len - 4, ".psd") == 0) { ++n; break; }
+        }
+        if (d != NULL) closedir(d);
+    }
+    return n;
+}
+
 int app_original_add_all(App *a)
 {
     char why[OT_WHY] = "";
@@ -43,7 +61,12 @@ int app_original_add_all(App *a)
     const int ok = original_track_add_all(a->workspace, a->data_dir, a->art_dir[0] != '\0' ? a->art_dir : NULL, &add, why, sizeof why);
     app_workspace_refresh(a);
     if (!ok) return snprintf(a->status, sizeof a->status, "original tracks: %s", why), 0;
-    snprintf(a->status, sizeof a->status, "original tracks: %d in the workspace; %d light files and %d mask PSDs copied, %d kept as they were, %d other files skipped", add.tracks, add.light_files, add.psds, add.kept, add.skipped);
+    char psd_words[240];   // what the mask PSDs did: copied, or why none were (no folder to copy from, or nothing new in it), and whether the workspace has its own
+    const int own = tracks_with_psds(a);
+    if (add.psds > 0) snprintf(psd_words, sizeof psd_words, "%d mask PSDs copied", add.psds);
+    else if (a->art_dir[0] == '\0') snprintf(psd_words, sizeof psd_words, "0 mask PSDs copied: no PSD folder (--art-dir); %s", own > 0 ? "the workspace's own PSDs are kept" : "the workspace has none yet");
+    else snprintf(psd_words, sizeof psd_words, "0 mask PSDs copied: none new in %s; %s", a->art_dir, own > 0 ? "the workspace's own PSDs are kept" : "the workspace has none yet");
+    snprintf(a->status, sizeof a->status, "original tracks: %d in the workspace; %d light files copied, %s, %d kept as they were, %d other files skipped", add.tracks, add.light_files, psd_words, add.kept, add.skipped);
     return 1;
 }
 
