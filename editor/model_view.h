@@ -5,6 +5,7 @@
 #define TNFS_TRACK_EDITOR_MODEL_VIEW_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef enum { MODEL_VIEW_MODEL = 0, MODEL_VIEW_CARD, MODEL_VIEW_GAME, MODEL_VIEWS } ModelView;
 
@@ -24,6 +25,12 @@ enum { MODEL_RENDER_SCALE_MAX = 3, MODEL_GAME_FRAME_W = 640, MODEL_GAME_FRAME_H 
 int model_view_render_size(int scale, int *w, int *h);
 /* a w x h picture fitted into an area_w x area_h panel with its shape kept, in the middle: its place (*x, *y) in the area and its size (all 0 for an empty one) */
 void model_view_fit(int area_w, int area_h, int w, int h, int *x, int *y, int *fw, int *fh);
+
+/* The Color box's drag changes a paint on every frame: the scene is made again at most every MODEL_COLOUR_REBUILD_MS (10 a second, the last change taken when the drag stops), and the picture
+ * stays the scale 1 frame for MODEL_COLOUR_LOW_MS after the last one, the full frame once it has stopped. Clocks in ms; `last` is 0 when no scene was made again for a colour yet. */
+enum { MODEL_COLOUR_REBUILD_MS = 100, MODEL_COLOUR_LOW_MS = 300 };
+int model_colour_rebuild_due(uint32_t now, uint32_t last);   /* 1 when a scene made again now is allowed */
+int model_colour_low(uint32_t now, uint32_t last);           /* 1 when the picture is still the scale 1 one */
 
 /* «Paint: <name>» when the car is painted with a colour, «Paint: none (base texture)» otherwise. 1 when it fits, 0 when cut (the text is then still closed) */
 int model_paint_caption(const char *name, int painted, char *out, size_t cap);

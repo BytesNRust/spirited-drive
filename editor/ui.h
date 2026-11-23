@@ -21,6 +21,7 @@ void ui_camera_nudge(void);
 void ui_camera(int *yaw, int *pitch, int *dist);
 int ui_model_save_picture(const char *path);
 void ui_model_state(int *big, int *docked, int *scale, int *soft);
+int ui_model_rebuilds(void);   /* the scenes the Model made again for a colour changed (the step camera:4) */
 /* the Model window's Card view and As on the card boxes (the step card-view): 1 when the car is open to show them */
 int ui_card_view(App *a, int card, int as_card);
 /* the card photo's backdrop (the steps card-backdrop:KIND,R,G,B and card-bd-bottom:R,G,B, and --card-backdrop FILE): 1 when the car is open to show it */

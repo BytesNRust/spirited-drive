@@ -66,6 +66,8 @@ struct Model {
     bool docked = false;          // the window was docked when last drawn (the flow test reads it)
     bool placed = false;          // it has been drawn once: docked says where it is
     bool moving = false;          // the camera was moved by hand (drag, wheel) in the last frame
+    uint32_t colour_at = 0;       // the clock (ms) of the last scene made again for a colour (the Color box's drag): 0 for none
+    int rebuilds = 0;             // the scenes made again for a colour, since the car was opened (the step camera:4 prints it)
     bool drawn_low = false;       // the picture last drawn is the scale 1 frame of a hand's move, not the render scale's
     ImGuiID parent_id = 0;        // the node that held it and its neighbours: when it leaves (Enlarge) its own node is gone, this one stays and is split to put it back
     ImGuiDir split_dir = ImGuiDir_Up; // the side of that node the window was on
@@ -149,6 +151,12 @@ bool stale(const App *a, const uint8_t *rgb)
 {
     return strcmp(g.key_dir, a->dir) != 0 || g.key_generation != a->mask.generation
            || g.key_paint != a->preview_paint || (rgb != nullptr && memcmp(g.key_rgb, rgb, 3) != 0);
+}
+
+// 1 when the colour is all that changed: the project, its masks and the paint chosen are the ones the picture was made from
+bool colour_change_only(const App *a, const uint8_t *rgb)
+{
+    return rgb != nullptr && strcmp(g.key_dir, a->dir) == 0 && g.key_generation == a->mask.generation && g.key_paint == a->preview_paint;
 }
 
 void remember(const App *a, const uint8_t *rgb)
@@ -609,6 +617,11 @@ void model_panel_state(int *big, int *docked, int *scale, int *soft)
     *big = g.big, *docked = g.docked, *scale = g.render_scale, *soft = g.soft;
 }
 
+int model_panel_rebuilds(void)
+{
+    return g.rebuilds;
+}
+
 void model_panel_camera(int *yaw, int *pitch, int *dist)
 {
     *yaw = g.orbit.yaw, *pitch = g.orbit.pitch, *dist = g.orbit.dist;
@@ -678,8 +691,13 @@ void model_panel(App *a, SDL_Renderer *ren)
         const bool busy = a->car.cfm[0] == '\0';
         if (!busy && (strcmp(g.loaded, a->car.cfm) != 0 || g.loaded_serial != a->cdisk.serial)) load(a, rgb);
         else if (!busy && g.scene != nullptr && stale(a, rgb)) {   // a mask changed on disk, another paint: the same camera on the car made again
-            open_scene(a, rgb);
-            remember(a, rgb);
+            const uint32_t now = SDL_GetTicks();
+            const bool colour_only = colour_change_only(a, rgb);
+            if (!colour_only || model_colour_rebuild_due(now, g.colour_at)) {   // a Color box's drag changes it every frame: made again at most every MODEL_COLOUR_REBUILD_MS, the last one as it stops
+                open_scene(a, rgb);
+                remember(a, rgb);
+                if (colour_only) g.colour_at = (now != 0 ? now : 1u), ++g.rebuilds;
+            }
         }
         if (g.scene == nullptr) {
             ImGui::TextWrapped("%s", g.why[0] != 0 ? g.why : "No car is open.");
@@ -694,7 +712,8 @@ void model_panel(App *a, SDL_Renderer *ren)
             // the frame the car is drawn on: the game's at this render scale (4:3, 640 x 480 times it), whatever the panel's size; while something moves (the camera by hand, Auto-rotate, the Slow wheels) it is the scale 1 frame drawn with the scale 1 rules (a 1280 x 960
             // frame takes about 45 ms here, over a refresh), and the full one is made again as the hand lets go
             const bool animating = g.auto_rotate || (a->model_wheels == 1 && !a->model_wheels_fixed);   // the same rule for all that moves: a hand's drag or wheel, Auto-rotate, the Slow wheels' swap
-            const bool moving = (g.moving || animating) && g.render_scale > 1 && !g.card_view;
+            const bool colouring = model_colour_low(SDL_GetTicks(), g.colour_at);   // a colour changed a moment ago: the scale 1 frame, the full one when it has stopped
+            const bool moving = (g.moving || animating || colouring) && g.render_scale > 1 && !g.card_view;
             g.moving = false;
             int rw = 0, rh = 0;
             model_view_render_size(moving ? 1 : g.render_scale, &rw, &rh);

@@ -122,4 +122,14 @@ out=$(run u10 --frames 90 "$kit" --steps psd-wait:3,camera:3,ui-click:model_enla
 [ "$(state 2 | cut -d' ' -f2-5)" = "big 1 docked 0" ] || fail "Enlarge did not work with an older ini: $(state 2)"
 [ "$(state 3 | cut -d' ' -f2-5)" = "big 0 docked 1" ] || fail "Dock back did not work with an older ini: $(state 3)"
 
+# a colour changed in the Color box again and again (a drag does it every frame): the Model makes the scene again for it, at most 10 a second (model_view's rule, checked by test_editor_model_view), and it is
+# made again for the last one (the step camera:4 counts the scenes; a headless frame is slower than the 100 ms, so here every change may take one: never more than the changes)
+mkdir -p "$work/u12"
+run u12 --frames 40 "$kit" --steps psd-wait:3,ui-click:add_color,psd-wait:3,save >/dev/null 2>&1 || fail "a color was not added to the kit"
+steps=psd-wait:6,camera:4; for n in 1 2 3 4 5 6; do steps="$steps,paint-rgb:0,$((n * 30)),50,90,psd-wait:1"; done
+out=$(run u12 --render-scale 2 --paint 1 --frames 120 "$kit" --steps "$steps,psd-wait:30,camera:4,paint-print" 2>&1) || fail "colour changes: $out"
+first=$(echo "$out" | grep '^model rebuilds: ' | sed -n 1p | cut -d' ' -f3); last=$(echo "$out" | grep '^model rebuilds: ' | sed -n 2p | cut -d' ' -f3)
+[ -n "$last" ] && [ $((last - first)) -ge 1 ] && [ $((last - first)) -le 6 ] || fail "the Model did not make the scene again for 6 colours in 1..6 times: $first -> $last"
+echo "$out" | grep -q '^paints: .*#b4325a$' || fail "the last colour was not the card's: $(echo "$out" | grep '^paints:')"
+
 [ "$failures" = 0 ] || exit 1

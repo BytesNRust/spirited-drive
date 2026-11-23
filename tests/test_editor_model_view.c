@@ -69,8 +69,31 @@ static void test_fit(void)
     CHECK(w == 0 && h == 0 && x == 0 && y == 0);
 }
 
+/* a drag of the Color box: a change every 16 ms for a second, then it stops; each frame asks whether the scene is made again, as the Model does (and a pending change is taken as soon as it is due) */
+static void test_colour_drag(void)
+{
+    uint32_t last = 0;
+    int rebuilds = 0, low_frames = 0, frames = 0;
+    for (uint32_t now = 1000; now < 2000; now += 16) {   /* the drag: a stale colour every frame */
+        if (model_colour_rebuild_due(now, last)) last = (now != 0 ? now : 1u), ++rebuilds;
+        low_frames += model_colour_low(now, last), ++frames;
+    }
+    CHECK(rebuilds >= 9 && rebuilds <= 10);   /* about 10 a second, not 62 */
+    CHECK_EQ_INT(low_frames, frames);         /* every frame of the drag is the scale 1 one */
+    const uint32_t stop = 2000 + 16;   /* the drag stops with one change not yet taken: the next due frame takes it */
+    uint32_t now = stop;
+    while (!model_colour_rebuild_due(now, last)) now += 16;
+    CHECK(now - stop <= MODEL_COLOUR_REBUILD_MS);   /* taken within a tenth of a second of stopping */
+    last = (now != 0 ? now : 1u);
+    CHECK(model_colour_low(last + 10, last));
+    CHECK(!model_colour_low(last + MODEL_COLOUR_LOW_MS, last));   /* then the full frame */
+    CHECK(!model_colour_low(5000, 0));   /* no colour changed yet: never low */
+    CHECK(model_colour_rebuild_due(5000, 0));
+}
+
 int main(void)
 {
+    test_colour_drag();
     test_view_flags();
     test_paint_caption();
     test_render_size();

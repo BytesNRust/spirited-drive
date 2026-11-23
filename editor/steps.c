@@ -328,6 +328,7 @@ static int at_once(App *a, const char *name, const double *arg)
             ui_model_state(&big, &docked, &scale, &soft);
             return fprintf(stdout, "model: big %d docked %d scale %d soft %d studio scale %d soft %d\n", big, docked, scale, soft, shine_draw_get_render_scale(), shine_draw_get_soft()), 1;   /* the last two are the process's own, which the Model must leave as the Preview has them */
         }
+        if (arg[0] == 4) return fprintf(stdout, "model rebuilds: %d\n", ui_model_rebuilds()), 1;   /* camera:4 the scenes made again for a colour changed */
         ui_camera(&yaw, &pitch, &dist);
         return fprintf(stdout, "camera: %d %d %d\n", yaw, pitch, dist), 1;
     }

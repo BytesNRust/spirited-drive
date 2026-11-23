@@ -5,6 +5,7 @@
 
 extern "C" {
 #include "car_preview.h"
+#include "model_view.h"
 #include "formats/car_night.h"
 #include "formats/lamp_emissive.h"
 #include "formats/police_flash.h"
@@ -29,6 +30,7 @@ struct Shown {
     int key_paint = -2;
     uint8_t key_rgb[3] = { 0, 0, 0 };
     int key_count = -1;
+    uint32_t colour_at = 0;   // the clock (ms) of the last picture made again for a colour changed
     NightSettings key_night = {};   // the night view the textures were made for
     int key_phase = -1;             // and the police flash's phase
     bool uploaded = false;
@@ -267,7 +269,10 @@ void preview_panel(App *a, SDL_Renderer *ren)
         const bool busy = a->car.cfm[0] == '\0';
         const bool changed = shown.key_count != 1 || strcmp(shown.key_dir, a->dir) != 0 || shown.key_generation != a->mask.generation
                              || shown.key_paint != paint || (rgb != nullptr && memcmp(shown.key_rgb, rgb, 3) != 0);
-        if (changed && !busy) {
+        const bool colour_only = changed && rgb != nullptr && shown.key_count == 1 && strcmp(shown.key_dir, a->dir) == 0 && shown.key_generation == a->mask.generation && shown.key_paint == paint;
+        const uint32_t now = SDL_GetTicks();
+        if (changed && !busy && (!colour_only || model_colour_rebuild_due(now, shown.colour_at))) {   // a drag of the Color box changes it every frame: made again at most 10 a second, the last one as it stops
+            if (colour_only) shown.colour_at = now != 0 ? now : 1u;
             make(a, paint);
             snprintf(shown.key_dir, sizeof shown.key_dir, "%s", a->dir);
             shown.key_generation = a->mask.generation;

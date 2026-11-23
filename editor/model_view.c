@@ -44,3 +44,13 @@ int model_paint_caption(const char *name, int painted, char *out, size_t cap)
     const int n = painted && name != NULL ? snprintf(out, cap, "Paint: %s", name[0] != '\0' ? name : "unnamed") : snprintf(out, cap, "Paint: none (base texture)");
     return n >= 0 && (size_t)n < cap;
 }
+
+int model_colour_rebuild_due(uint32_t now, uint32_t last)
+{
+    return last == 0 || now - last >= MODEL_COLOUR_REBUILD_MS;
+}
+
+int model_colour_low(uint32_t now, uint32_t last)
+{
+    return last != 0 && now - last < MODEL_COLOUR_LOW_MS;
+}
