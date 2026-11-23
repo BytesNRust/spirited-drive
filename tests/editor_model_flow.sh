@@ -78,4 +78,41 @@ echo "$out" | grep -q '^model picture: 640 x 480, ' || fail "with Auto-rotate on
 out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_off.png" 2>&1) || fail "auto-rotate off shot: $out"
 echo "$out" | grep -q '^model picture: 1280 x 960, ' || fail "with Auto-rotate off again the picture is not the full frame: $out"
 
+# the car whole inside the drawing frame from a side (Side is wider than the first view: the framing is made again for it): no row or column at the frame's edge has a car pixel, at render scale 1, 2 and 3
+cat > "$work/whole.py" <<'PY'
+import struct, sys, zlib
+d = open(sys.argv[1], "rb").read()
+w, h, depth, ctype = struct.unpack(">IIBB", d[16:26])
+assert depth == 8 and ctype == 6, (depth, ctype)
+i, idat = 8, b""
+while i < len(d):
+    n, t = struct.unpack(">I4s", d[i:i + 8])
+    if t == b"IDAT": idat += d[i + 8:i + 8 + n]
+    i += 12 + n
+raw, stride, prev, p = zlib.decompress(idat), w * 4, bytearray(w * 4), 0
+xs, ys = [], []
+for y in range(h):
+    f, line = raw[p], bytearray(raw[p + 1:p + 1 + stride])
+    p += 1 + stride
+    for x in range(stride):
+        a = line[x - 4] if x >= 4 else 0; b = prev[x]; c = prev[x - 4] if x >= 4 else 0
+        if f == 1: line[x] = (line[x] + a) & 255
+        elif f == 2: line[x] = (line[x] + b) & 255
+        elif f == 3: line[x] = (line[x] + (a + b) // 2) & 255
+        elif f == 4:
+            pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+            line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+    prev = line
+    cols = [x for x in range(w) if line[4 * x + 3] != 0]
+    if cols: ys.append(y); xs += [cols[0], cols[-1]]
+if not xs: sys.exit("no car in the picture")
+print("car box %d..%d x %d..%d in %d x %d" % (min(xs), max(xs), ys[0], ys[-1], w, h))
+sys.exit(0 if min(xs) > 0 and max(xs) < w - 1 and ys[0] > 0 and ys[-1] < h - 1 else 1)
+PY
+for sc in 1 2 3; do
+    out=$(run u11 --render-scale $sc --shine on --frames 60 "$kit" --steps psd-wait:3,ui-click:model_side,psd-wait:4 --model-shot "$work/side_$sc.png" 2>&1) || fail "side view at scale $sc: $out"
+    echo "$out" | grep -q 'no such widget' && fail "the Side button was not on screen: $out"
+    python3 -I "$work/whole.py" "$work/side_$sc.png" || fail "the car is cut by the frame's edge in the Side view at render scale $sc"
+done
+
 [ "$failures" = 0 ] || exit 1

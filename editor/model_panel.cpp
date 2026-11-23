@@ -250,10 +250,10 @@ void keys()
     const ImGuiIO &io = ImGui::GetIO();
     if (io.WantTextInput || io.KeyCtrl || io.KeyAlt || io.KeySuper) return;
     if (!ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows)) return;
-    if (ImGui::IsKeyPressed(ImGuiKey_F, false)) orbit_view(&g.orbit, ORBIT_FRONT), g.dirty = true;
-    if (ImGui::IsKeyPressed(ImGuiKey_S, false)) orbit_view(&g.orbit, ORBIT_SIDE), g.dirty = true;
-    if (ImGui::IsKeyPressed(ImGuiKey_R, false)) orbit_view(&g.orbit, ORBIT_REAR), g.dirty = true;
-    if (ImGui::IsKeyPressed(ImGuiKey_T, false)) orbit_view(&g.orbit, ORBIT_TOP), g.dirty = true;
+    if (ImGui::IsKeyPressed(ImGuiKey_F, false)) orbit_view(&g.orbit, ORBIT_FRONT), g.fit = g.dirty = true;
+    if (ImGui::IsKeyPressed(ImGuiKey_S, false)) orbit_view(&g.orbit, ORBIT_SIDE), g.fit = g.dirty = true;
+    if (ImGui::IsKeyPressed(ImGuiKey_R, false)) orbit_view(&g.orbit, ORBIT_REAR), g.fit = g.dirty = true;
+    if (ImGui::IsKeyPressed(ImGuiKey_T, false)) orbit_view(&g.orbit, ORBIT_TOP), g.fit = g.dirty = true;
     if (ImGui::IsKeyPressed(ImGuiKey_Home, false)) orbit_home(&g.orbit), g.fit = true, g.dirty = true;
 }
 
@@ -395,13 +395,17 @@ void row_label(const char *text)
 void toolbar(App *a)
 {
     row_label("Camera");
-    if (ImGui::Button("Front")) orbit_view(&g.orbit, ORBIT_FRONT), g.dirty = true;
+    if (ImGui::Button("Front")) orbit_view(&g.orbit, ORBIT_FRONT), g.fit = g.dirty = true;   // the car framed whole from that side (a side view is wider than the first one)
+    ui_probe("model_front");
     ImGui::SameLine();
-    if (ImGui::Button("Side")) orbit_view(&g.orbit, ORBIT_SIDE), g.dirty = true;
+    if (ImGui::Button("Side")) orbit_view(&g.orbit, ORBIT_SIDE), g.fit = g.dirty = true;   // the car framed whole from that side (a side view is wider than the first one)
+    ui_probe("model_side");
     ImGui::SameLine();
-    if (ImGui::Button("Rear")) orbit_view(&g.orbit, ORBIT_REAR), g.dirty = true;
+    if (ImGui::Button("Rear")) orbit_view(&g.orbit, ORBIT_REAR), g.fit = g.dirty = true;   // the car framed whole from that side (a side view is wider than the first one)
+    ui_probe("model_rear");
     ImGui::SameLine();
-    if (ImGui::Button("Top")) orbit_view(&g.orbit, ORBIT_TOP), g.dirty = true;
+    if (ImGui::Button("Top")) orbit_view(&g.orbit, ORBIT_TOP), g.fit = g.dirty = true;   // the car framed whole from that side (a side view is wider than the first one)
+    ui_probe("model_top");
     ImGui::SameLine();
     if (ImGui::Button("Home")) orbit_home(&g.orbit), g.fit = true, g.dirty = true;
     ImGui::SameLine();
@@ -442,18 +446,17 @@ void toolbar(App *a)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip(floating ? "Put the Model window back in the layout where it was." : "Float the Model window at nearly the size of the Studio, to see the car larger (its camera stays). Drag its edges to resize.");
     ImGui::SameLine();
-    {   // the soft mask edges of the shine: a clear switch with its state, right by Enlarge (the game's shine_soft setting is where it starts; this is for this window only)
-        const bool on = g.soft != 0, inactive = g.render_scale <= 1;   // at render scale 1 the edges are a straight cut whatever the switch says
+    {   // the soft mask edges of the shine: a checkbox as Shine is, right by Enlarge (the game's shine_soft setting is where it starts; this is for this window only)
+        const bool inactive = g.render_scale <= 1;   // at render scale 1 the edges are a straight cut whatever the box says
+        bool on = g.soft != 0;
         ImGui::BeginDisabled(inactive);
-        ImGui::PushStyleColor(ImGuiCol_Button, on ? ImVec4(0.18f, 0.50f, 0.28f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_Button));
-        if (ImGui::Button(on ? "Soft edges: ON" : "Soft edges: OFF")) g.soft = on ? 0 : 1, g.dirty = true;
-        ImGui::PopStyleColor();
+        if (ImGui::Checkbox("Soft edges", &on)) g.soft = on ? 1 : 0, g.dirty = true;
         ImGui::EndDisabled();
         ui_probe("model_soft");
         ImGui::SameLine();
         help_marker("Where the body's shine meets matte paint or glass, the border is mixed by how much of each is near (an ordered dither of the game's own two tables), not cut at the texel's edge.\n"
-                    "Only with Render scale 2 or 3: at 1 the edge is a straight cut, as the game draws it (this switch is then grey).\n"
-                    "Starts as the game's shine_soft setting (Restomod '26 on, Stock and Restored off); this switch is only for this window and never writes your options. Best seen enlarged.");
+                    "Only with Render scale 2 or 3: at 1 the edge is a straight cut, as the game draws it (this box is then grey).\n"
+                    "Starts as the game's shine_soft setting (Restomod '26 on, Stock and Restored off); this box is only for this window and never writes your options. Best seen enlarged.");
     }
     ImGui::SameLine();
     ImGui::TextUnformatted("Render scale");
