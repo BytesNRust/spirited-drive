@@ -479,6 +479,27 @@ static void test_brightness_shade_before_plain(void)
     track_node_light_free(&a), track_node_light_free(&b), track_light_file_free(&f), track_light_file_free(&g);
 }
 
+/* port (tunnel_lamp 0): a tunnel whose lamps are written at 0 % is marked for the car (lamps_off: no lamp alternation); the lamps at their default, or another tunnel's, are not */
+static void test_lamps_off_zones(void)
+{
+    const char *text = "track AL1\ntunnel 1596 1607\ntunnel 1836 1847\ntime N\n  tunnel_look 1596 1607 60 lamps 0\n";
+    TrackLightFile f;
+    CHECK(track_light_track_parse(text, strlen(text), "AL1", 'N', 2000, &f, NULL));
+    track_light_apply(&f.tweaks, &f.light, 0, 0);
+    CHECK(f.light.lamps_off != NULL && f.light.lamps_off[1596] && f.light.lamps_off[1600] && f.light.lamps_off[1607]);
+    CHECK(!f.light.lamps_off[1840] && !f.light.lamps_off[1000] && !f.light.lamps_off[1608]);   /* the other tunnel keeps its lamps */
+    const char *all = "track AL1\ntunnel 1596 1607\ntunnel 1836 1847\ntime N\n  tunnel_look 60 lamps 0\n";
+    TrackLightFile g;
+    CHECK(track_light_track_parse(all, strlen(all), "AL1", 'N', 2000, &g, NULL));
+    track_light_apply(&g.tweaks, &g.light, 0, 0);
+    CHECK(g.light.lamps_off != NULL && g.light.lamps_off[1600] && g.light.lamps_off[1840] && !g.light.lamps_off[1000]);
+    const char *none = "track AL1\ntunnel 1596 1607\ntime N\n  tunnel_look 60\n";
+    TrackLightFile h;
+    CHECK(track_light_track_parse(none, strlen(none), "AL1", 'N', 2000, &h, NULL));
+    track_light_apply(&h.tweaks, &h.light, 0, 0);
+    CHECK(h.light.lamps_off == NULL);   /* lamps at the default: the alternation stays */
+}
+
 /* `tunnel_lamp [FROM TO] <strength> [colour] [reach]`: a general line and ranges, what a line leaves out inherited, the last line over a node replacing the earlier, the limits, and no line at all
  * giving nothing (the code's values stay) */
 static void test_tunnel_lamp_lines(void)
@@ -534,5 +555,6 @@ int main(void)
     test_brightness_only_shadows();
     test_brightness_shade_before_plain();
     test_tunnel_lamp_lines();
+    test_lamps_off_zones();
     return TEST_REPORT();
 }

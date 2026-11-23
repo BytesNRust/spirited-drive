@@ -10,6 +10,8 @@ void track_node_light_free(TrackNodeLight *light)
     free(light->data);
     free(light->hall);
     free(light->tunnel);
+    free(light->lamps_off);
+    light->lamps_off = NULL;
     free(light->car_dim);
     light->car_dim = NULL;
     free(light->canyon);

@@ -45,6 +45,7 @@ lamps' lift. At most 64 `tunnel_look`, `brightness` and `tone` lines in a time a
 
 ## What decides what
 
+* A tunnel whose lamps are written at `lamps 0` is an unlit tunnel: the car in it has the same light on every node. With the lamps at any other strength (or not written, the default 100) the car keeps the alternation of the tunnel's lamps, its light dropping to 75 % on every second node (40 % in the exe-faithful level 0). The setting is per time and per tunnel: a `tunnel_look A B ... lamps 0` line unlights only those nodes. A hall always has lamps.
 * The made rows of the day and the dusk fall to the tunnels' look only inside tunnels; the road points are full light outdoors.
 * `TNFS_TRACK_LIGHT_FILE=0` ignores the files (the code's light only).
 * What the file does not hold, the settings still decide: the night lift, the lamp pools' brightness (`city_lift`), the headlight beam.

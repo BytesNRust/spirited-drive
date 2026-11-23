@@ -118,6 +118,19 @@ static void test_car_tunnel_match(void)
     light_synth_car_tunnel_match(&light, 30, 0, mean, even);   /* level 0 keeps the exe's alternation whatever the lamps */
     light_synth_car_tunnel_match(&light, 31, 0, mean, odd);
     CHECK(even[0] != odd[0]);
+    /* port (tunnel_lamp 0): a tunnel whose lamps are at 0 % has no alternation at either level, the car's ratio is the same node to node; the lamps at their default keep it */
+    uint8_t off[N] = { 0 };
+    memset(off + 20, 1, 21);
+    light.tunnel_lamp_n = 0, light.lamps_off = off;
+    for (int level = 0; level <= 1; level++) {
+        light_synth_car_tunnel_match(&light, 30, level, mean, even);
+        light_synth_car_tunnel_match(&light, 31, level, mean, odd);
+        CHECK(memcmp(even, odd, sizeof even) == 0);
+    }
+    light.lamps_off = NULL;
+    light_synth_car_tunnel_match(&light, 30, 1, mean, even);
+    light_synth_car_tunnel_match(&light, 31, 1, mean, odd);
+    CHECK(even[0] != odd[0]);
 }
 
 /* port (tunnel zone looks): in every tunnel the car takes its zone's light and colour: under a lamp (even node) light% / 100 x colour (capped at 1 here: these lights have no rows, so no road darkening for the excess to come in with; test_car_above_full_light_takes_the_excess), between two lamps (odd) the gap's 40 % of that,

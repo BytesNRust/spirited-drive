@@ -471,6 +471,13 @@ void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, in
             else if (tunnel != NULL) tunnel[n] = 1, hall != NULL ? (void)(hall[n] = 0) : (void)0;
         }
     }
+    for (uint32_t n = 0; light->tunnel != NULL && n < light->nodes; n++) {   /* the tunnels whose lamps are written at 0 %: the car's lamp alternation is off there (an unlit tunnel) */
+        double strength = 0.0, reach = 0.0;
+        float cast[3];
+        if (!light->tunnel[n] || (track_light_tunnel_lamp_at(tweaks, n, &strength, cast, &reach) & TRACK_LIGHT_TUNNEL_LAMP_STRENGTH) == 0 || strength > 0.0) continue;
+        uint8_t *const off = flag_array(&light->lamps_off, light->nodes);
+        if (off != NULL) off[n] = 1;
+    }
     light->look_set = 1;   /* a file's light always has the tunnels' look: its own, or the dark default (10 % of full light, no colour) */
     light->look_light = tweaks->look_has_light ? tweaks->look_light : 10.0;
     for (int k = 0; k < 3; k++) light->look_cast[k] = tweaks->look_has_colour ? tweaks->look_cast[k] : 1.0f;
