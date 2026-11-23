@@ -75,7 +75,7 @@ static void palette(Show *s, const ShowcaseOps *o)
 /* port: the SETUP tile is there when the screen has one */
 static int has_box(const ShowcaseState *st)
 {
-    return st->plus != NULL;
+    return st->plus != NULL && st->no_setup == 0;
 }
 
 /* port: the Video tile's second face is there when the screen has one */

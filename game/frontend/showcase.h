@@ -94,6 +94,7 @@ typedef struct ShowcaseState {
                                      * screen, the car kept, with 1 (Next) or -1 (Previous) here (0 on Done), and the screen leaves the
                                      * music playing: the carousel ends it (owner 2026-11-17). On entry it holds the step the page was
                                      * entered by (0 the first entry): the item it starts on, Next, Previous, else the video */
+    int16_t no_setup;               /* port (owner 2026-11-23): 1 hides the SETUP tile (the page is a rival's: SETUP is the player's car's); the Color place is as the original's. 0 shows it */
 } ShowcaseState;
 
 /* 00408724 (all registers kept): the car's <car_dir><car>.qfs (rx7, nsx,

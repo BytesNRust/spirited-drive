@@ -92,6 +92,7 @@ typedef struct ShowcaseGlue {
     void (*car_flags)(void *ctx);
     void *ctx;
     int16_t *leave_step;   /* port (dep59 section 4): ShowcaseState.leave_step, NULL for the original's Next / Previous */
+    int no_setup;          /* port (owner 2026-11-23): ShowcaseState.no_setup, 1 on a rival's page */
 } ShowcaseGlue;
 void glue_showcase(const ShowcaseGlue *in);
 

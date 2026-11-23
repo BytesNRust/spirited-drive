@@ -129,6 +129,8 @@ typedef struct ControlCentralOps {
     /* port (dep59 step 5, T7d): an added track's page (track_page.h) from Control Central's `palette`, opened by its card's click; the track
      * it ends on (Road/track's arrows) is the pick. The page leaves the showcase's music playing. NULL: the track screen's refusal. */
     int32_t (*track_page)(void *ctx, const uint8_t palette[768]);
+    /* port (owner 2026-11-23): the showcase (as `showcase`) of a RIVAL's page, opened by the opponent card: without the SETUP tile (SETUP is the player's car's). NULL: `showcase` */
+    void (*showcase_rival)(void *ctx);
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */

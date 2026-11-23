@@ -76,7 +76,7 @@ static int16_t run(int carousel, int16_t entry, int32_t x, int32_t y, const uint
     static int16_t car = 6, race = 1, track = 0, offered = 1, active = 0, buttons = 0;
     static const int32_t screen = 0;
     int16_t step = entry;
-    ShowcaseState st = { &car, &race, &track, &offered, "", &active, &buttons, &screen, NULL, carousel ? &step : NULL };
+    ShowcaseState st = { &car, &race, &track, &offered, "", &active, &buttons, &screen, NULL, carousel ? &step : NULL, 0 };
     music_ends = music_fades = music_services = fades_out = movies = deadline_asks = 0, keys_in = keys, key_at = 0;
     px = x, py = y;
     showcase(&st, &OPS);
@@ -141,7 +141,7 @@ static void test_the_video_tile_has_its_arrow_from_the_start_and_peeks_soon(void
     ShowcaseOps ops = OPS;
     ops.ticks = ticking;
     int16_t step = 0;
-    ShowcaseState st = { &car, &race, &track, &offered, "", &active, &buttons, &screen, &plus, &step };
+    ShowcaseState st = { &car, &race, &track, &offered, "", &active, &buttons, &screen, &plus, &step, 0 };
     total_ticks = 0, first_lit_arrows = -1, peek_at_ticks = -1, deadline_asks = 0, keys_in = NONE_AT_ALL, key_at = 0;
     px = -1, py = -1;
     showcase(&st, &ops);

@@ -63,7 +63,7 @@ void glue_showcase(const ShowcaseGlue *in)
     showcase_variants_reset();
     const int16_t movies = glue_movies();
     ShowcaseState st = { in->player_car, in->race_type, in->track, &movies, show_dir(),
-                         in->pointer_active, in->buttons, ea_screen_slot(), glue_setup_plus(), in->leave_step };
+                         in->pointer_active, in->buttons, ea_screen_slot(), glue_setup_plus(), in->leave_step, (int16_t)in->no_setup };
     const ShowcaseOps ops = {
         move_to, show_bank, music_feed, clear_both, shape, palette_set, palette_write, nothing, styles, sync, mark,
         in_rect, select_picture, blit_own, blit_masked, palette_write, select_default, picture_shape, blit_picture,

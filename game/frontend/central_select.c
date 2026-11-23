@@ -201,7 +201,7 @@ static void opponent_item(CentralRun *r)
         showcase_start(r);
         const int16_t car = *st->player_car;
         *st->player_car = *st->opponent == 8 ? 0 : *st->opponent;
-        o->showcase(o->ctx);
+        (o->showcase_rival != NULL ? o->showcase_rival : o->showcase)(o->ctx);   /* port: a rival's page has no SETUP tile */
         o->showcase_after(o->ctx);
         *st->opponent = *st->player_car;
         *st->player_car = car;
