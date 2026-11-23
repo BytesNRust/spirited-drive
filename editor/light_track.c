@@ -257,22 +257,27 @@ static const char *p_lamp(const Words *w, unsigned nodes, LightTrackLamp *out)
 {
     LightTrackLamp v;
     memset(&v, 0, sizeof v);
-    if (w->n < 3 || !number(w->w[1], &v.node) || !number(w->w[2], &v.percent)) return "lamp NODE PERCENT [COLOUR[:STRENGTH]] [RADIUS]";
+    if (w->n < 3 || !number(w->w[1], &v.node) || !number(w->w[2], &v.percent)) return "lamp NODE PERCENT [COLOUR[:STRENGTH]] [RADIUS] [STRIP]";
     if (v.node >= nodes) return "the lamp's node is inside the track";
     if (v.percent < 1 || v.percent > LT_MAX_LAMP_PERCENT) return "the lamp's light is 1..1000 percent";
-    for (int i = 3; i < w->n; i++) {
+    int i = 3;
+    for (; i < w->n; i++) {
         const char *t = w->w[i];
         const size_t len = strlen(t);
         if (len >= 6 && !v.has_colour && !v.has_radius) {
             if (!is_lamp_colour(t) || len >= sizeof v.colour) return "a lamp's colour is RRGGBB or RRGGBB:strength";
             v.has_colour = 1;
             memcpy(v.colour, t, len + 1);
-        } else if (len <= 2 && !v.has_radius) {
-            if (!number(t, &v.radius) || v.radius < 1 || v.radius > LT_MAX_LAMP_RADIUS) return "the lamp's radius is 1..64 nodes";
+        } else if (len <= 2 && !v.has_radius && number(t, &v.radius)) {
+            if (v.radius < 1 || v.radius > LT_MAX_LAMP_RADIUS) return "the lamp's radius is 1..64 nodes";
             v.has_radius = 1;
         } else {
-            return "lamp NODE PERCENT [COLOUR[:STRENGTH]] [RADIUS]";
+            break;   // the strip, the last word
         }
+    }
+    if (i < w->n) {
+        if (!strip_at(w, &i, &v.mask) || i != w->n) return "lamp NODE PERCENT [COLOUR[:STRENGTH]] [RADIUS] [STRIP] (the strip is left, right, road, all, pA or pA pB)";
+        v.has_strip = 1;
     }
     if (out != NULL) *out = v;
     return NULL;
@@ -865,6 +870,12 @@ int light_track_set_lamp(LightTrack *f, int time, int i, const LightTrackLamp *v
     snprintf(body, sizeof body, "lamp %u %u", v->node, v->percent);
     if (v->has_colour) snprintf(body + strlen(body), sizeof body - strlen(body), " %s", v->colour);
     if (v->has_radius) snprintf(body + strlen(body), sizeof body - strlen(body), " %u", v->radius);
+    if (v->has_strip) {
+        char strip[16];
+        const char *t = (v->mask & LT_ALL_POINTS) == LT_ALL_POINTS ? "all" : strip_text(v->mask, strip, sizeof strip);
+        if (t == NULL) return fail(why, cap, "a strip is left, right, road, all or a run of points");
+        snprintf(body + strlen(body), sizeof body - strlen(body), " %s", t);
+    }
     return change(f, time, LT_LAMP, i, body, why, cap);
 }
 

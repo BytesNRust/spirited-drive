@@ -23,7 +23,7 @@ enum {
     LT_SNOW,        /* fact `snow 0|1` */
     LT_SUN,         /* `sun AZ EL SHADOW [REACH]` */
     LT_LOOK,        /* `tunnel_look [FROM TO] [LIGHT] [COLOUR] [lamps S [COLOUR]] [reach R]` */
-    LT_LAMP,        /* `lamp NODE PERCENT [COLOUR[:S]] [RADIUS]` */
+    LT_LAMP,        /* `lamp NODE PERCENT [COLOUR[:S]] [RADIUS] [STRIP]` */
     LT_BRIGHTNESS,  /* `brightness FROM TO PERCENT [STRIP]` */
     LT_TONE,        /* `tone FROM TO [STRIP] RRGGBB:PERCENT` */
     LT_ROWS,        /* `rows FROM TO p0..p10` */
@@ -77,7 +77,7 @@ typedef struct {
     int has_lamp_colour; char lamp_colour[48];
     int has_reach; double reach;        /* the pools' reach in nodes, 0.5..4 */
 } LightTrackLook;
-typedef struct { unsigned node, percent; int has_colour; char colour[16]; int has_radius; unsigned radius; } LightTrackLamp;
+typedef struct { unsigned node, percent; int has_colour; char colour[16]; int has_radius; unsigned radius; int has_strip; unsigned mask; } LightTrackLamp;   /* has_strip: the strip (the last word) the lamp stands over, mask its points (LT_ALL_POINTS is `all`); none: as before the strip existed */
 typedef struct { unsigned from, to, percent, mask; } LightTrackBrightness;   /* mask: the strip's points (LT_ALL_POINTS for the whole row) */
 typedef struct { unsigned from, to, mask, percent; char colour[8]; } LightTrackTone;   /* colour: six lower-case hex digits, percent 0..100 */
 typedef struct { unsigned from, to; unsigned char value[LT_POINTS]; } LightTrackRows;

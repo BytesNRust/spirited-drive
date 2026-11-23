@@ -123,6 +123,45 @@ static void edits(void)
     char *t = text_of(&f);
     CHECK(strstr(t, "\n  lamp 130 90 ff2000:80\n") != NULL);
     free(t);
+    // a lamp's strip (the last word): none stays none, each form is read and written back as it was, a bad one is refused
+    lamp.has_strip = 1, lamp.mask = LT_STRIP_RIGHT, lamp.has_radius = 1, lamp.radius = 8;
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
+    t = text_of(&f);
+    CHECK(strstr(t, "\n  lamp 130 90 ff2000:80 8 right\n") != NULL);
+    free(t);
+    LightTrackLamp back;
+    CHECK(light_track_get_lamp(&f, LT_TIME_N, 0, &back) && back.has_strip && back.mask == LT_STRIP_RIGHT && back.has_radius && back.radius == 8 && back.has_colour);
+    lamp.mask = LT_ALL_POINTS;
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
+    t = text_of(&f);
+    CHECK(strstr(t, "\n  lamp 130 90 ff2000:80 8 all\n") != NULL);
+    free(t);
+    CHECK(light_track_get_lamp(&f, LT_TIME_N, 0, &back) && back.has_strip && back.mask == LT_ALL_POINTS);
+    lamp.mask = 0x1c;   // points 2..4
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
+    t = text_of(&f);
+    CHECK(strstr(t, "\n  lamp 130 90 ff2000:80 8 p2 p4\n") != NULL);
+    free(t);
+    lamp.has_colour = 0, lamp.has_radius = 0, lamp.mask = 0x20;   // a strip with no colour and no radius: the word is the strip, not a radius
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
+    CHECK(light_track_get_lamp(&f, LT_TIME_N, 0, &back) && back.has_strip && back.mask == 0x20 && !back.has_colour && !back.has_radius);
+    lamp.mask = 0x5;   // points 0 and 2: not a run
+    CHECK(!light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why) && why[0] != '\0');
+    lamp.has_strip = 0;   // none again: no word
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
+    CHECK(light_track_get_lamp(&f, LT_TIME_N, 0, &back) && !back.has_strip);
+    light_track_free(&f);
+    CHECK(parse(CY1, NODES, &f));
+    // the file's own lamp lines with a strip are read, and a word that is no strip is a bad line the game would refuse
+    {
+        LightTrack g;
+        const char *text = "track X\ntime N\nlamp 5 100 right\nlamp 6 100 ff0000 4 p3\nlamp 7 100 sideways\nlamp 8 100 left 4\n";
+        CHECK(light_track_parse(text, strlen(text), 120, &g, why, sizeof why));
+        CHECK(light_track_get_lamp(&g, LT_TIME_N, 0, &back) && back.has_strip && back.mask == LT_STRIP_RIGHT && !back.has_radius && !back.has_colour);
+        CHECK(light_track_get_lamp(&g, LT_TIME_N, 1, &back) && back.has_strip && back.mask == 0x8 && back.has_colour && back.radius == 4);
+        CHECK(light_track_first_bad(&g) == 5);   // line 5: `sideways`; line 6, the strip before the radius, is refused too
+        light_track_free(&g);
+    }
     // a tunnel fact keeps its comment when it changes
     LightTrackTunnel tun = { 1, 70, 1 };
     CHECK(light_track_set_tunnel(&f, 1, &tun, why, sizeof why));
