@@ -3,6 +3,8 @@
 # (SHOT) of each screen: Game Mode, Control Central, the showcase of the player's car and of a rival's, the track screen; each is compared pixel by pixel with its golden picture in
 # tests/golden/screens/<profile>/<screen>.png. A difference fails the test: a port element that came into one of these screens, or a change of the art. When the change is meant (and looked at
 # against the original), the goldens are made again with UPDATE=1 and reviewed one by one before they are committed. Needs the CD in ORIGINAL_DIR: skipped without it.
+# EXCEPTIONS (owner 2026-11-23): three screens carry the port's own elements in Stock and Restored and are not held to the original: Game Mode (the mode selector, the Manage content row and
+# the version text: its goldens are taken as they are, the version text fixed by TNFS_VERSION_TEXT), Options and Credits (not walked here). See docs/settings.md, "Stock and Restored keep the original's screens".
 # usage: [UPDATE=1] stock_screens_golden.sh TNFS REPO ORIGINAL_DIR
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder

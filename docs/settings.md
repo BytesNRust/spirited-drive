@@ -170,6 +170,17 @@ Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as
 | `car`, `opponent` | none | none | Control Central's car and head to head rival arrows | the added car picked, by its mod's id (`car=test-car`); an original's is config.dat's and takes the line out. One whose mod is gone opens Control Central with car 0, and the line stays until another car is picked. Restomod's file only | not set |
 | `look.<id>` | none | none | an added car's gallery: Skin and Color | `<skin>,<paint>` by name, `-` for the skin as it comes or the car's own colour (`look.test-car=stripes,Blue`); kept when the car's mod is gone. Restomod's file only | not set |
 
+## Stock and Restored keep the original's screens
+
+In Stock and Restored the front end shows the original's screens: nothing of the port is drawn on them (no SETUP tile, no RECORDS face of the Video tile, no variant switches, no added cars, tracks or content). `tests/stock_screens_golden.sh` (ctest `stock_screens_golden`) holds that: it walks Game Mode, Control Central, the showcase of the player's car and of a rival's, and the track screen in each profile and compares every picture with its golden in `tests/golden/screens/<profile>/`. The goldens are the pictures of `main` (no capture of the original exe exists), looked at one by one; `UPDATE=1` makes them again.
+
+Three screens are exceptions (owner, 2026-11-23): they carry the port's own elements in Stock and Restored too.
+- **Game Mode**: the mode selector (Stock '96 / Restored '96 / Restomod), the Manage content row and the version text.
+- **Options**.
+- **Credits**.
+
+The test takes only Game Mode of the three (its pictures are goldens, with the version text fixed by `TNFS_VERSION_TEXT`); Options and Credits are not in it. Not covered: the results screen, the pause screen, and the menus at 16:9 and 21:9.
+
 ## What each profile sets (`TABLES`)
 
 All 62 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
