@@ -158,6 +158,20 @@ grep -Eq '^  tunnel_look 60 71 .*reach 3' "$f" || fail "the typed Reach is not i
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 \
     --steps ui-click:tunnel0_from,ui-click:tunnel0_kind,ui-click:tunnel0_kind_hall,ui-click:save,light-print > "$work/tkind" 2>&1 || fail "the clicked Kind combo: $(tail -3 "$work/tkind")"
 grep -q '^tunnel 12 20 lit' "$f" || fail "the Kind combo's hall is not in the saved file: $(grep '^tunnel' "$f")"
+# the Sun's other two sliders and the three "auto" ticks, clicked: Height and Shadow strength set (the slider's ends are +-76 and the click at 0.9 of its width 76), each part unticked in turn (a "-" in the
+# line: the generator's own), and a sun with every part auto is no line at all; the file is saved after each flow
+sun_flow() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps "$1" > "$work/sunout" 2>&1 || fail "the sun flow $1: $(tail -3 "$work/sunout")"; }
+sun_flow ui-at:elevation_slider,0.9,ui-at:shadow_slider,0.2,ui-click:save
+grep -Eq '^  sun [0-9]+ 7[0-9] (1[5-9]|2[0-5])$' "$f" || fail "the Height and Shadow strength sliders did not set the sun's height near 76 and shadow near 20: $(grep '  sun' "$f")"
+sun_flow ui-click:shadow_tick,ui-click:save
+grep -Eq '^  sun [0-9]+ 7[0-9] -$' "$f" || fail "unticking Shadow strength did not leave it auto (-): $(grep '  sun' "$f")"
+sun_flow ui-click:elevation_tick,ui-click:save
+grep -Eq '^  sun [0-9]+ - -$' "$f" || fail "unticking Height did not leave it auto (-): $(grep '  sun' "$f")"
+sun_flow ui-click:azimuth_tick,light-print,ui-click:save
+grep -q '^  sun ' "$f" && fail "a sun with every part auto is still a line in the file: $(grep '  sun' "$f")"
+grep '^light:' "$work/sunout" | head -1 | grep -q ' sun ' && fail "the window's model still has a sun with every part auto: $(grep '^light:' "$work/sunout")"
+sun_flow ui-click:azimuth_tick,ui-click:shadow_tick,ui-click:save
+grep -Eq '^  sun [0-9]+ - 55$' "$f" || fail "ticking Direction and Shadow strength from no sun did not make 'sun AZ - 55': $(grep '  sun' "$f")"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the new sections: $(tail -3 "$work/tunnels")"
