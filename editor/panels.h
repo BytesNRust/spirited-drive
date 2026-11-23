@@ -59,6 +59,7 @@ const char *model_panel_backdrop_path();   // the backdrop's picture now ("" for
 void model_panel_backdrop_file(const char *path);   // a picture as the backdrop (--card-backdrop)
 int model_panel_card_view(App *a, bool card, bool as_card);   // the Card view and As on the card boxes set (the step card-view): 1 when the car is open
 int model_panel_card_photo(App *a);   // «Use as card photo» as its button does it, without the question about a card.png that is there (the step card-photo, through ui_card_photo): 1 when it was made
+void model_panel_reset_layout(void);   // Reset layout: the window is no longer enlarged and forgets the dock nodes it knew
 void model_panel_big(bool on);   // the Model window floating large (Enlarge) or docked again
 void model_panel_render_scale(int scale);   // the game's render scale 1..3 for this window (the car drawn on a frame 480 * scale lines tall, shown stretched)
 void model_panel_soft(bool on);   // the shine's soft mask edges on or off (the player's shine_soft by default)

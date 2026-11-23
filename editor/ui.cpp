@@ -275,6 +275,7 @@ void ui_reset_layout(void)
         SDL_SetWindowPosition(g_win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
     g_closed_n = 0;   // Reset layout shows every panel again
+    model_panel_reset_layout();
     g_reset_in = RESET_AFTER_FRAMES;
 }
 

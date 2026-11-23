@@ -97,6 +97,8 @@ static int soft_setting;   /* the player's shine_soft, told by the game and the 
 static int render_scale;   /* the render scale the picture is drawn at (shine_draw_set_render_scale); 0: not told, no rule */
 void shine_draw_set_soft(int on) { soft_setting = on != 0; }
 void shine_draw_set_render_scale(int scale) { render_scale = scale; }
+int shine_draw_get_soft(void) { return soft_setting; }
+int shine_draw_get_render_scale(void) { return render_scale; }
 static int soft_on(void)
 {
     static int env = -2;   /* TNFS_SHINE_SOFT=0/1 overrides the setting, for a check */

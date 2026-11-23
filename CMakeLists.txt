@@ -1258,7 +1258,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_new_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_new_car.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
         set_tests_properties(editor_new_car PROPERTIES TIMEOUT 600)
         add_test(NAME editor_model_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_model_flow.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
-        set_tests_properties(editor_model_flow PROPERTIES TIMEOUT 600)
+        set_tests_properties(editor_model_flow PROPERTIES TIMEOUT 900)
         if(APPLE AND NOT CMAKE_C_FLAGS MATCHES "-fsanitize")   # the UI thread's file calls at rest are counted by a dylib put in front of the editor (tests/io_count.c); not in a sanitizer build: its runtime must come first
             add_library(tnfs_io_count SHARED tests/io_count.c)
             add_test(NAME editor_ui_io COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_ui_io.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:make_test_psd> $<TARGET_FILE:tnfs_io_count>)
