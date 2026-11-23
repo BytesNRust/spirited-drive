@@ -6,6 +6,7 @@
 #include "game/race/police_lights.h"
 #include "game/race/light_synth.h"
 #include "game/sys/port_settings.h"
+#include "viewer/drive_lamps.h"
 #include "viewer/drive_light.h"
 #include "viewer/view_light.h"
 #include "viewer/view_shared.h"
@@ -151,9 +152,23 @@ static void cone_heading(const Car *car, double *hx, double *hz)
 int32_t body_drawn_tick[RACE_CARS];
 HeadlightPool *pool_fed;   /* the pool headlights_update last fed: its tunnel flags and node table are freed with the track, so it lets go of them then */
 
+/* port (reflectors): without the night's pools (dawn, dusk, a day's tunnel or shade) the player's lit lamps still shine in what a track mask marks reflective: the low light is the lamps' own
+ * (drive_lamps_low, as the racers' and the traffic's halo), and the road gets no pool of light from it */
+static void reflect_low_light(void)
+{
+    reflect_lamps_on = 0;
+    if (shadow_race == NULL) return;
+    const Car *const car = shadow_race->cars[race_slot(shadow_race->player)];
+    if (car == NULL || !drive_lamps_low(car->index)) return;
+    double hx, hz;
+    cone_heading(car, &hx, &hz);
+    reflect_lamps_on = 1, reflect_dark = 1, reflect_x = car->x / 65536.0, reflect_z = car->z / 65536.0, reflect_hx = hx, reflect_hz = hz;
+}
+
 /* port (headlight_beams): the cars with their lights on, each frame - the active cars of the race, the player first - are the pools the road is lit in */
 void headlights_update(void)
 {
+    if (light_effects != NULL && light_effects->pool == NULL) reflect_low_light();
     if (light_effects == NULL || light_effects->pool == NULL) return;
     HeadlightPool *pool = light_effects->pool;
     pool_fed = pool;
