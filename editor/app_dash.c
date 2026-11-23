@@ -1,5 +1,6 @@
 #include "app_dash.h"
 
+#include "mask_changes.h"
 #include "psd_manifest.h"
 #include "psd_stale.h"
 
@@ -20,6 +21,33 @@ static const ExportCar *drivable(const App *a)
     return car != NULL && car->kind == EXPORT_DRIVABLE ? car : NULL;
 }
 
+/* A kit made by an older Studio (the migration copied the game's masks in with no manifest) has PNGs the manifest has no line for: "unknown", which Convert PSD keeps when they are not what a PSD
+ * makes. One that is the game's own picture (the export's copy, nothing edited) is Studio's to replace: its hash is written down, so a PSD painted after it is converted. Done once for each project
+ * folder opened (a PNG that differs from the game's is somebody's edit and stays unknown). */
+static void adopt_the_games(App *a, const char *masks, const char *dash)
+{
+    static char done[APP_PATH];
+    const ExportCar *oc = car_race_original_of(&a->car);
+    if (oc == NULL || a->export_src.data[0] == '\0' || strcmp(done, a->dir) == 0) return;
+    snprintf(done, sizeof done, "%s", a->dir);
+    char manifest[APP_PATH], game[APP_PATH];
+    car_project_manifest(&a->car, manifest, sizeof manifest);
+    Manifest *m = calloc(1, sizeof *m);
+    MaskChanges *c = calloc(1, sizeof *c);
+    if (m == NULL || c == NULL || !manifest_load(manifest, m)) { free(m), free(c); return; }
+    int adopted = 0;
+    for (int pass = 0; pass < 2; ++pass) {
+        snprintf(game, sizeof game, "%s/%s/%s", a->export_src.data, pass == 0 ? "car_masks" : "dash_masks", oc->folder);
+        char why[160];
+        if (!(pass == 0 ? mask_changes_compare(masks, game, c, why, sizeof why) : mask_changes_compare_dash(dash, game, c, why, sizeof why))) continue;
+        for (int i = 0; i < c->count; ++i)
+            if (c->item[i].kind == MC_UNCHANGED && manifest_state(m, pass == 0 ? masks : dash, c->item[i].file) == GEN_UNKNOWN)
+                adopted += manifest_record(m, pass == 0 ? masks : dash, c->item[i].file);
+    }
+    if (adopted > 0) manifest_save(manifest, m);
+    free(m), free(c);
+}
+
 void app_dash_stale_refresh(App *a)
 {
     char dir[APP_PATH];
@@ -32,9 +60,14 @@ void app_dash_stale_refresh(App *a)
         char masks[APP_PATH], dash[APP_PATH], manifest[APP_PATH];
         app_psd_dirs(a, masks, dash, manifest, sizeof masks);
         if (!psd_stale_check_flat(dir, masks, dash, drivable(a) != NULL, &r)) return;
+        adopt_the_games(a, masks, dash);
         Manifest *known = calloc(1, sizeof *known);   // which PNGs were touched since Studio made them
         if (known != NULL && manifest_load_cached(manifest, known))
-            for (int i = 0; i < r.count; ++i) r.item[i].edited = manifest_state(known, r.item[i].dash ? dash : masks, r.item[i].png) == GEN_EDITED;
+            for (int i = 0; i < r.count; ++i) {
+                const GenState state = manifest_state(known, r.item[i].dash ? dash : masks, r.item[i].png);
+                r.item[i].edited = state == GEN_EDITED;
+                r.item[i].kept = state == GEN_UNKNOWN && r.item[i].state == STALE_NEWER;
+            }
         free(known);
     } else if (!psd_stale_check(dir, a->car.piece, a->car.folder, drivable(a) != NULL, &r)) return;
     psd_stale_text(&r, a->dash_stale, sizeof a->dash_stale);

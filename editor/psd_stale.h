@@ -16,6 +16,7 @@ typedef struct {
     char png[STALE_NAME];   /* "frnt_mask.png", "dash_mask.png" */
     int dash;               /* the dash's, not a body texture's */
     int edited;             /* its PNG was edited by hand since Studio made it (psd_manifest.h): the caller sets it, psd_stale_check never does */
+    int kept;               /* its PNG is not Studio's own (the manifest has no line for it) and is older than the PSD: Convert PSD keeps it unless it is what the PSD makes; Regenerate from PSD replaces it. The caller sets it */
     long psd_time;          /* the PSD's modification time: a PSD saved again is a new state, whatever the PNG says */
     StaleState state;
 } StaleItem;

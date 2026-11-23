@@ -128,7 +128,7 @@ int app_psd_edited(const App *a, char *names, size_t cap)
     if (cap > 0) names[0] = '\0';
     if (!a->stale_ok) return 0;
     for (int i = 0; i < a->stale.count; ++i) {
-        if (!a->stale.item[i].edited) continue;
+        if (!a->stale.item[i].edited && !a->stale.item[i].kept) continue;
         count++;
         if (used + strlen(a->stale.item[i].png) + 3 < cap) used += (size_t)snprintf(names + used, cap - used, "%s%s", used > 0 ? ", " : "", a->stale.item[i].png);
     }

@@ -4,6 +4,7 @@
 #include "physics_popup.h"
 #include "path_elide.h"
 #include "sheet_ui.h"
+#include "ui_probe.h"
 
 #include "imgui.h"
 
@@ -552,6 +553,7 @@ void masks_panel(App *a, ImTextureID tex)
             const bool busy = app_psd_busy(a);
             ImGui::BeginDisabled(!found || busy);
             if (ImGui::Button("Convert PSD")) app_psd_start(a);
+            ui_probe("psd_convert");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
                 if (busy) ImGui::SetTooltip("Converting: the masks are replaced when every PSD has been read");
@@ -572,24 +574,26 @@ void masks_panel(App *a, ImTextureID tex)
             ImGui::SameLine();
             ImGui::BeginDisabled(n_edited == 0 || !found || busy);
             if (ImGui::Button("Regenerate from PSD")) ImGui::OpenPopup("Regenerate from PSD?");
+            ui_probe("psd_regenerate");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", n_edited > 0 ? "Make the masks again from the PSDs, replacing the PNGs edited by hand too."
-                                                     : "Nothing to regenerate: no PNG was edited by hand since Studio made it.");
+                ImGui::SetTooltip("%s", n_edited > 0 ? "Make the masks again from the PSDs, replacing the PNGs Convert PSD kept (edited by hand, or not made by Studio and older than their PSD)."
+                                                     : "Nothing to regenerate: every PNG is Studio's own from its PSD, or newer than it.");
             if (ImGui::BeginPopupModal("Regenerate from PSD?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 if (n_edited == 0 || busy) ImGui::CloseCurrentPopup();   // nothing left to replace (a conversion ran meanwhile)
-                ImGui::TextWrapped("%s edited by hand: %s.", n_edited == 1 ? "This PNG was" : "These PNGs were", edited);
+                ImGui::TextWrapped("%s not made by Studio from the PSD (edited by hand, or older than the PSD and put there another way): %s.", n_edited == 1 ? "This PNG is" : "These PNGs are", edited);
                 ImGui::TextWrapped("Regenerating replaces %s with what the PSD makes; the changes made to %s by hand are lost.", n_edited == 1 ? "it" : "them", n_edited == 1 ? "it" : "them");
                 if (ImGui::Button("Replace")) app_psd_regenerate(a), ImGui::CloseCurrentPopup();
+                ui_probe("psd_replace");
                 ImGui::SameLine();
                 if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
                 ImGui::EndPopup();
             }
             if (n_edited > 0) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.69f, 0.13f, 1.0f));
-                ImGui::TextWrapped("Edited by hand, kept as they are: %s", edited);
+                ImGui::TextWrapped("Kept as they are (not made by Studio from the PSD): %s. Regenerate from PSD replaces them.", edited);
                 ImGui::PopStyleColor();
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Convert PSD does not replace a PNG somebody edited. Regenerate from PSD does.");
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Convert PSD does not replace a PNG somebody edited or that Studio did not make. Regenerate from PSD does (the PSDs are never written).");
             }
             if (a->dash_stale[0] != '\0') {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.69f, 0.13f, 1.0f));

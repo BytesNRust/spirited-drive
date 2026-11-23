@@ -1833,6 +1833,8 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_e2e_car PROPERTIES TIMEOUT 300)
             add_test(NAME editor_copy_originals COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_copy_originals.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Copy to game repo for the 20 original cars and the 16 tracks, a clean temp workspace, nothing edited
             set_tests_properties(editor_copy_originals PROPERTIES TIMEOUT 900)
+            add_test(NAME editor_original_psd_newer COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_psd_newer.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:make_test_psd>)   # the owner's ANSX: the game's own PNG with no manifest gives way to a newer PSD, an edited one is kept, Regenerate from PSD is enabled
+            set_tests_properties(editor_original_psd_newer PROPERTIES TIMEOUT 600)
             add_test(NAME editor_e2e_cockpit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_cockpit.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
             set_tests_properties(editor_e2e_cockpit PROPERTIES TIMEOUT 300)
             add_test(NAME editor_e2e_kit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_kit.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs-studio>)
