@@ -1817,6 +1817,9 @@ if(NOT EMSCRIPTEN)
         # owner 2026-11-23: the showcase's SETUP tile is the player's car's: on its page, not on a rival's (Stock and Restomod)
         add_test(NAME showcase_setup_tile COMMAND sh ${CMAKE_SOURCE_DIR}/tests/showcase_setup_tile.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(showcase_setup_tile PROPERTIES TIMEOUT 900)
+        # Stock and Restored show the original's screens: the front end's pictures against goldens (tests/golden/screens/<profile>), one game session per profile
+        add_test(NAME stock_screens_golden COMMAND sh ${CMAKE_SOURCE_DIR}/tests/stock_screens_golden.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
+        set_tests_properties(stock_screens_golden PROPERTIES TIMEOUT 600)
         # dep59 step 4 (T11): editions in the menus, one test per game session (each part one boot)
         foreach(part menus modes race)
             add_test(NAME edition_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
