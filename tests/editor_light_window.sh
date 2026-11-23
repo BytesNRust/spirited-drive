@@ -132,6 +132,18 @@ echo "$lines" | sed -n 3p | grep -q 'tunnels 2 ' && ! echo "$lines" | sed -n 3p 
 echo "$lines" | sed -n 4p | grep -q 'time C (unsaved) tunnels 1 ' || fail "a tunnel row's Remove (the table's first column, reachable at 1280 px) did not take a tunnel away: $(echo "$lines" | sed -n 4p)"
 echo "$lines" | sed -n 5p | grep -q 'time B (unsaved) tunnels 1 looks 2 ' || fail "the Day button did not bring the Day block back with the edit: $(echo "$lines" | sed -n 5p)"
 [ "$(cksum < "$work/light/track_light/AL1.txt")" = "$(cat "$work/ui_cksum")" ] || fail "an unsaved click flow changed the file"
+# the Lamps section, clicked (it starts closed with no lamp): opened, Add lamp, the node and light boxes typed into, a Strip choice from the combo, Save writes the line, Remove takes it away and Save writes the file without it
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 \
+    --steps light-print,ui-click:lamps_header,ui-click:add_lamp,light-print,ui-click:lamp0_node,ui-text:80,ui-click:lamp0_pct,ui-text:60,ui-click:lamp0_strip,ui-click:lamp0_strip_left,ui-click:save,light-print > "$work/lamps1" 2>&1 ||
+    fail "the clicked Lamps flow: $(tail -3 "$work/lamps1")"
+l1=$(grep '^light: ' "$work/lamps1" | sed -n 1p | sed 's/.* lamps \([0-9]*\) .*/\1/'); l2=$(grep '^light: ' "$work/lamps1" | sed -n 2p | sed 's/.* lamps \([0-9]*\) .*/\1/')
+[ "$((l2 - l1))" = 1 ] || fail "Add lamp did not add a lamp: $l1 -> $l2"
+grep -q '^  lamp 80 60 left$' "$work/light/track_light/AL1.txt" || fail "the typed node and light and the Strip choice are not in the saved file: $(grep '^  lamp' "$work/light/track_light/AL1.txt")"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 \
+    --steps light-print,ui-click:lamp0_remove,light-print,ui-click:save,light-print > "$work/lamps2" 2>&1 || fail "the clicked Lamps Remove: $(tail -3 "$work/lamps2")"
+m1=$(grep '^light: ' "$work/lamps2" | sed -n 1p | sed 's/.* lamps \([0-9]*\) .*/\1/'); m2=$(grep '^light: ' "$work/lamps2" | sed -n 2p | sed 's/.* lamps \([0-9]*\) .*/\1/')
+[ "$((m1 - m2))" = 1 ] || fail "a lamp row's Remove did not take the lamp away: $m1 -> $m2"
+grep -q '^  lamp 80 60' "$work/light/track_light/AL1.txt" && fail "the removed lamp is still in the saved file"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the new sections: $(tail -3 "$work/tunnels")"

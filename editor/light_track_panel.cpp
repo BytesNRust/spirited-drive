@@ -426,8 +426,13 @@ bool lamp_strip_combo(LightTrackLamp *l)
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::BeginCombo("##strip", shown)) {
         if (ImGui::Selectable("none", !l->has_strip) && l->has_strip) l->has_strip = 0, l->mask = 0, changed = true;
-        for (const Choice &c : CHOICES)
+        ui_probe("strip_none");
+        for (const Choice &c : CHOICES) {
             if (ImGui::Selectable(c.label, l->has_strip && c.mask == (l->mask & LT_ALL_POINTS))) l->has_strip = 1, l->mask = c.mask, changed = true;
+            char name[16];
+            snprintf(name, sizeof name, "strip_%s", c.label);
+            ui_probe(name);
+        }
         ImGui::EndCombo();
     }
     ui_probe("strip");
@@ -443,19 +448,20 @@ void lamp_rows(App *a)
     char label[48];
     snprintf(label, sizeof label, "Lamps (%d)###lamps", count);
     const bool open = ImGui::CollapsingHeader(label, count > 0 && count <= 24 ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+    ui_probe("lamps_header");
     ImGui::SameLine();
     help_marker("A lamp lights the road around its node: its light in percent, its colour (empty: the game's), its radius in nodes (empty: the game's). A lamp is allowed at every time, not "
                 "only at night (a neon, a shop window). The game takes 2048 at most. Its strip is the part of the road it stands over: all, left, right or road (none: where it stood before strips). A run of points typed in the file is kept as it is.");
     if (!open) return;
     int remove = -1;
     if (count > 0 && ImGui::BeginChild("##lamplist", ImVec2(0, 220), ImGuiChildFlags_Borders)) {
-        if (ImGui::BeginTable("##lamps", 6, ImGuiTableFlags_SizingStretchProp)) {
-            ImGui::TableSetupColumn("Node", ImGuiTableColumnFlags_WidthFixed, 90.0f);
-            ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-            ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 56.0f);
-            ImGui::TableSetupColumn("Radius", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-            ImGui::TableSetupColumn("Strip", ImGuiTableColumnFlags_WidthFixed, 90.0f);
-            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+        if (ImGui::BeginTable("##lamps", 6, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX)) {
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 58.0f);   // Remove first, and the widths what fits the panel at 1280 px: the last columns (Strip, Remove) were past its edge
+            ImGui::TableSetupColumn("Node", ImGuiTableColumnFlags_WidthFixed, 54.0f);
+            ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 54.0f);
+            ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+            ImGui::TableSetupColumn("Radius", ImGuiTableColumnFlags_WidthFixed, 54.0f);
+            ImGui::TableSetupColumn("Strip", ImGuiTableColumnFlags_WidthFixed, 84.0f);
             ImGui::TableHeadersRow();
             // a night file has hundreds of lamps and each row is found by its number in the file: only the rows in view are drawn
             ImGuiListClipper clipper;
@@ -468,30 +474,33 @@ void lamp_rows(App *a)
                 ImGui::PushID(i);
                 { char scope[16]; snprintf(scope, sizeof scope, "lamp%d", i); ui_probe_scope(scope); }
                 ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                changed = node_box("##node", &l.node, -FLT_MIN) || changed;
                 ImGui::TableSetColumnIndex(1);
+                changed = node_box("##node", &l.node, -FLT_MIN) || changed;
+                ui_probe("node");
+                ImGui::TableSetColumnIndex(2);
                 {
                     int v = static_cast<int>(l.percent);
                     ImGui::SetNextItemWidth(-FLT_MIN);
                     if (ImGui::InputInt("##pct", &v, 0, 0)) l.percent = non_negative(v), changed = true;
+                    ui_probe("pct");
                 }
-                ImGui::TableSetColumnIndex(2);
+                ImGui::TableSetColumnIndex(3);
                 {
                     char hex[8] = "ffffff";
                     if (l.has_colour && strlen(l.colour) >= 6) snprintf(hex, sizeof hex, "%.6s", l.colour);
                     if (swatch("##colour", hex, sizeof hex)) l.has_colour = 1, snprintf(l.colour, sizeof l.colour, "%s", hex), changed = true;
                 }
-                ImGui::TableSetColumnIndex(3);
+                ImGui::TableSetColumnIndex(4);
                 {
                     double r = static_cast<double>(l.radius);
                     int has = l.has_radius;
                     if (optional_number("##radius", &has, &r, "%.0f", -FLT_MIN)) l.has_radius = has, l.radius = has ? non_negative(static_cast<int>(r)) : 0, changed = true;
                 }
-                ImGui::TableSetColumnIndex(4);
-                changed = lamp_strip_combo(&l) || changed;
                 ImGui::TableSetColumnIndex(5);
+                changed = lamp_strip_combo(&l) || changed;
+                ImGui::TableSetColumnIndex(0);
                 if (ImGui::Button("Remove")) remove = i;
+                ui_probe("remove");
                 ui_probe_scope("");
                 ImGui::PopID();
                 if (changed) {
