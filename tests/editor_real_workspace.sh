@@ -83,6 +83,11 @@ cmp -s "$lf" "$trepo/data/track_light/AL1.txt" || fail "Copy did not put AL1's l
 sums_repo > "$work/repo.lights.after"
 [ "$(diff "$work/repo.lights.before" "$work/repo.lights.after" | grep -c '^>')" = 1 ] || fail "Copy changed other track's light files: $(diff "$work/repo.lights.before" "$work/repo.lights.after")"
 
+# AL1's Track masks tab at 1280x800: a tall texture's picture (slot_03, 128x256) is drawn whole, inside the panel (its bottom is above the window's), not cut off at the bottom
+trun --steps open-original:0,ui-focus:Track\ masks,ui-click:tmask_only,ui-click:tmask2_row,ui-rect:tmask_picture > "$work/t.pic" 2>&1 || fail "the Track masks picture: $(tail -3 "$work/t.pic")"
+pic=$(sed -n 's/^ui rect: tmask_picture //p' "$work/t.pic")
+[ -n "$pic" ] && [ "$(echo "$pic" | awk '{ print ($2 + $4 <= 800 && $4 >= 100) ? "fits" : "cut" }')" = fits ] || fail "the mask's picture does not fit the panel at 1280x800 (x y w h: $pic)"
+
 # the backup was only read
 after=$(cd "$backup" && find . -type f | sort | xargs cksum | cksum)
 [ "$before" = "$after" ] || fail "THE BACKUP CHANGED"

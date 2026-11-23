@@ -147,10 +147,13 @@ void track_masks_panel(App *a, ImTextureID picture)
             ImGui::EndPopup();
         }
         if (picture != 0 && a->tmask_w > 0) {
-            const float room = bounded(ImGui::GetContentRegionAvail().x, 16.0f, 4096.0f);
-            const float scale = room / static_cast<float>(a->tmask_w);
-            const float w = scale > 4.0f ? 4.0f * static_cast<float>(a->tmask_w) : room;   // a small board is not blown up past 4x
-            ImGui::Image(picture, ImVec2(w, w * static_cast<float>(a->tmask_h) / static_cast<float>(a->tmask_w)));
+            // as wide as the panel, but no taller than what is left of it: the picture shrinks to fit and never runs past the panel's bottom edge (the whole mask is seen without scrolling)
+            const float room_w = bounded(ImGui::GetContentRegionAvail().x, 16.0f, 4096.0f), room_h = bounded(ImGui::GetContentRegionAvail().y, 16.0f, 4096.0f);
+            const float aspect = static_cast<float>(a->tmask_w) / static_cast<float>(a->tmask_h);
+            float w = room_w < room_h * aspect ? room_w : room_h * aspect;
+            if (w > 4.0f * static_cast<float>(a->tmask_w)) w = 4.0f * static_cast<float>(a->tmask_w);   // a small board is not blown up past 4x
+            ImGui::Image(picture, ImVec2(w, w / aspect));
+            ui_probe("tmask_picture");
         }
     }
     ImGui::End();
