@@ -1,6 +1,7 @@
 // The Masks panel of an original track (dep103): a row for each texture that has a mask, with its state; a click shows the mask over the texture, read-only. The PSDs generate the
 // PNGs the game reads (track_masks.h); a PNG edited by hand is kept as it is and says so, with Regenerate from PSD.
 #include "panels.h"
+#include "ui_probe.h"
 
 #include "help_marker.h"
 
@@ -49,6 +50,11 @@ void mask_row(App *a, int i)
     ImGui::TableNextColumn();
     ImGui::PushID(i);
     if (ImGui::Selectable(r.name, a->tmask_sel == i, ImGuiSelectableFlags_SpanAllColumns)) app_track_mask_select(a, i);
+    char scope[16];
+    snprintf(scope, sizeof scope, "tmask%d", i);
+    ui_probe_scope(scope);
+    ui_probe("row");
+    ui_probe_scope("");
     ImGui::PopID();
     ImGui::TableNextColumn();
     if (r.width > 0) ImGui::Text("%dx%d", r.width, r.height);
@@ -76,6 +82,7 @@ void track_masks_panel(App *a, ImTextureID picture)
                 "A PSD with nothing painted in its mask layer is not used. A PNG edited by hand is kept until Regenerate from PSD. Click a row to see its mask over the texture.");
     bool only = a->tmask_masked_only != 0;
     if (ImGui::Checkbox("With mask only", &only)) a->tmask_masked_only = only;
+    ui_probe("tmask_only");
     ImGui::SetItemTooltip("Hides the textures that have no mask, leaving the list of those that do.");
     if (a->tmask_note[0] != '\0') ImGui::TextWrapped("%s", a->tmask_note);
     if (m.count == 0) {
@@ -102,7 +109,9 @@ void track_masks_panel(App *a, ImTextureID picture)
             ImGui::TableNextColumn();
             char head[48];
             snprintf(head, sizeof head, "Not painted yet (%d)", unpainted);
-            if (ImGui::TreeNodeEx(head, ImGuiTreeNodeFlags_SpanAllColumns)) {
+            const bool open_unpainted = ImGui::TreeNodeEx(head, ImGuiTreeNodeFlags_SpanAllColumns);
+            ui_probe("tmask_unpainted");
+            if (open_unpainted) {
                 for (int i = 0; i < m.count; ++i)
                     if (unpainted_row(m.row[i])) mask_row(a, i);
                 ImGui::TreePop();
@@ -117,6 +126,7 @@ void track_masks_panel(App *a, ImTextureID picture)
         if (r.has_psd && r.state != TM_EMPTY && r.state != TM_BAD) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Regenerate from PSD")) app_track_mask_regenerate(a);
+            ui_probe("tmask_regen");
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes this PNG again from its PSD; a PNG edited by hand is replaced");
         }
         if (picture != 0 && a->tmask_w > 0) {

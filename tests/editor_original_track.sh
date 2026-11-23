@@ -178,7 +178,7 @@ PY
 out=$(run --frames 60 --steps open-original:0,masks-print 2>&1) || fail "edited: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "one PNG is edited by hand: $out"
 echo "$out" | grep -q '^mask scenery_00: edited by hand, 4x1, 4 reflective' || fail "it is kept as it is: $out"
-out=$(run --frames 60 --steps open-original:0,mask-select:2,mask-regen,masks-print 2>&1) || fail "regenerate: $out"
+out=$(run --frames 60 --steps open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,masks-print 2>&1) || fail "regenerate (the row and the Regenerate from PSD button clicked): $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "Regenerate from PSD makes it again: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "the PSD's mask is back: $out"
 

@@ -330,7 +330,13 @@ void tunnel_rows(App *a)
             }
             const bool look_changed = look_cells(v, rows[r].tunnel >= 0 && t.lit != 0);
             ImGui::TableSetColumnIndex(7);
-            if (ImGui::Button("Remove")) {
+            const bool remove_row = ImGui::Button("Remove");
+            char scope[16];
+            snprintf(scope, sizeof scope, "tunnel%d", r);
+            ui_probe_scope(scope);
+            ui_probe("remove");
+            ui_probe_scope("");
+            if (remove_row) {
                 remove_tunnel = rows[r].tunnel;
                 remove_look = rows[r].look;
             }
@@ -380,7 +386,9 @@ void tunnel_rows(App *a)
             snprintf(a->light.error, sizeof a->light.error, "%s", said);
         }
     }
-    if (ImGui::Button("Add tunnel")) {
+    const bool add_tunnel = ImGui::Button("Add tunnel");
+    ui_probe("add_tunnel");
+    if (add_tunnel) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
         const LightTrackTunnel t = { node, node + 50 < last ? node + 50 : last, 0 };
         if (light_track_set_tunnel(&f, -1, &t, why, sizeof why)) app_light_touch(a);
