@@ -680,11 +680,13 @@ void original_popup(App *a)
             }
         }
         if (have == 0) ImGui::TextDisabled("No original track is in this workspace.");
-        ImGui::BeginDisabled(a->data_dir[0] == '\0');
+        ImGui::BeginDisabled(!a->data_dir_ok);
         if (ImGui::Button(have == 0 ? "Add originals" : "Update originals")) app_original_add_all(a);
         ImGui::EndDisabled();
+        char missing[APP_PATH + 64];   // (the path that failed, shown in the tooltip)
+        snprintf(missing, sizeof missing, "\n(Game data folder not found: %s)", a->data_dir);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("Put the game's 16 tracks in the workspace (their light file and mask PSDs), or bring an older workspace up to date: the one light file replaces the old light files.\nWhat you already edited is never touched.");
+            ImGui::SetTooltip("Put the game's 16 tracks in the workspace (their light file and mask PSDs), or bring an older workspace up to date: the one light file replaces the old light files.\nWhat you already edited is never touched.%s", a->data_dir_ok ? "" : a->data_dir[0] == '\0' ? "\n(Choose File > Game repo folder... first: Studio needs the game's data/ to copy the light files from.)" : missing);
     }
     ImGui::Spacing();
     if (ImGui::Button("Close") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->original_dialog = 0;

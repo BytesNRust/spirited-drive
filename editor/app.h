@@ -114,6 +114,7 @@ typedef struct {
     char repo_arg[APP_PATH];     /* --port-data DIR: the game repo's data/ for this run; wins over the kept setting */
     char repo_cfg[APP_PATH];     /* the kept setting ("repo data" in workspace.txt beside the recent list); "" for none */
     char data_dir[APP_PATH];     /* the game's data/ as a source tree has it (--port-data, --light-dir, the tree the program was built from): where the original tracks are added from and published to; "" for none (a packaged app) */
+    int data_dir_ok;             /* data_dir is a folder that exists (checked when it is set, not every frame) */
     char art_dir[APP_PATH];      /* the owner's track mask PSDs, <TRACK>/<name>.psd (--art-dir, else art/tnfs-masks/tracks beside the source tree); "" for none */
     char original_dir[APP_PATH]; /* the original track's folder the Track light window is on (<workspace>/tracks/<STEM>); "" for the plain window of a light folder */
     TrackMasks tmasks;           /* the masks of the original track on screen (track_masks.h), scanned when it opens and after Regenerate; tmasks_loaded 0 until then */
@@ -509,6 +510,8 @@ void app_workspace_pick(App *a);
 /* File > Game repo folder...: the folder dialog for the repo's data/ (main.c), and what it gives: the folder (or the repo whose data/ holds them) when it has car_masks/ and track_light/,
  * kept by app_repo_data_set; else the status says what is missing and nothing changes. 1 when it was kept. */
 void app_repo_data_pick(App *a);
+/* the chosen game repo (--port-data or File > Game repo folder...) is also the game data the original tracks are added from and the folder the Track light opens on, when Studio has none of its own */
+void app_repo_data_apply(App *a);
 int app_repo_data_choose(App *a, const char *dir);
 /* the open project is one Copy to game repo is for (an original car or track) but the repo folder is not set: the File menu shows the item off, saying so */
 int app_repo_copy_unset(const App *a);

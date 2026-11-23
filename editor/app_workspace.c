@@ -63,6 +63,16 @@ static int is_dir(const char *dir, const char *sub)
     return snprintf(path, sizeof path, "%s/%s", dir, sub) < (int)sizeof path && stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
+void app_repo_data_apply(App *a)
+{
+    const char *const repo = app_repo_data(a);
+    if (repo[0] == '\0') return;
+    char art[APP_PATH];
+    snprintf(art, sizeof art, "%s", a->art_dir);   // (app_set_game_data writes a->art_dir: not from itself)
+    app_set_game_data(a, repo, art);   /* the game's data/ the original tracks are added from: the repo chosen is the one (an installed app has no source tree to fall back on) */
+    if (a->light_dir[0] == '\0' || app_light_in_bundle(a->light_dir)) snprintf(a->light_dir, sizeof a->light_dir, "%s", repo);   /* and the light Studio tunes */
+}
+
 int app_repo_data_choose(App *a, const char *dir)
 {
     char data[APP_PATH];
@@ -74,7 +84,9 @@ int app_repo_data_choose(App *a, const char *dir)
         return snprintf(a->status, sizeof a->status, "game repo folder: %s is inside an app bundle: choose the repo's own data/", data), 0;
     if (!app_repo_data_set(a, data) && a->workspace_file[0] != '\0')   /* a headless run keeps no file: the choice holds for the run */
         return snprintf(a->status, sizeof a->status, "game repo folder: could not keep %s in the settings file", data), 0;
-    snprintf(a->status, sizeof a->status, "game repo folder: %s (Copy to game repo writes there)", data);
+    a->repo_arg[0] = '\0';   /* what is chosen here is the one repo from now on: --port-data no longer shadows it (Copy writes where Add originals reads) */
+    app_repo_data_apply(a);
+    snprintf(a->status, sizeof a->status, "game repo folder: %s (Copy to game repo writes there; Add originals copies the light files from there)", data);
     return 1;
 }
 

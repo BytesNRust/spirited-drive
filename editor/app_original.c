@@ -15,6 +15,7 @@ static int is_dir(const char *path)
 void app_set_game_data(App *a, const char *data_dir, const char *art_dir)
 {
     snprintf(a->data_dir, sizeof a->data_dir, "%s", data_dir != NULL ? data_dir : "");
+    a->data_dir_ok = a->data_dir[0] != '\0' && is_dir(a->data_dir);
     snprintf(a->art_dir, sizeof a->art_dir, "%s", art_dir != NULL ? art_dir : "");
     if (a->art_dir[0] == '\0' && a->data_dir[0] != '\0') {   // <repo>/data/../../../art/tnfs-masks/tracks: the worktree is dev/<name>, the art folder is beside dev/
         char probe[APP_PATH + 40];
@@ -36,7 +37,8 @@ int app_original_add_all(App *a)
 {
     char why[OT_WHY] = "";
     if (a->workspace[0] == '\0') return snprintf(a->status, sizeof a->status, "original tracks: choose a workspace first"), 0;
-    if (a->data_dir[0] == '\0' || !is_dir(a->data_dir)) return snprintf(a->status, sizeof a->status, "original tracks: Studio has no game data folder to copy the light files from (--port-data)"), 0;
+    if (a->data_dir[0] == '\0') return snprintf(a->status, sizeof a->status, "original tracks: Studio has no game data folder to copy the light files from (choose File > Game repo folder...)"), 0;
+    if (!is_dir(a->data_dir)) return snprintf(a->status, sizeof a->status, "original tracks: game data folder not found: %s (choose File > Game repo folder...)", a->data_dir), 0;
     OriginalAdd add = { 0 };
     const int ok = original_track_add_all(a->workspace, a->data_dir, a->art_dir[0] != '\0' ? a->art_dir : NULL, &add, why, sizeof why);
     app_workspace_refresh(a);

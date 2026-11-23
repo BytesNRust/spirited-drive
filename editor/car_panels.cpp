@@ -160,14 +160,16 @@ void start_screen(App *a)
             ImGui::BeginDisabled(a->light_dir[0] == '\0');
             if (ImGui::Button("Open original track...", ImVec2(half, 0))) a->original_dialog = 1;
             ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game");
-            ImGui::BeginDisabled(a->workspace[0] == '\0' || a->data_dir[0] == '\0');
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game%s", a->light_dir[0] == '\0' ? "\n(Choose File > Game repo folder... first.)" : "");
+            ImGui::BeginDisabled(a->workspace[0] == '\0' || !a->data_dir_ok);
             if (ImGui::Button("Add originals", ImVec2(half, 0))) app_original_add_all(a);
             ui_probe("add_originals");
             ImGui::EndDisabled();
+            char missing[APP_PATH + 64];   // (the path that failed, shown in the tooltip)
+            snprintf(missing, sizeof missing, "\n(Game data folder not found: %s)", a->data_dir);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("Put the game's 16 tracks in the workspace: their light file and their mask PSDs. Run it again to bring an older workspace up to date: the one light file replaces\nthe old light files, and whatever you already edited (light, PSDs, masks) is never touched.%s",
-                                  a->workspace[0] == '\0' ? "\n(Choose a workspace first.)" : a->data_dir[0] == '\0' ? "\n(Studio has no game data folder: --port-data.)" : "");
+                                  a->workspace[0] == '\0' ? "\n(Choose a workspace first: File > Workspace.)" : a->data_dir_ok ? "" : a->data_dir[0] == '\0' ? "\n(Choose File > Game repo folder... first: Studio needs the game's data/ to copy the light files from.)" : missing);
             ImGui::BeginDisabled(a->workspace[0] == '\0');
             if (ImGui::Button("Export original track...", ImVec2(half, 0))) app_ask(a, APP_ACT_EXPORT_TRACK, "");
             ImGui::EndDisabled();

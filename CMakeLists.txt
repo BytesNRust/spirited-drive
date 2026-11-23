@@ -1281,6 +1281,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_original_track_flow_a PROPERTIES TIMEOUT 900)
         add_test(NAME editor_original_track_flow_b COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> b)   # part b: test drive, masks, polls, repo folder, main menu (split from one test that took 299.8 s on the Intel sanitizers runner)
         set_tests_properties(editor_original_track_flow_b PROPERTIES TIMEOUT 900)
+        add_test(NAME editor_game_repo_enables COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_repo_enables.sh $<TARGET_FILE:tnfs-track-editor>)   # a Studio with no game data folder of its own: File > Game repo folder... enables Add originals and Open original track
+        set_tests_properties(editor_game_repo_enables PROPERTIES TIMEOUT 300)
         add_test(NAME editor_ui_words COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_ui_words.sh ${CMAKE_SOURCE_DIR})   # words Studio never shows ("GIMP")
         add_test(NAME editor_loose_text COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_loose_text.sh ${CMAKE_SOURCE_DIR})   # no loose explanatory text in the car and Track light panels: (?) or a tooltip
         add_test(NAME editor_game_lookup COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_lookup.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
