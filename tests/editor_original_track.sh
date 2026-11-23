@@ -194,9 +194,21 @@ PY
 out=$(run --frames 60 --steps open-original:0,masks-print 2>&1) || fail "edited: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "one PNG is edited by hand: $out"
 echo "$out" | grep -q '^mask scenery_00: edited by hand, 4x1, 4 reflective' || fail "it is kept as it is: $out"
-out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,masks-print" 2>&1) || fail "regenerate (the row and the Regenerate from PSD button clicked): $out"
-echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "Regenerate from PSD makes it again: $out"
+# Update masks from PSD on the edited one asks first (Replace / Keep / Cancel, as a car's does): Cancel and Keep leave the PNG byte for byte as it is, Replace puts the PSD's mask back
+edited_png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
+cp "$edited_png" "$work/edited_scenery.png"
+for answer in tmask_cancel tmask_keep; do
+    out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,ui-click:$answer,masks-print" 2>&1) || fail "$answer: $out"
+    cmp -s "$edited_png" "$work/edited_scenery.png" || fail "$answer in the question changed the PNG edited by hand: $out"
+    echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "$answer: the PNG is still edited by hand: $out"
+done
+out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,ui-click:tmask_replace,masks-print" 2>&1) || fail "regenerate (the row, Update masks from PSD and Replace clicked): $out"
+cmp -s "$edited_png" "$work/edited_scenery.png" && fail "Replace did not replace the PNG: $out"
+echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "Replace makes it again from the PSD: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "the PSD's mask is back: $out"
+# a mask that was not edited is made again at once, with no question
+out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,masks-print" 2>&1) || fail "regenerate an unedited mask: $out"
+echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "an unedited mask is made again with no question: $out"
 
 # the copy action is hidden unless the game repo's data/ is given (--port-data): without it the room's File menu has no Copy item and print-repo says none
 out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --window 1280x800 --frames 20 --steps open-original:3,print-menu,print-repo 2>&1) || fail "no repo: $out"

@@ -125,9 +125,26 @@ void track_masks_panel(App *a, ImTextureID picture)
         ImGui::Text("%s", r.name);
         if (r.has_psd && r.state != TM_EMPTY && r.state != TM_BAD) {
             ImGui::SameLine();
-            if (ImGui::SmallButton("Update masks from PSD")) app_track_mask_regenerate(a);
+            if (ImGui::SmallButton("Update masks from PSD")) {
+                if (r.state == TM_EDITED) ImGui::OpenPopup("Replace the edited mask?");   // asks before replacing what was edited by hand
+                else app_track_mask_regenerate(a);
+            }
             ui_probe("tmask_regen");
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes this PNG again from its PSD; a PNG edited by hand is replaced");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes this PNG again from its PSD. A PNG edited by hand is not replaced without asking first.");
+        }
+        if (ImGui::BeginPopupModal("Replace the edited mask?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+            if (r.state != TM_EDITED) ImGui::CloseCurrentPopup();   // nothing left to ask about
+            ImGui::TextWrapped("The mask %s was edited by hand.", r.name);
+            ImGui::TextWrapped("Replace it with what its PSD makes (the changes made by hand are lost), or keep it as it is.");
+            if (ImGui::Button("Replace")) app_track_mask_regenerate(a), ImGui::CloseCurrentPopup();
+            ui_probe("tmask_replace");
+            ImGui::SameLine();
+            if (ImGui::Button("Keep")) ImGui::CloseCurrentPopup();   // the PNG stays as it is
+            ui_probe("tmask_keep");
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();   // nothing is done
+            ui_probe("tmask_cancel");
+            ImGui::EndPopup();
         }
         if (picture != 0 && a->tmask_w > 0) {
             const float room = bounded(ImGui::GetContentRegionAvail().x, 16.0f, 4096.0f);
