@@ -327,6 +327,10 @@ const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t 
     static int next, valid;
     float ratio[3] = { 1.0f, 1.0f, 1.0f };   /* what a light with no ratio for the car leaves in it (found 0 left it unset: read as 0, so the car was black): the car's own light is full */
     ratio_at_xz(node, xz, car, ratio);
+    if (getenv("TNFS_CAR_RATIO_DUMP") != NULL) {   /* port (tests): every car draw's ratio, `node r g b` a line (car_lit_all_game.sh: a ratio of 0 is a black car) */
+        FILE *dump = fopen(getenv("TNFS_CAR_RATIO_DUMP"), "a");
+        if (dump != NULL) fprintf(dump, "%d %.3f %.3f %.3f\n", node, ratio[0], ratio[1], ratio[2]), fclose(dump);
+    }
     int key[8] = { 0 }, neutral = 1;
     const int floor_level = light_effects->pool != NULL ? port_light_effects() : 0;   /* port (car_night_lift): at night (the headlight pool), a floor of light on the body */
     key[7] = floor_level, neutral = floor_level == 0;
