@@ -48,7 +48,8 @@ mkdir -p "$work/oldws/tracks/CL1/light/track" "$work/oldws/tracks/CL1/light/trac
 printf 'old\n' > "$work/oldws/tracks/CL1/light/track/CL1.txt"
 for t in A B C N; do printf 'old\n' > "$work/oldws/tracks/CL1/light/track_light/CL1$t.txt"; done
 cp "$work/ws/tracks/CL1/original.ini" "$work/oldws/tracks/CL1/original.ini" || fail "no original.ini to copy for the old workspace"
-out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 4 --steps add-originals,print-workspace 2>&1) || fail "add-originals on an old workspace: $out"
+out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 30 --steps ui-click:add_originals,status,print-workspace 2>&1) || fail "the Add originals button on an old workspace: $out"
+echo "$out" | grep -q "^status: original tracks: 16 in the workspace" || fail "the button did not say what it did: $out"
 [ -f "$work/oldws/tracks/CL1/light/track_light/CL1.txt" ] || fail "the old workspace did not get the one light file"
 [ -f "$work/oldws/tracks/CL1/light/track/CL1.txt" ] && fail "the old light file light/track/CL1.txt is still there"
 for t in A B C N; do [ -f "$work/oldws/tracks/CL1/light/track_light/CL1$t.txt" ] && fail "the old light file CL1$t.txt is still there"; done

@@ -207,8 +207,8 @@ use what is on screen, not the file, as before.
 
 ## Original tracks: light and reflective masks
 
-The game's 16 tracks are projects of the workspace, put there once by the migration (a dev runs `--steps add-originals` with `--port-data DIR` for the game repo's `data/` and `--art-dir DIR` for the owner's
-mask PSDs; there is no button for it). Each is `<workspace>/tracks/<TRACK>/`: `original.ini` (what marks it), `light/` (the track's light files, the layout the Track light window works on), `art-source/masks/` (the
+The game's 16 tracks are projects of the workspace, put there once by the migration (the **Add originals** button on the main menu, with `--port-data DIR` for the game repo's `data/` and `--art-dir DIR` for the owner's
+mask PSDs; headless, `--steps add-originals`). Each is `<workspace>/tracks/<TRACK>/`: `original.ini` (what marks it), `light/` (the track's light files, the layout the Track light window works on), `art-source/masks/` (the
 owner's mask PSDs, copied, never moved; backups with a second dot in the name are skipped) and `art-generated/track_masks/`. Nothing that is already there is overwritten. File > **Open original track...**
 (Tracks room, or the button on the main menu) lists the ones in the workspace.
 

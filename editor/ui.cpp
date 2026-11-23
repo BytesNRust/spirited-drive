@@ -668,7 +668,12 @@ void original_popup(App *a)
                 app_ask(a, APP_ACT_OPEN_AT, dir);
             }
         }
-        if (have == 0) ImGui::TextDisabled("No original track is in this workspace.");   // they are put there by the migration (--steps add-originals), not from here
+        if (have == 0) ImGui::TextDisabled("No original track is in this workspace.");
+        ImGui::BeginDisabled(a->data_dir[0] == '\0');
+        if (ImGui::Button(have == 0 ? "Add originals" : "Update originals")) app_original_add_all(a);
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("Put the game's 16 tracks in the workspace (their light file and mask PSDs), or bring an older workspace up to date: the one light file replaces the old light files.\nWhat you already edited is never touched.");
     }
     ImGui::Spacing();
     if (ImGui::Button("Close") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->original_dialog = 0;
