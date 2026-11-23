@@ -3,6 +3,7 @@
 // to turn the car all the way round, on every axis, the wheel zooms, F / S / R / T are the front, side, rear and top, Home the first view; Auto-rotate
 // turns it by itself. Painted as the Preview window paints it (car_preview), in its Day / Night and lamps.
 #include "panels.h"
+#include "path_expand.h"
 #include "help_marker.h"
 #include "model_view.h"
 #include "ui_probe.h"
@@ -347,7 +348,12 @@ void backdrop_controls(App *a)
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Pick a PNG picture to stand behind the car");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(200);
-        if (ImGui::InputTextWithHint("##backfile", "path of a PNG", g.backdrop.file, sizeof g.backdrop.file, ImGuiInputTextFlags_EnterReturnsTrue)) g.back_dirty = true;
+        if (ImGui::InputTextWithHint("##backfile", "path of a PNG", g.backdrop.file, sizeof g.backdrop.file, ImGuiInputTextFlags_EnterReturnsTrue)) {
+            char typed[sizeof g.backdrop.file];
+            snprintf(typed, sizeof typed, "%s", g.backdrop.file);
+            path_expand(typed, getenv("HOME"), g.backdrop.file, sizeof g.backdrop.file);   // ~ and $HOME as typed
+            g.back_dirty = true;
+        }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("A PNG picture, fitted to cover the card's 309 x 166 (Enter to load it)");
         if (g.back_why[0] != '\0') {
             ImGui::SameLine();

@@ -11,6 +11,7 @@
  * the start screen; without --game it takes the Spirited Drive app beside it (inside the DMG) or ./tnfs. The options after --frames run headless: N frames, then they are done, and --shot writes the last frame to a PNG; the
  * exit status is 1 when a --save, --build or --install failed. Run it with SDL_VIDEO_DRIVER=dummy and SDL_AUDIO_DRIVER=dummy for a headless
  * run. */
+#include "path_expand.h"
 #include "app.h"
 #include "perf.h"
 #include "app_select.h"
@@ -145,9 +146,9 @@ static int parse_args(int argc, char **argv, Options *o)
     o->window_w = 0, o->window_h = 0;
     for (int i = 1; i < argc; ++i) {
         const int has_value = i + 1 < argc;
-        if (strcmp(argv[i], "--game") == 0 && has_value) o->game = argv[++i];
-        else if (strcmp(argv[i], "--user") == 0 && has_value) o->user = argv[++i];
-        else if (strcmp(argv[i], "--psd-root") == 0 && has_value) o->psd_root = argv[++i];
+        if (strcmp(argv[i], "--game") == 0 && has_value) o->game = path_expand_arg(argv[++i]);
+        else if (strcmp(argv[i], "--user") == 0 && has_value) o->user = path_expand_arg(argv[++i]);
+        else if (strcmp(argv[i], "--psd-root") == 0 && has_value) o->psd_root = path_expand_arg(argv[++i]);
         else if (strcmp(argv[i], "--shot") == 0 && has_value) o->shot = argv[++i];
         else if (strcmp(argv[i], "--window") == 0 && has_value) {
             char tail = '\0';
@@ -188,8 +189,8 @@ static int parse_args(int argc, char **argv, Options *o)
             if (strcmp(v, "1") != 0 && strcmp(v, "2") != 0) return usage();   /* 1 (640x480) or 2 (1280x960), nothing else */
             o->race_scale = v[0] - '0';
         }
-        else if (strcmp(argv[i], "--light-dir") == 0 && has_value) o->light_dir = argv[++i];
-        else if (strcmp(argv[i], "--art-dir") == 0 && has_value) o->art_dir = argv[++i];
+        else if (strcmp(argv[i], "--light-dir") == 0 && has_value) o->light_dir = path_expand_arg(argv[++i]);
+        else if (strcmp(argv[i], "--art-dir") == 0 && has_value) o->art_dir = path_expand_arg(argv[++i]);
         else if (strcmp(argv[i], "--light") == 0 && has_value) o->light_pick = argv[++i];
         else if (strcmp(argv[i], "--light-hud") == 0 && has_value) {
             const char *v = argv[++i];
@@ -215,9 +216,9 @@ static int parse_args(int argc, char **argv, Options *o)
             o->light_compare = argv[++i];
             if (strcmp(o->light_compare, "off") != 0 && strcmp(o->light_compare, "before") != 0 && strcmp(o->light_compare, "four") != 0) return usage();
         }
-        else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
-        else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
-        else if (strcmp(argv[i], "--workspace") == 0 && has_value) o->workspace = argv[++i];
+        else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = path_expand_arg(argv[++i]);
+        else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = path_expand_arg(argv[++i]);
+        else if (strcmp(argv[i], "--workspace") == 0 && has_value) o->workspace = path_expand_arg(argv[++i]);
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
         else if (strcmp(argv[i], "--changes") == 0) o->changes = 1;
         else if (strcmp(argv[i], "--paint") == 0 && has_value) o->preview_paint = atoi(argv[++i]);
@@ -887,6 +888,17 @@ int main(int argc, char **argv)
         }
         app_set_light_dir(app, o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);   /* the folder the Track light window tunes: named, or the source tree's data/ it was built from */
         app_repo_data_apply(app);   // the repo kept in workspace.txt feeds the data folder too (an installed app has no source tree)
+        {   // a folder named on the command line that is not there: the status line says which (the buttons that need it are grey and say so too)
+            const struct { const char *option, *path; } given[] = { { "--port-data", o.port_data }, { "--light-dir", o.light_dir }, { "--art-dir", o.art_dir }, { "--cd", o.cd }, { "--psd-root", o.psd_root } };
+            for (size_t k = 0; k < sizeof given / sizeof *given; ++k) {
+                struct stat st;
+                if (given[k].path != NULL && given[k].path[0] != '\0' && (stat(given[k].path, &st) != 0 || !S_ISDIR(st.st_mode))) {
+                    snprintf(app->status, sizeof app->status, "%s %s: folder not found", given[k].option, given[k].path);
+                    fprintf(stderr, "%s\n", app->status);
+                    break;
+                }
+            }
+        }
         app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */
         status = run(app, &o) ? 0 : 1;
     } else {
