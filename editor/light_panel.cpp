@@ -34,10 +34,15 @@ void picker(App *a)
     } else {
         ImGui::SetNextItemWidth(90.0f);
         if (ImGui::BeginCombo("##lighttrack", light_ui_track(ui.track))) {
-            for (int i = 0; i < LIGHT_UI_TRACKS; ++i)
+            for (int i = 0; i < LIGHT_UI_TRACKS; ++i) {
                 if (ImGui::Selectable(light_ui_track(i), i == ui.track) && i != ui.track) app_light_select(a, i, ui.time);
+                char name[24];
+                snprintf(name, sizeof name, "track_%s", light_ui_track(i));
+                ui_probe(name);
+            }
             ImGui::EndCombo();
         }
+        ui_probe("track_combo");
     }
     ImGui::SameLine();
     help_marker(a->original_dir[0] != '\0' ? "This original track's light file, in its folder in the workspace: one file, a block for each time of day. Changing the track asks for Save or Revert first. Publish to the game (File menu) copies them into the game's data/."
@@ -54,13 +59,19 @@ void picker(App *a)
     ImGui::SameLine();
     ImGui::SetNextItemWidth(130.0f);
     if (ImGui::BeginCombo("##lightview", light_photo_view_name(ui.view))) {
-        for (int i = 0; i < LIGHT_VIEWS; ++i)
+        for (int i = 0; i < LIGHT_VIEWS; ++i) {
             if (ImGui::Selectable(light_photo_view_name(i), i == ui.view)) app_light_set_view(a, i);
+            char name[16];
+            snprintf(name, sizeof name, "view_%d", i);
+            ui_probe(name);
+        }
         ImGui::EndCombo();
     }
+    ui_probe("view_combo");
     ImGui::SameLine();
     bool hud = ui.hud != 0;
     if (ImGui::Checkbox("HUD##lighthud", &hud)) app_light_set_hud(a, hud ? 1 : 0);
+    ui_probe("hud");
     ImGui::SameLine();
     help_marker("The camera of the photo and of the comparison pictures: Bumper has no car in the picture (the track's light alone); Dash is the cockpit; Chase near, mid and far "
                 "and High show the car from 4 to 16 m behind (their photos run longer, the camera glides to its place). It is kept for the next time. HUD: the game's top bar, tach, map and mirror in the picture; off by default, so the picture is the light alone (outside the car).");
@@ -102,13 +113,19 @@ void drive_row(App *a)
         if (running) app_light_drive_stop(a);
         else app_light_drive(a);
     }
+    ui_probe("drive");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(ImGui::CalcTextSize("Storm").x + 2 * ImGui::GetStyle().FramePadding.x + ImGui::GetFrameHeight());
     if (ImGui::BeginCombo("##driveweather", light_drive_weather_name(ui.weather))) {
-        for (int w = 0; w < LIGHT_DRIVE_WEATHERS; ++w)
+        for (int w = 0; w < LIGHT_DRIVE_WEATHERS; ++w) {
             if (ImGui::Selectable(light_drive_weather_name(w), w == ui.weather)) app_light_set_weather(a, w);
+            char name[24];
+            snprintf(name, sizeof name, "weather_%s", light_drive_weather_name(w));
+            ui_probe(name);
+        }
         ImGui::EndCombo();
     }
+    ui_probe("weather_combo");
     ImGui::SameLine();
     help_marker("Test drive opens the game in a window of its own on this track, time of day and node, with the car standing there. Every change here reaches it within a second, "
                 "without Save, and it restarts when you change the track, the time, the node or the weather. In the game's window: the + cross shows what the mouse points at, "

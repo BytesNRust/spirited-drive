@@ -3,6 +3,7 @@
 #include "panels.h"
 
 #include "help_marker.h"
+#include "ui_probe.h"
 
 #include <float.h>
 #include <stdio.h>
@@ -40,6 +41,9 @@ void light_compare_panel(App *a, const ImTextureID photos[LIGHT_COMPARE_SLOTS])
         for (int m = 0; m < LIGHT_COMPARE_MODES; ++m) {
             if (m > 0) ImGui::SameLine();
             if (ImGui::RadioButton(NAMES[m], mode == m)) mode = m;
+            char probe[24];
+            snprintf(probe, sizeof probe, "compare_%d", m);
+            ui_probe(probe);
         }
         if (mode != c.mode) app_light_set_compare(a, mode);
         ImGui::SameLine();

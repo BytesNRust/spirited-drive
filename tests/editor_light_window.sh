@@ -172,6 +172,24 @@ grep -q '^  sun ' "$f" && fail "a sun with every part auto is still a line in th
 grep '^light:' "$work/sunout" | head -1 | grep -q ' sun ' && fail "the window's model still has a sun with every part auto: $(grep '^light:' "$work/sunout")"
 sun_flow ui-click:azimuth_tick,ui-click:shadow_tick,ui-click:save
 grep -Eq '^  sun [0-9]+ - 55$' "$f" || fail "ticking Direction and Shadow strength from no sun did not make 'sun AZ - 55': $(grep '  sun' "$f")"
+# the window's other widgets, clicked (ui_probe.h; light-state prints what the panel has): the View combo's item and the HUD box (the photo's camera and HUD), the Light compare radios, the Test drive button
+# (it starts a drive on this track, time and node), a brightness line's Remove, and the track combo: a file with changes is not left for another track ("Save or Revert"), and after Revert it is asked
+light_flow() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --steps "$1" > "$work/lout" 2>&1 || fail "the flow $1: $(tail -3 "$work/lout")"; }
+light_flow light-state,ui-click:node_p1,ui-click:view_combo,ui-click:view_4,light-state,ui-click:hud,light-state
+[ "$(grep -c '^light state: track AL1 view 0 hud 0 compare off' "$work/lout")" = 1 ] || fail "the window did not open on the Bumper view, no HUD, compare off: $(grep '^light state' "$work/lout")"
+grep -q '^light state: track AL1 view 4 hud 0 ' "$work/lout" || fail "the View combo's Chase far item did not set view 4: $(grep '^light state' "$work/lout")"
+grep -q '^light state: track AL1 view 4 hud 1 ' "$work/lout" || fail "the HUD box did not turn the HUD on: $(grep '^light state' "$work/lout")"
+light_flow ui-click:node_p1,ui-click:compare_1,light-state,ui-click:compare_2,light-state,ui-click:compare_0,light-state
+[ "$(grep '^light state' "$work/lout" | sed 's/.* compare \([a-z]*\) .*/\1/' | tr '\n' ' ')" = "before four off " ] || fail "the Light compare radios (Before, Four times, Off) did not set the mode: $(grep '^light state' "$work/lout")"
+light_flow ui-click:node_p1,ui-click:drive,print-drive,light-state
+grep -q '^drive: running AL1 B node ' "$work/lout" || fail "the Test drive button did not start a drive on AL1's Day: $(grep '^drive' "$work/lout")"
+grep -q '^light state: .* drive running ' "$work/lout" || fail "the panel does not show the drive as running: $(grep '^light state' "$work/lout")"
+light_flow ui-click:add_brightness,light-print,ui-click:brightness0_remove,light-print
+counts=$(grep '^light:' "$work/lout" | sed 's/.* brightness \([0-9]*\) .*/\1/' | tr '\n' ' ')
+[ "$(echo "$counts" | awk '{ print ($2 + 1 == $1) ? "yes" : "no" }')" = yes ] || fail "a brightness line's Remove did not take the line away (counts after Add, after Remove: $counts): $(grep '^light:' "$work/lout")"
+light_flow ui-click:add_brightness,ui-click:track_combo,ui-click:track_CY1,light-state,ui-click:revert,ui-click:track_combo,ui-click:track_CY1,light-state
+grep '^light state' "$work/lout" | sed -n 1p | grep -q 'track AL1 .* error: the file has unsaved changes: Save or Revert before another track$' || fail "a track chosen with unsaved changes was not refused with Save or Revert: $(grep '^light state' "$work/lout")"
+grep '^light state' "$work/lout" | sed -n 2p | grep -q 'Save or Revert' && fail "after Revert the track change was still refused for unsaved changes: $(grep '^light state' "$work/lout")"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the new sections: $(tail -3 "$work/tunnels")"
