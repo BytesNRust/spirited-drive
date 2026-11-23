@@ -432,6 +432,55 @@ int car_race_player_options(const char *user, char *why, size_t why_cap)
     return 1;
 }
 
+/* the keys the Track light drive fixes, each at the value it is shown at */
+static const char MAX_LOOK[] = "format=16:9\nrender_scale=3\nfullscreen=0\nlamp_halos=1\nshine_soft=1\nreflectors=1\nheadlight_beams=1\nsun_shadow=1\n"
+                               "body_shine=4\ncar_colours=1\ncar_soft_shadow=1\ntexture_filter=1\nlight_effects=1\nlamp_flares=1\nperspective=1\nfog=1\nfog_sample=1\n"
+                               "sky_fill=1\nsky_fill_below=1\npolice_glow=1\ntraffic_halo=1\n";
+
+/* 1 when the line `line` (len bytes, no newline) sets a key of MAX_LOOK */
+static int max_look_key(const char *line, size_t len)
+{
+    const char *eq = memchr(line, '=', len);
+    if (eq == NULL) return 0;
+    const size_t key = (size_t)(eq - line);
+    for (const char *at = MAX_LOOK; *at != '\0'; at = strchr(at, '\n') + 1)
+        if (strncmp(at, line, key) == 0 && at[key] == '=') return 1;
+    return 0;
+}
+
+int car_race_force_max_look(const char *user, char *why, size_t why_cap)
+{
+    static const char *const NAMES[] = { "port.cfg", "restomod.cfg" };
+    for (int i = 0; i < 2; ++i) {
+        char path[EXPORT_PATH + 32];
+        size_t size = 0;
+        if (snprintf(path, sizeof path, "%s/%s", user, NAMES[i]) >= (int)sizeof path) return refuse(why, why_cap, "the path is too long: %s", user);
+        char *text = slurp(path, &size);
+        char *out = malloc(size + sizeof MAX_LOOK + 2);
+        if (out == NULL) {
+            free(text);
+            return refuse(why, why_cap, "cannot write %s: out of memory", path);
+        }
+        size_t at = 0;
+        for (size_t pos = 0; text != NULL && pos < size;) {
+            const char *line = text + pos;
+            const char *end = memchr(line, '\n', size - pos);
+            const size_t len = end != NULL ? (size_t)(end - line) : size - pos;
+            pos += len + 1;
+            if (len == 0 || max_look_key(line, len)) continue;
+            memcpy(out + at, line, len), at += len;
+            out[at++] = '\n';
+        }
+        if (i == 1) memcpy(out + at, MAX_LOOK, sizeof MAX_LOOK - 1), at += sizeof MAX_LOOK - 1;
+        FILE *f = fopen(path, "wb");
+        const int ok = f != NULL && fwrite(out, 1, at, f) == at;
+        const int closed = f == NULL || fclose(f) == 0;
+        free(out), free(text);
+        if (!ok || !closed) return refuse(why, why_cap, "cannot write %s: %s", path, strerror(errno));
+    }
+    return 1;
+}
+
 int car_race_temp(char *temp, size_t temp_cap, char *user, size_t user_cap, char *why, size_t why_cap)
 {
     const char *base = getenv("TMPDIR");

@@ -102,7 +102,11 @@ stamp "part b starts"
 # the test drive in the Track light window (light tuning design, piece 1): the game in a window beside Studio, the working copy in front of the files, weather and stop
 cat > "$work/live_game" <<'SH'
 #!/bin/sh
-[ "$TNFS_LIGHT_EDIT" = 1 ] && echo "edit=$TNFS_LIGHT_EDIT time=$TNFS_LIGHT_TIME weather=$TNFS_WEATHER video=$SDL_VIDEO_DRIVER" > "$LIVE_RECORD"   # the drive, not the photos the window also takes
+if [ "$TNFS_LIGHT_EDIT" = 1 ]; then   # the drive, not the photos the window also takes
+  while [ $# -gt 0 ]; do [ "$1" = --user ] && user=$2; [ "$1" = --car ] && car=$2; shift; done
+  echo "edit=$TNFS_LIGHT_EDIT time=$TNFS_LIGHT_TIME weather=$TNFS_WEATHER video=$SDL_VIDEO_DRIVER view=$TNFS_VIEW car=$car" > "$LIVE_RECORD"
+  cat "$user/port.cfg" "$user/restomod.cfg" > "$LIVE_RECORD.cfg"
+fi
 sleep 30
 SH
 chmod +x "$work/live_game"
@@ -112,7 +116,10 @@ out=$(run --game "$work/live_game" --frames 40 --steps open-original:0,light-wea
 echo "$out" | grep -q '^drive: running AL1 B node 0 rain$' || fail "the drive did not run on AL1, day, node 0, rain: $(echo "$out" | grep '^drive:')"
 echo "$out" | grep -q '^drive: failed AL1 B node 0 rain$' || fail "Stop did not end the drive: $(echo "$out" | grep '^drive:')"
 echo "$out" | grep -q '^drive why: $' || fail "a Stop was reported as a failure: $(echo "$out" | grep '^drive why')"
-grep -q 'edit=1 time=day weather=rain video=$' "$LIVE_RECORD" || fail "the game was not started with the light editor, the day and the rain (and a real window): $(cat "$LIVE_RECORD" 2>&1)"
+grep -q 'edit=1 time=day weather=rain video= ' "$LIVE_RECORD" || fail "the game was not started with the light editor, the day and the rain (and a real window): $(cat "$LIVE_RECORD" 2>&1)"
+# the drive's picture is the same whatever the person's files say: Restomod, 16:9, the top render scale, the effects on; the preview's camera
+grep -q '^profile=restomod$' "$LIVE_RECORD.cfg" && grep -q '^format=16:9$' "$LIVE_RECORD.cfg" && grep -q '^render_scale=3$' "$LIVE_RECORD.cfg" && grep -q '^lamp_flares=1$' "$LIVE_RECORD.cfg" && grep -q '^sun_shadow=1$' "$LIVE_RECORD.cfg" || fail "the drive's scratch settings are not Restomod 16:9 at scale 3 with the effects on: $(cat "$LIVE_RECORD.cfg" 2>&1)"
+grep -q 'view=1 ' "$LIVE_RECORD" || fail "the drive did not start in the preview's camera: $(cat "$LIVE_RECORD" 2>&1)"
 out=$(run --game "$work/live_game" --frames 40 --steps open-original:0,light-drive,poll-wait:4,light-bright:40,poll-wait:4,print-drive,drive-stop 2>&1) || fail "test drive edit: $out"
 echo "$out" | grep -q '^drive copy: brightness 0 50 40' || fail "an edit made while the game runs did not reach the drive's copy of the file: $(echo "$out" | grep '^drive')"
 out=$(run --game /no/such/game --frames 10 --steps open-original:0,light-drive 2>&1) && fail "a drive started without a game: $out"

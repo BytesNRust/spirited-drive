@@ -71,7 +71,7 @@ static int has(char *const *v, const char *want)
 static void test_command(void)
 {
     char *const base[] = { "PATH=/usr/bin", "TNFS_PERSON=1", "SDL_VIDEO_DRIVER=dummy", "KEEP_ME=yes", NULL };
-    LightDriveSetup s = { "/g/tnfs", "/cd", "/u", "/m", { 0 }, 'N', 1596, 2, NULL, NULL };
+    LightDriveSetup s = { "/g/tnfs", "/cd", "/u", "/m", { 0 }, 'N', 1596, 2, NULL, NULL, 0 };
     snprintf(s.track, sizeof s.track, "CY1");
     RaceCommand c;
     char why[LIGHT_DRIVE_WHY] = "";
@@ -81,9 +81,14 @@ static void test_command(void)
     CHECK(!has(c.argv, "--screenshot"));   /* a window, not a photo */
     CHECK(has(c.envp, "TNFS_LIGHT_EDIT=1") && has(c.envp, "TNFS_LIGHT_TIME=night") && has(c.envp, "TNFS_START_NODE=1596") && has(c.envp, "TNFS_WEATHER=rain"));
     CHECK(has(c.envp, "PATH=/usr/bin") && has(c.envp, "KEEP_ME=yes"));
+    CHECK(has(c.envp, "TNFS_VIEW=1"));   /* the preview's camera (the bumper by default): the drive starts from it */
     CHECK(!has(c.envp, "TNFS_PERSON=1") && !has(c.envp, "SDL_VIDEO_DRIVER=dummy"));   /* the person's own game variables do not change the drive */
     for (char *const *e = c.envp; *e != NULL; ++e) CHECK(strncmp(*e, "SDL_", 4) != 0 && strncmp(*e, "TNFS_FRAMES", 11) != 0 && strncmp(*e, "TNFS_AUTOPILOT", 14) != 0);
     car_race_command_free(&c);
+    s.view = 4;   /* Chase far */
+    CHECK(light_drive_command(&s, NULL, &c, why, sizeof why) && has(c.envp, "TNFS_VIEW=4"));
+    car_race_command_free(&c);
+    s.view = 0;
     s.masks = "/scratch/masks";
     CHECK(light_drive_command(&s, NULL, &c, why, sizeof why) && has(c.envp, "TNFS_TRACK_MASKS=/scratch/masks"));
     car_race_command_free(&c);
@@ -130,7 +135,7 @@ static void test_job(void)
     char player_cfg[560];
     snprintf(player_cfg, sizeof player_cfg, "%s/restomod.cfg", player);
     FILE *pf = fopen(player_cfg, "wb");
-    CHECK(pf != NULL && fputs("fov_adjust=10\nfullscreen=1\n", pf) >= 0);
+    CHECK(pf != NULL && fputs("fov_adjust=10\nfullscreen=1\nformat=4:3\nrender_scale=1\nlamp_flares=0\nbody_shine=0\nsun_shadow=0\n", pf) >= 0);
     if (pf != NULL) fclose(pf);
     car_race_set_player(player);
     CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 77, 1, light, strlen(light), why, sizeof why));
@@ -148,6 +153,14 @@ static void test_job(void)
     char cfg[EXPORT_PATH + 64];
     snprintf(cfg, sizeof cfg, "%s/user/restomod.cfg", scratch);
     CHECK(strstr(read_all(cfg), "fov_adjust=10\n") != NULL && strstr(read_all(cfg), "fullscreen=1") == NULL);
+    /* whatever the person set, the drive is 16:9 at the top render scale with every effect of Restomod on (the profile's own, written out), and the profile is Restomod */
+    char *const text = read_all(cfg);
+    CHECK(strstr(text, "format=16:9\n") != NULL && strstr(text, "render_scale=3\n") != NULL && strstr(text, "lamp_flares=1\n") != NULL && strstr(text, "body_shine=4\n") != NULL);
+    CHECK(strstr(text, "sun_shadow=1\n") != NULL && strstr(text, "lamp_halos=1\n") != NULL && strstr(text, "shine_soft=1\n") != NULL && strstr(text, "reflectors=1\n") != NULL);
+    CHECK(strstr(text, "format=4:3") == NULL && strstr(text, "render_scale=1") == NULL && strstr(text, "lamp_flares=0") == NULL && strstr(text, "body_shine=0") == NULL && strstr(text, "sun_shadow=0") == NULL);
+    char port[EXPORT_PATH + 64];
+    snprintf(port, sizeof port, "%s/user/port.cfg", scratch);
+    CHECK(strstr(read_all(port), "profile=restomod\n") != NULL && strstr(read_all(port), "format=4:3") == NULL && strstr(read_all(port), "render_scale=1") == NULL);
     car_race_set_player(NULL);
     unlink(player_cfg);
     rmdir(player);

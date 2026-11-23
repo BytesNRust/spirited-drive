@@ -144,6 +144,10 @@ int car_race_player_dir(const char *user, const char *pref, char *out, size_t ca
  * `user` folder. Never fullscreen, the profile or the PS1 folder; the player's files are only read. Photos do not call it: their values stay fixed (the pictures are compared). 1, also
  * when there is no player folder or file; 0 with `why` when the scratch files cannot be written. */
 int car_race_player_options(const char *user, char *why, size_t why_cap);
+/* After car_race_player_options: the Track light drive's picture is the same whatever the person set: 16:9, the top render scale (3), the window never full screen and every effect of
+ * Restomod on (RACE_LOOK_ON's keys, lamp_halos, shine_soft, reflectors, headlight_beams, sun_shadow). The lines of those keys are taken out of <user>/port.cfg and restomod.cfg
+ * (what the person's copy brought, or the file's own), and restomod.cfg ends with the forced ones; the rest of the person's options (the field of view...) stay. 1, or 0 with `why`. */
+int car_race_force_max_look(const char *user, char *why, size_t why_cap);
 
 /* a scratch folder "<TMPDIR>/studio-race-XXXXXX" with a user/ folder in it: `temp` and `user` filled; 0 with `why` */
 int car_race_temp(char *temp, size_t temp_cap, char *user, size_t user_cap, char *why, size_t why_cap);

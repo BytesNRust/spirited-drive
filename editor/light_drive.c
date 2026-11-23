@@ -78,7 +78,7 @@ int light_drive_command(const LightDriveSetup *s, char *const *base, RaceCommand
     for (char *const *v = base; ok && v != NULL && *v != NULL; ++v)
         if (strncmp(*v, "TNFS_", 5) != 0 && strncmp(*v, "SDL_", 4) != 0) ok = push(e, ec, RACE_ENVS, "%s", *v);
     ok = ok && push(e, ec, RACE_ENVS, "TNFS_LIGHT_EDIT=1") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=%s", WORDS[s->weather]) && push(e, ec, RACE_ENVS, "TNFS_LIGHT_TIME=%s", light_photo_time_word(s->letter)) &&
-         push(e, ec, RACE_ENVS, "TNFS_START_NODE=%u", s->node) && (s->masks == NULL || s->masks[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_TRACK_MASKS=%s", s->masks)) &&
+         push(e, ec, RACE_ENVS, "TNFS_START_NODE=%u", s->node) && push(e, ec, RACE_ENVS, "TNFS_VIEW=%d", light_photo_view_kind(light_photo_view_clamp(s->view))) && (s->masks == NULL || s->masks[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_TRACK_MASKS=%s", s->masks)) &&
          (s->window == NULL || s->window[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_WINDOW_POS=%s", s->window));
     if (ok) return 1;
     car_race_command_free(out);
@@ -153,7 +153,7 @@ int light_drive_start(LightDriveJob *job, const char *game, const char *cd, cons
             if (snprintf(path, sizeof path, "%s/track_light", job->mods) >= (int)sizeof path || mkdir(job->mods, 0777) != 0 || mkdir(path, 0777) != 0 || !mods_file(job, light)) {
                 refuse(why, why_cap, "cannot make the scratch folders: %s", strerror(errno));
             } else {
-                LightDriveSetup s = { game, cd, user, job->mods, { 0 }, letter, node, weather, NULL, job->window };
+                LightDriveSetup s = { game, cd, user, job->mods, { 0 }, letter, node, weather, NULL, job->window, light_photo_view_pref() };
                 snprintf(s.track, sizeof s.track, "%s", track);
                 ok = write_whole(light, file_text, file_size, why, why_cap);
                 char masks[EXPORT_PATH + 16];
@@ -163,7 +163,7 @@ int light_drive_start(LightDriveJob *job, const char *game, const char *cd, cons
                     ok = light_photo_copy_masks(job->masks, masks, track, why, why_cap);
                     s.masks = masks;
                 }
-                ok = ok && car_race_user_files(user, letter == 'N', NULL, why, why_cap) && car_race_player_options(user, why, why_cap) && light_drive_command(&s, environ, &job->command, why, why_cap) &&
+                ok = ok && car_race_user_files(user, letter == 'N', NULL, why, why_cap) && car_race_player_options(user, why, why_cap) && car_race_force_max_look(user, why, why_cap) && light_drive_command(&s, environ, &job->command, why, why_cap) &&
                      proc_start(&job->run, job->command.argv, job->command.envp, NULL, why, why_cap);
             }
         }

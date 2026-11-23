@@ -32,6 +32,7 @@ typedef struct {
     int weather;             /* 0..LIGHT_DRIVE_WEATHERS-1 */
     const char *masks;       /* NULL for none, else a folder of <TRACK>/<name>.png in front of the game's own track masks (TNFS_TRACK_MASKS) */
     const char *window;      /* NULL or "" for the game's own place, else "X,Y": where its window opens (TNFS_WINDOW_POS), beside Studio */
+    int view;                /* the preview's camera (light_photo.h's view 0..LIGHT_VIEWS-1): the game's chase camera the drive starts in (TNFS_VIEW), the person can change it */
 } LightDriveSetup;
 
 /* The command line and environment of the drive in `out` (malloc'd words: car_race_command_free). `base` is the environment it starts from (NULL terminated, NULL for none): its
