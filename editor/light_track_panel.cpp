@@ -217,6 +217,7 @@ bool look_cells(LightTrackLook &v, bool hall)
     ImGui::TableSetColumnIndex(4);
     ImGui::BeginDisabled(hall);
     changed = optional_number("##light", &v.has_light, &v.light, "%g", -FLT_MIN) || changed;
+    ui_probe("light");
     ImGui::EndDisabled();
     ImGui::TableSetColumnIndex(5);
     ImGui::BeginDisabled(hall);
@@ -230,8 +231,10 @@ bool look_cells(LightTrackLook &v, bool hall)
     ImGui::EndDisabled();
     ImGui::TableSetColumnIndex(6);
     changed = optional_number("##lamps", &v.has_lamps, &v.lamps, "%g", -FLT_MIN) || changed;
+    ui_probe("lamps");
     ImGui::TableSetColumnIndex(7);
     changed = optional_number("##reach", &v.has_reach, &v.reach, "%g", -FLT_MIN) || changed;
+    ui_probe("reach");
     return changed;
 }
 
@@ -275,15 +278,18 @@ void tunnel_rows(App *a)
     // the table scrolls across when the panel is narrow; its height is its rows' (a scrolling table would otherwise take what is left of the window)
     const float row_h = ImGui::GetFrameHeight() + 2.0f * ImGui::GetStyle().CellPadding.y;
     const float table_height = row_h * static_cast<float>(count + 2) + ImGui::GetStyle().ScrollbarSize + 2.0f;
-    if (ImGui::BeginTable("##tunnels", 8, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX, ImVec2(0.0f, table_height))) {
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 62.0f);   // Remove first: the table scrolls across at the panel's width, and a last column was past its edge
-        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 56.0f);
-        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 56.0f);
-        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 72.0f);
-        ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 60.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
-        ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 48.0f);
-        ImGui::TableSetupColumn("Lamps %", ImGuiTableColumnFlags_WidthFixed, 64.0f);
-        ImGui::TableSetupColumn("Reach", ImGuiTableColumnFlags_WidthFixed, 56.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(2.0f, ImGui::GetStyle().CellPadding.y));   // the eight columns fit the panel at 1280 px (Lamps % and Reach were past its edge)
+    const bool tunnel_table = ImGui::BeginTable("##tunnels", 8, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX, ImVec2(0.0f, table_height));
+    if (!tunnel_table) ImGui::PopStyleVar();
+    if (tunnel_table) {
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 54.0f);   // Remove first: the table scrolls across at the panel's width, and a last column was past its edge
+        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 44.0f);
+        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 44.0f);
+        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 62.0f);
+        ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 48.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
+        ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 38.0f);
+        ImGui::TableSetupColumn("Lamps %", ImGuiTableColumnFlags_WidthFixed, 48.0f);
+        ImGui::TableSetupColumn("Reach", ImGuiTableColumnFlags_WidthFixed, 44.0f);
         ImGui::TableHeadersRow();
         // the default row: the look of every tunnel with no row of its own
         {
@@ -291,6 +297,7 @@ void tunnel_rows(App *a)
             memset(&v, 0, sizeof v);
             if (default_look >= 0) light_track_get_look(&f, time, default_look, &v);
             ImGui::PushID("default");
+            ui_probe_scope("tunneldefault");
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(1);
             ImGui::TextDisabled("default");
@@ -298,6 +305,7 @@ void tunnel_rows(App *a)
                 v.has_nodes = 0;
                 put_look(a, default_look, v);
             }
+            ui_probe_scope("");
             ImGui::PopID();
         }
         for (int r = 0; r < count; ++r) {
@@ -311,27 +319,29 @@ void tunnel_rows(App *a)
             ImGui::PushID(r);
             ImGui::TableNextRow();
             bool tunnel_changed = false;
-            ImGui::TableSetColumnIndex(0);
-            const bool remove_row = ImGui::Button("Remove");
             char scope[16];
             snprintf(scope, sizeof scope, "tunnel%d", r);
             ui_probe_scope(scope);
+            ImGui::TableSetColumnIndex(0);
+            const bool remove_row = ImGui::Button("Remove");
             ui_probe("remove");
-            ui_probe_scope("");
             ImGui::TableSetColumnIndex(1);
-            if (rows[r].tunnel >= 0) tunnel_changed = node_box("##from", &t.from, -FLT_MIN) || tunnel_changed;
+            if (rows[r].tunnel >= 0) tunnel_changed = node_box("##from", &t.from, -FLT_MIN) || tunnel_changed, ui_probe("from");
             else ImGui::Text("%u", t.from);
             ImGui::TableSetColumnIndex(2);
-            if (rows[r].tunnel >= 0) tunnel_changed = node_box("##to", &t.to, -FLT_MIN) || tunnel_changed;
+            if (rows[r].tunnel >= 0) tunnel_changed = node_box("##to", &t.to, -FLT_MIN) || tunnel_changed, ui_probe("to");
             else ImGui::Text("%u", t.to);
             ImGui::TableSetColumnIndex(3);
             if (rows[r].tunnel >= 0) {
                 ImGui::SetNextItemWidth(-FLT_MIN);
                 if (ImGui::BeginCombo("##kind", t.lit ? "hall" : "tunnel")) {
                     if (ImGui::Selectable("tunnel", !t.lit) && t.lit) t.lit = 0, tunnel_changed = true;
+                    ui_probe("kind_tunnel");
                     if (ImGui::Selectable("hall", t.lit != 0) && !t.lit) t.lit = 1, tunnel_changed = true;
+                    ui_probe("kind_hall");
                     ImGui::EndCombo();
                 }
+                ui_probe("kind");
             } else {
                 ImGui::TextDisabled("inside");
             }
@@ -340,6 +350,7 @@ void tunnel_rows(App *a)
                 remove_tunnel = rows[r].tunnel;
                 remove_look = rows[r].look;
             }
+            ui_probe_scope("");
             ImGui::PopID();
             if (tunnel_changed) {   // the nodes move with the look that follows them
                 if (rows[r].look >= 0 && (v.from != t.from || v.to != t.to)) {
@@ -368,6 +379,7 @@ void tunnel_rows(App *a)
             }
         }
         ImGui::EndTable();
+        ImGui::PopStyleVar();
     }
     if (remove_tunnel >= 0 || remove_look >= 0) {   // the row's look of this time first, then the tunnel; the file changed after the first, so the window is touched either way
         bool dropped = false;

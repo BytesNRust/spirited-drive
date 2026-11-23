@@ -144,6 +144,20 @@ grep -q '^  lamp 80 60 left$' "$work/light/track_light/AL1.txt" || fail "the typ
 m1=$(grep '^light: ' "$work/lamps2" | sed -n 1p | sed 's/.* lamps \([0-9]*\) .*/\1/'); m2=$(grep '^light: ' "$work/lamps2" | sed -n 2p | sed 's/.* lamps \([0-9]*\) .*/\1/')
 [ "$((m1 - m2))" = 1 ] || fail "a lamp row's Remove did not take the lamp away: $m1 -> $m2"
 grep -q '^  lamp 80 60' "$work/light/track_light/AL1.txt" && fail "the removed lamp is still in the saved file"
+# the Tunnels table, clicked: the nodes typed into From, the default row's and a tunnel's Light %, Lamps % and Reach (a reach out of 0.5..4 is refused with its reason), the Kind combo; Save writes them
+sed -i.bak '/^  lamp /d' "$work/light/track_light/AL1.txt" && rm -f "$work/light/track_light/AL1.txt.bak"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 \
+    --steps ui-click:time_B,ui-click:tunnel0_from,ui-text:12,key:Return,ui-click:tunnel1_reach,ui-text:20,key:Return,ui-click:tunnel1_reach,ui-text:3,key:Return,ui-click:tunnel0_lamps,ui-text:120,key:Return,ui-click:tunnel1_light,ui-text:65,key:Return,ui-click:tunneldefault_light,ui-text:85,key:Return,ui-click:save,light-print > "$work/tcells" 2>&1 ||
+    fail "the clicked tunnel cells flow: $(tail -3 "$work/tcells")"
+f="$work/light/track_light/AL1.txt"
+grep -q '^tunnel 12 20' "$f" || fail "the typed From node is not in the saved file: $(grep '^tunnel' "$f")"
+grep -q '^  tunnel_look 85$' "$f" || fail "the default row's Light % is not in the saved file: $(grep tunnel_look "$f")"
+grep -q '^  tunnel_look 60 71 65 .*lamps 220' "$f" || fail "the tunnel's Light % (its Lamps % kept) is not in the saved file: $(grep tunnel_look "$f")"
+grep -q '^  tunnel_look 12 20 .*lamps 120' "$f" || fail "the first tunnel's Lamps % is not in the saved file: $(grep tunnel_look "$f")"
+grep -Eq '^  tunnel_look 60 71 .*reach 3' "$f" || fail "the typed Reach is not in the saved file (20 is out of 0.5..4: the second entry, 3, is): $(grep tunnel_look "$f")"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 \
+    --steps ui-click:tunnel0_from,ui-click:tunnel0_kind,ui-click:tunnel0_kind_hall,ui-click:save,light-print > "$work/tkind" 2>&1 || fail "the clicked Kind combo: $(tail -3 "$work/tkind")"
+grep -q '^tunnel 12 20 lit' "$f" || fail "the Kind combo's hall is not in the saved file: $(grep '^tunnel' "$f")"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the new sections: $(tail -3 "$work/tunnels")"
