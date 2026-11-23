@@ -28,7 +28,7 @@ void ported_view_set_tunnel_lamps(const TunnelLampTexture *lamps, int count)
  * across the polygon's corners); once the 3D is done a halo is drawn at each that still shows one of the lamp's own colours at that pixel (nothing nearer
  * covers it; the colours stay unchanged through the lamp tables, shared entries or not), by day and by night. */
 static int flare_on;   /* port (lamp_flares): a soft halo round a lit brake light and the tunnel lamps (lamp_flare.h) */
-enum { TUNNEL_FLARES_MAX = 128 };
+enum { TUNNEL_FLARES_MAX = 128, LAMP_SHOWS_BRIGHT_PERCENT = 60 };   /* LAMP_SHOWS_BRIGHT_PERCENT: a pixel is the lamp's own when it is at least this much of the glow's brightness */
 typedef struct { int lamp, x, y, size; } TunnelFlare;
 static TunnelFlare tunnel_flares[TUNNEL_FLARES_MAX];
 static int tunnel_flare_count;
@@ -151,15 +151,19 @@ void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
     for (int i = 0; i < tunnel_flare_count; i++) {
         const TunnelFlare *f = &tunnel_flares[i];
         if (f->x < t->clip_left || f->x >= t->clip_right || f->y < t->clip_top || f->y >= t->clip_bottom) continue;
-        int shows = 0;   /* one of the lamp's colours within two pixels of its centre: else what is nearer covers it */
+        const uint8_t entry = lamp_glow[f->lamp];
+        const uint8_t *const glow = palette + 3 * entry;
+        const int glow_sum = glow[0] + glow[1] + glow[2];
+        int shows = 0;   /* one of the lamp's colours within two pixels of its centre, and as bright as its glow (the lamp's own texels): else what is nearer covers it. The colours alone are shared with the road's asphalt and paint, so a lamp in a tunnel behind a crest was found "showing" on the road in front of it */
         for (int dy = -2; dy <= 2 && !shows; dy++)
             for (int dx = -2; dx <= 2 && !shows; dx++) {
                 const int x = f->x + dx, y = f->y + dy;
-                shows = x >= t->clip_left && x < t->clip_right && y >= t->clip_top && y < t->clip_bottom &&
-                        (lamp_exempt_set[f->lamp][t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x]] || emissive[t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x]]);
+                if (x < t->clip_left || x >= t->clip_right || y < t->clip_top || y >= t->clip_bottom) continue;
+                const uint8_t px = t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x];
+                const uint8_t *const q = palette + 3 * px;
+                shows = (lamp_exempt_set[f->lamp][px] || emissive[px]) && (q[0] + q[1] + q[2]) * 100 >= glow_sum * LAMP_SHOWS_BRIGHT_PERCENT;
             }
         if (!shows) continue;
-        const uint8_t entry = lamp_glow[f->lamp];
         if (!made[f->lamp]) {
             for (int l = 0; l < LAMP_FLARE_LEVELS; l++)
                 for (int d = 0; d < 256; d++) {
