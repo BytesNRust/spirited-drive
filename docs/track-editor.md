@@ -172,7 +172,7 @@ nothing, and a folder that is already there is refused (a second export of the s
   opens with the Car window (read only: what it is) and the Masks window only; there is no card and no Save.
 
 The masks are the game's `data/car_masks/<folder>/` copied as they are (same names, same bytes, so the same 8-bit grey PNGs and sizes; the old `*.before-*_mask.png`
-copies, which the game does not read, are left out). The Masks window's **Reveal masks folder** shows the folder in the Finder, and says what it maps to in the
+copies, which the game does not read, are left out). The Masks window's **Show PSD folder** shows the folder in the Finder, and says what it maps to in the
 game's source tree (`data/car_masks/<folder>/`): the way to change a game mask is to copy the files there. Everything made this way says "Made from the game's
 files: for your own use, do not share" and has `redistributable=0`. `--export-car FOLDER --into PARENT` does it before the first frame (headless), `--ask export`
 shows the window and `--pick FOLDER` chooses a car in it.
@@ -215,7 +215,7 @@ owner's mask PSDs, copied, never moved; backups with a second dot in the name ar
 An original track opens in the Track light window on its own `light/` folder with the track fixed (its time of day still changes), and a **Track masks** panel beside the comparison: a row for each texture with a mask, its
 size, the texels it marks and its state, and the picked mask over the game's texture (read from the game's files; without them the mask is shown alone). The PSDs make the PNGs the game reads, in C (the rule of
 `tools/track_mask_from_psd.py`: the layer named `mask`, alpha 128 or more and not black is reflective, yellow is a lamp's mark; grey PNG without lamps, RGBA with), when the track opens and when a PSD is saved
-again. States: **ok**, **new**, **stale**, **edited by hand** (the PNG differs from the PSD's and is newer: kept as it is until *Regenerate from PSD*; the row counts the PNG's texels, what the game uses),
+again. States: **ok**, **new**, **stale**, **edited by hand** (the PNG differs from the PSD's and is newer: kept as it is until *Update masks from PSD* (Replace); the row counts the PNG's texels, what the game uses),
 **PNG is the source** (a PNG with no PSD), **no mask painted in the PSD** (an empty mask layer is never a source: a PNG next to it is kept, and none is made from it), **unreadable PSD**.
 
 Textures whose PSD has no mask painted and no PNG (all of TR2, TR5 and TR7 at first) are not listed with the rest: they sit in one closed line at the bottom of the table, **Not painted yet (N)**, open on click. `tools/track_starter_psds.py <track_mask_draft> <original> <workspace tracks dir>` makes the starting PSD of every texture of TR2, TR5 and TR7 (the texture, an empty `mask` layer and a hidden `draft` guess); it never overwrites a PSD that is there, and needs Pillow.
@@ -334,10 +334,10 @@ At the top of the **Masks** window of a project made from one of the game's cars
 
 ## Masks window: the list and the mask view
 
-The **Masks** window (a tab beside Drive and Preview) is the one place for a car's masks, and it never paints them: masks are made in an external editor (the PSD, or the PNG of a texture that has no PSD), and the window shows the result and reloads when the file changes. From the top: the project's changes from the game's masks and Convert PSD / Check dash (below), then **a row for each texture of the car file** with its size and the state of its mask, then the picked mask over its texture.
+The **Masks** window (a tab beside Drive and Preview) is the one place for a car's masks, and it never paints them: masks are made in an external editor (the PSD, or the PNG of a texture that has no PSD), and the window shows the result and reloads when the file changes. From the top: the project's changes from the game's masks and Update masks from PSD / Check dash (below), then **a row for each texture of the car file** with its size and the state of its mask, then the picked mask over its texture.
 
-- The state is *in sync* (the PNG is as new as its PSD), *PSD newer* (the PSD was painted after the PNG: Convert PSD makes it again), *PSD found, no mask yet*, *PNG only* (no PSD found to compare with, which today means any car that is not one of the game's: the PNG is the source) or *no mask* (a texture the car has no mask for: its row is greyed).
-- **Convert PSD** reads the car's PSDs with Studio's own reader (nothing to install: no python, no psd-tools) and writes the mask PNGs, the dash's too when the folder has a `dash.psd`; it replaces the masks only when every PSD was read, and names the PSD that could not be read otherwise. A `.psd` with a second dot in its name (a backup) is not a PSD of the car. The PSDs are never written.
+- The state is *in sync* (the PNG is as new as its PSD), *PSD newer* (the PSD was painted after the PNG: Update masks from PSD makes it again), *PSD found, no mask yet*, *PNG only* (no PSD found to compare with, which today means any car that is not one of the game's: the PNG is the source) or *no mask* (a texture the car has no mask for: its row is greyed).
+- **Update masks from PSD** reads the car's PSDs with Studio's own reader (nothing to install: no python, no psd-tools) and writes the mask PNGs, the dash's too when the folder has a `dash.psd`; it replaces the masks only when every PSD was read, and names the PSD that could not be read otherwise. A `.psd` with a second dot in its name (a backup) is not a PSD of the car. The PSDs are never written.
 - Click a row: the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. Zoom with the slider, the keys + - 0 or the wheel; move with the right or middle button.
 - A mask whose size is not its texture's says both sizes: the game scales the mask to the texture (nearest neighbour), so the Studio shows it scaled the same way.
 - **In-game photo** runs the game on the masks and shows the picture in the Drive window.

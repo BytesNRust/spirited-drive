@@ -2,7 +2,7 @@
 # The owner's flow on an original car (his ANSX, 2026-11-23): the kit has the game's masks as PNGs but no manifest (the migration copied them in), he paints a PSD, and the PSD must win.
 #  1. a PNG that is the game's own picture and has no manifest line is not "edited by hand": Studio writes its hash down and Convert PSD (the automatic one) applies the newer PSD;
 #  2. a PNG that really was edited (not the game's picture, no manifest line) stays protected by Convert PSD, and says so in words;
-#  3. Regenerate from PSD is then enabled (it was grey), clicked by name through ui_probe, and replaces it; the PSD is never written.
+#  3. the one button (Update masks from PSD) then asks: Cancel changes nothing, Keep keeps the PNG, Replace replaces it (clicked by name through ui_probe); the PSD is never written.
 # Needs the game's files (original/). usage: editor_original_psd_newer.sh EDITOR ORIGINAL_DIR DATA_DIR MAKE_TEST_PSD
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$2 data=$3 make_psd=$4
@@ -34,11 +34,15 @@ python3 -I "$(dirname "$0")/mask_poke.py" "$k2/art-generated/car_masks/rsid_mask
 cp "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png"
 studio "$k2" --port-data "$data" --frames 30 --steps psd-wait:2500
 cmp -s "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png" || fail "Convert PSD replaced a PNG that was edited by hand: $(tail -5 "$work/log")"
-grep -q "^psd: idle: .*Kept, not replaced: rsid_mask.png" "$work/log" && grep -q "Regenerate from PSD" "$work/log" || fail "no words about what was kept and what to press: $(tail -8 "$work/log")"
+grep -q "^psd: idle: .*Kept, not replaced: rsid_mask.png" "$work/log" && grep -q "Update masks from PSD" "$work/log" || fail "no words about what was kept and what to press: $(tail -8 "$work/log")"
 
-# 3. Regenerate from PSD is enabled and replaces it (clicked by its name, then the Replace of its question)
-studio "$k2" --port-data "$data" --frames 30 --steps panel:4,panel:4,ui-click:psd_regenerate,ui-click:psd_replace,psd-wait:2500
-cmp -s "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png" && fail "Regenerate from PSD did not replace the PNG (the button was grey or the click missed): $(tail -8 "$work/log")"
+# 3. the one button, Update masks from PSD, asks before replacing the edited PNG (clicked by name through ui_probe): Cancel changes nothing, Keep keeps it, Replace replaces it
+studio "$k2" --port-data "$data" --frames 30 --steps panel:4,panel:4,ui-click:psd_convert,ui-click:psd_cancel,psd-wait:300
+cmp -s "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png" || fail "Cancel in the question changed the PNG: $(tail -8 "$work/log")"
+studio "$k2" --port-data "$data" --frames 30 --steps panel:4,panel:4,ui-click:psd_convert,ui-click:psd_keep,psd-wait:2500
+cmp -s "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png" || fail "Keep replaced the edited PNG: $(tail -8 "$work/log")"
+studio "$k2" --port-data "$data" --frames 30 --steps panel:4,panel:4,ui-click:psd_convert,ui-click:psd_replace,psd-wait:2500
+cmp -s "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png" && fail "Replace did not replace the PNG (the button was grey, the question did not open or the click missed): $(tail -8 "$work/log")"
 [ -f "$k2/art-source/masks/rsid.psd" ] && cmp -s "$k2/art-source/masks/rsid.psd" "$k1/art-source/masks/rsid.psd" || fail "the PSD changed or went"
 
 [ "$failures" -eq 0 ] && echo "editor_original_psd_newer: ok"

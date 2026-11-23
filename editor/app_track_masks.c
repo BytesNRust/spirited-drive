@@ -97,7 +97,7 @@ int app_track_masks_load(App *a)
         if (!ok) snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why);
         else snprintf(a->status, sizeof a->status, "masks: %d PNG%s made from the PSDs", written, written == 1 ? "" : "s");
     }
-    if (a->tmasks.edited > 0) snprintf(a->status, sizeof a->status, "masks: %d PNG%s edited by hand, kept as they are (Regenerate from PSD makes them again)", a->tmasks.edited, a->tmasks.edited == 1 ? "" : "s");
+    if (a->tmasks.edited > 0) snprintf(a->status, sizeof a->status, "masks: %d PNG%s edited by hand, kept as they are (Update masks from PSD makes them again)", a->tmasks.edited, a->tmasks.edited == 1 ? "" : "s");
     return 1;
 }
 

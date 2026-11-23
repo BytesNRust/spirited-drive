@@ -73,7 +73,7 @@ void track_masks_panel(App *a, ImTextureID picture)
     summary(m);
     ImGui::SameLine();
     help_marker("The owner's PSDs (art-source/masks) make the PNGs the game reads (art-generated/track_masks), on their own when a PSD changes. A texture with a PNG and no PSD uses the PNG. "
-                "A PSD with nothing painted in its mask layer is not used. A PNG edited by hand is kept until Regenerate from PSD. Click a row to see its mask over the texture.");
+                "A PSD with nothing painted in its mask layer is not used. A PNG edited by hand is kept until Update masks from PSD. Click a row to see its mask over the texture.");
     bool only = a->tmask_masked_only != 0;
     if (ImGui::Checkbox("With mask only", &only)) a->tmask_masked_only = only;
     ImGui::SetItemTooltip("Hides the textures that have no mask, leaving the list of those that do.");
@@ -116,7 +116,7 @@ void track_masks_panel(App *a, ImTextureID picture)
         ImGui::Text("%s", r.name);
         if (r.has_psd && r.state != TM_EMPTY && r.state != TM_BAD) {
             ImGui::SameLine();
-            if (ImGui::SmallButton("Regenerate from PSD")) app_track_mask_regenerate(a);
+            if (ImGui::SmallButton("Update masks from PSD")) app_track_mask_regenerate(a);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes this PNG again from its PSD; a PNG edited by hand is replaced");
         }
         if (picture != 0 && a->tmask_w > 0) {

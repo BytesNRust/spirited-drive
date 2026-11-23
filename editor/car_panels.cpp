@@ -403,7 +403,7 @@ static void masks_project_facts(const App *a)
     ImGui::Text("project %s   masks car_masks/%s", c.kit, c.folder);
     ImGui::SameLine();
     help_marker("There is no card to edit and nothing to Save here: the masks are the PNG files in car_masks/.\n"
-                "Adjust them in your picture editor; Reveal masks folder (in Masks) finds them.");
+                "Adjust them in your picture editor; Show PSD folder (in Masks) finds them.");
     muted_wrapped("%s", c.root);
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
@@ -571,55 +571,56 @@ void masks_panel(App *a, ImTextureID tex)
             char psd[APP_PATH];
             const bool found = app_psd_psd_dir(a, psd, sizeof psd);
             const bool busy = app_psd_busy(a);
+            char edited[200];
+            const int n_edited = app_psd_edited(a, edited, sizeof edited);   // PNGs Studio keeps (edited by hand, or not made by it and older than their PSD)
             ImGui::BeginDisabled(!found || busy);
-            if (ImGui::Button("Convert PSD")) app_psd_start(a);
+            if (ImGui::Button("Update masks from PSD")) {
+                if (n_edited > 0) ImGui::OpenPopup("Replace edited masks?");   // asks before replacing what was edited by hand
+                else app_psd_start(a);
+            }
             ui_probe("psd_convert");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
                 if (busy) ImGui::SetTooltip("Converting: the masks are replaced when every PSD has been read");
                 else if (!found) ImGui::SetTooltip("No folder named %s in %s", c.folder, a->psd_root[0] != '\0' ? a->psd_root : "the PSD folder (--psd-root)");
-                else ImGui::SetTooltip("Make this car's masks again from the PSDs in %s.\nThe masks it makes replace the same ones here; the PSDs are never written.", psd);
+                else ImGui::SetTooltip("Reads the PSDs in %s (the car's art-source/masks) and writes the mask PNGs of this car (art-generated/car_masks, and the dash's).\n"
+                                       "Only the PSDs newer than their PNG are converted. The PSDs are never written.\n"
+                                       "A PNG edited by hand is not replaced without asking first.", psd);
             }
             ImGui::SameLine();
             char why[800];
             const bool can_check = app_dash_possible(a, why, sizeof why);
             ImGui::BeginDisabled(!can_check);
-            if (ImGui::Button("Check dash")) app_dash_check_start(a);
+            if (ImGui::Button("Update + dash photo")) app_dash_check_start(a);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", can_check ? "Convert PSD, then take the cockpit photo at night with the car's own gauge colours: the dash as the game lights it.\nThe photo shows in the Drive window."
+                ImGui::SetTooltip("%s", can_check ? "Update masks from PSD, then take the cockpit photo at night with the car's own gauge colours: the dash as the game lights it.\nThe photo shows in the Drive window."
                                                   : why);
-            char edited[200];
-            const int n_edited = app_psd_edited(a, edited, sizeof edited);
-            ImGui::SameLine();
-            ImGui::BeginDisabled(n_edited == 0 || !found || busy);
-            if (ImGui::Button("Regenerate from PSD")) ImGui::OpenPopup("Regenerate from PSD?");
-            ui_probe("psd_regenerate");
-            ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", n_edited > 0 ? "Make the masks again from the PSDs, replacing the PNGs Convert PSD kept (edited by hand, or not made by Studio and older than their PSD)."
-                                                     : "Nothing to regenerate: every PNG is Studio's own from its PSD, or newer than it.");
-            if (ImGui::BeginPopupModal("Regenerate from PSD?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                if (n_edited == 0 || busy) ImGui::CloseCurrentPopup();   // nothing left to replace (a conversion ran meanwhile)
-                ImGui::TextWrapped("%s not made by Studio from the PSD (edited by hand, or older than the PSD and put there another way): %s.", n_edited == 1 ? "This PNG is" : "These PNGs are", edited);
-                ImGui::TextWrapped("Regenerating replaces %s with what the PSD makes; the changes made to %s by hand are lost.", n_edited == 1 ? "it" : "them", n_edited == 1 ? "it" : "them");
+            if (ImGui::BeginPopupModal("Replace edited masks?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                if (n_edited == 0 || busy) ImGui::CloseCurrentPopup();   // nothing left to ask about (a conversion ran meanwhile)
+                ImGui::TextWrapped("%s edited by hand (or not made by Studio from the PSD): %s.", n_edited == 1 ? "This mask is" : "These masks are", edited);
+                ImGui::TextWrapped("Replace %s with what the PSD makes (the changes made by hand are lost), or keep %s as %s.", n_edited == 1 ? "it" : "them", n_edited == 1 ? "it" : "them", n_edited == 1 ? "it is" : "they are");
                 if (ImGui::Button("Replace")) app_psd_regenerate(a), ImGui::CloseCurrentPopup();
                 ui_probe("psd_replace");
                 ImGui::SameLine();
-                if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+                if (ImGui::Button("Keep")) app_psd_start(a), ImGui::CloseCurrentPopup();   // the other PSDs are converted, the edited PNGs stay
+                ui_probe("psd_keep");
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();   // nothing is converted
+                ui_probe("psd_cancel");
                 ImGui::EndPopup();
             }
             if (n_edited > 0) {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.69f, 0.13f, 1.0f));
-                ImGui::TextWrapped("Kept as they are (not made by Studio from the PSD): %s. Regenerate from PSD replaces them.", edited);
-                ImGui::PopStyleColor();
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Convert PSD does not replace a PNG somebody edited or that Studio did not make. Regenerate from PSD does (the PSDs are never written).");
+                ImGui::SameLine();
+                char kept[300];
+                snprintf(kept, sizeof kept, "Kept as they are (edited by hand, or not made by Studio from the PSD): %s.\nUpdate masks from PSD asks before replacing them.", edited);
+                help_marker(kept);
             }
             if (a->dash_stale[0] != '\0') {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.69f, 0.13f, 1.0f));
                 ImGui::TextWrapped("%s", a->dash_stale);
                 ImGui::PopStyleColor();
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("The PSD was painted after the mask the game uses was made: Convert PSD makes the masks again.");
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("The PSD was painted after the mask the game uses was made: Update masks from PSD makes the masks again.");
             }
             if (busy) {
                 ImGui::SameLine();
@@ -635,11 +636,11 @@ void masks_panel(App *a, ImTextureID tex)
         if (kit) {
             ImGui::SameLine();
             help_marker("These PNGs are made from the PSDs: do not edit them, a conversion replaces them.\n"
-                        "The PSDs are what you edit; Reveal masks folder shows them (art-source/masks).");
+                        "The PSDs are what you edit; Show PSD folder shows them (art-source/masks).");
         }
         if (c.has_masks_dir || kit) {
             ImGui::SameLine();
-            if (ImGui::Button("Reveal masks folder")) app_reveal_masks(a);
+            if (ImGui::Button("Show PSD folder")) app_reveal_masks(a);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("%s", kit ? "Show art-source/masks in the Finder: the PSDs you edit.\nart-generated/car_masks is made from them and is not edited."
                                             : "Show the folder in the Finder");

@@ -286,7 +286,7 @@ static void test_edited_by_hand(void)
     run_to_end(&job);
     CHECK(job.ok && job.kept == 1 && strcmp(job.kept_names, "side_mask.png") == 0);
     CHECK(content_is("kit4/art-generated/car_masks/side_mask.png", "touched up in GIMP"));   /* not overwritten */
-    CHECK(strstr(job.text, "Kept, not replaced: side_mask.png") != NULL && strstr(job.text, "Regenerate from PSD") != NULL);
+    CHECK(strstr(job.text, "Kept, not replaced: side_mask.png") != NULL && strstr(job.text, "Update masks from PSD") != NULL);
     CHECK_EQ_INT(job.masks, 1);   /* the other body mask was made again */
     CHECK(exists("kit4/art-generated/dash_masks/dash_mask.png"));
     Manifest m;

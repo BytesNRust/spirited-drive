@@ -42,7 +42,7 @@ void masks_changes_section(App *a)
     }
     ImGui::Spacing();
     if (!ImGui::CollapsingHeader("Changes from the game's masks", ImGuiTreeNodeFlags_DefaultOpen)) return;
-    if (ImGui::Button("Refresh")) ++refresh;
+    if (ImGui::Button("Re-scan changes vs game repo")) ++refresh;
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Read the files again (after your picture editor wrote one)");
     if (!compared.have) {
         ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "No game masks to compare with");   // the state in sight; the folder it looked in is behind the (?)
@@ -52,7 +52,7 @@ void masks_changes_section(App *a)
     }
     const MaskChanges &c = compared.changes;
     ImGui::SameLine();
-    if (ImGui::Button("Copy the changed list")) {
+    if (ImGui::Button("Copy list of changed files to clipboard")) {
         char text[4096];
         mask_changes_text(&c, oc->folder, text, sizeof text);
         ImGui::SetClipboardText(text);

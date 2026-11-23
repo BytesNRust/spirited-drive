@@ -238,7 +238,7 @@ static void finish(PsdJob *job)
     }
     const int n = snprintf(job->text, sizeof job->text, "Converted %d mask%s from %s%s.", job->masks, job->masks == 1 ? "" : "s", job->psd_dir, job->dash_files > 0 ? ", and the dash" : "");
     if (job->kept > 0 && n > 0 && (size_t)n < sizeof job->text)
-        snprintf(job->text + n, sizeof job->text - (size_t)n, " Kept, not replaced: %s (%s not what Studio made from the PSDs: edited by hand, or put there another way). Press Regenerate from PSD to replace %s with what the PSDs make.", job->kept_names, job->kept == 1 ? "it is" : "they are", job->kept == 1 ? "it" : "them");
+        snprintf(job->text + n, sizeof job->text - (size_t)n, " Kept, not replaced: %s (%s not what Studio made from the PSDs: edited by hand, or put there another way). Press Update masks from PSD and choose Replace to replace %s with what the PSDs make.", job->kept_names, job->kept == 1 ? "it is" : "they are", job->kept == 1 ? "it" : "them");
     job->finished = 1, job->ok = 1;
     clean_scratch(job);
 }
