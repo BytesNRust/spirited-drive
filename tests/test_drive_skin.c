@@ -153,6 +153,9 @@ static void test_mask_from_its_folder(void)
     free(m);
     CHECK(car_mask_load_dir(dir, "topv", 1, 2, 2) == NULL);   /* no topv_lo_mask.png: the high one is not taken */
     CHECK(car_mask_load_dir(dir, "side", 0, 4, 2) == NULL);
+    /* a backup the artist's tool left beside the masks (`side.before-1650_mask.png`, as data/car_masks once held) is no mask of the game's: it is never read, high or low detail */
+    if (car_mask_write(mask, 4, 2, &png, &n)) spill(dir, "side.before-1650_mask.png", png, n), spill(dir, "side_lo.before-1650_mask.png", png, n), png_free(png);
+    CHECK(car_mask_load_dir(dir, "side", 0, 4, 2) == NULL && car_mask_load_dir(dir, "side", 1, 4, 2) == NULL);
     unsetenv("TNFS_CAR_MASKS");
     CHECK(car_mask_load_dir(dir, "./to", 0, 4, 2) == NULL);   /* a texture name that is not letters and digits names no file */
     uint8_t *wide = calloc(3000, 1);   /* a mask past 2048 a side is not decoded */
