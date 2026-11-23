@@ -43,7 +43,7 @@ one_car() {
     [ "$(diff "$table" "$repo_src/core/formats/car_paint.c" | grep -c '^[<>]')" = 2 ] || fail "$stem: the mask copy touched car_paint.c again"
 }
 
-one_car LDIABL "Rosso Diablo:b3121e,30th Anniversary Lavende:9878c8" 0 "Rosso Diablo #b3121e, 30th Anniversary Lavender #9878c8" "Rosso Diablo #010203, 30th Anniversary Lavender #9878c8"
+one_car LDIABL "Rosso Diablo:8a0600,30th Anniversary Lavende:b57edc,Giallo Orion:eba628,Grigio Antares:494844,Blue Hera:091a30,Verde Hydra:081815,Celeste:48abb4,Bianco:e1e3db" 0 "Rosso Diablo #8a0600, 30th Anniversary Lavender #b57edc, Giallo Orion #eba628, Grigio Antares #494844, Blue Hera #091a30, Verde Hydra #081815, Celeste #48abb4, Bianco #e1e3db" "Rosso Diablo #010203, 30th Anniversary Lavender #b57edc, Giallo Orion #eba628, Grigio Antares #494844, Blue Hera #091a30, Verde Hydra #081815, Celeste #48abb4, Bianco #e1e3db"   # the table's row: the owner's 8 colours
 one_car ANSX "Berlina Black:0e0e10,Grand Prix White:f1f1ee,Formula Red:b3121e,Citrous Yellow Metallic:e6d94a" 2 "Berlina Black #0e0e10, Grand Prix White #f1f1ee, Formula Red #b3121e, Citrous Yellow Metallic #e6d94a" "Berlina Black #0e0e10, Grand Prix White #f1f1ee, Formula Red #010203, Citrous Yellow Metallic #e6d94a"
 
 [ "$failures" = 0 ] && echo ok
