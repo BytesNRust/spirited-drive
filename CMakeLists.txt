@@ -1889,9 +1889,9 @@ if(NOT EMSCRIPTEN)
             list(GET word_at 0 word)
             list(GET word_at 1 word_port)
             string(TOLOWER ${word} word_name)
-            add_test(NAME net_track_guard_${word_name} COMMAND env HOST_ENV=TNFS_FAKE_HOST_TRACK=${word} BASE_PORT=${word_port}
+            add_test(NAME net_track_guard_${word_name} COMMAND env HOST_ENV=TNFS_FAKE_HOST_TRACK=${word} BASE_PORT=${word_port} STEP_TIMEOUT=300
                 bash ${CMAKE_SOURCE_DIR}/tools/link_loopback.sh $<TARGET_FILE_DIR:tnfs> refused ${CMAKE_BINARY_DIR}/net_track_guard_${word_name})
-            set_tests_properties(net_track_guard_${word_name} PROPERTIES TIMEOUT 400 RESOURCE_LOCK link_loopback)
+            set_tests_properties(net_track_guard_${word_name} PROPERTIES TIMEOUT 900 RESOURCE_LOCK link_loopback)   # 56 s alone; a loaded gate Mac (other ctests at once) made _15 and _0xffff fail with the 120 s step waits and the 400 s limit
         endforeach()
         add_test(NAME model_build COMMAND sh ${CMAKE_SOURCE_DIR}/tests/model_build.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> $<TARGET_FILE:model_build_piece> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
         # one test per part, side by side; tri starts from before's player folder (a ctest fixture)
