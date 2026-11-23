@@ -355,6 +355,17 @@ static void test_the_cds_police_shines(void)
     CHECK(model_scene_shine(m, 1, &in, NULL));
     fprintf(stderr, "COPMUST shine textures: %d\n", model_scene_shine_textures(m));
     CHECK(model_scene_shine_textures(m) >= 3);   /* frnt, rear, side (bott too) */
+    Orbit o;
+    orbit_init(&o, model_scene_radius(m));
+    orbit_set(&o, 60 * 16, 20 * 16);
+    CarNightState s;
+    memset(&s, 0, sizeof s);
+    CHECK_EQ_INT(model_scene_shine(m, 0, &in, NULL), 0);
+    const Picture plain = picture(m, &o, &s, "police_shine_off");
+    CHECK(model_scene_shine(m, 1, &in, NULL));
+    const Picture shine = picture(m, &o, &s, "police_shine_on");
+    fprintf(stderr, "COPMUST shine: plain light %ld, shine %ld, hashes %s\n", plain.light, shine.light, shine.hash != plain.hash ? "differ" : "SAME");
+    CHECK(shine.hash != plain.hash);   /* the green (body) texels reflect the sky on the unpainted car too */
     model_scene_close(m);
 }
 
