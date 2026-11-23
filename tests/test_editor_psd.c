@@ -184,7 +184,7 @@ static void test_kit(void)
         CHECK(app_psd_edited(a, names, sizeof names) == 1 && strcmp(names, "side_mask.png") == 0 && !app_psd_busy(a));
         CHECK(app_psd_start(a));   /* Convert PSD */
         run_to_end(a);
-        CHECK(a->psd.ok && strstr(a->status, "Kept as edited by hand: side_mask.png") != NULL);
+        CHECK(a->psd.ok && strstr(a->status, "Kept, not replaced: side_mask.png") != NULL);
         CHECK(app_psd_regenerate(a) && app_psd_busy(a));
         run_to_end(a);
         app_dash_stale_refresh(a);

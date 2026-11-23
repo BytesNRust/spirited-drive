@@ -286,7 +286,7 @@ static void test_edited_by_hand(void)
     run_to_end(&job);
     CHECK(job.ok && job.kept == 1 && strcmp(job.kept_names, "side_mask.png") == 0);
     CHECK(content_is("kit4/art-generated/car_masks/side_mask.png", "touched up in GIMP"));   /* not overwritten */
-    CHECK(strstr(job.text, "Kept as edited by hand: side_mask.png") != NULL && strstr(job.text, "Regenerate from PSD") != NULL);
+    CHECK(strstr(job.text, "Kept, not replaced: side_mask.png") != NULL && strstr(job.text, "Regenerate from PSD") != NULL);
     CHECK_EQ_INT(job.masks, 1);   /* the other body mask was made again */
     CHECK(exists("kit4/art-generated/dash_masks/dash_mask.png"));
     Manifest m;
@@ -344,7 +344,7 @@ static void test_no_manifest_line(void)
     CHECK(job.ok && job.kept == 1 && strcmp(job.kept_names, "side_mask.png") == 0);
     CHECK(content_is("kit5/art-generated/car_masks/side_mask.png", "somebody's own side mask"));
     CHECK(content_is("kit5/art-generated/dash_masks/dash_color.png", "somebody's own colour"));   /* nor is the colour a dash.psd without one would drop */
-    CHECK(strstr(job.text, "Kept as edited by hand: side_mask.png") != NULL);
+    CHECK(strstr(job.text, "Kept, not replaced: side_mask.png") != NULL);
     Manifest m;
     CHECK(manifest_load(manifest, &m) && manifest_sha(&m, "frnt_mask.png") != NULL && manifest_sha(&m, "side_mask.png") == NULL);   /* the one that matched is Studio's again; the kept one is not claimed */
     CHECK_EQ_INT(manifest_state(&m, masks, "frnt_mask.png"), GEN_OK);
