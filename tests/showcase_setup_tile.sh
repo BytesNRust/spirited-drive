@@ -1,7 +1,7 @@
 #!/bin/sh
-# The SETUP tile of the car showcase is the PLAYER's car's (owner 2026-11-23): on the page of the player's own car it is there and a click on it opens the Car Setup
-# panel; on the page of a rival (the opponent card's click in Control Central) it is not drawn and a click in its place opens nothing, the Color place as the original's.
-# Checked in Stock and Restomod, against the real binary and the CD data, by the walk's own SHOTs (the frame on screen once it is still) and marks.
+# The SETUP tile of the car showcase is Restomod's and the PLAYER's car's (owner 2026-11-23): in Restomod, on the page of the player's own car, it is there and a click on it opens the
+# Car Setup panel; in Stock and Restored the screen is the original's (no tile); on the page of a rival (the opponent card's click in Control Central) it is not drawn and a click in its place opens nothing, the Color place as the original's.
+# Checked in Restomod, Stock and Restored, against the real binary and the CD data, by the walk's own SHOTs (the frame on screen once it is still) and marks.
 # usage: showcase_setup_tile.sh TNFS REPO ORIGINAL_DIR
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
@@ -61,15 +61,17 @@ sys.exit(0 if rows(wa, pa) != rows(wb, pb) else 1)
 PY
 }
 
-for profile in restomod stock; do
-    # the player's page: the tile is lit by the pointer over it and a click opens the panel (the box changes)
+for profile in restomod stock restored; do
+    # the player's page: in Restomod the tile is there and a click on it opens the panel (the box changes); in Stock and Restored the screen is the original's: no tile, nothing opens
     walk $profile "$player_page,$(over),$(shot pl_a),$(tile),$(shot pl_b)" || { fail "$profile: the walk to the player's showcase"; continue; }
-    differ pl_a pl_b || fail "$profile: a click on the SETUP tile of the player's page opened nothing"
-    # the rival's page: no tile, so the click in its place changes nothing
+    if [ $profile = restomod ]; then
+        differ pl_a pl_b || fail "$profile: a click on the SETUP tile of the player's page opened nothing"
+    else
+        differ pl_a pl_b && fail "$profile: a click where SETUP was opened a panel on the player's page (the original screen has no tile)"
+    fi
+    # the rival's page: no tile in any profile, so the click in its place changes nothing
     walk $profile "$rival_page,$(over),$(shot rv_a),$(tile),$(shot rv_b)" || { fail "$profile: the walk to the rival's showcase"; continue; }
     differ rv_a rv_b && fail "$profile: a click where SETUP was opened a panel on a rival's page"
-    # and its place is not the tile's: the player's page (another car) shows the tile there, the rival's does not
-    differ pl_a rv_a || fail "$profile: the SETUP tile's place is the same on the player's page and on a rival's"
 done
 
 [ "$failures" = 0 ] || exit 1
