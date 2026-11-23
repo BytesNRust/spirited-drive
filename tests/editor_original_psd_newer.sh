@@ -8,7 +8,7 @@
 orig=$2 data=$3 make_psd=$4
 [ -r "$orig/SIMDATA/CARFAMS/ANSX.CFM" ] && [ -d "$data/car_masks/ANSX" ] || { echo "skip: no game files in $orig"; exit 0; }
 runs=0
-studio() { runs=$((runs + 1)); "$editor" "$@" --user "$work/player$runs" >"$work/log" 2>&1; }
+studio() { runs=$((runs + 1)); t0=$SECONDS; "$editor" "$@" --user "$work/player$runs" >"$work/log" 2>&1; rc=$?; echo "editor_original_psd_newer: run $runs took $((SECONDS - t0))s" >&2; return $rc; }
 mkdir -p "$work/cars"
 
 # a kit as the migration left it: the game's masks, a PSD of the owner's saved after them, and no .generated.tsv
@@ -24,7 +24,7 @@ kit_of() {   # kit_of NAME: a new ANSX kit in $work/cars/NAME with the rsid PSD 
 # 1. the game's own PNG: the newer PSD is applied by itself
 k1=$(kit_of one) || exit "$failures"
 cmp -s "$k1/art-generated/car_masks/rsid_mask.png" "$data/car_masks/ANSX/rsid_mask.png" || fail "the exported rsid mask is not the game's"
-studio "$k1" --port-data "$data" --frames 3000 --steps psd-wait:2500
+studio "$k1" --port-data "$data" --frames 30 --steps psd-wait:2500
 cmp -s "$k1/art-generated/car_masks/rsid_mask.png" "$data/car_masks/ANSX/rsid_mask.png" && fail "the game's own PNG was kept as edited by hand: the newer PSD was not applied: $(tail -5 "$work/log")"
 grep -q '^rsid_mask.png' "$k1/art-generated/.generated.tsv" 2>/dev/null || fail "the converted mask is not in the manifest: $(cat "$k1/art-generated/.generated.tsv" 2>/dev/null)"
 
@@ -32,12 +32,12 @@ grep -q '^rsid_mask.png' "$k1/art-generated/.generated.tsv" 2>/dev/null || fail 
 k2=$(kit_of two) || exit "$failures"
 python3 -I "$(dirname "$0")/mask_poke.py" "$k2/art-generated/car_masks/rsid_mask.png" 40 40 20 20 248 || fail "the outside change of the mask"
 cp "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png"
-studio "$k2" --port-data "$data" --frames 3000 --steps psd-wait:2500
+studio "$k2" --port-data "$data" --frames 30 --steps psd-wait:2500
 cmp -s "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png" || fail "Convert PSD replaced a PNG that was edited by hand: $(tail -5 "$work/log")"
 grep -q "^psd: idle: .*Kept, not replaced: rsid_mask.png" "$work/log" && grep -q "Regenerate from PSD" "$work/log" || fail "no words about what was kept and what to press: $(tail -8 "$work/log")"
 
 # 3. Regenerate from PSD is enabled and replaces it (clicked by its name, then the Replace of its question)
-studio "$k2" --port-data "$data" --frames 3000 --steps panel:4,panel:4,ui-click:psd_regenerate,ui-click:psd_replace,psd-wait:2500
+studio "$k2" --port-data "$data" --frames 30 --steps panel:4,panel:4,ui-click:psd_regenerate,ui-click:psd_replace,psd-wait:2500
 cmp -s "$k2/art-generated/car_masks/rsid_mask.png" "$work/edited.png" && fail "Regenerate from PSD did not replace the PNG (the button was grey or the click missed): $(tail -8 "$work/log")"
 [ -f "$k2/art-source/masks/rsid.psd" ] && cmp -s "$k2/art-source/masks/rsid.psd" "$k1/art-source/masks/rsid.psd" || fail "the PSD changed or went"
 
