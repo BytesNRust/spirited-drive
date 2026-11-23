@@ -86,7 +86,8 @@ static int tunnel_in_file(const TrackNodeLight *light, uint32_t node)
     if (light == NULL || light->data == NULL || light->nodes < 2) return 0;
     node %= light->nodes;
     if (node == light->nodes - 1) node--;
-    if (light->tunnel != NULL && light->tunnel[node]) return 1;   /* a made light's road tunnel (made_tunnels); the rest is the rows' */
+    if (light->tunnel != NULL && !light->scripted) return light->tunnel[node] != 0;   /* a made light's marks are the road's tunnels (made_tunnels): its ramped approach rows (a foot, 0s beyond) are not one */
+    if (light->tunnel != NULL && light->tunnel[node]) return 1;
     if (light->scripted) return psx_lgs_switched(&light->script, (int)(node >> 2));
     return row_is_tunnel(light->data + (size_t)node * TRACK_NODE_LIGHT_POINTS);
 }

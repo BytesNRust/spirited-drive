@@ -317,8 +317,26 @@ static void test_object_lamp(void)
     CHECK_EQ_INT(track_node_light_object_lamp(NULL, 10, 0.0, 0.0, 77), 77);
 }
 
+/* a made light's tunnel marks decide: the approach rows the synth ramps in (a lit foot, 0s beyond) are not the tunnel before its first marked node */
+static void test_marks_start_the_tunnel(void)
+{
+    static uint8_t rows[5 * TRACK_NODE_LIGHT_POINTS] = {
+        255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255,   /* open */
+        255, 255, 99, 0, 0, 0, 255, 255, 255, 255, 255,    /* the mouth's ramp: a foot, 0s beyond, not marked */
+        255, 255, 150, 0, 0, 0, 255, 255, 255, 255, 255,   /* ramp, not marked */
+        255, 255, 192, 0, 0, 0, 255, 150, 0, 0, 0,         /* marked */
+        0,
+    };
+    static uint8_t marks[5] = { 0, 0, 0, 1, 0 };
+    const TrackNodeLight light = { .data = rows, .nodes = 5, .tunnel = marks };
+    CHECK(!track_node_light_tunnel(&light, 1));
+    CHECK(!track_node_light_tunnel(&light, 2));
+    CHECK(track_node_light_tunnel(&light, 3));
+}
+
 int main(void)
 {
+    test_marks_start_the_tunnel();
     test_tunnel_road();
     test_script();
     test_tunnel_wall_floor();
