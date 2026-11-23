@@ -697,8 +697,14 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         if (p == 0) app_car_reread(a);
         return p < 2;
     }
-    if (strncmp(name, "psd-wait:", 9) == 0) {   /* psd-wait:N: at most N frames, then "psd: busy|idle: <the last Convert PSD's words>" (the status line is the last thing said, so it is not enough) */
-        if (p + 1 < (int)arg[0] && !(p >= 2 && a->psd.text[0] != '\0' && !app_psd_busy(a))) return SDL_Delay(5), 1;   // up to N frames, ending when a Convert PSD has run and has its words: not the clock of a loaded Mac
+    if (strncmp(name, "psd-wait:", 9) == 0) {   /* psd-wait:N: ends when a Convert PSD has run and has its words, at most N frames and at most PSD_WAIT_SECONDS of the clock (a window at rest draws twice a second: N frames can be minutes); then "psd: busy|idle: <the last Convert PSD's words>" (the status line is the last thing said, so it is not enough) */
+        static Uint64 from;
+        enum { PSD_WAIT_SECONDS = 120 };
+        if (p == 0) from = SDL_GetTicks();
+        const int done = p >= 2 && a->psd.text[0] != '\0' && !app_psd_busy(a);
+        const int late = (SDL_GetTicks() - from) / 1000 >= PSD_WAIT_SECONDS;
+        if (p + 1 < (int)arg[0] && !done && !late) return SDL_Delay(5), 1;
+        if (late && !done) fprintf(stdout, "psd: no end after %d seconds (frame %d)\n", PSD_WAIT_SECONDS, p);
         fprintf(stdout, "psd: %s: %s\n", app_psd_busy(a) ? "busy" : "idle", a->psd.text), fflush(stdout);
         return 0;
     }
