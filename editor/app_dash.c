@@ -29,12 +29,12 @@ static void adopt_the_games(App *a, const char *masks, const char *dash)
     static char done[APP_PATH];
     const ExportCar *oc = car_race_original_of(&a->car);
     if (oc == NULL || a->export_src.data[0] == '\0' || strcmp(done, a->dir) == 0) return;
-    snprintf(done, sizeof done, "%s", a->dir);
     char manifest[APP_PATH], game[APP_PATH];
     car_project_manifest(&a->car, manifest, sizeof manifest);
     Manifest *m = calloc(1, sizeof *m);
     MaskChanges *c = calloc(1, sizeof *c);
-    if (m == NULL || c == NULL || !manifest_load(manifest, m)) { free(m), free(c); return; }
+    if (m == NULL || c == NULL || !manifest_load(manifest, m)) { free(m), free(c); return; }   // not read: tried again at the next look
+    snprintf(done, sizeof done, "%s", a->dir);
     int adopted = 0;
     for (int pass = 0; pass < 2; ++pass) {
         snprintf(game, sizeof game, "%s/%s/%s", a->export_src.data, pass == 0 ? "car_masks" : "dash_masks", oc->folder);
