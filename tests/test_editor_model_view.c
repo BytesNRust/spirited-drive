@@ -42,22 +42,31 @@ static void test_paint_caption(void)
     CHECK(model_paint_caption("x", 1, text, 0) == 0);
 }
 
-static void test_pixel_size(void)
+static void test_render_size(void)
 {
-    CHECK_EQ_INT(model_view_pixel(800, 600, 1), 1);
-    CHECK_EQ_INT(model_view_pixel(800, 600, 4), 4);
-    CHECK_EQ_INT(model_view_pixel(800, 600, 9), MODEL_PIXEL_MAX);   /* more than the most: the most */
-    CHECK_EQ_INT(model_view_pixel(800, 600, 0), 1);
-    CHECK_EQ_INT(model_view_pixel(800, 600, -3), 1);
-    CHECK_EQ_INT(model_view_pixel(300, 200, 4), 4);   /* 200 / 4 = 50 is at least a side of 32 */
-    CHECK_EQ_INT(model_view_pixel(100, 100, 4), 3);   /* 100 / 3 = 33; 100 / 4 = 25 is under a side of 32 */
-    CHECK_EQ_INT(model_view_pixel(0, 0, 2), 1);
+    int w = 0, h = 0;
+    CHECK_EQ_INT(model_view_render_size(1400, 850, 1, &w, &h), 1);   /* the game's 480 lines at scale 1, in the area's shape */
+    CHECK_EQ_INT(h, 480);
+    CHECK_EQ_INT(w, 791);   /* 480 * 1400 / 850, rounded */
+    CHECK_EQ_INT(model_view_render_size(1400, 850, 2, &w, &h), 2);   /* 960 lines would be finer than the area's 850: the area's own */
+    CHECK(h == 850 && w == 1400);
+    CHECK_EQ_INT(model_view_render_size(2000, 1200, 2, &w, &h), 2);
+    CHECK(h == 960 && w == 1600);
+    CHECK_EQ_INT(model_view_render_size(2000, 1200, 3, &w, &h), 3);
+    CHECK(h == 1200 && w == 2000);   /* 1440 lines against the area's 1200 */
+    CHECK_EQ_INT(model_view_render_size(180, 100, 1, &w, &h), 1);   /* a small panel is drawn at its own size */
+    CHECK(h == 100 && w == 180);
+    CHECK_EQ_INT(model_view_render_size(800, 600, 9, &w, &h), MODEL_RENDER_SCALE_MAX);   /* more than the most: the most */
+    CHECK_EQ_INT(model_view_render_size(800, 600, 0, &w, &h), 1);
+    CHECK_EQ_INT(model_view_render_size(800, 600, -3, &w, &h), 1);
+    CHECK_EQ_INT(model_view_render_size(0, 0, 2, &w, &h), 2);
+    CHECK(w == 0 && h == 0);
 }
 
 int main(void)
 {
     test_view_flags();
     test_paint_caption();
-    test_pixel_size();
+    test_render_size();
     return TEST_REPORT();
 }

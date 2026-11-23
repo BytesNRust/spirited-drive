@@ -136,6 +136,8 @@ void car_race_set_player(const char *dir);
  * without --user), a trailing slash dropped; "" when neither is there. 1 when `out` is a folder, 0 when it is "" (or does not fit). */
 /* 1 unless the player's port.cfg / restomod.cfg (the folder given to car_race_set_player) say shine_soft=0 (Restomod's default is 1): the Studio's Preview then draws the soft shine edges as the game does */
 int car_race_player_shine_soft(void);
+/* the render_scale (1..3) the player's port.cfg / restomod.cfg say, Restomod's 2 when none: the Model window starts at it (the game's own setting; the window may change it for itself, never the files) */
+int car_race_player_render_scale(void);
 int car_race_player_dir(const char *user, const char *pref, char *out, size_t cap);
 /* An INTERACTIVE run (a test drive the person drives) shows the game as the person set it up: the graphics keys of the player's port.cfg and restomod.cfg (screen format, refresh,
  * scaling, field of view, render scale and bands, view distance, texture filter, fog, light effects, shadows, lamps) replace the fixed ones car_race_user_files wrote into the scratch

@@ -14,11 +14,16 @@ void model_view_flags(ModelView view, int *card_view, int *as_card)
     *as_card = view == MODEL_VIEW_GAME;
 }
 
-int model_view_pixel(int area_w, int area_h, int want)
+int model_view_render_size(int area_w, int area_h, int scale, int *w, int *h)
 {
-    int k = want < 1 ? 1 : want > MODEL_PIXEL_MAX ? MODEL_PIXEL_MAX : want;
-    while (k > 1 && (area_w / k < MODEL_PIXEL_MIN_SIDE || area_h / k < MODEL_PIXEL_MIN_SIDE)) k--;
-    return k;
+    const int s = scale < 1 ? 1 : scale > MODEL_RENDER_SCALE_MAX ? MODEL_RENDER_SCALE_MAX : scale;
+    if (area_w < 1 || area_h < 1) return *w = *h = 0, s;
+    const long frame_h = (long)MODEL_GAME_FRAME_H * s;
+    const long rh = area_h < frame_h ? area_h : frame_h;   /* never finer than the panel's own pixels */
+    long rw = (rh * area_w + area_h / 2) / area_h;
+    if (rw < 1) rw = 1;
+    *w = (int)rw, *h = (int)rh;
+    return s;
 }
 
 const char *model_view_name(ModelView view)

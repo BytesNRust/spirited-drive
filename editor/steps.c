@@ -320,6 +320,11 @@ static int at_once(App *a, const char *name, const double *arg)
         int yaw, pitch, dist;
         if (arg[0] == 1) return ui_camera_nudge(), 1;
         if (arg[0] == 2) return 2;   /* by_frames */
+        if (arg[0] == 3) {   /* camera:3 the Model window's state: floating enlarged or not, docked or not, its render scale, its Soft edges switch */
+            int big, docked, scale, soft;
+            ui_model_state(&big, &docked, &scale, &soft);
+            return fprintf(stdout, "model: big %d docked %d scale %d soft %d\n", big, docked, scale, soft), 1;
+        }
         ui_camera(&yaw, &pitch, &dist);
         return fprintf(stdout, "camera: %d %d %d\n", yaw, pitch, dist), 1;
     }

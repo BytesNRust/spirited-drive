@@ -314,6 +314,7 @@ static void test_player_options(void)
     CHECK(strstr(text, "light_time=day\n") != NULL && strstr(text, "weather=rain") == NULL && strstr(text, "some_other") == NULL && strstr(text, "fullscreen=1") == NULL);   /* the run's own keys stay */
     CHECK(strstr(text, "shine_soft=0\n") != NULL);   /* the player's soft edges choice goes to the test drive too */
     CHECK_EQ_INT(car_race_player_shine_soft(), 0);   /* and the Preview reads it from the same files */
+    CHECK_EQ_INT(car_race_player_render_scale(), 3);   /* the Model window starts at the player's render scale */
     snprintf(path, sizeof path, "%s/port.cfg", user);
     read_all(path, text, sizeof text);
     CHECK(strstr(text, "format=16_9\n") != NULL && strstr(text, "refresh_hz=144\n") != NULL && strstr(text, "profile=restomod\n") != NULL && strstr(text, "fullscreen=0\n") != NULL);
@@ -324,6 +325,7 @@ static void test_player_options(void)
     CHECK(strcmp(before, after) == 0);   /* the player's file is as it was */
     car_race_set_player("");
     CHECK_EQ_INT(car_race_player_shine_soft(), 1);   /* no player files: Restomod's default, on */
+    CHECK_EQ_INT(car_race_player_render_scale(), 2);   /* and Restomod's render scale */
     CHECK(car_race_player_options(user, why, sizeof why));   /* no player folder: nothing to do */
     car_race_set_player(NULL);
     CHECK(car_race_temp_remove(temp));

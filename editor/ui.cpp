@@ -112,6 +112,11 @@ void ui_camera_nudge(void)
     model_panel_nudge();
 }
 
+void ui_model_state(int *big, int *docked, int *scale, int *soft)
+{
+    model_panel_state(big, docked, scale, soft);
+}
+
 void ui_camera(int *yaw, int *pitch, int *dist)
 {
     model_panel_camera(yaw, pitch, dist);
@@ -237,9 +242,9 @@ void ui_model_big(int on)
     model_panel_big(on != 0);
 }
 
-void ui_model_pixel(int pixel)
+void ui_model_render_scale(int scale)
 {
-    model_panel_pixel(pixel);
+    model_panel_render_scale(scale);
 }
 
 void ui_model_soft(int on)

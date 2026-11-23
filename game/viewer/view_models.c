@@ -90,6 +90,7 @@ void ported_view_set_car_objects(int slot, Object3D *high, Object3D *low)
     c->high = high, c->low = low, c->borrowed = 1;
     c->ok = car_model_init(&c->model, high, low);
     shine_draw_set_soft(port_shine_soft());   /* port (soft edges) */
+    shine_draw_set_render_scale(port_render_scale());   /* soft edges only from render scale 2 */
     body_shine_enable(port_body_shine());   /* port (body shine): the bodies keep vertex normals for the shine's reflections */
     if (c->ok && body_shine_enabled()) object3d_enable_normals(high), object3d_enable_normals(low);
 }

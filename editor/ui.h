@@ -19,6 +19,7 @@ int ui_card_photo(App *a);
 /* the Model's camera (the step camera): moved as a hand would, and where it is (1/16 degrees, model units) */
 void ui_camera_nudge(void);
 void ui_camera(int *yaw, int *pitch, int *dist);
+void ui_model_state(int *big, int *docked, int *scale, int *soft);
 /* the Model window's Card view and As on the card boxes (the step card-view): 1 when the car is open to show them */
 int ui_card_view(App *a, int card, int as_card);
 /* the card photo's backdrop (the steps card-backdrop:KIND,R,G,B and card-bd-bottom:R,G,B, and --card-backdrop FILE): 1 when the car is open to show it */
@@ -49,7 +50,7 @@ void ui_print_menu(const App *a);
 void ui_model_orbit(double yaw, double pitch, int dist);
 /* The Model window's body shine on or off (on by default). */
 void ui_model_big(int on);
-void ui_model_pixel(int pixel);
+void ui_model_render_scale(int scale);
 void ui_model_soft(int on);
 void ui_model_shine(int on);
 

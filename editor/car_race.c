@@ -332,22 +332,35 @@ int car_race_player_dir(const char *user, const char *pref, char *out, size_t ca
 static const char *const PLAYER_KEYS[] = { "format", "refresh_hz", "scale", "fov_adjust", "view_ultra", "perspective", "texture_filter", "fog", "f3_ultra", "render_scale", "render_bands",
                                            "light_effects", "car_soft_shadow", "fog_sample", "sky_fill", "sky_fill_below", "body_shine", "shine_soft", "lamp_flares", "lamp_halos", NULL };
 
-int car_race_player_shine_soft(void)
+/* the last line of `key=N` (a digit) in the player's port.cfg and restomod.cfg, `def` when there is none or no player folder */
+static int player_digit(const char *key, int def)
 {
     static const char *const NAMES[] = { "port.cfg", "restomod.cfg" };
-    int on = 1;   /* Restomod's default; a line in the player's files says otherwise */
-    if (player_dir[0] == '\0') return 1;
+    const size_t klen = strlen(key);
+    int value = def;
+    if (player_dir[0] == '\0') return def;
     for (int i = 0; i < 2; ++i) {
         char path[EXPORT_PATH + 32];
         size_t size = 0;
         if (snprintf(path, sizeof path, "%s/%s", player_dir, NAMES[i]) >= (int)sizeof path) continue;
         char *text = slurp(path, &size);
         if (text == NULL) continue;
-        for (const char *at = text; (at = strstr(at, "shine_soft=")) != NULL; at += 11)
-            if (at == text || at[-1] == '\n') on = at[11] == '1';   /* the last line wins */
+        for (const char *at = text; (at = strstr(at, key)) != NULL; at += klen)
+            if ((at == text || at[-1] == '\n') && at[klen] == '=' && at[klen + 1] >= '0' && at[klen + 1] <= '9') value = at[klen + 1] - '0';   /* the last line wins */
         free(text);
     }
-    return on;
+    return value;
+}
+
+int car_race_player_shine_soft(void)
+{
+    return player_digit("shine_soft", 1) == 1;   /* Restomod's default is on; a line in the player's files says otherwise */
+}
+
+int car_race_player_render_scale(void)
+{
+    const int scale = player_digit("render_scale", 2);   /* Restomod's default; the setting is 1..3 */
+    return scale < 1 ? 1 : scale > 3 ? 3 : scale;
 }
 
 static int player_key(const char *line, size_t len)

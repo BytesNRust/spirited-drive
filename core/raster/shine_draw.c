@@ -94,11 +94,14 @@ static uint8_t texel_class(const Shine *sh, float u, float v)
  * its sub-texel place, and the ordered dither decides, from the same threshold as the levels', whether the pixel is shined at all (weight of the shined classes) and, if so, by which table
  * (paint first, then glass). A pixel whose four texels agree has weight 1 or 0: shined as before or not at all, byte for byte. Only which table a pixel takes changes, never which pixels are drawn. */
 static int soft_setting;   /* the player's shine_soft, told by the game and the Studio (shine_draw_set_soft) */
+static int render_scale;   /* the render scale the picture is drawn at (shine_draw_set_render_scale); 0: not told, no rule */
 void shine_draw_set_soft(int on) { soft_setting = on != 0; }
+void shine_draw_set_render_scale(int scale) { render_scale = scale; }
 static int soft_on(void)
 {
     static int env = -2;   /* TNFS_SHINE_SOFT=0/1 overrides the setting, for a check */
     if (env == -2) env = getenv("TNFS_SHINE_SOFT") != NULL ? atoi(getenv("TNFS_SHINE_SOFT")) != 0 : -1;
+    if (render_scale == 1) return 0;   /* at render scale 1 a texel is a few pixels at most and the shine's edge a straight cut, as before, whatever the setting or the env say */
     return env >= 0 ? env : soft_setting;
 }
 

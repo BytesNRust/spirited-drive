@@ -51,6 +51,7 @@ void photo_view_panel(App *a, ImTextureID photo);   // the photo in a large wind
 void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
 void model_panel_preset(double yaw, double pitch, int dist);
 void model_panel_nudge(void);   // the camera moved as a hand would (a drag and two wheel notches): the step camera:1
+void model_panel_state(int *big, int *docked, int *scale, int *soft);   // the Model window floating enlarged, docked when last drawn, its render scale and its Soft edges switch: the step camera:3
 void model_panel_camera(int *yaw, int *pitch, int *dist);   // where the camera is now (1/16 degrees, model units): the step camera:0
 int model_panel_backdrop(App *a, int kind, int r, int g, int b, int bottom);   // the card photo's backdrop (the step card-backdrop): kind 0 plain, 1 gradient, 2 picture; the colour is the top one, or the bottom one when `bottom`
 const char *model_panel_backdrop_path();   // the backdrop's picture now ("" for none)
@@ -58,7 +59,7 @@ void model_panel_backdrop_file(const char *path);   // a picture as the backdrop
 int model_panel_card_view(App *a, bool card, bool as_card);   // the Card view and As on the card boxes set (the step card-view): 1 when the car is open
 int model_panel_card_photo(App *a);   // «Use as card photo» as its button does it, without the question about a card.png that is there (the step card-photo, through ui_card_photo): 1 when it was made
 void model_panel_big(bool on);   // the Model window floating large (Enlarge) or docked again
-void model_panel_pixel(int pixel);   // the Pixels choice 1..4 (the car drawn at 1/N of the panel's pixels, each shown N x N)
+void model_panel_render_scale(int scale);   // the game's render scale 1..3 for this window (the car drawn on a frame 480 * scale lines tall, shown stretched)
 void model_panel_soft(bool on);   // the shine's soft mask edges on or off (the player's shine_soft by default)
 void model_panel_shine(bool on);   // the body shine on or off (on by default)   // an orbit for the next car opened (degrees, degrees, model units; dist 0 keeps the home distance)
 void mask_view_section(App *a, ImTextureID picture);   // in Masks: the list of masks with their state and the open mask over its texture

@@ -28,6 +28,9 @@ typedef struct {
 
 /* port (soft edges): the player's shine_soft setting (0 off). TNFS_SHINE_SOFT=0/1 overrides it. */
 void shine_draw_set_soft(int on);
+/* The render scale the picture is drawn at (1..3, the game's render_scale; the Studio's own choice): at 1 the soft edges are off whatever the setting or TNFS_SHINE_SOFT say, from 2 up they follow them.
+ * 0 (never told): no rule. */
+void shine_draw_set_render_scale(int scale);
 
 /* port (soft edges, prototype): the table the pixel (x, y) at texture place (u, v) (texels) takes with soft edges: 0 not shined, 1 the paint's, 2 the glass's. A place whose four nearest texels agree gives
  * the class's own table (or 0) at any (x, y). Public for the tests. */

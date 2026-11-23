@@ -5,8 +5,10 @@
 #include "panels.h"
 #include "help_marker.h"
 #include "model_view.h"
+#include "ui_probe.h"
 
 #include "imgui.h"
+#include "imgui_internal.h"
 
 #include <SDL3/SDL.h>
 
@@ -19,7 +21,8 @@ extern "C" {
 }
 #include "car_export.h"
 #include "car_race.h"
-extern "C" void shine_draw_set_soft(int on);   // core/raster/shine_draw.h, not included: its View clashes with the editor's
+extern "C" void shine_draw_set_soft(int on);
+extern "C" void shine_draw_set_render_scale(int scale);   // core/raster/shine_draw.h, not included: its View clashes with the editor's
 
 #include <math.h>
 #include <stdio.h>
@@ -56,7 +59,11 @@ struct Model {
     int big_ask = 0;              // 1: float the window large on the next frame, -1: dock it back where it was (Enlarge / Dock back)
     bool big = false;             // the window is floating, enlarged
     ImGuiID dock_id = 0;          // where it was docked, to go back to
-    int pixel = 1;                // the Pixels choice: the car drawn at 1/N of the panel's pixels, each shown N x N (model_view_pixel)
+    bool docked = false;          // the window was docked when last drawn (the flow test reads it)
+    ImGuiID parent_id = 0;        // the node that held it and its neighbours: when it leaves (Enlarge) its own node is gone, this one stays and is split to put it back
+    ImGuiDir split_dir = ImGuiDir_Up; // the side of that node the window was on
+    float split_ratio = 0.4f;     // and its share of it
+    int render_scale = 0;         // the game's render_scale for this window (1..3): 0 until the player's own is read; changing it never writes their options (model_view_render_size)
     int soft = -1;                // the shine's soft mask edges: -1 until the player's own choice is read (shine_soft), then 0 or 1
     bool shine = true;            // the body shine, on: the owner checks the shine and matte masks with it
     bool shines = false;          // the car has texels the shine reaches
@@ -407,14 +414,6 @@ void toolbar(App *a)
                           "Its tones are taken from the car's own colours; in a race, from the screen's.%s",
                           g.envmap[0] != '\0' ? "\nThe kit's car_envmap.png is the sky it reflects." : "");
     ImGui::SameLine();
-    if (g.soft < 0) g.soft = car_race_player_shine_soft();
-    shine_draw_set_soft(g.soft);   // the window's own choice stands over the start-up value
-    bool soft = g.soft != 0;
-    if (ImGui::Checkbox("Soft edges", &soft)) g.soft = soft ? 1 : 0, shine_draw_set_soft(g.soft), g.dirty = true;
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Where the shine meets a matte or glass texel, the border is mixed by how much of each is near (an ordered dither), not cut at the texel's edge.\n"
-                          "The game's own shine_soft setting (Restomod '26 on, Stock and Restored off); this box is only for this window. Best seen with Pixels 3x or 4x.");
-    ImGui::SameLine();
     static const char *const WHEELS[] = { "Still", "Slow", "Fast" };
     ImGui::TextUnformatted("Wheels");
     ImGui::SameLine();
@@ -432,27 +431,43 @@ void toolbar(App *a)
 
     ImGui::SameLine();
     if (ImGui::Button(g.big ? "Dock back" : "Enlarge")) g.big_ask = g.big ? -1 : 1;
+    ui_probe("model_enlarge");
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip(g.big ? "Put the Model window back in the layout where it was." : "Float the Model window at nearly the size of the Studio, to see the car larger (its camera stays). Drag its edges to resize.");
     ImGui::SameLine();
-    ImGui::TextUnformatted("Pixels");
+    {   // the soft mask edges of the shine: a clear switch with its state, right by Enlarge (the game's shine_soft setting is where it starts; this is for this window only)
+        const bool on = g.soft != 0, inactive = g.render_scale <= 1;   // at render scale 1 the edges are a straight cut whatever the switch says
+        ImGui::BeginDisabled(inactive);
+        ImGui::PushStyleColor(ImGuiCol_Button, on ? ImVec4(0.18f, 0.50f, 0.28f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_Button));
+        if (ImGui::Button(on ? "Soft edges: ON" : "Soft edges: OFF")) g.soft = on ? 0 : 1, shine_draw_set_soft(g.soft), g.dirty = true;
+        ImGui::PopStyleColor();
+        ImGui::EndDisabled();
+        ui_probe("model_soft");
+        ImGui::SameLine();
+        help_marker("Where the body's shine meets matte paint or glass, the border is mixed by how much of each is near (an ordered dither of the game's own two tables), not cut at the texel's edge.\n"
+                    "Only with Render scale 2 or 3: at 1 the edge is a straight cut, as the game draws it (this switch is then grey).\n"
+                    "Starts as the game's shine_soft setting (Restomod '26 on, Stock and Restored off); this switch is only for this window and never writes your options. Best seen enlarged.");
+    }
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(ImGui::CalcTextSize("4x").x + ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
+    ImGui::TextUnformatted("Render scale");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(ImGui::CalcTextSize("3").x + ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.x * 2.0f);
     ImGui::BeginDisabled(g.card_view);   // the card's picture is 309 x 166 whatever
     char current[8];
-    snprintf(current, sizeof current, "%dx", g.pixel);
-    if (ImGui::BeginCombo("##pixels", current)) {
-        for (int i = 1; i <= MODEL_PIXEL_MAX; i++) {
+    snprintf(current, sizeof current, "%d", g.render_scale);
+    if (ImGui::BeginCombo("##render_scale", current)) {
+        for (int i = 1; i <= MODEL_RENDER_SCALE_MAX; i++) {
             char label[8];
-            snprintf(label, sizeof label, "%dx", i);
-            if (ImGui::Selectable(label, g.pixel == i)) g.pixel = i, g.dirty = true;
+            snprintf(label, sizeof label, "%d", i);
+            if (ImGui::Selectable(label, g.render_scale == i)) g.render_scale = i, g.dirty = true;
         }
         ImGui::EndCombo();
     }
     ImGui::EndDisabled();
+    ui_probe("model_render_scale");
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("The size of a pixel of the picture. 1x: the car drawn at the panel's own pixels. 2x to 4x: drawn at that much fewer and shown larger, as coarse as the game's own picture, so the\n"
-                          "shine's soft edges and their dither can be seen. The camera stays; the panel's size is the window's (drag its edge).%s", g.card_view ? "\nNot in the Card views: their picture is 309 x 166." : "");
+        ImGui::SetTooltip("The game's render scale (its option, 1 to 3): the car is drawn on a frame 480 lines tall at 1, 960 at 2, 1440 at 3, and shown stretched to the window, as coarse as the game's picture.\n"
+                          "It starts as your option; changing it here is for this window only. A small panel is drawn at its own size: Enlarge to see the scale.%s", g.card_view ? "\nNot in the Card views: their picture is 309 x 166." : "");
 
     row_label("View");
     view_controls(a);
@@ -487,9 +502,9 @@ void model_panel_big(bool on)
     if (on != g.big) g.big_ask = on ? 1 : -1;
 }
 
-void model_panel_pixel(int pixel)
+void model_panel_render_scale(int scale)
 {
-    g.pixel = pixel < 1 ? 1 : pixel > MODEL_PIXEL_MAX ? MODEL_PIXEL_MAX : pixel;
+    g.render_scale = scale < 1 ? 1 : scale > MODEL_RENDER_SCALE_MAX ? MODEL_RENDER_SCALE_MAX : scale;
     g.dirty = true;
 }
 
@@ -560,25 +575,56 @@ void model_panel_nudge(void)
     g.fit = false, g.dirty = true;
 }
 
+void model_panel_state(int *big, int *docked, int *scale, int *soft)
+{
+    *big = g.big, *docked = g.docked, *scale = g.render_scale, *soft = g.soft;
+}
+
 void model_panel_camera(int *yaw, int *pitch, int *dist)
 {
     *yaw = g.orbit.yaw, *pitch = g.orbit.pitch, *dist = g.orbit.dist;
 }
 
+// where the docked window is, to put it back there: its node, and the node round it with the side and share it had
+static void remember_dock()
+{
+    g.dock_id = ImGui::GetWindowDockID();
+    const ImGuiDockNode *node = ImGui::DockBuilderGetNode(g.dock_id);
+    const ImGuiDockNode *parent = node != nullptr ? node->ParentNode : nullptr;
+    if (parent == nullptr || parent->ChildNodes[0] == nullptr || parent->ChildNodes[1] == nullptr) return;
+    const bool first = parent->ChildNodes[0] == node, across = parent->SplitAxis == ImGuiAxis_X;
+    const float whole = across ? parent->Size.x : parent->Size.y, mine = across ? node->Size.x : node->Size.y;
+    if (whole <= 0.0f) return;
+    g.parent_id = parent->ID;
+    g.split_dir = across ? (first ? ImGuiDir_Left : ImGuiDir_Right) : (first ? ImGuiDir_Up : ImGuiDir_Down);
+    g.split_ratio = fminf(0.9f, fmaxf(0.1f, mine / whole));
+}
+
 void model_panel(App *a, SDL_Renderer *ren)
 {
+    if (g.soft < 0) g.soft = car_race_player_shine_soft();   // the options the player set: this window starts as the game is
+    if (g.render_scale < 1) g.render_scale = car_race_player_render_scale();
+    shine_draw_set_soft(g.soft);   // this window's own choice stands over the start-up value
+    shine_draw_set_render_scale(g.render_scale);   // and soft edges only from render scale 2, as in the game
     if (g.big_ask > 0) {   // Enlarge: out of the dock, over nearly the whole window, for this frame (then it is an ordinary window: resize it)
         const ImGuiViewport *vp = ImGui::GetMainViewport();
         ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
         ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.04f, vp->Pos.y + vp->Size.y * 0.06f), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(vp->Size.x * 0.92f, vp->Size.y * 0.88f), ImGuiCond_Always);
-        g.big = true, g.big_ask = 0, g.fit = true, g.dirty = true;
-    } else if (g.big_ask < 0) {   // Dock back
-        if (g.dock_id != 0) ImGui::SetNextWindowDockID(g.dock_id, ImGuiCond_Always);
-        g.big = false, g.big_ask = 0, g.fit = true, g.dirty = true;
+        g.big = true, g.big_ask = 0, g.dirty = true;   // the camera is not touched: the field of view is across the picture's smaller side, so the car fills the same share at any size
+    } else if (g.big_ask < 0) {   // Dock back: where it was. Its own node went when it left (a window alone in its node), so the node it shared the layout with is split again as it was
+        if (g.dock_id != 0 && ImGui::DockBuilderGetNode(g.dock_id) != nullptr) {
+            ImGui::SetNextWindowDockID(g.dock_id, ImGuiCond_Always);
+        } else if (g.parent_id != 0 && ImGui::DockBuilderGetNode(g.parent_id) != nullptr) {
+            ImGuiID back = 0, rest = 0;
+            ImGui::DockBuilderSplitNode(g.parent_id, g.split_dir, g.split_ratio, &back, &rest);
+            ImGui::SetNextWindowDockID(back, ImGuiCond_Always);
+        }
+        g.big = false, g.big_ask = 0, g.dirty = true;
     }
     if (ImGui::Begin(PANEL_MODEL)) {
-        if (ImGui::IsWindowDocked()) g.dock_id = ImGui::GetWindowDockID();
+        g.docked = ImGui::IsWindowDocked();
+        if (g.docked) remember_dock();
         const int paint = a->preview_paint;
         const ExportCar *oc = car_race_original_of(&a->car);   // the paints as the Preview window has them: a masks project and the game's traffic have none
         const int count = a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE) ? 0 : a->edit.now.paint_count;
@@ -599,8 +645,9 @@ void model_panel(App *a, SDL_Renderer *ren)
             const int lines = g.shine && !g.shines ? 2 : 1;   // the words under the picture: the state, and "no shine" when Shine has nothing to show
             const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - lines * static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
             int w = 0, h = 0;   // the picture fills the area (car_scene keeps its pixels square, the car whole in the smaller side)
-            const int k = g.card_view ? 1 : model_view_pixel(area_w, area_h, g.pixel);   // the Pixels choice, kept to what the area allows
-            const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : picture_size(area_w / k, area_h / k, &w, &h, k > 1 ? MODEL_PIXEL_MIN_SIDE : 64);
+            int rw = area_w, rh = area_h;   // the frame the car is drawn on: the game's at this render scale, in the area's shape
+            if (!g.card_view) model_view_render_size(area_w, area_h, g.render_scale, &rw, &rh);
+            const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : picture_size(rw, rh, &w, &h, area_w < 64 || area_h < 64 ? 64 : 1);
             if (sized && make_target(ren, w, h)) {
                 if (g.fit && !g.card_view) {   // the car as large as the picture lets it be, whatever the window's shape
                     model_scene_frame(g.scene, &g.orbit, w, h, FRAME_PERCENT);
@@ -617,7 +664,6 @@ void model_panel(App *a, SDL_Renderer *ren)
                 ImGui::InvisibleButton("##orbit", area);
                 turn_and_zoom();
                 ImVec2 from = at, to(at.x + area.x, at.y + area.y);
-                if (k > 1) to = ImVec2(at.x + static_cast<float>(w * k), at.y + static_cast<float>(h * k));   // square pixels of k x k: the picture is at most the area
                 if (g.card_view) {   // the card's proportions, as large as the area lets them be, in the middle (nearest texels: the picture is 309 x 166)
                     const float k = fminf(area.x / CARD_PHOTO_W, area.y / CARD_PHOTO_H);
                     const float fw = CARD_PHOTO_W * k, fh = CARD_PHOTO_H * k;

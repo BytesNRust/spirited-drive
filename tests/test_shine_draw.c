@@ -427,6 +427,30 @@ static void test_soft_edges_on_the_exe_pass(void)
     (void)soft_gap;
 }
 
+/* the rule: soft edges only from render scale 2; at 1 the picture is byte for byte the straight cut, with the setting on */
+static void test_soft_edges_need_render_scale_2(void)
+{
+    const EnvShine env = env_plus_one();
+    for (int y = 0; y < TEX; y++)
+        for (int x = 0; x < TEX; x++) klass[y * TEX + x] = x < TEX / 2 ? REPAINT_DRAFT_PAINT : REPAINT_DRAFT_MATTE;
+    const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
+    int32_t packed[4];
+    centre(packed);
+    static uint8_t picture[3][sizeof screen_px];   /* off; on at scale 1; on at scale 2 */
+    const int soft[3] = { 0, 1, 1 }, scale[3] = { 2, 1, 2 };
+    for (int i = 0; i < 3; i++) {
+        shine_draw_set_soft(soft[i]);
+        shine_draw_set_render_scale(scale[i]);
+        memset(screen_px, START, sizeof screen_px);
+        shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
+        memcpy(picture[i], screen_px, sizeof screen_px);
+    }
+    shine_draw_set_soft(0);
+    shine_draw_set_render_scale(0);
+    CHECK(memcmp(picture[0], picture[1], sizeof screen_px) == 0);   /* scale 1: identical to soft off */
+    CHECK(memcmp(picture[0], picture[2], sizeof screen_px) != 0);   /* scale 2: soft */
+}
+
 int main(void)
 {
     test_the_envmap_shines_the_drafts_glass();
@@ -444,5 +468,6 @@ int main(void)
     test_the_exe_pass_covers_exactly_the_mappers_pixels();
     test_soft_edges_share_a_border_by_weight();
     test_soft_edges_on_the_exe_pass();
+    test_soft_edges_need_render_scale_2();
     return TEST_REPORT();
 }
