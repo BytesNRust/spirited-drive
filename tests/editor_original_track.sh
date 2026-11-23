@@ -4,6 +4,9 @@
 # usage: editor_original_track.sh EDITOR REPO MAKE_TEST_PSD MAKE_FAKE_TRI
 set -u
 editor=$1 repo=$2 make_psd=$3 make_tri=$4
+part=${5:-all}   # a: hub, old workspace, light flow, copy; b: test drive, masks, polls, repo folder, main menu; all: both (two ctest tests run a and b: each well under the limit on a slow runner)
+want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
+stamp() { echo "editor_original_track[$part]: $* at ${SECONDS}s" >&2; }
 work=$(mktemp -d)
 trap '[ -z "${poll_pid:-}" ] || kill -9 "$poll_pid" 2>/dev/null; rm -rf "$work"' EXIT
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -29,6 +32,7 @@ chmod +x "$work/fake_game"
 run() { "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 "$@"; }
 run_bg() { exec "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 "$@"; }   # the same, started in the background: exec makes $! the editor itself, so a kill reaches it (killing the function's subshell left the editor running)
 
+if want a; then
 # the hub: the workspace is the hub's; adding makes the sixteen
 out=$(run --frames 4 --steps print-menu,add-originals,print-workspace 2>&1) || fail "add-originals: $out"
 echo "$out" | grep -q '^file: Workspace | Game repo folder... | Quit$' || fail "the hub's File menu: $out"
@@ -88,7 +92,11 @@ out=$(run --frames 60 --steps open-original:3,repo-ask,print-original,repo-copy 
 echo "$out" | grep -q 'track_light/CL1.txt changed' || fail "the preview does not name the edited file: $out"
 cmp -s "$f" "$work/data/track_light/CL1.txt" || fail "data/ does not have the edited file, line for line: $(cat "$work/data/track_light/CL1.txt")"
 [ "$(grep -c '^  sun\|lamp' "$work/data/track_light/AL1.txt")" = 0 ] || fail "another track's file was changed"
+fi
 
+if want b; then
+[ "$part" = all ] || run --frames 4 --steps add-originals >/dev/null 2>&1 || fail "part b: add-originals"   # part b alone starts from the sixteen the hub makes
+stamp "part b starts"
 # the masks: PSDs make the PNGs when the track opens (never from an empty mask layer); the panel's rows say the state
 # the test drive in the Track light window (light tuning design, piece 1): the game in a window beside Studio, the working copy in front of the files, weather and stop
 cat > "$work/live_game" <<'SH'
@@ -219,5 +227,8 @@ if [ -r "$repo/original/SIMDATA/ETRACKFM/AL1_001.FAM" ]; then
     [ -s "$work/real/masks.png" ] || fail "no picture of the Masks panel with With mask only"
 fi
 
+fi
+
+stamp "end"
 [ $failures -eq 0 ] && echo "editor_original_track: ok"
 exit $failures

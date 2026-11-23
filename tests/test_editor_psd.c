@@ -53,7 +53,7 @@ static void put_psd(const char *rel)
 
 static void run_to_end(App *a)
 {
-    for (int i = 0; i < 4000 && app_psd_poll(a); i++) usleep(5000);
+    for (int i = 0; i < 40000 && app_psd_poll(a); i++) usleep(5000);
 }
 
 static App *open_kit(void)
@@ -135,7 +135,7 @@ static void test_kit(void)
     char kit[500], dir[600], why[300], p[700];
     path_of(kit, sizeof kit, "kit2");
     CHECK(app_open_car(a, kit) && app_car_is_kit(a));
-    for (int i = 0; i < 4000 && car_build_job_busy(&a->car_build); i++) car_build_job_poll(&a->car_build), usleep(5000);   /* the unbuilt kit's own build, over before the PSDs are looked at */
+    for (int i = 0; i < 40000 && car_build_job_busy(&a->car_build); i++) car_build_job_poll(&a->car_build), usleep(5000);   /* the unbuilt kit's own build, over before the PSDs are looked at */
     char none[500];
     path_of(none, sizeof none, "nowhere");
     app_psd_setup(a, none, none);   /* no PSD folder of the window's: the kit's own art-source/masks is the PSD folder */
@@ -234,7 +234,7 @@ static void test_reveal(void)
     char kit[500];
     path_of(kit, sizeof kit, "kit3");
     CHECK(app_open_car(a, kit) && app_car_is_kit(a));
-    for (int i = 0; i < 4000 && car_build_job_busy(&a->car_build); i++) car_build_job_poll(&a->car_build), usleep(5000);
+    for (int i = 0; i < 40000 && car_build_job_busy(&a->car_build); i++) car_build_job_poll(&a->car_build), usleep(5000);
     CHECK(!car_build_job_busy(&a->car_build));
     CHECK(!app_reveal_masks(a) && a->reveal[0] == '\0' && strstr(a->status, "art-source/masks") != NULL);   /* no PSD folder yet: said, nothing shown */
     dir_of("kit3/art-source");

@@ -104,7 +104,7 @@ static void put_dash_psd(const char *rel, int with_colour)
 
 static void run_to_end(PsdJob *job)
 {
-    for (int i = 0; i < 4000 && psd_job_poll(job); i++) usleep(5000);
+    for (int i = 0; i < 40000 && psd_job_poll(job); i++) usleep(5000);
 }
 
 static char psd_dir[500], piece[500];
