@@ -334,6 +334,30 @@ static void test_the_body_shine(void)
 }
 
 /* the CD's 911 with the game's own masks of it (skipped without original/): the front at night shows its headlights, the rear its brake lights */
+/* The owner's police question (2026-11-23): the police car is not painted in the race, but its masks' shine (the green class) is drawn in the Model window as on the other cars: its body textures
+ * (frnt, rear, side, bott of the high bank) are registered with the shine on, and a mask's texels of the body class make a different picture shine on than off. */
+static void test_the_cds_police_shines(void)
+{
+    char path[512], masks[512];
+    snprintf(path, sizeof path, "%s/original/SIMDATA/CARFAMS/COPMUST.CFM", TNFS_SOURCE_DIR);
+    snprintf(masks, sizeof masks, "%s/data/car_masks/COPMUST", TNFS_SOURCE_DIR);
+    if (access(path, R_OK) != 0) return;
+    PreviewIn in;
+    memset(&in, 0, sizeof in);
+    in.cfm = path, in.stem = "COPMUST", in.masks_dir = masks;
+    char why[200] = "";
+    ModelScene *m = model_scene_open_painted(&in, why, sizeof why);
+    CHECK(m != NULL);
+    if (m == NULL) {
+        fprintf(stderr, "COPMUST: %s\n", why);
+        return;
+    }
+    CHECK(model_scene_shine(m, 1, &in, NULL));
+    fprintf(stderr, "COPMUST shine textures: %d\n", model_scene_shine_textures(m));
+    CHECK(model_scene_shine_textures(m) >= 3);   /* frnt, rear, side (bott too) */
+    model_scene_close(m);
+}
+
 static void test_the_cds_911(void)
 {
     char path[512], masks[512];
@@ -698,6 +722,7 @@ int main(void)
     test_the_card_photo();
     test_the_body_shine();
     test_the_cds_911();
+    test_the_cds_police_shines();
     test_a_texture_with_no_mask_keeps_its_colours();
     test_the_brake_lamp_is_the_races();
     test_the_cds_brake_lamps();
