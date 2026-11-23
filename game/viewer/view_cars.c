@@ -201,7 +201,7 @@ static void lamp_state(const Car *car)
         drive_lamps_frame(car->index, 1, brake_lamp(car), car->gear == LAMP_REVERSE_GEAR);
     else   /* port (rain_lamps): and in rain, day included: by day or dusk only the texels (force 2), no halo; at night as the light says */
         drive_lamps_light_forced(car->index, car->node, tint, ratio, brake_lamp(car), car->gear == LAMP_REVERSE_GEAR,
-                                 weather_wet(weather) && port_rain_lamps() ? (drive_light_night() ? 1 : 2) : 0);
+                                 drive_light_night() && port_light_effects() ? 3 : weather_wet(weather) && port_rain_lamps() ? (drive_light_night() ? 1 : 2) : 0);   /* port (lamps at night): with the light effects a night keeps the lamps on */
 }
 
 /* 00458d4c(car, 0051c774, +0x391) */

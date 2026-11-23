@@ -142,11 +142,12 @@ void drive_lamps_light_forced(int slot, int node, const float tint[3], const flo
 {
     if (!valid(slot) || !slots[slot].armed) return;
     Slot *s = &slots[slot];
+    if (force == 3) s->light.low = 1, s->light.back = 0;   /* port (lamps at night): a night's lamps stay lit, the ratio's 12 frames in the light never put them out (Lost Vegas' tint is 1: its night is in the art) */
     const int was = s->light.low, low = lamp_light_step(&s->light, tint, ratio);
     if (low != was)   /* one line per flip, to catch a lamp lit in the sun */
         port_log("lamps: slot %d node %d %s: tint %.2f %.2f %.2f, ratio %.2f %.2f %.2f\n", slot, node, low ? "ON" : "OFF", tint != NULL ? tint[0] : 1.0f,
                  tint != NULL ? tint[1] : 1.0f, tint != NULL ? tint[2] : 1.0f, ratio != NULL ? ratio[0] : 1.0f, ratio != NULL ? ratio[1] : 1.0f,
                  ratio != NULL ? ratio[2] : 1.0f);
-    s->no_halo = force == 2 || (force && !low);   /* lit only because it was forced (rain by day): the texels glow, the halo does not */
+    s->no_halo = force == 2 || (force == 1 && !low);   /* lit only because it was forced (rain by day): the texels glow, the halo does not */
     drive_lamps_frame(slot, low || force, braking, reversing);
 }

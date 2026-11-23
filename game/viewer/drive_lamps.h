@@ -47,7 +47,7 @@ int drive_lamps_lit_entry(int slot, int kind);
  * not light them; the slot's state starts out at drive_lamps_arm; each flip is logged with the node). */
 void drive_lamps_light(int slot, int node, const float tint[3], const float ratio[3], int braking, int reversing);
 /* drive_lamps_light with the lamps forced on (rain by day): the texels are lit whatever the light, and drive_lamps_no_halo says the light itself would not have lit
- * them, so no halo is drawn (force 2: no halo whatever the light says, dusk included). At low light (night, dusk, a tunnel) nothing differs from drive_lamps_light. */
+ * them, so no halo is drawn (force 2: no halo whatever the light says, dusk included; force 3: the night's own, lit with its halo whatever the ratio at the car says). At low light (night, dusk, a tunnel) nothing differs from drive_lamps_light. */
 void drive_lamps_light_forced(int slot, int node, const float tint[3], const float ratio[3], int braking, int reversing, int force);
 /* 1 when the slot's lamps are lit only because they were forced (drive_lamps_light_forced): texels only, no halo. */
 int drive_lamps_no_halo(int slot);
