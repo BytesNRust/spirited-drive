@@ -132,7 +132,7 @@ void car_lamp_halo_draw(const Object3D *body, const Car *car, const RaceState *s
     if (palette == NULL || body == NULL || body->screen == NULL) return;
     /* the police car is slot 2, past the two cars of an open road's finish_cars: with police_glow its lights get their halo (lamp_flares) */
     const int cop = port_police_glow() && police_flash_on && police_lights_on(shadow_race, car);
-    const int traffic_ok = port_traffic_halo() && drive_lamps_low(car->index);   /* port (traffic_halo): the traffic's lit lamps get their halo too, in the light that lights the racers' (dawn, dusk, night, a tunnel), not only at night */
+    const int traffic_ok = lamp_flare_traffic_halo(port_traffic_halo(), drive_lamps_low(car->index));   /* port (traffic_halo): the traffic's lit lamps get their halo too, in the light that lights the racers' (dawn, dusk, night, a tunnel), not only at night */
     if (car->index < 0 || car->index >= RACE_CARS || (car->index >= shadow_race->finish_cars && !cop && !traffic_ok)) return;
     const int far_police = car->far != 0 && police_flash_on && police_lights_on(shadow_race, car);   /* the low detail model has no light texels: a far police car flashes by its rectangle */
     const int far_traffic = car->far != 0 && !far_police && traffic_ok;   /* port (traffic_halo): the far model has no lamp texels: the pair of headlights by the car's rectangle, faded by distance */

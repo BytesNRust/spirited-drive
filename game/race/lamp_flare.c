@@ -120,6 +120,8 @@ int lamp_flare_radius(int area)
     return r < LAMP_FLARE_MIN_RADIUS ? LAMP_FLARE_MIN_RADIUS : r > LAMP_FLARE_MAX_RADIUS ? LAMP_FLARE_MAX_RADIUS : r;
 }
 
+int lamp_flare_traffic_halo(int setting_on, int lamps_low) { return setting_on != 0 && lamps_low != 0; }
+
 int lamp_flare_radius_scaled(int area, int percent)
 {
     const int r = lamp_flare_radius(area) * (percent < 100 ? 100 : percent) / 100;

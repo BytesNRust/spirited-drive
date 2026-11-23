@@ -188,8 +188,18 @@ static void test_far_fade(void)
     CHECK_EQ_INT(lamp_far_fade(9999, 0), 100);        /* no far distance known: all of it */
 }
 
+/* port (traffic_halo): the traffic's halo follows the lit lamps' low light, as the racers' does (dawn, dusk, night), not only the night: setting on and lamps low */
+static void test_traffic_halo_in_low_light(void)
+{
+    CHECK_EQ_INT(lamp_flare_traffic_halo(1, 1), 1);   /* dawn or dusk: the lamps are lit */
+    CHECK_EQ_INT(lamp_flare_traffic_halo(1, 0), 0);   /* noon: lit by nothing */
+    CHECK_EQ_INT(lamp_flare_traffic_halo(0, 1), 0);   /* the setting off */
+    CHECK_EQ_INT(lamp_flare_traffic_halo(0, 0), 0);
+}
+
 int main(void)
 {
+    test_traffic_halo_in_low_light();
     test_far_fade();
     test_blobs();
     test_frame_blobs();

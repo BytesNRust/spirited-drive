@@ -51,6 +51,10 @@ int lamp_flare_radius_scaled(int area, int percent);
  * in a straight line to nothing at twice `far_z`, so a lamp comes up with the distance and does not appear whole when the car changes model. `far_z` <= 0: all of it. */
 int lamp_far_fade(int32_t z, int32_t far_z);
 
+/* port (traffic_halo): 1 when a traffic car's lit lamps get their halo: the setting is on and the car's lamps are lit by the low light (drive_lamps_low: dawn, dusk, night, a tunnel), the
+ * racers' own criterion, not the night alone. */
+int lamp_flare_traffic_halo(int setting_on, int lamps_low);
+
 /* The halo's dither level (0 none .. LAMP_FLARE_LEVELS) at (dx, dy) from the centre: the intensity falls off with the square of the distance
  * from 1 at the centre to 0 at `radius`, and a 4 x 4 ordered dither picks the level. */
 int lamp_halo_level(int dx, int dy, int radius);
