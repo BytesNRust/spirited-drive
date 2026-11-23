@@ -393,6 +393,40 @@ static void test_soft_edges_share_a_border_by_weight(void)
     CHECK_EQ_INT(glass, 8);
 }
 
+/* soft edges on the exe's pass too (the Studio's Preview draws with it): paint left of the texture's middle, matte right; far from the border the pixels are as without soft edges, and
+ * across the border the shined ones reach into the matte half by the dither */
+static void test_soft_edges_on_the_exe_pass(void)
+{
+    const EnvShine env = env_plus_one();
+    for (int y = 0; y < TEX; y++)
+        for (int x = 0; x < TEX; x++) klass[y * TEX + x] = x < TEX / 2 ? REPAINT_DRAFT_PAINT : REPAINT_DRAFT_MATTE;
+    const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
+    int32_t packed[4];
+    centre(packed);
+    int hard_in_matte = 0, hard_gap = 0, soft_in_matte = 0, soft_gap = 0;
+    for (int soft = 0; soft < 2; soft++) {
+        shine_draw_set_soft(soft);
+        memset(screen_px, START, sizeof screen_px);
+        shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
+        for (int y = 9; y < 40; y++) {
+            CHECK_EQ_INT(screen_px[y * W + 10], START + 1);   /* deep in the paint: shined */
+            CHECK_EQ_INT(screen_px[y * W + 38], START);       /* deep in the matte: not */
+            for (int x = 20; x <= 28; x++) {   /* the border column of the quad is 24 */
+                const int shined = screen_px[y * W + x] == START + 1;
+                if (x >= 24 && soft) soft_in_matte += shined;
+                else if (x >= 24) hard_in_matte += shined;
+                else if (soft) soft_gap += !shined;
+                else hard_gap += !shined;
+            }
+        }
+    }
+    shine_draw_set_soft(0);
+    CHECK_EQ_INT(hard_in_matte, 0);   /* without: the border is a straight cut */
+    CHECK_EQ_INT(hard_gap, 0);
+    CHECK(soft_in_matte > 0);   /* with: the shine reaches into the matte half by the dither (the paint side's gaps depend on where the mapper samples the texel, not asserted) */
+    (void)soft_gap;
+}
+
 int main(void)
 {
     test_the_envmap_shines_the_drafts_glass();
@@ -409,5 +443,6 @@ int main(void)
     test_recorded_is_the_direct_draw();
     test_the_exe_pass_covers_exactly_the_mappers_pixels();
     test_soft_edges_share_a_border_by_weight();
+    test_soft_edges_on_the_exe_pass();
     return TEST_REPORT();
 }

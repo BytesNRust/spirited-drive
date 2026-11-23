@@ -126,6 +126,14 @@ int shine_draw_soft_pick(const ShineClass *cls, float u, float v, int x, int y)
     return soft_pick_in(&sh, u, v, x, y);
 }
 
+/* the class the pixel (x, y) at texture place (u, v) is shined by: the texel's own, or with soft edges the table the weights pick (255: not shined). Both passes, the camera's and the exe's, take it. */
+static uint8_t pixel_class(const Shine *sh, float u, float v, int x, int y)
+{
+    if (!soft_on()) return texel_class(sh, u, v);
+    const int pick = soft_pick_in(sh, u, v, x, y);
+    return pick == 0 ? 255 : pick == 1 ? SHINE_PAINT : SHINE_GLASS;
+}
+
 static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, float origin, float grow, const Shine *sh)
 {
     const float area = edge(a, b, c->sx, c->sy);
@@ -155,11 +163,7 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
             if (iz < IZ_MIN) continue;
             const float r = 1.0f / iz;
             const float u = (wa * a->uz + wb * b->uz + wc * c->uz) * r, v = (wa * a->vz + wb * b->vz + wc * c->vz) * r;
-            uint8_t k = texel_class(sh, u, v);
-            if (soft_on()) {
-                const int pick = soft_pick_in(sh, u, v, x, y);
-                k = pick == 0 ? 255 : pick == 1 ? SHINE_PAINT : SHINE_GLASS;   /* the picked table in the class's code (255: matte, not shined) */
-            }
+            const uint8_t k = pixel_class(sh, u, v, x, y);
             /* the mask drives the shine: paint (0) at the body intensity, tinted by the paint; glass and lamps (128) at the glass
              * intensity, keeping their own colour; a body texel (192) keeps its colour too but takes the paint's intensity and table;
              * matte (255) and the rest not at all */
@@ -257,7 +261,7 @@ static void draw_affine(const QuadTarget *q, const QuadTarget *whole, const Shin
             float w[3];
             if (!weights(&s[0], b, c, (float)x, (float)y, w) && !(corners == 4 && side3 == 0.0f && weights(&s[0], &s[1], &s[2], (float)x, (float)y, w)))
                 continue;   /* both of a quad's triangles flat: a line, nothing to weigh */
-            const uint8_t k = texel_class(sh, w[0] * s[0].uz + w[1] * b->uz + w[2] * c->uz, w[0] * s[0].vz + w[1] * b->vz + w[2] * c->vz);
+            const uint8_t k = pixel_class(sh, w[0] * s[0].uz + w[1] * b->uz + w[2] * c->uz, w[0] * s[0].vz + w[1] * b->vz + w[2] * c->vz, x, y);
             if (k != SHINE_PAINT && k != SHINE_GLASS && k != SHINE_BODY) continue;   /* as triangle(): paint, glass and body texels shine */
             envmap_pixel(&row[x], sh->env, k == SHINE_GLASS, w[0] * s[0].eu + w[1] * b->eu + w[2] * c->eu, w[0] * s[0].ev + w[1] * b->ev + w[2] * c->ev, x, y);
         }
