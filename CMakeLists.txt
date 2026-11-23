@@ -1240,6 +1240,8 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_headless_track COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_track.sh $<TARGET_FILE:tnfs-track-editor>)
         set_tests_properties(editor_headless_track PROPERTIES TIMEOUT 450)
         add_test(NAME editor_headless_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_car.sh $<TARGET_FILE:tnfs-track-editor>)
+        add_test(NAME editor_car_two_originals COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_car_two_originals.sh $<TARGET_FILE:tnfs-track-editor>)   # the Diablo and the NSX through Copy to game repo: colours, masks, dash masks, from fixture kits
+        set_tests_properties(editor_car_two_originals PROPERTIES TIMEOUT 300)
         add_test(NAME editor_new_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_new_car.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
         set_tests_properties(editor_new_car PROPERTIES TIMEOUT 600)
         if(APPLE AND NOT CMAKE_C_FLAGS MATCHES "-fsanitize")   # the UI thread's file calls at rest are counted by a dylib put in front of the editor (tests/io_count.c); not in a sanitizer build: its runtime must come first
