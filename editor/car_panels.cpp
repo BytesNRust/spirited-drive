@@ -444,6 +444,8 @@ void car_panel(App *a)
         }
         const CarProject &c = a->car;
         const ModInfo &m = c.info;
+        const ExportCar *own_car = app_car_is_original(a) ? car_race_original_of(&c) : nullptr;
+        const bool traffic = own_car != nullptr && own_car->kind != EXPORT_DRIVABLE;   // a traffic or police car: the game uses only its masks
         CarEditProblem problems[CE_PROBLEMS_MAX];
         const int count = car_edit_problems(&a->edit, problems, CE_PROBLEMS_MAX);
         const bool modified = car_edit_modified(&a->edit);
@@ -486,10 +488,12 @@ void car_panel(App *a)
             ui_probe("check");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", app_car_building(a) ? "The car is being built or checked" : "What is wrong with this kit before a build: the model, its wheels, its masks (save what you changed first)");
+                ImGui::SetTooltip("%s", app_car_building(a) ? "The car is being built or checked" : traffic ? "Looks for what is wrong with this car's masks and model (nothing is built or installed); a list of findings appears below" : "What is wrong with this kit before a build: the model, its wheels, its masks (save what you changed first)");
             ImGui::SameLine();
         }
-        help_marker("File > Save (Cmd+S) writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is; the showcase photos you add are copied into the folder, and Save removes the copies you took off the list.");
+        if (traffic) help_marker("A traffic or police car has no card, specs, colors or showcase photos in the game: it only wears its masks. Retouch them in Masks (Update masks from PSD) and use Copy to game repo; "
+                                 "there is nothing to Save here. Test drive and In-game photo (Drive) run it as traffic in the City, Coastal or Alpine stages only.");
+        else help_marker("File > Save (Cmd+S) writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is; the showcase photos you add are copied into the folder, and Save removes the copies you took off the list.");
         if (a->cdisk.card_changed) {   // another program wrote mod.ini while the card has unsaved changes here
             ImGui::TextColored(ImVec4(0.95f, 0.78f, 0.35f, 1.0f), "Changed on disk");
             ImGui::SameLine();
@@ -516,6 +520,11 @@ void car_panel(App *a)
             }
         }
         ImGui::Separator();
+        if (traffic) {   // nothing of the card, the physics, the colors or the photos applies: only the masks
+            ImGui::TextDisabled("Masks only: this %s car has no card, colors or photos in the game", own_car->kind == EXPORT_POLICE ? "police" : "traffic");
+            ImGui::End();
+            return;
+        }
         const CarEditProblem *card = problem_for(problems, count, CE_CARD);
         if (card != nullptr) problem_text(card->text);
         const bool own_card = app_car_is_original(a);   // the game's own car: its card is the game's, only the Colors go to the game repo
@@ -828,7 +837,9 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet)
             const int n = snprintf(help, sizeof help, "The game runs on a scratch player folder, with this project's masks. The car wears the colour chosen in Preview when the game's catalogue has it; then, in a Test drive, the rivals wear the game's own liveries too (the photo has no rivals).%s%s%s",
                                    traffic ? " A traffic or police car: City, Coastal or Alpine stages only." : "", note[0] != '\0' ? "\n\nTest drive: " : "", note);
             if (n < 0 || static_cast<size_t>(n) >= sizeof help) snprintf(help + sizeof help - 4, 4, "...");
-            ImGui::BeginDisabled(busy);
+            const bool wrong_track = traffic && (a->race_mod[0] != '\0' || (now != nullptr && !now->stage));   // a traffic car runs only in the City, Coastal and Alpine stages
+            if (wrong_track) ImGui::TextColored(ImVec4(0.95f, 0.78f, 0.35f, 1.0f), "A traffic or police car runs only in City, Coastal or Alpine: choose one of those tracks");
+            ImGui::BeginDisabled(busy || wrong_track);
             const bool drive_now = ImGui::Button("Test drive");
             ui_probe("test_drive");
             if (drive_now) app_race(a, 0);

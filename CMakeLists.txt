@@ -1892,6 +1892,8 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_original_psd_newer PROPERTIES TIMEOUT 600)
             add_test(NAME editor_e2e_diablo COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_diablo.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # the Diablo from the game files with the panels clicked
             set_tests_properties(editor_e2e_diablo PROPERTIES TIMEOUT 300)
+            add_test(NAME editor_traffic_car_panel COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_traffic_car_panel.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # a traffic car and the police car: the Car panel offers the masks only, true status, Check, Copy and Test drive; the Diablo keeps Add color
+            set_tests_properties(editor_traffic_car_panel PROPERTIES TIMEOUT 300)
             add_test(NAME editor_real_workspace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_real_workspace.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # a copy of the owner's migrated workspace (skips without the backup): two original cars and AL1 through the flows
             set_tests_properties(editor_real_workspace PROPERTIES TIMEOUT 600)
             add_test(NAME editor_e2e_cockpit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_cockpit.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)

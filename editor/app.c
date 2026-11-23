@@ -132,7 +132,10 @@ static int car_into(App *a, const char *dir)
     a->night = night_settings_default();
     app_mask_scan(a);
     app_card_arm(a);
-    set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)" : "opened: edit the card and the colors; Save writes mod.ini only");
+    const ExportCar *own = app_car_is_original(a) ? car_race_original_of(&a->car) : NULL;
+    set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)"
+                  : own != NULL && own->kind != EXPORT_DRIVABLE ? "opened: edit the masks; Copy to game repo sends them (a traffic or police car has no card or colors)"
+                  : "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;
 }
 
