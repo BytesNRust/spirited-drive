@@ -252,6 +252,8 @@ static void replayed(void)
         CHECK_EQ_INT(car_paint_replayed(2 + car_paint_count(model), model, 0), 0);
         CHECK_EQ_INT(car_paint_replayed(2 + CAR_PAINT_MAX, model, 0), 0);
     }
+    CHECK_EQ_INT(car_paint_count(1), 8);   /* LDiabl: the owner's card of 8 colours (Copy to game repo wrote them); his Giallo Orion is the third */
+    CHECK(car_paint(1, 2) != NULL && strcmp(car_paint(1, 2)->name, "Giallo Orion") == 0);
     CHECK_EQ_INT(CAR_PAINT_MAX, 8);   /* the owner's 8 colours: PAINT_CATALOGUE + 7 is the last id, one decimal digit of the Color box's `paint_K` */
     CHECK(car_paint_replayed(2 + car_paint_count(3), 3, 1) == 0);   /* a catalogue paint the table no longer has */
 }
