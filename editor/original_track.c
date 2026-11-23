@@ -177,7 +177,7 @@ int original_track_add(const char *workspace, const char *stem, const char *data
     static const char *const SUB[] = { "light", "light/track_light", "art-source", "art-source/masks", "art-generated", "art-generated/track_masks" };
     char tracks[1100];
     snprintf(tracks, sizeof tracks, "%s/tracks", workspace);
-    if (!make_dir(tracks) || !make_dirs(dir, SUB, 7)) return fail(why, cap, "cannot make the folder %s", dir), 0;
+    if (!make_dir(tracks) || !make_dirs(dir, SUB, sizeof SUB / sizeof *SUB)) return fail(why, cap, "cannot make the folder %s", dir), 0;
     if (!add_light(dir, stem, data_dir, out, why, cap)) return 0;
     snprintf(ini, sizeof ini, "%s/original.ini", dir);
     if (!exists(ini)) {

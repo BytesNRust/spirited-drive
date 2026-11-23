@@ -428,8 +428,10 @@ static int at_once(App *a, const char *name, const double *arg)
         snprintf(file, sizeof file, "%s/track_light/%s.txt", d->mods, d->track);
         FILE *f = d->state == LIGHT_DRIVE_RUNNING ? fopen(file, "rb") : NULL;
         char line[256];
-        while (f != NULL && fgets(line, sizeof line, f) != NULL)
-            if (strncmp(line, "brightness", 10) == 0) printf("drive copy: %s", line);
+        while (f != NULL && fgets(line, sizeof line, f) != NULL) {
+            const char *body = line + strspn(line, " ");   /* the lines of a time's block are indented */
+            if (strncmp(body, "brightness", 10) == 0) printf("drive copy: %s", body);
+        }
         if (f != NULL) fclose(f);
         printf("drive why: %s\n", d->why);
         printf("status: %s\n", a->status);

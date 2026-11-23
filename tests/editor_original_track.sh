@@ -1,19 +1,20 @@
 #!/bin/sh
 # Original tracks as workspace projects (dep103 phase A), headless: Add the 16 from a fake data/ and art folder, open one (the Track light window on its own folder, the track fixed),
 # the File menu of that room, the publish preview and the copy back into data/. The photo goes through a fake game; no CD data.
-# usage: editor_original_track.sh EDITOR REPO MAKE_TEST_PSD
+# usage: editor_original_track.sh EDITOR REPO MAKE_TEST_PSD MAKE_FAKE_TRI
 set -u
-editor=$1 repo=$2 make_psd=$3
+editor=$1 repo=$2 make_psd=$3 make_tri=$4
 work=$(mktemp -d)
 trap '[ -z "${poll_pid:-}" ] || kill -9 "$poll_pid" 2>/dev/null; rm -rf "$work"' EXIT
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-mkdir -p "$work/data/track_light" "$work/art/AL1" "$work/ws" "$work/cd" "$work/tmp"
+mkdir -p "$work/data/track_light" "$work/art/AL1" "$work/ws" "$work/cd/SIMDATA/MISC" "$work/tmp"
 export TMPDIR="$work/tmp/"
 for t in AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7; do
     printf '# tnfs track light 2\ntrack %s\n' "$t" > "$work/data/track_light/$t.txt"
+    "$make_tri" "$work/cd/SIMDATA/MISC/$t.TRI" 200 || { echo "FAIL: no fake TRI for $t" >&2; exit 1; }   # the Studio reads a track's node count from its TRI
 done
 "$make_psd" "$work/art/AL1/scenery_00.psd" paint; "$make_psd" "$work/art/AL1/slot_00.psd" lamps; "$make_psd" "$work/art/AL1/slot_01.psd" empty; printf psd > "$work/art/AL1/slot_00.before-x.psd"
 cat > "$work/fake_game" <<'SH'
@@ -69,7 +70,7 @@ echo "$out" | grep -q '^drive: failed AL1 B node 0 rain$' || fail "Stop did not 
 echo "$out" | grep -q '^drive why: $' || fail "a Stop was reported as a failure: $(echo "$out" | grep '^drive why')"
 grep -q 'edit=1 time=day weather=rain video=$' "$LIVE_RECORD" || fail "the game was not started with the light editor, the day and the rain (and a real window): $(cat "$LIVE_RECORD" 2>&1)"
 out=$(run --game "$work/live_game" --frames 40 --steps open-original:0,light-drive,poll-wait:4,light-bright:40,poll-wait:4,print-drive,drive-stop 2>&1) || fail "test drive edit: $out"
-echo "$out" | grep -q '^drive copy: brightness 0 9 40' || fail "an edit made while the game runs did not reach the drive's copy of the file: $(echo "$out" | grep '^drive')"
+echo "$out" | grep -q '^drive copy: brightness 0 50 40' || fail "an edit made while the game runs did not reach the drive's copy of the file: $(echo "$out" | grep '^drive')"
 out=$(run --game /no/such/game --frames 10 --steps open-original:0,light-drive 2>&1) && fail "a drive started without a game: $out"
 echo "$out" | grep -q "the game's program is not there" || fail "no game: the refusal does not say so: $out"
 
@@ -89,7 +90,7 @@ echo "$out" | grep -q '^mask slot_01: no mask painted in the PSD, 4x1, 0 reflect
 out=$(run --frames 60 --steps open-original:0,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish masks: $out"
 echo "$out" | grep -q 'track_masks/AL1/scenery_00.png new' || fail "the preview lists the new PNG: $out"
 [ -f "$work/data/track_masks/AL1/slot_00.png" ] && [ -f "$work/data/track_masks/AL1/scenery_00.png" ] || fail "the PNGs are not in data/track_masks/AL1"
-echo "$out" | grep -q '^preview: AL1: *7 unchanged' || fail "after publishing nothing is left to publish: $out"
+echo "$out" | grep -q '^preview: AL1: *3 unchanged' || fail "after publishing nothing is left to publish: $out"
 out=$(run --frames 4 --steps check-originals 2>&1) || fail "check-originals: $out"
 echo "$out" | grep -q '^originals: 16 tracks, 2 masks: 2 equal, 0 differ, 0 new in the workspace; acceptance: 0 differences outside art-source/masks$' || fail "the migration check: $out"
 

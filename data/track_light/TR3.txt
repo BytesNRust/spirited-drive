@@ -22,6 +22,8 @@ time A
   brightness 932 932 55
   brightness 933 933 70
   brightness 934 934 85
+  brightness 184 195 70 road
+  brightness 600 615 70 road
 
 time B
   tunnel_look 125 1/0.62/0.12
@@ -41,6 +43,8 @@ time B
   brightness 932 932 55
   brightness 933 933 70
   brightness 934 934 85
+  brightness 184 195 70 road
+  brightness 600 615 70 road
 
 time C
   tunnel_look 78.75001 1/0.62/0.12
@@ -60,6 +64,8 @@ time C
   brightness 932 932 55
   brightness 933 933 70
   brightness 934 934 85
+  brightness 184 195 70 road
+  brightness 600 615 70 road
 
 time N
   tunnel_look 60 1/0.42/0.08
@@ -104,3 +110,5 @@ time N
   brightness 932 932 55
   brightness 933 933 70
   brightness 934 934 85
+  brightness 184 195 70 road
+  brightness 600 615 70 road
