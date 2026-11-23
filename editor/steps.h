@@ -68,7 +68,7 @@
 enum { STEPS_MAX = 64, STEPS_ARGS = 4 };
 
 typedef struct {
-    char name[STEPS_MAX][16];
+    char name[STEPS_MAX][48];
     double arg[STEPS_MAX][STEPS_ARGS];
     int args[STEPS_MAX];
     int count, at, phase;

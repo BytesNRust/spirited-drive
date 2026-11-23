@@ -1,4 +1,5 @@
 #include "steps.h"
+#include "ui_probe.h"
 #include "formats/car_piece.h"
 #include "car_physics_from.h"
 #include "app_slope.h"
@@ -23,8 +24,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "light-tone", "light-lamp", "light-remove", "print-tunnels", "tunnel-lamps", "sun", "light-print", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 2, 3, 0, 0, 1, 0, 4, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "light-tone", "light-lamp", "light-remove", "ui-click", "ui-at", "ui-span", "print-tunnels", "tunnel-lamps", "sun", "light-print", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 2, 0, 2, 3, 0, 0, 1, 0, 4, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -55,7 +56,7 @@ int steps_read(Steps *s, const char *text)
         }
         snprintf(s->name[s->count], sizeof s->name[0], "%s", item);   /* "key:N", "click:2": the first number is after the colon */
         const char *colon = strchr(item, ':');
-        if (colon != NULL && which != 6) s->arg[s->count][s->args[s->count]++] = strtod(colon + 1, NULL);
+        if (colon != NULL && which != 6 && strncmp(word, "ui-", 3) != 0) s->arg[s->count][s->args[s->count]++] = strtod(colon + 1, NULL);
         s->count++;
     }
     for (int k = 0; k < s->count; ++k) {
@@ -479,6 +480,7 @@ static int at_once(App *a, const char *name, const double *arg)
     if (strcmp(name, "main-menu") == 0) return app_close_project(a);   /* File > Main menu (a headless run drops the question about unsaved changes) */
     if (strcmp(name, "print-panels") == 0) return ui_print_panels(a), 1;   /* the Window menu's panels, open or closed, drawn or not, and the ones drawn that it does not list */
     if (strncmp(name, "poll-wait:", 10) == 0) return 2;   /* by_frames: the window runs S seconds, the panel's poll looking at the PSDs as it does when open */
+    if (strncmp(name, "ui-", 3) == 0) return 2;   /* by_frames: the mouse goes in on a widget a panel named (ui_probe.h) */
     if (strncmp(name, "scan:", 5) == 0) return 2;   /* by_frames: the mouse over the window, a point a frame */
     if (strncmp(name, "panel:", 6) == 0) return 2;   /* by_frames: a click on the I-th item of the Window menu, drawn by the next frame */
     if (strcmp(name, "print-view") == 0) return fprintf(stdout, "view: %.1f %.1f %.2f\n", a->view.cx, a->view.cz, a->view.scale), 1;   /* the top view's centre (x z) and pixels per metre */
@@ -774,6 +776,22 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         if (p == 0 && !app_sheet_start(a)) return s->failed = 1, 0;
         if (p >= SHEET_FRAMES) return fprintf(stderr, "--steps sheet: it did not end\n"), s->failed = 1, 0;
         return app_sheet_busy(a);
+    }
+    if (strncmp(name, "ui-", 3) == 0) {   /* ui-click:W the widget W clicked in its middle; ui-at:W,F a click F (0..1) of its width along (a slider, a bar's cell); ui-span:W,F0,F1 pressed at F0, dragged, let go at F1 */
+        const char *colon = strchr(name, ':');
+        float wx, wy, ww, wh;
+        if (colon == NULL || !ui_probe_find(colon + 1, &wx, &wy, &ww, &wh)) {
+            if (p == 0) fprintf(stderr, "--steps %s: no such widget drawn\n", name);
+            return s->failed = 1, 0;
+        }
+        const int span = strncmp(name, "ui-span", 7) == 0;
+        const double f0 = strncmp(name, "ui-click", 8) == 0 ? 0.5 : arg[0], f1 = span ? arg[1] : f0;
+        const float y = wy + wh * 0.5f, x0 = wx + (float)f0 * ww, x1 = wx + (float)f1 * ww;
+        if (p == 0) mouse(win, SDL_EVENT_MOUSE_MOTION, x0, y);
+        else if (p == 1) mouse(win, SDL_EVENT_MOUSE_BUTTON_DOWN, x0, y);
+        else if (span && p <= 1 + DRAG_MOVES) mouse(win, SDL_EVENT_MOUSE_MOTION, x0 + (float)(p - 1) / DRAG_MOVES * (x1 - x0), y);
+        else if (p == (span ? 2 + DRAG_MOVES : 2)) mouse(win, SDL_EVENT_MOUSE_BUTTON_UP, x1, y);
+        return p < (span ? 3 + DRAG_MOVES : 3);
     }
     if (strncmp(name, "key:", 4) == 0) return key_frames(s, win, name + 4, p);
     if (strncmp(name, "click:", 6) == 0 || strstr(name, "-click:") != NULL) {   /* shift-click, cmd-click: the modifier held around it */

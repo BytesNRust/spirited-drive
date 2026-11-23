@@ -1,6 +1,7 @@
 #include "light_strip_bar.h"
 
 #include "light_strip.h"
+#include "ui_probe.h"
 
 #include "imgui.h"
 
@@ -15,6 +16,7 @@ bool light_strip_bar(const char *id, unsigned *mask)
     static const Shortcut SHORTCUTS[] = { { "All", LIGHT_STRIP_ALL }, { "Left", LIGHT_STRIP_LEFT }, { "Right", LIGHT_STRIP_RIGHT }, { "Road", LIGHT_STRIP_ROAD } };
     for (const Shortcut &s : SHORTCUTS) {
         if (ImGui::SmallButton(s.label)) *mask = s.mask, changed = true;
+        ui_probe(s.label);
         ImGui::SameLine();
     }
     char text[32];
@@ -23,6 +25,7 @@ bool light_strip_bar(const char *id, unsigned *mask)
     const float cell_w = fmaxf(ImGui::GetContentRegionAvail().x / LIGHT_STRIP_POINTS, 1.0f), cell_h = ImGui::GetFrameHeight() * 1.3f;
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     ImGui::InvisibleButton("##bar", ImVec2(cell_w * LIGHT_STRIP_POINTS, cell_h));
+    ui_probe("bar");
     ImGuiStorage *storage = ImGui::GetStateStorage();   // the drag's first cell is this bar's own: several bars are on screen
     const ImGuiID bar = ImGui::GetItemID();
     int anchor = storage->GetInt(bar, -1);

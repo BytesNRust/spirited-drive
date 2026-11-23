@@ -100,6 +100,24 @@ TXT
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps sun:120,30,70,light-print,save > "$work/sun" 2>&1 || fail "the sun step: $(tail -3 "$work/sun")"
 grep -q "^light: AL1 nodes 120 time B (unsaved) .* sun 120 30 70$" "$work/sun" || fail "the sun is not in the window's model: $(grep '^light:' "$work/sun")"
 grep -q "^  sun 120 30 70$" "$work/light/track_light/AL1.txt" || fail "Save did not write the sun line: $(cat "$work/light/track_light/AL1.txt")"
+# the panel's own widgets, clicked with the mouse (ui_probe.h): the sun's Direction slider, Add brightness and its strip bar dragged over points 1..5, Add tone and its Left shortcut,
+# the Save button; the file has the lines, a new window reads them again, the Remove button takes a line away and Save writes that too
+cp "$work/light/track_light/AL1.txt" "$work/ui_before.txt"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 \
+    --steps ui-at:azimuth_slider,0.25,ui-click:add_brightness,ui-span:brightness0_bar,0.55,0.95,ui-click:add_tone,ui-click:tone0_Left,light-print,ui-click:save,light-print > "$work/ui" 2>&1 ||
+    fail "the clicked flow: $(tail -3 "$work/ui")"
+grep -q "^light: AL1 nodes 120 time B (unsaved) .*brightness 1 tones 1 " "$work/ui" || fail "the clicks did not make the lines: $(grep '^light:' "$work/ui")"
+[ "$(grep '^light:' "$work/ui" | tail -1 | grep -c unsaved)" = 0 ] || fail "the Save button left the unsaved mark: $(grep '^light:' "$work/ui")"
+az=$(sed -n 's/^  sun \([0-9]*\) 30 70$/\1/p' "$work/light/track_light/AL1.txt")
+[ -n "$az" ] && [ "$az" -ge 70 ] && [ "$az" -le 110 ] || fail "the slider's click did not set the direction near 90: $(cat "$work/light/track_light/AL1.txt")"
+grep -q "^  brightness [0-9]* [0-9]* 100 right$" "$work/light/track_light/AL1.txt" || fail "the bar dragged over points 1..5 is not a right strip: $(cat "$work/light/track_light/AL1.txt")"
+grep -q "^  tone [0-9]* [0-9]* left ffe080:50$" "$work/light/track_light/AL1.txt" || fail "the Left shortcut did not make a left tone: $(cat "$work/light/track_light/AL1.txt")"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps light-print,ui-click:tone0_remove,light-print,ui-click:save,light-print > "$work/ui2" 2>&1 ||
+    fail "the clicked flow, reopened: $(tail -3 "$work/ui2")"
+[ "$(grep '^light:' "$work/ui2" | head -1 | grep -c 'brightness 1 tones 1 ')" = 1 ] || fail "the saved lines were not read again: $(grep '^light:' "$work/ui2")"
+grep '^light:' "$work/ui2" | tail -1 | grep -q 'brightness 1 tones 0 ' || fail "the Remove button did not take the tone away: $(grep '^light:' "$work/ui2")"
+grep -q "^  tone " "$work/light/track_light/AL1.txt" && fail "the removed tone is still in the file"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the new sections: $(tail -3 "$work/tunnels")"
 [ "$failures" = 0 ] && echo "ok"

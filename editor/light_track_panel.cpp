@@ -5,6 +5,7 @@
 
 #include "help_marker.h"
 #include "light_strip_bar.h"
+#include "ui_probe.h"
 #include "light_strip.h"
 
 #include <float.h>
@@ -134,8 +135,11 @@ bool sun_part(const char *label, int *has, double *value, float lo, float hi, co
 {
     bool changed = false;
     ImGui::PushID(label);
+    ui_probe_scope(label);
     bool set = *has != 0;
-    if (ImGui::Checkbox("##set", &set)) {
+    const bool ticked = ImGui::Checkbox("##set", &set);
+    ui_probe("tick");
+    if (ticked) {
         *has = set ? 1 : 0;
         if (set) *value = auto_value;
         changed = true;
@@ -145,7 +149,9 @@ bool sun_part(const char *label, int *has, double *value, float lo, float hi, co
     float v = static_cast<float>(*value);
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::SliderFloat("##v", &v, lo, hi, set ? format : "auto")) *value = static_cast<double>(v), changed = true;
+    ui_probe("slider");
     ImGui::EndDisabled();
+    ui_probe_scope("");
     ImGui::PopID();
     return changed;
 }
@@ -457,7 +463,9 @@ void lamp_rows(App *a)
     }
     if (count > 0) ImGui::EndChild();
     if (remove >= 0) remove_line(a, LT_LAMP, remove);
-    if (ImGui::Button("Add lamp")) {
+    const bool add_lamp = ImGui::Button("Add lamp");
+    ui_probe("add_lamp");
+    if (add_lamp) {
         LightTrackLamp l;
         memset(&l, 0, sizeof l);
         l.node = static_cast<unsigned>(a->light.node);
@@ -494,6 +502,7 @@ void brightness_rows(App *a)
         int v[3] = { static_cast<int>(b.from), static_cast<int>(b.to), static_cast<int>(b.percent) };
         bool changed = false;
         ImGui::PushID(i);
+        { char scope[24]; snprintf(scope, sizeof scope, "%s%d", "brightness", i); ui_probe_scope(scope); }
         ImGui::SetNextItemWidth(70.0f);
         changed = ImGui::InputInt("##from", &v[0], 0, 0) || changed;
         ImGui::SameLine();
@@ -504,7 +513,9 @@ void brightness_rows(App *a)
         changed = ImGui::InputInt("##pct", &v[2], 0, 0) || changed;
         ImGui::SameLine();
         if (ImGui::Button("Remove")) remove = i;
+        ui_probe("remove");
         changed = light_strip_bar("##strip", &b.mask) || changed;
+        ui_probe_scope("");
         ImGui::Separator();
         ImGui::PopID();
         if (changed) {
@@ -518,7 +529,9 @@ void brightness_rows(App *a)
         }
     }
     if (remove >= 0) remove_line(a, LT_BRIGHTNESS, remove);
-    if (ImGui::Button("Add brightness")) {
+    const bool add_bright = ImGui::Button("Add brightness");
+    ui_probe("add_brightness");
+    if (add_bright) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
         const LightTrackBrightness b = { node, node + 50 < last ? node + 50 : last, 100, LT_ALL_POINTS };
         if (light_track_set_brightness(&f, time_of(a), -1, &b, why, sizeof why)) app_light_touch(a);
@@ -543,6 +556,7 @@ void tone_rows(App *a)
         int v[3] = { static_cast<int>(t.from), static_cast<int>(t.to), static_cast<int>(t.percent) };
         bool changed = false;
         ImGui::PushID(i);
+        { char scope[24]; snprintf(scope, sizeof scope, "%s%d", "tone", i); ui_probe_scope(scope); }
         ImGui::SetNextItemWidth(70.0f);
         changed = ImGui::InputInt("##from", &v[0], 0, 0) || changed;
         ImGui::SameLine();
@@ -555,7 +569,9 @@ void tone_rows(App *a)
         changed = ImGui::InputInt("##pct", &v[2], 0, 0) || changed;
         ImGui::SameLine();
         if (ImGui::Button("Remove")) remove = i;
+        ui_probe("remove");
         changed = light_strip_bar("##strip", &t.mask) || changed;
+        ui_probe_scope("");
         ImGui::Separator();
         ImGui::PopID();
         if (changed) {
@@ -569,7 +585,9 @@ void tone_rows(App *a)
         }
     }
     if (remove >= 0) remove_line(a, LT_TONE, remove);
-    if (ImGui::Button("Add tone")) {
+    const bool add_tone = ImGui::Button("Add tone");
+    ui_probe("add_tone");
+    if (add_tone) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
         LightTrackTone t;
         memset(&t, 0, sizeof t);

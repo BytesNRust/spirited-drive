@@ -1,6 +1,7 @@
 // The Track light window (panels.h): a CD track's light file (one file, a block for each time of day): the sun, the tunnels, the lamps and the retouches of the time shown,
 // and the photo of the working copy (the game run headless at the photo's node). Every edit goes through the model (light_track.h): a refused value shows the game's rule.
 #include "panels.h"
+#include "ui_probe.h"
 
 #include "command_keys.h"
 #include "help_marker.h"
@@ -112,7 +113,9 @@ void file_buttons(App *a)
     const LightUi &ui = a->light;
     const bool dirty = app_modified(a);
     ImGui::BeginDisabled(!dirty);
-    if (ImGui::Button("Save")) app_light_save(a);
+    const bool save_now = ImGui::Button("Save");
+    ui_probe("save");
+    if (save_now) app_light_save(a);
     ImGui::SameLine();
     if (ImGui::Button("Revert")) app_light_revert(a);
     ImGui::EndDisabled();
