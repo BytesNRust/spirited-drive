@@ -1,7 +1,7 @@
 #!/bin/sh
 # The SETUP tile of the car showcase is Restomod's and the PLAYER's car's (owner 2026-11-23): in Restomod, on the page of the player's own car, it is there and a click on it opens the
 # Car Setup panel; in Stock and Restored the screen is the original's (no tile); on the page of a rival (the opponent card's click in Control Central) it is not drawn and a click in its place opens nothing, the Color place as the original's.
-# Checked in Restomod, Stock and Restored, against the real binary and the CD data, by the walk's own SHOTs (the frame on screen once it is still) and marks.
+# The same goes for the RECORDS face of the Video tile (its peek is logged). Checked in Restomod, Stock and Restored, against the real binary and the CD data, by the walk's own SHOTs (the frame on screen once it is still) and marks.
 # usage: showcase_setup_tile.sh TNFS REPO ORIGINAL_DIR
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
@@ -61,6 +61,15 @@ sys.exit(0 if rows(wa, pa) != rows(wb, pb) else 1)
 PY
 }
 
+# peek PAGE: the Video tile's second face (RECORDS) shows itself once a page (the log's mark:tile_peek=start): Restomod's alone, on the player's page and on a rival's
+peek() {
+    if grep -q "mark:tile_peek=start" "$work/user/spirited-drive.log"; then
+        [ $profile = restomod ] || fail "$profile: the RECORDS face of the Video tile peeked on the $1's page (the original screen has none)"
+    else
+        [ $profile != restomod ] || fail "$profile: the RECORDS face of the Video tile did not show on the $1's page"
+    fi
+}
+
 for profile in restomod stock restored; do
     # the player's page: in Restomod the tile is there and a click on it opens the panel (the box changes); in Stock and Restored the screen is the original's: no tile, nothing opens
     walk $profile "$player_page,$(over),$(shot pl_a),$(tile),$(shot pl_b)" || { fail "$profile: the walk to the player's showcase"; continue; }
@@ -69,9 +78,11 @@ for profile in restomod stock restored; do
     else
         differ pl_a pl_b && fail "$profile: a click where SETUP was opened a panel on the player's page (the original screen has no tile)"
     fi
+    peek player
     # the rival's page: no tile in any profile, so the click in its place changes nothing
     walk $profile "$rival_page,$(over),$(shot rv_a),$(tile),$(shot rv_b)" || { fail "$profile: the walk to the rival's showcase"; continue; }
     differ rv_a rv_b && fail "$profile: a click where SETUP was opened a panel on a rival's page"
+    peek rival
 done
 
 [ "$failures" = 0 ] || exit 1

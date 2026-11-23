@@ -62,9 +62,10 @@ void glue_showcase(const ShowcaseGlue *in)
 {
     showcase_variants_reset();
     const int16_t movies = glue_movies();
+    const int restomod = port_settings_profile() == PROFILE_RESTOMOD;   /* port (owner 2026-11-23): the SETUP and RECORDS tiles are Restomod's; Stock and Restored show the original screen */
     ShowcaseState st = { in->player_car, in->race_type, in->track, &movies, show_dir(),
-                         in->pointer_active, in->buttons, ea_screen_slot(), glue_setup_plus(), in->leave_step,
-                         (int16_t)(in->no_setup || port_settings_profile() != PROFILE_RESTOMOD) };   /* port (owner 2026-11-23): the SETUP tile is Restomod's and its player's car's; Stock and Restored show the original screen */
+                         in->pointer_active, in->buttons, ea_screen_slot(), restomod ? glue_setup_plus() : NULL, in->leave_step,
+                         (int16_t)in->no_setup };   /* SETUP is the player's car's: not on a rival's page */
     const ShowcaseOps ops = {
         move_to, show_bank, music_feed, clear_both, shape, palette_set, palette_write, nothing, styles, sync, mark,
         in_rect, select_picture, blit_own, blit_masked, palette_write, select_default, picture_shape, blit_picture,
