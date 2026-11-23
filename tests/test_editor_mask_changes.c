@@ -127,5 +127,48 @@ int main(void)
     CHECK_EQ_INT(c.unchanged, 6);
     CHECK(mask_changes_publish(proj, game, &c, &written, why, sizeof why) && written == 0);   /* nothing left: nothing written */
     CHECK(!mask_changes_publish(proj, nowhere, &c, &written, why, sizeof why) || written == 0);   /* no changes listed: no file is opened in a folder that is not there */
+
+    /* the dash folder: dash_mask.png and dash_color.png only, compared as pictures (an indexed and an RGBA PNG of the same colours are one picture) */
+    char dproj[700], dgame[700];
+    snprintf(dproj, sizeof dproj, "%s/dash_project", base);
+    snprintf(dgame, sizeof dgame, "%s/dash_game", base);
+    mkdir(dproj, 0777);
+    mkdir(dgame, 0777);
+    enum { DW = 4, DH = 2 };
+    const uint8_t index[DW * DH] = { 0, 1, 2, 0, 1, 2, 0, 1 };
+    uint8_t pal5[768] = { 0 }, pal6[768] = { 0 }, rgba[DW * DH * 4], rgba2[DW * DH * 4];
+    for (int k = 0; k < 3; k++) pal5[3 * k] = pal6[3 * k] = (uint8_t)(40 * k), pal5[3 * k + 1] = pal6[3 * k + 1] = (uint8_t)(90 + k), pal5[3 * k + 2] = pal6[3 * k + 2] = 7;
+    pal6[3 * 5] = 250;   /* a sixth entry the picture does not use */
+    for (int i = 0; i < DW * DH; i++) memcpy(rgba + 4 * i, pal5 + 3 * index[i], 3), rgba[4 * i + 3] = 255;
+    memcpy(rgba2, rgba, sizeof rgba);
+    rgba2[0] ^= 0x10;   /* one texel's colour */
+    uint8_t *png = NULL;
+    size_t n = 0;
+    const struct { const char *dir, *name; int rgb; const uint8_t *pal; } WRITE[] = {
+        { dgame, "dash_mask.png", 0, pal5 }, { dproj, "dash_mask.png", 0, pal6 },     /* another palette length: unchanged */
+        { dgame, "dash_color.png", 1, NULL }, { dproj, "dash_color.png", 2, NULL },   /* RGBA, one texel different: changed */
+    };
+    for (size_t i = 0; i < sizeof WRITE / sizeof WRITE[0]; i++) {
+        const int ok = WRITE[i].rgb == 0 ? png_write_indexed(index, DW, DH, WRITE[i].pal, &png, &n) == PNG_OK : png_write_rgba(WRITE[i].rgb == 1 ? rgba : rgba2, DW, DH, &png, &n) == PNG_OK;
+        CHECK(ok);
+        if (!ok) continue;
+        snprintf(p, sizeof p, "%s/%s", WRITE[i].dir, WRITE[i].name);
+        f = fopen(p, "wb");
+        fwrite(png, 1, n, f);
+        fclose(f);
+        png_free(png);
+    }
+    put(dproj, "notes_mask.png", a, W, H, 1);   /* not a dash file: left out */
+    MaskChanges d;
+    CHECK(mask_changes_compare_dash(dproj, dgame, &d, why, sizeof why));
+    CHECK_EQ_INT(d.count, 2);
+    CHECK(find(&d, "dash_mask.png")->kind == MC_UNCHANGED);
+    const MaskChange *dc = find(&d, "dash_color.png");
+    CHECK(dc != NULL && dc->kind == MC_CHANGED && dc->texels == 1);
+    mask_changes_text(&d, "ANSX", text, sizeof text);
+    CHECK(strstr(text, "dash_masks/ANSX: 1 changed, 0 new, 0 missing, 1 unchanged (compared with the game's data/dash_masks/ANSX)") != NULL);
+    CHECK(strstr(text, "changed: dash_color.png 1 texels") != NULL);
+    CHECK(mask_changes_publish(dproj, dgame, &d, &written, why, sizeof why) && written == 1);
+    CHECK(mask_changes_compare_dash(dproj, dgame, &d, why, sizeof why) && d.changed == 0 && d.unchanged == 2);
     return TEST_REPORT();
 }

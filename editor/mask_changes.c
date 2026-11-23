@@ -33,6 +33,11 @@ static uint8_t *read_file(const char *path, size_t *len)
     return buf;
 }
 
+static int is_dash_name(const char *name)
+{
+    return strcmp(name, "dash_mask.png") == 0 || strcmp(name, "dash_color.png") == 0;
+}
+
 static int is_mask_name(const char *name)
 {
     const size_t n = strlen(name);
@@ -54,7 +59,7 @@ static int list_folder(const char *dir, MaskChanges *out, int which)
     if (d == NULL) return 0;
     struct dirent *de;
     while ((de = readdir(d)) != NULL) {
-        if (!is_mask_name(de->d_name)) continue;
+        if (out->dash ? !is_dash_name(de->d_name) : !is_mask_name(de->d_name)) continue;
         int at = -1;
         for (int i = 0; i < out->count; i++)
             if (strcmp(out->item[i].file, de->d_name) == 0) at = i;
@@ -86,7 +91,49 @@ static uint8_t *classes_of(const uint8_t *png, size_t len, int *w, int *h)
     return m;
 }
 
-static void compare_file(const char *project, const char *game, MaskChange *c)
+/* texel I of a PNG as RGBA (an indexed one through its palette, opaque) */
+static void rgba_at(const PngImage *p, size_t i, uint8_t out[4])
+{
+    if (p->indexed) {
+        memcpy(out, p->palette + 3 * p->pixels[i], 3);
+        out[3] = 255;
+    } else {
+        memcpy(out, p->pixels + 4 * i, 4);
+    }
+}
+
+/* the texels whose picture differs between two PNGs of one size (the colour a texel shows, not its index or the kind of PNG: another palette length is no change); -1 when the size differs */
+static int picture_diff(const PngImage *a, const PngImage *b)
+{
+    if (a->width != b->width || a->height != b->height) return -1;
+    int texels = 0;
+    for (size_t i = 0; i < (size_t)a->width * a->height; i++) {
+        uint8_t pa[4], pb[4];
+        rgba_at(a, i, pa), rgba_at(b, i, pb);
+        texels += memcmp(pa, pb, 4) != 0;
+    }
+    return texels;
+}
+
+static void compare_picture(const uint8_t *pa, size_t la, const uint8_t *pb, size_t lb, MaskChange *c)
+{
+    PngImage ia = { 0 }, ib = { 0 };
+    const int ok = pa != NULL && pb != NULL && png_read(pa, la, &ia) == PNG_OK && png_read(pb, lb, &ib) == PNG_OK;
+    const int texels = ok ? picture_diff(&ia, &ib) : -1;
+    if (texels < 0) {
+        c->kind = MC_CHANGED;
+        c->texels = ok ? (int)(ia.width * ia.height) : 0;
+        if (!ok) snprintf(c->note, sizeof c->note, "not a readable PNG");
+        else snprintf(c->note, sizeof c->note, "%ux%u -> %ux%u", ib.width, ib.height, ia.width, ia.height);   /* the game's size to the project's */
+    } else if (texels > 0) {
+        c->kind = MC_CHANGED;
+        c->texels = texels;
+    }
+    if (ia.pixels != NULL) png_free(ia.pixels);
+    if (ib.pixels != NULL) png_free(ib.pixels);
+}
+
+static void compare_file(const char *project, const char *game, MaskChange *c, int dash)
 {
     char a[PATH], b[PATH];
     snprintf(a, sizeof a, "%s/%s", project, c->file);
@@ -95,6 +142,11 @@ static void compare_file(const char *project, const char *game, MaskChange *c)
     uint8_t *pa = read_file(a, &la), *pb = read_file(b, &lb);
     c->kind = MC_UNCHANGED;
     if (pa != NULL && pb != NULL && la == lb && memcmp(pa, pb, la) == 0) { free(pa); free(pb); return; }   /* the same bytes: the export's own copy */
+    if (dash) {
+        compare_picture(pa, la, pb, lb, c);
+        free(pa), free(pb);
+        return;
+    }
     int wa = 0, ha = 0, wb = 0, hb = 0;
     uint8_t *ma = pa != NULL ? classes_of(pa, la, &wa, &ha) : NULL, *mb = pb != NULL ? classes_of(pb, lb, &wb, &hb) : NULL;
     if (ma == NULL || mb == NULL) {
@@ -116,9 +168,10 @@ static void compare_file(const char *project, const char *game, MaskChange *c)
     free(pa), free(pb), free(ma), free(mb);
 }
 
-int mask_changes_compare(const char *project, const char *game, MaskChanges *out, char *why, size_t why_cap)
+static int compare_folders(const char *project, const char *game, MaskChanges *out, int dash, char *why, size_t why_cap)
 {
     memset(out, 0, sizeof *out);
+    out->dash = dash;
     if (!list_folder(project, out, 0)) {
         snprintf(why, why_cap, "Cannot read the project's masks folder %s", project);
         return 0;
@@ -131,7 +184,7 @@ int mask_changes_compare(const char *project, const char *game, MaskChanges *out
     qsort(out->item, (size_t)out->count, sizeof out->item[0], by_name);
     for (int i = 0; i < out->count; i++) {
         MaskChange *c = &out->item[i];
-        if (c->kind == MC_UNCHANGED) compare_file(project, game, c);
+        if (c->kind == MC_UNCHANGED) compare_file(project, game, c, out->dash);
         switch (c->kind) {
         case MC_UNCHANGED: out->unchanged++; break;
         case MC_CHANGED: out->changed++; break;
@@ -140,6 +193,16 @@ int mask_changes_compare(const char *project, const char *game, MaskChanges *out
         }
     }
     return 1;
+}
+
+int mask_changes_compare(const char *project, const char *game, MaskChanges *out, char *why, size_t why_cap)
+{
+    return compare_folders(project, game, out, 0, why, why_cap);
+}
+
+int mask_changes_compare_dash(const char *project, const char *game, MaskChanges *out, char *why, size_t why_cap)
+{
+    return compare_folders(project, game, out, 1, why, why_cap);
 }
 
 int mask_changes_publish(const char *project, const char *game, const MaskChanges *c, int *written, char *why, size_t why_cap)
@@ -179,7 +242,8 @@ void mask_changes_text(const MaskChanges *c, const char *folder, char *out, size
 {
     if (cap == 0) return;
     out[0] = '\0';
-    append(out, cap, "car_masks/%s: %d changed, %d new, %d missing, %d unchanged (compared with the game's data/car_masks/%s)\n", folder, c->changed, c->added, c->missing, c->unchanged, folder);
+    const char *kind = c->dash ? "dash_masks" : "car_masks";
+    append(out, cap, "%s/%s: %d changed, %d new, %d missing, %d unchanged (compared with the game's data/%s/%s)\n", kind, folder, c->changed, c->added, c->missing, c->unchanged, kind, folder);
     for (int i = 0; i < c->count; i++) {
         const MaskChange *m = &c->item[i];
         if (m->kind == MC_CHANGED) {

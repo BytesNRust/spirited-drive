@@ -25,11 +25,16 @@ typedef struct {
     MaskChange item[MC_MAX_FILES];   /* by file name */
     int count;
     int unchanged, changed, added, missing;   /* how many of each kind */
+    int dash;                        /* the list is of a dash folder (mask_changes_compare_dash): its files are named dash_*.png and its text says dash_masks/ */
 } MaskChanges;
 
 /* Compares the masks in `project` with those in `game` (folders). 1 with `out` filled; 0 with `why` (the project's folder cannot be read, or the game's folder is not there: the
  * comparison needs it). */
 int mask_changes_compare(const char *project, const char *game, MaskChanges *out, char *why, size_t why_cap);
+
+/* The same for a car's dash folder (art-generated/dash_masks against data/dash_masks/<folder>/): `dash_mask.png`, `dash_color.png`. The files are compared as pictures (the same
+ * texels with their colours: a palette with another number of entries, or another PNG encoder, is no change). */
+int mask_changes_compare_dash(const char *project, const char *game, MaskChanges *out, char *why, size_t why_cap);
 
 /* Copies the changed and the new masks of `c` (as mask_changes_compare listed them) from the folder `project` into the folder `game`, which must be there. `written` gets how many;
  * the missing ones (only the game has them) are left alone. 1, or 0 with `why` (the files before the failing one are written). */

@@ -95,6 +95,19 @@ if [ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ]; the
     studio "$drv" --install --game "$tnfs" --frames 2 && fail "Install of an original car's kit went"
     grep -q "original car" "$work/log" || fail "no word that an original car is not installed: $(cat "$work/log")"
     ls "$drv/build" | grep -q '\.zip$' && fail "a package was made of an original car"
+    # Copy to game repo also takes the dash folder: another picture for the kit's dash mask is listed against the repo's data/dash_masks/P911 and written there, the mask of the top view with it
+    repo2="$work/repo2"
+    mkdir -p "$repo2/car_masks" "$repo2/dash_masks" && cp -R "$data/car_masks/P911" "$repo2/car_masks/P911" && cp -R "$data/dash_masks/P911" "$repo2/dash_masks/P911" || fail "a copy of the repo's 911 masks"
+    cp "$data/dash_masks/CZR1/dash_mask.png" "$drv/art-generated/dash_masks/dash_mask.png" || fail "another dash for the 911's kit"
+    studio "$drv" --port-data "$repo2" --frames 2 --steps repo-ask,print-publish >"$work/log" 2>&1 || fail "Copy to game repo of the 911, the list: $(cat "$work/log")"
+    grep -q "^dash_masks/P911: 1 changed, 0 new, 0 missing, 0 unchanged\|^dash_masks/P911: 1 changed, 0 new, 0 missing, 1 unchanged" "$work/log" && grep -q "^changed: dash_mask.png" "$work/log" || fail "the Copy to game repo window does not list the dash: $(cat "$work/log")"
+    grep -q "^car_masks/P911: 1 changed" "$work/log" || fail "the list does not hold the top view's mask: $(cat "$work/log")"
+    studio "$drv" --port-data "$repo2" --frames 2 --steps repo-ask,repo-copy,status >"$work/log" 2>&1 || fail "Copy to game repo of the 911, the copy: $(cat "$work/log")"
+    grep -q "^status: copied to the game repo: 1 mask written into $repo2/car_masks/P911, 1 dash file into $repo2/dash_masks/P911" "$work/log" || fail "Copy did not say what it wrote for the 911: $(cat "$work/log")"
+    cmp -s "$repo2/dash_masks/P911/dash_mask.png" "$drv/art-generated/dash_masks/dash_mask.png" || fail "the repo's dash is not the kit's"
+    cmp -s "$data/dash_masks/P911/dash_mask.png" "$repo2/dash_masks/P911/dash_mask.png" && fail "the dash was not written"
+    studio "$drv" --port-data "$repo2" --frames 2 --steps repo-ask,status >"$work/log" 2>&1 && fail "Copy of the 911 with nothing changed went on"
+
     # Test drive on the 911's kit: the game's own car, its masks staged from the kit
     studio "$drv" --game "$tnfs" --cd "$orig" --frames 2 --steps race,race-log,race-stop || fail "Test drive of the exported 911: $(cat "$work/log")"
     grep -q "^race env: TNFS_CAR_MASKS=" "$work/log" && grep -q "^race env: TNFS_DASH_MASKS=" "$work/log" || fail "Test drive of the 911 does not give the game its masks: $(grep '^race' "$work/log")"
