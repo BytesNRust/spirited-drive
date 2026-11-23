@@ -46,6 +46,9 @@ void picker(App *a)
     for (int t = 0; t < LIGHT_UI_TIMES; ++t) {
         if (t > 0) ImGui::SameLine();
         if (ImGui::RadioButton(light_ui_time_name(t), ui.time == t) && ui.time != t) app_light_select(a, ui.track, t);
+        char probe[16];
+        snprintf(probe, sizeof probe, "time_%c", light_ui_time_letter(t));
+        ui_probe(probe);
     }
     ImGui::TextUnformatted("View");
     ImGui::SameLine();
@@ -73,13 +76,18 @@ void node_row(App *a)
     int node = ui.node;
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::SliderInt("##lightnode", &node, 0, last > 0 ? last : 1)) app_light_set_node(a, node);
+    ui_probe("node_slider");
     if (ImGui::Button("-10")) app_light_set_node(a, ui.node - 10);
+    ui_probe("node_m10");
     ImGui::SameLine();
     if (ImGui::Button("-1")) app_light_set_node(a, ui.node - 1);
+    ui_probe("node_m1");
     ImGui::SameLine();
     if (ImGui::Button("+1")) app_light_set_node(a, ui.node + 1);
+    ui_probe("node_p1");
     ImGui::SameLine();
     if (ImGui::Button("+10")) app_light_set_node(a, ui.node + 10);
+    ui_probe("node_p10");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(80.0f);
     if (ImGui::InputInt("##lighttyped", &node, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue)) app_light_set_node(a, node);
@@ -118,6 +126,7 @@ void file_buttons(App *a)
     if (save_now) app_light_save(a);
     ImGui::SameLine();
     if (ImGui::Button("Revert")) app_light_revert(a);
+    ui_probe("revert");
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (dirty) ImGui::TextDisabled("unsaved changes");
