@@ -288,6 +288,137 @@ static void folder(const char *dir)
 }
 #endif
 
+
+// ---- the game's own limits and words (dev2's review, 2026-11-23): the editor saves no file the game refuses and keeps no word the game reads as another ---------------------------
+
+static void append(char **text, const char *add)
+{
+    const size_t n = strlen(*text), m = strlen(add);
+    char *t = realloc(*text, n + m + 1);
+    CHECK(t != NULL);
+    memcpy(t + n, add, m + 1);
+    *text = t;
+}
+
+// D1: the halls and the `tunnel_look A B` lines of a time share the game's 64 zones
+static void shared_zones(void)
+{
+    for (int looks = 31; looks <= 32; looks++) {
+        char *t = calloc(1, 1), line[96];
+        append(&t, "track CY1\n");
+        for (int i = 0; i < 33; i++) snprintf(line, sizeof line, "tunnel %d %d lit\n", i, i), append(&t, line);
+        append(&t, "time B\n");
+        for (int i = 0; i < looks; i++) snprintf(line, sizeof line, "  tunnel_look %d %d 50\n", i, i), append(&t, line);
+        LightTrack f;
+        CHECK(parse(t, NODES, &f));
+        CHECK((light_track_first_bad(&f) == 0) == (looks == 31));   // 33 + 31 = 64 fit, 33 + 32 = 65 do not: the game refuses the second
+        if (looks == 31) {   // one more look is refused, with the game's reason, and the file is as it was
+            LightTrackLook v;
+            memset(&v, 0, sizeof v);
+            v.has_nodes = 1, v.from = v.to = 32, v.has_light = 1, v.light = 50.0;
+            char why[LT_WHY];
+            CHECK(!light_track_set_look(&f, LT_TIME_B, -1, &v, why, sizeof why));
+            CHECK(light_track_count(&f, LT_TIME_B, LT_LOOK) == 31 && light_track_first_bad(&f) == 0);
+            CHECK(same(&f, t));
+        }
+        light_track_free(&f);
+        free(t);
+    }
+}
+
+// D2: the 16 tone slots hold the `tone` lines' tones and the zones' own coloured looks together
+static void shared_tones(void)
+{
+    for (int coloured = 0; coloured <= 1; coloured++) {
+        char *t = calloc(1, 1), line[96];
+        append(&t, "track CY1\ntunnel 0 10\ntime B\n");
+        for (int i = 0; i < 16; i++) snprintf(line, sizeof line, "  tone 20 30 %02x0000:50\n", i + 1), append(&t, line);
+        if (coloured) append(&t, "  tunnel_look 0 5 50 ff8800\n");
+        LightTrack f;
+        CHECK(parse(t, NODES, &f));
+        CHECK((light_track_first_bad(&f) == 0) == !coloured);   // the game refuses the 17th slot
+        light_track_free(&f);
+        free(t);
+    }
+}
+
+// D3: `sun AZ EL SHADOW REACH`
+static void sun_reach(void)
+{
+    LightTrack f;
+    LightTrackSun sun;
+    char why[LT_WHY];
+    CHECK(parse("track CY1\ntime B\n  sun 150 50 55 800 # noon\n", NODES, &f));
+    CHECK(light_track_first_bad(&f) == 0);
+    CHECK(light_track_get_sun(&f, LT_TIME_B, &sun) && sun.has_reach && sun.reach == 800 && sun.shadow == 55);
+    sun.azimuth = 160;
+    CHECK(light_track_set_sun(&f, LT_TIME_B, &sun, why, sizeof why));
+    CHECK(same(&f, "track CY1\ntime B\n  sun 160 50 55 800 # noon\n"));
+    sun.reach = 3000;
+    CHECK(!light_track_set_sun(&f, LT_TIME_B, &sun, why, sizeof why));   // the game's range is 1..2000
+    light_track_free(&f);
+    CHECK(parse("track CY1\ntime B\n  sun 150 50 55 -\n", NODES, &f) && light_track_first_bad(&f) == 0 && light_track_get_sun(&f, LT_TIME_B, &sun) && !sun.has_reach);
+    light_track_free(&f);
+    CHECK(parse("track CY1\ntime B\n  sun 150 50 55 0.5\n", NODES, &f) && light_track_first_bad(&f) == 3);
+    light_track_free(&f);
+}
+
+// D5: the numbers the game reads with sscanf %u (a sign taken, a negative wrapped) in `brightness` and `rows`
+static void scanf_numbers(void)
+{
+    const struct { const char *text; int good; } files[] = {
+        { "track CY1\ntime B\n  brightness 0 -4294967295 50\n", 1 },   // wraps to 1
+        { "track CY1\ntime B\n  rows 0 1 +1 2 3 4 5 6 7 8 9 10 11\n", 1 },
+        { "track CY1\ntime B\n  brightness 0 +3 50\n", 1 },
+        { "track CY1\ntime B\n  brightness 0 -1 50\n", 0 },   // wraps to 4294967295: outside the track
+        { "track CY1\ntime B\n  rows 0 1 -1 2 3 4 5 6 7 8 9 10 11\n", 0 },   // 4294967295 is over 255
+    };
+    for (size_t i = 0; i < sizeof files / sizeof files[0]; i++) {
+        LightTrack f;
+        CHECK(parse(files[i].text, NODES, &f));
+        CHECK((light_track_first_bad(&f) == 0) == files[i].good);
+        light_track_free(&f);
+    }
+}
+
+// D7: a NUL byte: the file is not opened (it would not write back as it was read); D11: a file over the size limit is not opened
+static void odd_files(void)
+{
+    static const char nul[] = "track CY1\ntime B\n  sun 0 0 0\0JUNK\n";
+    LightTrack f;
+    char why[LT_WHY];
+    CHECK(!light_track_parse(nul, sizeof nul - 1, NODES, &f, why, sizeof why) && strstr(why, "NUL") != NULL);
+    const size_t big = (size_t)LT_MAX_FILE_BYTES + 1;
+    char *t = malloc(big);
+    CHECK(t != NULL);
+    memset(t, 'a', big);
+    memcpy(t, "track CY1\n", 10);
+    CHECK(!light_track_parse(t, big, NODES, &f, why, sizeof why) && strstr(why, "4 MB") != NULL);
+    CHECK(light_track_parse(t, big - 1000000, NODES, &f, why, sizeof why));   // under the limit it reads (the junk is one long line the game refuses)
+    light_track_free(&f);
+    free(t);
+}
+
+// D9: a long comment on a line that is rewritten stays whole
+static void long_comment(void)
+{
+    char comment[400], text[512];
+    memset(comment, 'c', sizeof comment - 1);
+    comment[sizeof comment - 1] = '\0';
+    snprintf(text, sizeof text, "track CY1\ntime B\n  sun 1 2 3 # %s\n", comment);
+    LightTrack f;
+    LightTrackSun sun;
+    char why[LT_WHY];
+    CHECK(parse(text, NODES, &f));
+    CHECK(light_track_get_sun(&f, LT_TIME_B, &sun));
+    sun.azimuth = 9;
+    CHECK(light_track_set_sun(&f, LT_TIME_B, &sun, why, sizeof why));
+    char want[512];
+    snprintf(want, sizeof want, "track CY1\ntime B\n  sun 9 2 3 # %s\n", comment);
+    CHECK(same(&f, want));
+    light_track_free(&f);
+}
+
 int main(int argc, char **argv)
 {
     reads();
@@ -295,6 +426,12 @@ int main(int argc, char **argv)
     edits();
     refuses_edits();
     shapes();
+    shared_zones();
+    shared_tones();
+    sun_reach();
+    scanf_numbers();
+    odd_files();
+    long_comment();
 #ifndef _WIN32
     if (argc > 1) folder(argv[1]);
 #else

@@ -1130,9 +1130,15 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_slope PRIVATE editor tests)
     target_compile_options(test_editor_slope PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_light_track tests/test_editor_light_track.c editor/light_track.c)   # the Track light panel's model of the new one-file-a-track format: byte-for-byte round trip, the game's rules on every change
-    target_include_directories(test_editor_light_track PRIVATE editor tests)
+    target_include_directories(test_editor_light_track PRIVATE editor tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(test_editor_light_track PRIVATE tnfs_core)
     target_compile_options(test_editor_light_track PRIVATE ${TNFS_WARNINGS})
     add_test(NAME editor_light_track COMMAND test_editor_light_track)
+    add_executable(test_track_light_parity tests/test_track_light_parity.c editor/light_track.c)   # the Studio's model of a light file and the game's parser agree on the same text (the shared limits, the words, generated files); the game's test: the Studio links no game code
+    target_include_directories(test_track_light_parity PRIVATE tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(test_track_light_parity PRIVATE tnfs_game tnfs_core)
+    target_compile_options(test_track_light_parity PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME track_light_parity COMMAND test_track_light_parity)
     add_executable(test_editor_light_strip tests/test_editor_light_strip.c editor/light_strip.c)   # the strip of a light line (the panel's 10-strip bar): words, masks, the bar's cells
     target_include_directories(test_editor_light_strip PRIVATE editor tests)
     target_compile_options(test_editor_light_strip PRIVATE ${TNFS_WARNINGS})

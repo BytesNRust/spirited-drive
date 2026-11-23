@@ -52,6 +52,18 @@ static int number(const char *word, unsigned *value)
     return 1;
 }
 
+// a number as the game reads `brightness` and `rows` (sscanf %u): a sign is taken and a negative number wraps, so `-4294967295` is 1
+static int number_u(const char *word, unsigned *value)
+{
+    const char *digits = word + (word[0] == '+' || word[0] == '-');
+    if (!isdigit((unsigned char)digits[0]) || strlen(word) > 20) return 0;
+    char *end = NULL;
+    const unsigned long v = strtoul(word, &end, 10);
+    if (*end != '\0') return 0;
+    *value = (unsigned)v;
+    return 1;
+}
+
 static int real(const char *word, double *value)
 {
     char *end = NULL;
@@ -175,16 +187,20 @@ static const char *p_sun(const Words *w, LightTrackSun *out)
 {
     LightTrackSun v;
     memset(&v, 0, sizeof v);
-    if (w->n != 4) return "sun AZIMUTH ELEVATION SHADOW (a part may be -)";
+    if (w->n != 4 && w->n != 5) return "sun AZIMUTH ELEVATION SHADOW [REACH] (a part may be -)";
     int *has[3] = { &v.has_azimuth, &v.has_elevation, &v.has_shadow };
     double *val[3] = { &v.azimuth, &v.elevation, &v.shadow };
     for (int i = 0; i < 3; i++) {
         if (strcmp(w->w[i + 1], "-") == 0) continue;
-        if (!real(w->w[i + 1], val[i])) return "sun AZIMUTH ELEVATION SHADOW (a part may be -)";
+        if (!real(w->w[i + 1], val[i])) return "sun AZIMUTH ELEVATION SHADOW [REACH] (a part may be -)";
         *has[i] = 1;
     }
     if (v.has_elevation && (v.elevation < -90.0 || v.elevation > 90.0)) return "the sun's elevation is -90..90 degrees";
     if (v.has_shadow && (v.shadow < 0.0 || v.shadow > 100.0)) return "the sun's shadow is 0..100 percent";
+    if (w->n == 5 && strcmp(w->w[4], "-") != 0) {
+        if (!real(w->w[4], &v.reach) || !(v.reach >= 1.0 && v.reach <= LT_MAX_SUN_REACH)) return "the sun's reach is 1..2000 units (or -)";
+        v.has_reach = 1;
+    }
     if (out != NULL) *out = v;
     return NULL;
 }
@@ -266,7 +282,7 @@ static const char *p_brightness(const Words *w, unsigned nodes, LightTrackBright
 {
     LightTrackBrightness v;
     memset(&v, 0, sizeof v);
-    if (w->n < 4 || !number(w->w[1], &v.from) || !number(w->w[2], &v.to) || !number(w->w[3], &v.percent)) return "brightness FROM TO PERCENT [STRIP]";
+    if (w->n < 4 || !number_u(w->w[1], &v.from) || !number_u(w->w[2], &v.to) || !number_u(w->w[3], &v.percent)) return "brightness FROM TO PERCENT [STRIP]";
     if (v.from > v.to || v.to >= nodes) return "the nodes of a brightness are in order and inside the track";
     if (v.percent > LT_MAX_BRIGHTNESS_PERCENT) return "a brightness is 0..1000 percent";
     int i = 4;
@@ -295,11 +311,11 @@ static const char *p_rows(const Words *w, unsigned nodes, LightTrackRows *out)
 {
     LightTrackRows v;
     memset(&v, 0, sizeof v);
-    if (w->n != 3 + LT_POINTS || !number(w->w[1], &v.from) || !number(w->w[2], &v.to)) return "rows FROM TO and 11 values";
+    if (w->n != 3 + LT_POINTS || !number_u(w->w[1], &v.from) || !number_u(w->w[2], &v.to)) return "rows FROM TO and 11 values";
     if (v.from > v.to || v.to >= nodes) return "the nodes of a rows line are in order and inside the track";
     for (int p = 0; p < LT_POINTS; p++) {
         unsigned x;
-        if (!number(w->w[3 + p], &x) || x > 255) return "the values of a rows line are 0..255";
+        if (!number_u(w->w[3 + p], &x) || x > 255) return "the values of a rows line are 0..255";
         v.value[p] = (unsigned char)x;
     }
     if (out != NULL) *out = v;
@@ -310,14 +326,79 @@ static const char *p_rows(const Words *w, unsigned nodes, LightTrackRows *out)
 
 typedef struct { char colour[8]; unsigned percent; } Distinct;
 
+// The game's tone slots (game/race/track_light_file.c, zone_slots): a time's `tone` lines take one slot for each distinct tone, and the `tunnel_look A B` lines whose look is not the time's own
+// take one each too (two with the same look share one): 16 in all. The same arithmetic, so a file that needs a 17th is listed as bad here as it is refused there.
+typedef struct { int line, has_light, has_colour; double light; float cast[3]; } ZoneLook;
+
+// the factors of a look's colour as the game computes them (parse_colour): RRGGBB or r/g/b, then an optional :strength; 0 when it is neither
+static int cast_of(const char *token, float cast[3])
+{
+    const size_t colon = strcspn(token, ":");
+    double strength = 100.0, full[3];
+    if (token[colon] == ':') {
+        char *end = NULL;
+        strength = strtod(token + colon + 1, &end);
+        if (end == token + colon + 1 || *end != '\0' || strength < 0.0 || strength > 100.0) return 0;
+    }
+    if (memchr(token, '/', colon) != NULL) {
+        char part[WORD], *at = part, *end = NULL;
+        if (colon >= sizeof part) return 0;
+        memcpy(part, token, colon), part[colon] = '\0';
+        for (int k = 0; k < 3; k++) {
+            full[k] = strtod(at, &end);
+            if (end == at || full[k] < 0.0 || full[k] > 1.0 || (k < 2 ? *end != '/' : *end != '\0')) return 0;
+            at = end + 1;
+        }
+    } else {
+        if (colon != 6) return 0;
+        for (size_t i = 0; i < colon; i++)
+            if (!isxdigit((unsigned char)token[i])) return 0;
+        for (int k = 0; k < 3; k++) {
+            char part[3] = { token[2 * k], token[2 * k + 1], '\0' };
+            full[k] = (double)strtoul(part, NULL, 16) / 255.0;
+        }
+    }
+    for (int k = 0; k < 3; k++) cast[k] = strength == 100.0 ? (float)full[k] : (float)(1.0 + (full[k] - 1.0) * strength / 100.0);
+    return 1;
+}
+
+// the end of a time's block: the zones' slots after the tones' (`tones` distinct ones); the line of the first zone that does not fit is marked
+static void zone_slots(LightTrack *f, int tones, const ZoneLook *zl, int zn, int has_light, double base_light, int has_colour, const float base_cast[3])
+{
+    const double light0 = has_light ? base_light : 10.0;
+    const float white[3] = { 1.0f, 1.0f, 1.0f };
+    const float *cast0 = has_colour ? base_cast : white;
+    struct { float light; float cast[3]; } slot[LT_MAX_PER_TIME];
+    int n = 0;
+    for (int i = 0; i < zn; i++) {
+        if (!zl[i].has_light && !zl[i].has_colour) continue;
+        const double light = zl[i].has_light ? zl[i].light : light0;
+        const float *cast = zl[i].has_colour ? zl[i].cast : cast0;
+        if (light == light0 && memcmp(cast, cast0, 3 * sizeof(float)) == 0) continue;
+        int seen = 0;
+        for (int k = 0; k < n; k++)
+            if (slot[k].light == (float)light && memcmp(slot[k].cast, cast, 3 * sizeof(float)) == 0) seen = 1;
+        if (seen) continue;
+        if (tones + n >= LT_MAX_DISTINCT_TONES) {
+            if (f->lines[zl[i].line].kind != LT_BAD) f->lines[zl[i].line].kind = LT_BAD, f->lines[zl[i].line].why = "the tone slots are 16 at most: the tone lines and the tunnel_look lines with a look of their own share them";
+            return;
+        }
+        slot[n].light = (float)light, memcpy(slot[n].cast, cast, 3 * sizeof(float)), n++;
+    }
+}
+
 // Sets kind, time and why of every line, with the rules of the game's parser. 1 when the memory was enough.
 static int classify(LightTrack *f)
 {
     unsigned char *fact = calloc(f->nodes, 1);
     if (fact == NULL) return 0;
     int cur = LT_TIME_FACTS, header = 0, has_time[LT_TIMES] = { 0 }, halls = 0;
-    int looks = 0, brights = 0, tones = 0, lamps = 0, distinct_n = 0;
+    int looks = 0, brights = 0, tones = 0, lamps = 0, distinct_n = 0, zones = 0;
     Distinct distinct[LT_MAX_DISTINCT_TONES];
+    ZoneLook zl[LT_MAX_PER_TIME];
+    int zn = 0, base_has_light = 0, base_has_colour = 0;
+    double base_light = 0.0;
+    float base_cast[3] = { 1.0f, 1.0f, 1.0f };
     for (int li = 0; li < f->count; li++) {
         LightTrackLine *ln = &f->lines[li];
         Words w;
@@ -336,8 +417,9 @@ static int classify(LightTrack *f)
             const int t = w.n == 2 && w.w[1][1] == '\0' ? time_index(w.w[1][0]) : -1;
             if (t < 0) { ln->kind = LT_BAD, ln->why = "time A, B, C or N"; continue; }
             if (has_time[t]) { ln->kind = LT_BAD, ln->why = "a time appears once"; continue; }
+            if (cur != LT_TIME_FACTS) zone_slots(f, distinct_n, zl, zn, base_has_light, base_light, base_has_colour, base_cast);
             has_time[t] = 1, cur = t, ln->time = t, ln->kind = K_TIME;
-            looks = brights = tones = lamps = distinct_n = 0;
+            looks = brights = tones = lamps = distinct_n = zones = zn = base_has_light = base_has_colour = 0;
             continue;
         }
         if (cur == LT_TIME_FACTS) {
@@ -363,8 +445,24 @@ static int classify(LightTrack *f)
             why = p_sun(&w, NULL);
             if (why == NULL) ln->kind = LT_SUN;
         } else if (strcmp(key, "tunnel_look") == 0) {
-            why = p_look(&w, f->nodes, fact, NULL);
+            LightTrackLook look;
+            why = p_look(&w, f->nodes, fact, &look);
             if (why == NULL && ++looks > LT_MAX_PER_TIME) why = "too many tunnel_look lines in a time (64)";
+            if (why == NULL && look.has_nodes && halls + ++zones > LT_MAX_PER_TIME) why = "the halls and the tunnel_look lines with nodes of a time are 64 at most together";
+            if (why == NULL) {
+                float cast[3] = { 1.0f, 1.0f, 1.0f };
+                const int has_colour = look.has_colour && cast_of(look.colour, cast);
+                if (look.has_nodes) {
+                    zl[zn++] = (ZoneLook){ li, look.has_light, has_colour, look.light, { cast[0], cast[1], cast[2] } };
+                } else {   // the time's own look: a second that differs is refused (take_look)
+                    if (look.has_light && base_has_light && base_light != look.light) why = "the time's own tunnel_look says two different lights";
+                    else if (has_colour && base_has_colour && memcmp(base_cast, cast, sizeof cast) != 0) why = "the time's own tunnel_look says two different colours";
+                    else {
+                        if (look.has_light) base_has_light = 1, base_light = look.light;
+                        if (has_colour) base_has_colour = 1, memcpy(base_cast, cast, sizeof cast);
+                    }
+                }
+            }
             if (why == NULL) ln->kind = LT_LOOK;
         } else if (strcmp(key, "lamp") == 0) {
             why = p_lamp(&w, f->nodes, NULL);
@@ -398,6 +496,7 @@ static int classify(LightTrack *f)
         }
         if (why != NULL) ln->kind = LT_BAD, ln->why = why;
     }
+    if (cur != LT_TIME_FACTS) zone_slots(f, distinct_n, zl, zn, base_has_light, base_light, base_has_colour, base_cast);
     free(fact);
     return 1;
 }
@@ -430,6 +529,13 @@ void light_track_free(LightTrack *f)
 int light_track_parse(const char *text, size_t size, unsigned nodes, LightTrack *out, char *why, size_t cap)
 {
     if (text == NULL || out == NULL || nodes == 0) return fail(why, cap, "no text or no nodes");
+    if (size > LT_MAX_FILE_BYTES) return fail(why, cap, "the file is over 4 MB: not a light file");
+    const char *nul = memchr(text, '\0', size);
+    if (nul != NULL) {
+        char text_why[LT_WHY];
+        snprintf(text_why, sizeof text_why, "the file has a NUL byte (byte %zu): a text file has none", (size_t)(nul - text) + 1);
+        return fail(why, cap, text_why);
+    }
     LightTrack f;
     memset(&f, 0, sizeof f);
     f.nodes = nodes;
@@ -584,7 +690,10 @@ static int bad_count(const LightTrack *f)
 // the text of a line with its place kept: the old line's indent, comment and "\r", or the new ones' ("  " in a block, nothing in the facts)
 static char *dress(const LightTrack *f, int time, const char *old, const char *body)
 {
-    char indent[16] = "", tail[256] = "";
+    char indent[16] = "";
+    const size_t tail_cap = old != NULL ? strlen(old) + 4 : 4;
+    char *tail = calloc(tail_cap, 1);   // a comment of any length is kept whole
+    if (tail == NULL) return NULL;
     if (old != NULL) {
         size_t n = strspn(old, " \t");
         if (n >= sizeof indent) n = sizeof indent - 1;
@@ -592,18 +701,19 @@ static char *dress(const LightTrack *f, int time, const char *old, const char *b
         const char *hash = strchr(old, '#');
         if (hash != NULL) {
             while (hash > old && (hash[-1] == ' ' || hash[-1] == '\t')) --hash;
-            snprintf(tail, sizeof tail, " %s", hash + strspn(hash, " \t"));
+            snprintf(tail, tail_cap, " %s", hash + strspn(hash, " \t"));
         } else {
             const size_t len = strlen(old);
-            if (len > 0 && old[len - 1] == '\r') snprintf(tail, sizeof tail, "\r");
+            if (len > 0 && old[len - 1] == '\r') snprintf(tail, tail_cap, "\r");
         }
     } else {
         if (time != LT_TIME_FACTS) snprintf(indent, sizeof indent, "  ");
-        if (f->crlf) snprintf(tail, sizeof tail, "\r");
+        if (f->crlf) snprintf(tail, tail_cap, "\r");
     }
     const size_t n = strlen(indent) + strlen(body) + strlen(tail) + 1;
     char *text = malloc(n);
     if (text != NULL) snprintf(text, n, "%s%s%s", indent, body, tail);
+    free(tail);
     return text;
 }
 
@@ -729,6 +839,7 @@ int light_track_set_sun(LightTrack *f, int time, const LightTrackSun *v, char *w
     put_real(body, sizeof body, v->azimuth, v->has_azimuth);
     put_real(body, sizeof body, v->elevation, v->has_elevation);
     put_real(body, sizeof body, v->shadow, v->has_shadow);
+    if (v->has_reach) snprintf(body + strlen(body), sizeof body - strlen(body), " %.10g", v->reach);
     return change(f, time, LT_SUN, light_track_count(f, time, LT_SUN) > 0 ? 0 : -1, body, why, cap);
 }
 

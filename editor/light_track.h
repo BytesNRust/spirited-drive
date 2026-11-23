@@ -21,7 +21,7 @@ enum {
     LT_OTHER = 0,   /* blank, comment, `track`, `time`, `snow_map` */
     LT_TUNNEL,      /* fact `tunnel FROM TO [lit]` */
     LT_SNOW,        /* fact `snow 0|1` */
-    LT_SUN,         /* `sun AZ EL SHADOW` */
+    LT_SUN,         /* `sun AZ EL SHADOW [REACH]` */
     LT_LOOK,        /* `tunnel_look [FROM TO] [LIGHT] [COLOUR] [lamps S [COLOUR]] [reach R]` */
     LT_LAMP,        /* `lamp NODE PERCENT [COLOUR[:S]] [RADIUS]` */
     LT_BRIGHTNESS,  /* `brightness FROM TO PERCENT [STRIP]` */
@@ -32,7 +32,7 @@ enum {
 };
 
 enum {   /* the game's limits (game/race/track_light_file.h) */
-    LT_MAX_PER_TIME = 64,      /* tunnel_look, brightness, tone lines of a time; halls of the track */
+    LT_MAX_PER_TIME = 64,      /* tunnel_look, brightness, tone lines of a time; halls of the track; and the halls and the `tunnel_look A B` lines of a time together (the game's zones[]) */
     LT_MAX_LAMPS = 2048,
     LT_MAX_LAMP_PERCENT = 1000,
     LT_MAX_LAMP_RADIUS = 64,
@@ -41,10 +41,12 @@ enum {   /* the game's limits (game/race/track_light_file.h) */
     LT_SNOW_SLOTS = 144,       /* the texture slots a `snow_map` names */
     LT_POINTS = 11,            /* the points of a node's row: p0 centre, p1..p5 right, p6..p10 left */
     LT_ALL_POINTS = (1 << LT_POINTS) - 1,
-    LT_WHY = 160
+    LT_WHY = 160,
+    LT_MAX_FILE_BYTES = 4 * 1024 * 1024   /* a bigger file is not opened (a 5000-node track's is about 0.3 MB) */
 };
 #define LT_MAX_LOOK_LIGHT 10000.0
 #define LT_MAX_LOOK_LAMPS 1000.0
+#define LT_MAX_SUN_REACH 2000.0
 
 /* a strip across the row as a mask of its points: bit p for p0..p10. The writable ones are `all`, `left` (p6..p10), `right` (p1..p5), `road` (p0 p1 p6) and any run pA..pB. */
 enum { LT_STRIP_LEFT = 0x7c0, LT_STRIP_RIGHT = 0x03e, LT_STRIP_ROAD = 0x043 };
@@ -66,7 +68,7 @@ typedef struct {
 } LightTrack;
 
 typedef struct { unsigned from, to; int lit; } LightTrackTunnel;
-typedef struct { int has_azimuth, has_elevation, has_shadow; double azimuth, elevation, shadow; } LightTrackSun;   /* degrees, degrees (-90..90), percent 0..100; a part not set is `-` */
+typedef struct { int has_azimuth, has_elevation, has_shadow; double azimuth, elevation, shadow; int has_reach; double reach; } LightTrackSun;   /* degrees, degrees (-90..90), percent 0..100; a part not set is `-`; the reach in units 1..2000 (the terrain that can shade a point), no reach: the generator's */
 typedef struct {
     int has_nodes; unsigned from, to;   /* no nodes: the default look of the time */
     int has_light; double light;        /* percent of full light inside, 0..10000 */
