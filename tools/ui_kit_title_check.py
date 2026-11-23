@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """ui_kit_title_check.py CONTENT.png: a screen's red title is the CD's (docs/ui-kit.md, E1): first column x 9 and capitals' rows 66-83 (18), each
-+-1, in a 640x480 picture of CONTENT. Needs Pillow; exit 1 when it is off."""
++-1, in a 640x480 picture of CONTENT. exit 1 when it is off."""
 import sys
 
-from PIL import Image
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rgb_image import Image   # the standard library only: no Pillow in CI or the gate
 
 BOX = (0, 50, 200, 110)   # x0, y0, x1, y1 where the title can be
 X, TOP, BOTTOM, TOLERANCE = 9, 66, 83, 1

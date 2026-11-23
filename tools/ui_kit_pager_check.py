@@ -2,14 +2,12 @@
 middle page ("2/3": a triangle on each side) and fails when a measure is more than a pixel off the CD's.
 The CD's, measured on its track select ("Road/track") and showcase ("Next car"): the letters are 11 rows of cream, each triangle's cream ink is 9 x 17, the blank columns
 between the left one and the text are 14 and between the text and the right one 15, and the triangles' middle row is one below the text's.
-Exit: 0 all in tolerance; 1 a measure off; 2 bad arguments or no Pillow (the caller treats that as a skip)."""
+Exit: 0 all in tolerance; 1 a measure off; 2 bad arguments."""
 import sys
 
-try:
-    from PIL import Image
-except ImportError:
-    print("ui_kit_pager_check: no Pillow, skipping")
-    sys.exit(2)
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rgb_image import Image   # the standard library only: no Pillow in CI or the gate
 
 BOX = (230, 436, 420, 476)       # the pager's room on a 640x480 screen
 CREAM, TOL, ARROW_GAP = (232, 211, 183), 12, 10   # the fill and its grain; the soft look's darker rim is not ink

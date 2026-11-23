@@ -1,17 +1,15 @@
 #!/bin/sh
 # tools/ui_kit_check.sh TNFS REPO ORIGINAL_DIR: the UI kit's measures (docs/ui-kit.md) against the real binary and the CD data. So far the
 # pager (E4): the screens whose page indicator the kit draws are walked to a middle page and ui_kit_pager_check.py measures the picture; a
-# triangle, a gap or the centring more than a pixel off the CD's fails. The labels (E2): RECORDS' DONE, ui_kit_label_check.py (height, mixed edges). It reads the CD's game data, so without one (or without Pillow)
-# it is a skip (exit 77, ctest's SKIP_RETURN_CODE), which is what the CI jobs do. The walks also need ImageMagick (magick) and zsh; the gate's ctest may have no magick on its PATH. Run by ctest as ui_kit_check; KEEP=1 keeps the pictures' folder.
+# triangle, a gap or the centring more than a pixel off the CD's fails. The labels (E2): RECORDS' DONE, ui_kit_label_check.py (height, mixed edges). It reads the CD's game data, so without one
+# it is a skip (exit 77, ctest's SKIP_RETURN_CODE), which is what the CI jobs do. It needs nothing else but zsh and python3 (standard library only; no ImageMagick, no Pillow): a missing tool fails, it is never a skip. Run by ctest as ui_kit_check; KEEP=1 keeps the pictures' folder.
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from a scratch folder
 tnfs=$(abs "$1")
 repo=$(abs "$2")
 orig=$(abs "$3")
 [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 77; }
-python3 -c 'import PIL' 2>/dev/null || { echo "skip: no Pillow"; exit 77; }
-command -v zsh >/dev/null 2>&1 || { echo "skip: no zsh (tools/menu_walk.sh is one)"; exit 77; }
-command -v magick >/dev/null 2>&1 || { echo "skip: no magick (ImageMagick 7: tools/menu_walk.sh saves its pictures with it)"; exit 77; }
+command -v zsh >/dev/null 2>&1 || { echo "FAIL: no zsh (tools/menu_walk.sh is one)"; exit 1; }
 work=$(mktemp -d)
 # a walk that fails is kept, whole: its folder (the game's log and frames; menu_walk says "kept: ..." with KEEP_FAILED) and this one (the pictures and logs of
 # the others), so a flake can be read afterwards: the failing walk's last marks say which step it stopped at

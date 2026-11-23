@@ -1,14 +1,12 @@
 """tools/ui_kit_foot_check.py IMAGE...: measures a 640x480 capture of CONTENT's foot against the UI kit's foot rule (docs/ui-kit.md E3): the left item's
 ink starts at the CD's DONE margin (x 10), the right item's ink ends the same from the right edge (x 630), the buttons between are centred in the room
 between those two with equal gaps. The capture is of an edition of the player's own (all four buttons cream; a standard edition dims two).
-Exit: 0 all in tolerance; 1 a measure off; 2 bad arguments or no Pillow (the caller treats that as a skip)."""
+Exit: 0 all in tolerance; 1 a measure off; 2 bad arguments."""
 import sys
 
-try:
-    from PIL import Image
-except ImportError:
-    print("ui_kit_foot_check: no Pillow, skipping")
-    sys.exit(2)
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rgb_image import Image   # the standard library only: no Pillow in CI or the gate
 
 ROWS = (443, 460)                  # the foot's words
 LIGHT, WORD_GAP = 500, 12   # a pixel is ink when R+G+B is over this (the letters, edges included, are lighter than the page); columns less than this apart are one word

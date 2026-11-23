@@ -46,12 +46,13 @@
 # exit: 0 reached and saved; 3 a step timed out; 4 the game went on past the target (the last screen logged is another); 5 every frame captured
 #       was one colour (a fade to black that never ended: no picture); 6 the content target on a binary that never opened CONTENT (one from
 #       before it: its "Manage content..." step timed out, bounded by STEP_TIMEOUT, or the game quit on that click, and no mark:screen=content was logged); 2 bad arguments, no binary
-# or no magick; 1 anything else (the log is printed).
+# 1 anything else (the log is printed).
 bin=$1 out=$2 target=$3
 [ -n "$bin" ] && [ -n "$out" ] && [ -n "$target" ] || { echo "usage: $0 <bin> <outdir> <target>" >&2; exit 2; }
 [ -x "$bin" ] || { echo "no binary: $bin" >&2; exit 2; }
-command -v magick >/dev/null 2>&1 || { echo "magick missing (ImageMagick 7 saves the frame as a PNG; on nix: nix shell --inputs-from . nixpkgs#imagemagick)" >&2; exit 2; }
 here=${0:A:h}
+# the frame saved as a PNG: python standard library only (tools/ppm2png.py), so the walk needs no ImageMagick and no Pillow
+to_png() { python3 "$here/ppm2png.py" "$1" "$2"; }
 data=${DATA:-$here/../original}
 [ -d "$data" ] || { echo "no game data folder: $data (set DATA)" >&2; exit 2; }
 step=${STEP_TIMEOUT:-60}
@@ -234,7 +235,7 @@ if [ -n "$pack" ]; then
     made=0 missing=0 never=0
     for item in ${=shots}; do
         name=${item%%:*}; needs=""; case $item in *:*) needs=${item#*:} ;; esac
-        if [ -f "$work/shots/$name.ppm" ] && magick "$work/shots/$name.ppm" "$out/$name.png" 2>/dev/null; then echo "$name ok" >> "$out/pack.status"; made=$((made + 1))
+        if [ -f "$work/shots/$name.ppm" ] && to_png "$work/shots/$name.ppm" "$out/$name.png" 2>/dev/null; then echo "$name ok" >> "$out/pack.status"; made=$((made + 1))
         elif [ -n "$needs" ] && ! grep -q "mark:$needs" "$work/user/spirited-drive.log" 2>/dev/null; then
             echo "$name never" >> "$out/pack.status"; never=$((never + 1)); echo "menu_walk pack: no $name: this binary never logged mark:$needs" >&2
         else echo "$name failed" >> "$out/pack.status"; missing=$((missing + 1)); echo "menu_walk pack: no picture $name" >&2; fi
@@ -268,7 +269,7 @@ if [ $rc -eq 0 ]; then
     # can be cut short (under load the walk's PNG then failed to convert); the one before was closed before the next was opened
     last=${pick:-$(python3 -I "$here/frame_pick.py" --fallback "$work/cap" 2>"$work/pick.err")}
     if [ -n "$last" ]; then
-        magick "$work/cap/$last" "$out/$target.png" || { rc=1; echo "the frame did not convert to $out/$target.png" >&2; }
+        to_png "$work/cap/$last" "$out/$target.png" || { rc=1; echo "the frame did not convert to $out/$target.png" >&2; }
     elif [ -n "$(ls "$work/cap" 2>/dev/null)" ]; then rc=5; echo "menu_walk $target: $(cat "$work/pick.err"); no picture saved" >&2
     else rc=1; echo "reached mark:screen=$final but no frame was captured" >&2; fi
 fi

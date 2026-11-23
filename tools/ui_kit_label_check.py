@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """ui_kit_label_check.py RECORDS.png: the labels' measures (docs/ui-kit.md) on a 640x480 picture of RECORDS (menu_walk.sh records): DONE's capital
 height is the CD's 11 rows (+-1) and its edges are mixed with the page, not cut to one bit (a fraction of its edge pixels is neither the letter's
-yellow nor the red page). Needs Pillow; exit 1 when a measure fails."""
+yellow nor the red page). exit 1 when a measure fails."""
 import sys
 
-from PIL import Image
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rgb_image import Image   # the standard library only: no Pillow in CI or the gate
 
 DONE_BOX = (0, 430, 100, 470)   # x0, y0, x1, y1: the footer's DONE (car_records_view.h's CAR_RECORDS_DONE_X, FOOT_CAP)
 CAP_ROWS, CAP_TOLERANCE = 11, 1

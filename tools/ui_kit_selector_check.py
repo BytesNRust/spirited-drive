@@ -4,7 +4,9 @@ CONTENT with an edition of the player's own (no note under the name), the select
 name, the right triangle. The blank columns between them are at least the pager's 14 (left) and 15 (right), measured on the CD's own. Needs Pillow."""
 import sys
 
-from PIL import Image
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rgb_image import Image   # the standard library only: no Pillow in CI or the gate
 
 BAND = (230, 62, 600, 88)   # x0, y0, x1, y1 of the selector's name line
 GAP_LEFT, GAP_RIGHT = 14, 15
