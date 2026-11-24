@@ -18,8 +18,8 @@ run() {   # TRACK TICKS [PROFILE]
 status=0
 vegas=$(run TR4 3000 | grep '^lamps: slot 0 ' || true)
 echo "$vegas" | grep -q ' OFF:' && { echo "FAIL: Vegas' lamps went out at night: $(echo "$vegas" | grep ' OFF:' | head -2)"; status=1; }
-# the day keeps its rule: TR3 by day puts its lamps on in the dark stretches and out again (10 lines, 5 OFF, before the night's rule), and the night's rule does not touch them
-day=$(LT=day; run TR3 2500 | grep '^lamps: slot 0 ' || true)
+# the day keeps its rule (1200 ticks: both an ON and an OFF are there by tick 1000): TR3 by day puts its lamps on in the dark stretches and out again (10 lines, 5 OFF, before the night's rule), and the night's rule does not touch them
+day=$(LT=day; run TR3 1200 | grep '^lamps: slot 0 ' || true)
 echo "$day" | grep -q ' OFF:' || { echo "FAIL: the day's lamps no longer go out: $day"; status=1; }
 echo "$day" | grep -q ' ON:' || { echo "FAIL: the day's lamps no longer light in the dark: $day"; status=1; }
 [ $status -eq 0 ] && echo "vegas_lamps_game: ok"
