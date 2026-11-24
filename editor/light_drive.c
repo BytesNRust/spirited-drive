@@ -74,7 +74,8 @@ int light_drive_command(const LightDriveSetup *s, char *const *base, RaceCommand
     int *const ac = &out->argc, *const ec = &out->envc;
     int ok = push(a, ac, RACE_ARGS, "%s", s->game) && push(a, ac, RACE_ARGS, "--data") && push(a, ac, RACE_ARGS, "%s", s->cd) && push(a, ac, RACE_ARGS, "--user") &&
              push(a, ac, RACE_ARGS, "%s", s->user) && push(a, ac, RACE_ARGS, "--mods") && push(a, ac, RACE_ARGS, "%s", s->mods) && push(a, ac, RACE_ARGS, "--drive") &&
-             push(a, ac, RACE_ARGS, "%s", s->track);
+             push(a, ac, RACE_ARGS, "%s", s->track) &&
+             push(a, ac, RACE_ARGS, "--type") && push(a, ac, RACE_ARGS, "0");   /* the game's time trial: the player alone, no rivals, no police, no traffic */
     for (char *const *v = base; ok && v != NULL && *v != NULL; ++v)
         if (strncmp(*v, "TNFS_", 5) != 0 && strncmp(*v, "SDL_", 4) != 0) ok = push(e, ec, RACE_ENVS, "%s", *v);
     ok = ok && push(e, ec, RACE_ENVS, "TNFS_LIGHT_EDIT=1") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=%s", WORDS[s->weather]) && push(e, ec, RACE_ENVS, "TNFS_LIGHT_TIME=%s", light_photo_time_word(s->letter)) &&

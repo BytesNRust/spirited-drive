@@ -72,7 +72,7 @@ instead of the original track's.) What the window has, top to bottom:
 * **Track** and the four moments **Dawn / Day / Dusk / Night**; changing the track with unsaved changes is refused ("Save or Revert before another track"). **View** (Bumper, Dash, Chase near/mid/far, High) and **HUD**
   are the photo's camera. **Photo at node**: the slider, **-10 -1 +1 +10** and a typed node.
 * **Test drive** (and **Stop test drive**) with the weather (Clear, Fog, Rain, Storm): the game in a window of its own on this track, moment and node, following every edit without Save. It is always Restomod 16:9 at
-  render scale 3 (a 2562x1440 window) with every effect on (lamp halos, soft shine, reflectors, headlight beams, sun_shadow, light effects), whatever the person's own settings say.
+  render scale 3 (a 2562x1440 window) with every effect on (lamp halos, soft shine, reflectors, headlight beams, sun_shadow, light effects), whatever the person's own settings say. It is the game's time trial (`--type 0`): your car alone, with no rivals, no police and no traffic. The music of a `--drive` run is the game's own and has no setting that turns it off.
 * **Sun** (**Moon** at night): the compass and three sliders, **Direction**, **Height** and **Shadow strength** (100 = no shadow). The box to the left of each slider turns it on; unticked it is "auto" (the
   generator's own), and a sun with all three unticked is no `sun` line.
 * **Tunnels**: one row for each `tunnel` fact (and one for each `tunnel_look A B` over some nodes inside a tunnel, "inside"): **Remove**, **From**, **To**, **Kind** (tunnel / hall; a fact of every moment) and the four moments,

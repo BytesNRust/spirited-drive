@@ -79,6 +79,7 @@ static void test_command(void)
     CHECK(strcmp(c.argv[0], "/g/tnfs") == 0 && has(c.argv, "--data") && has(c.argv, "/cd") && has(c.argv, "--user") && has(c.argv, "/u") && has(c.argv, "--mods") && has(c.argv, "/m"));
     CHECK(has(c.argv, "--drive") && has(c.argv, "CY1"));
     CHECK(!has(c.argv, "--screenshot"));   /* a window, not a photo */
+    CHECK(has(c.argv, "--type") && has(c.argv, "0") && !has(c.argv, "--racers"));   /* the game's time trial (docs/track-editor.md): the player alone, no rivals, no police, no traffic */
     CHECK(has(c.envp, "TNFS_LIGHT_EDIT=1") && has(c.envp, "TNFS_LIGHT_TIME=night") && has(c.envp, "TNFS_START_NODE=1596") && has(c.envp, "TNFS_WEATHER=rain"));
     CHECK(has(c.envp, "PATH=/usr/bin") && has(c.envp, "KEEP_ME=yes"));
     CHECK(has(c.envp, "TNFS_VIEW=1"));   /* the preview's camera (the bumper by default): the drive starts from it */
