@@ -2,6 +2,8 @@
  * change, so a change that would make the game refuse the file is not made. */
 #include "light_track.h"
 
+#include "formats/light_points.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -121,7 +123,7 @@ static int is_lamp_colour(const char *token)
     return token[6] == ':' && len >= 8 && len <= 10 && is_strength(token + 7);
 }
 
-// the strip at word *i, if there is one: its points in `mask` (every point when there is none) and *i past it. 0 for `pA pB` with B before A.
+// the strip at word *i, if there is one: its points in `mask` (every point when there is none) and *i past it. 0 for `pA pB` with B before A or a bad `p1,p3` list.
 static int strip_at(const Words *w, int *i, unsigned *mask)
 {
     *mask = LT_ALL_POINTS;
@@ -132,6 +134,8 @@ static int strip_at(const Words *w, int *i, unsigned *mask)
     if (strcmp(s, "left") == 0) return *mask = LT_STRIP_LEFT, ++*i, 1;
     if (strcmp(s, "right") == 0) return *mask = LT_STRIP_RIGHT, ++*i, 1;
     if (strcmp(s, "road") == 0) return *mask = LT_STRIP_ROAD, ++*i, 1;
+    const int list = light_points_parse(s, mask);   // p1,p3,p7: any points, one word
+    if (list != 0) return list > 0 ? (++*i, 1) : 0;
     if (s[0] != 'p' || !number(s + 1, &a) || a >= LT_POINTS) return 1;   // not a strip: the next part of the line
     ++*i;
     b = a;
@@ -155,7 +159,8 @@ static const char *strip_text(unsigned mask, char *buf, size_t cap)
     while (a < LT_POINTS && !((mask >> a) & 1)) ++a;
     unsigned b = a;
     while (b + 1 < LT_POINTS && ((mask >> (b + 1)) & 1)) ++b;
-    if (mask == 0 || mask != (((1u << (b + 1)) - 1) & ~((1u << a) - 1))) return NULL;
+    if (mask == 0) return NULL;
+    if (mask != (((1u << (b + 1)) - 1) & ~((1u << a) - 1))) return light_points_text(mask, buf, cap) ? buf : NULL;   // a gap: the points one by one
     if (a == b) snprintf(buf, cap, "p%u", a);
     else snprintf(buf, cap, "p%u p%u", a, b);
     return buf;
@@ -276,7 +281,7 @@ static const char *p_lamp(const Words *w, unsigned nodes, LightTrackLamp *out)
         }
     }
     if (i < w->n) {
-        if (!strip_at(w, &i, &v.mask) || i != w->n) return "lamp NODE PERCENT [COLOUR[:STRENGTH]] [RADIUS] [STRIP] (the strip is left, right, road, all, pA or pA pB)";
+        if (!strip_at(w, &i, &v.mask) || i != w->n) return "lamp NODE PERCENT [COLOUR[:STRENGTH]] [RADIUS] [STRIP] (the strip is left, right, road, all, pA, pA pB or p1,p3,p7)";
         v.has_strip = 1;
     }
     if (out != NULL) *out = v;
@@ -291,7 +296,7 @@ static const char *p_brightness(const Words *w, unsigned nodes, LightTrackBright
     if (v.from > v.to || v.to >= nodes) return "the nodes of a brightness are in order and inside the track";
     if (v.percent > LT_MAX_BRIGHTNESS_PERCENT) return "a brightness is 0..1000 percent";
     int i = 4;
-    if (!strip_at(w, &i, &v.mask) || i != w->n) return "the strip is left, right, road, all, pA or pA pB (points 0..10, in order)";
+    if (!strip_at(w, &i, &v.mask) || i != w->n) return "the strip is left, right, road, all, pA, pA pB (in order) or a list p1,p3,p7 (points 0..10)";
     if (out != NULL) *out = v;
     return NULL;
 }
@@ -303,7 +308,7 @@ static const char *p_tone(const Words *w, unsigned nodes, LightTrackTone *out)
     if (w->n < 4 || !number(w->w[1], &v.from) || !number(w->w[2], &v.to)) return "tone FROM TO [STRIP] RRGGBB:PERCENT";
     if (v.from > v.to || v.to >= nodes) return "the nodes of a tone are in order and inside the track";
     int i = 3;
-    if (!strip_at(w, &i, &v.mask)) return "the strip is left, right, road, all, pA or pA pB (points 0..10, in order)";
+    if (!strip_at(w, &i, &v.mask)) return "the strip is left, right, road, all, pA, pA pB (in order) or a list p1,p3,p7 (points 0..10)";
     if (i != w->n - 1) return "tone FROM TO [STRIP] RRGGBB:PERCENT";
     const char *c = w->w[i];
     if (strlen(c) < 8 || c[6] != ':' || !is_hex6(c) || !number(c + 7, &v.percent) || v.percent > 100) return "a tone is RRGGBB:PERCENT (percent 0..100)";
@@ -812,6 +817,13 @@ static int change(LightTrack *f, int time, int kind, int i, const char *body, ch
     return 1;
 }
 
+// a line that was added (i < 0) takes its place in the order of its kind
+static int sorted(LightTrack *f, int time, int kind, int i, int ok)
+{
+    if (ok && i < 0) light_track_sort(f, time, kind);
+    return ok;
+}
+
 static int kind_ok(int time, int facts)
 {
     return facts ? time == LT_TIME_FACTS : time >= 0 && time < LT_TIMES;
@@ -821,7 +833,7 @@ int light_track_set_tunnel(LightTrack *f, int i, const LightTrackTunnel *v, char
 {
     char body[96];
     snprintf(body, sizeof body, "tunnel %u %u%s", v->from, v->to, v->lit ? " lit" : "");
-    return change(f, LT_TIME_FACTS, LT_TUNNEL, i, body, why, cap);
+    return sorted(f, LT_TIME_FACTS, LT_TUNNEL, i, change(f, LT_TIME_FACTS, LT_TUNNEL, i, body, why, cap));
 }
 
 int light_track_set_snow(LightTrack *f, int on, char *why, size_t cap)
@@ -871,33 +883,33 @@ int light_track_set_lamp(LightTrack *f, int time, int i, const LightTrackLamp *v
     if (v->has_colour) snprintf(body + strlen(body), sizeof body - strlen(body), " %s", v->colour);
     if (v->has_radius) snprintf(body + strlen(body), sizeof body - strlen(body), " %u", v->radius);
     if (v->has_strip) {
-        char strip[16];
+        char strip[48];
         const char *t = (v->mask & LT_ALL_POINTS) == LT_ALL_POINTS ? "all" : strip_text(v->mask, strip, sizeof strip);
-        if (t == NULL) return fail(why, cap, "a strip is left, right, road, all or a run of points");
+        if (t == NULL) return fail(why, cap, "a strip is left, right, road, all or a list of points (none picked is no strip)");
         snprintf(body + strlen(body), sizeof body - strlen(body), " %s", t);
     }
-    return change(f, time, LT_LAMP, i, body, why, cap);
+    return sorted(f, time, LT_LAMP, i, change(f, time, LT_LAMP, i, body, why, cap));
 }
 
 int light_track_set_brightness(LightTrack *f, int time, int i, const LightTrackBrightness *v, char *why, size_t cap)
 {
     if (!kind_ok(time, 0)) return fail(why, cap, "no such time");
-    char strip[16], body[96];
+    char strip[48], body[96];
     const char *s = strip_text(v->mask, strip, sizeof strip);
-    if (s == NULL) return fail(why, cap, "a strip is left, right, road, all or a run of points");
+    if (s == NULL) return fail(why, cap, "a strip is left, right, road, all or a list of points (none picked is no strip)");
     snprintf(body, sizeof body, "brightness %u %u %u%s%s", v->from, v->to, v->percent, s[0] != '\0' ? " " : "", s);
-    return change(f, time, LT_BRIGHTNESS, i, body, why, cap);
+    return sorted(f, time, LT_BRIGHTNESS, i, change(f, time, LT_BRIGHTNESS, i, body, why, cap));
 }
 
 int light_track_set_tone(LightTrack *f, int time, int i, const LightTrackTone *v, char *why, size_t cap)
 {
     if (!kind_ok(time, 0)) return fail(why, cap, "no such time");
-    char strip[16], body[96];
+    char strip[48], body[96];
     const char *s = strip_text(v->mask, strip, sizeof strip);
-    if (s == NULL) return fail(why, cap, "a strip is left, right, road, all or a run of points");
+    if (s == NULL) return fail(why, cap, "a strip is left, right, road, all or a list of points (none picked is no strip)");
     if (strlen(v->colour) != 6 || !is_hex6(v->colour)) return fail(why, cap, "a tone's colour is six hex digits");
     snprintf(body, sizeof body, "tone %u %u%s%s %s:%u", v->from, v->to, s[0] != '\0' ? " " : "", s, v->colour, v->percent);
-    return change(f, time, LT_TONE, i, body, why, cap);
+    return sorted(f, time, LT_TONE, i, change(f, time, LT_TONE, i, body, why, cap));
 }
 
 int light_track_set_rows(LightTrack *f, int time, int i, const LightTrackRows *v, char *why, size_t cap)
@@ -956,6 +968,66 @@ int light_track_lamps_to_all_times(LightTrack *f, int from, int *lines, char *wh
     light_track_free(&backup);
     if (lines != NULL) *lines = touched;
     return 1;
+}
+
+// ---- order ------------------------------------------------------------------------------------------------------------------------------------------------------
+
+typedef struct { unsigned from, to, mask; } SortKey;
+
+static int sort_key(const LightTrack *f, int time, int kind, int i, SortKey *k)
+{
+    if (kind == LT_BRIGHTNESS) {
+        LightTrackBrightness v;
+        return light_track_get_brightness(f, time, i, &v) && (*k = (SortKey){ v.from, v.to, v.mask }, 1);
+    }
+    if (kind == LT_TONE) {
+        LightTrackTone v;
+        return light_track_get_tone(f, time, i, &v) && (*k = (SortKey){ v.from, v.to, v.mask }, 1);
+    }
+    if (kind == LT_LAMP) {
+        LightTrackLamp v;
+        return light_track_get_lamp(f, time, i, &v) && (*k = (SortKey){ v.node, v.node, 0 }, 1);
+    }
+    LightTrackTunnel v;
+    return kind == LT_TUNNEL && light_track_get_tunnel(f, i, &v) && (*k = (SortKey){ v.from, v.to, 0 }, 1);
+}
+
+// whether the order of two lines of a kind changes what the game makes: a later brightness scales the points again (whole numbers, so not exactly alike in either order) where the two
+// share a node and a point; a node has one tone, the last line's, so two tones that share a node matter whatever their points; lamps and tunnels do not depend on their order
+static int order_matters(int kind, const SortKey *a, const SortKey *b)
+{
+    if (kind != LT_BRIGHTNESS && kind != LT_TONE) return 0;
+    return a->from <= b->to && b->from <= a->to && (kind == LT_TONE || (a->mask & b->mask) != 0);
+}
+
+int light_track_sort(LightTrack *f, int time, int kind)
+{
+    if (kind != LT_BRIGHTNESS && kind != LT_TONE && kind != LT_LAMP && kind != LT_TUNNEL) return -1;
+    if (kind == LT_TUNNEL) time = LT_TIME_FACTS;
+    const int n = light_track_count(f, time, kind);
+    if (n < 2) return 0;
+    int *pos = malloc((size_t)n * sizeof *pos), *order = malloc((size_t)n * sizeof *order);
+    SortKey *key = malloc((size_t)n * sizeof *key);
+    LightTrackLine *lines = malloc((size_t)f->count * sizeof *lines);
+    int moved = -1;
+    if (pos == NULL || order == NULL || key == NULL || lines == NULL) goto done;
+    for (int i = 0; i < n; i++) {
+        pos[i] = nth(f, time, kind, i), order[i] = i;
+        if (pos[i] < 0 || !sort_key(f, time, kind, i, &key[i])) goto done;
+    }
+    moved = 0;
+    for (int a = 1; a < n; a++)   // stable: a line moves up past one with a later start, never past one it cannot change places with
+        for (int b = a; b > 0 && key[order[b - 1]].from > key[order[b]].from && !order_matters(kind, &key[order[b - 1]], &key[order[b]]); b--) {
+            const int t = order[b - 1];
+            order[b - 1] = order[b], order[b] = t, moved++;
+        }
+    if (moved == 0) goto done;
+    memcpy(lines, f->lines, (size_t)f->count * sizeof *lines);
+    for (int i = 0; i < n; i++) f->lines[pos[i]] = lines[pos[order[i]]];
+    if (!classify(f)) moved = -1;
+done:
+    free(pos), free(order), free(key), free(lines);
+    return moved;
 }
 
 int light_track_remove(LightTrack *f, int time, int kind, int i, char *why, size_t cap)

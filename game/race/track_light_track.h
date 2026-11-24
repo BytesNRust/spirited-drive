@@ -9,7 +9,7 @@
  *   lamp NODE PERCENT [COLOUR[:S]] [RADIUS]     (STRIP: the last word, where across the road it stands)
  *   brightness A B PERCENT [STRIP] | tone A B [STRIP] RRGGBB:PERCENT | rows A B p0..p10
  *
- * STRIP: `pA pB` (the points A..B of the row, inclusive), `pA`, or `left` (p6..p10), `right` (p1..p5), `road` (p0 p1 p6), `all` (p0..p10). */
+ * STRIP: `pA pB` (the points A..B of the row, inclusive), `pA`, `p1,p3,p7` (a list: any points), or `left` (p6..p10), `right` (p1..p5), `road` (p0 p1 p6), `all` (p0..p10). */
 #ifndef TNFS_TRACK_LIGHT_TRACK_H
 #define TNFS_TRACK_LIGHT_TRACK_H
 

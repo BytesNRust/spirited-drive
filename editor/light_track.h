@@ -128,4 +128,9 @@ int light_track_lamps_to_all_times(LightTrack *f, int from, int *lines, char *wh
 /* Drops the i-th line of an owned kind (nothing else moves). 1, or 0 when there is no such line or dropping it would leave a look outside the tunnels (`why`). */
 int light_track_remove(LightTrack *f, int time, int kind, int i, char *why, size_t cap);
 
+/* Puts the lines of a kind (LT_TUNNEL, LT_LAMP, LT_BRIGHTNESS, LT_TONE) of a time in the order of their first node (stable). The file's order is the order the game applies them in, so a brightness
+ * never passes one that shares a node and a point with it, nor a tone one that shares a node; the lines that cannot change places stay where they are: what the game makes of the file does not change. A line that
+ * is added with an index of -1 is sorted in the same way. Returns the places changed (0 when sorted), -1 on a kind that has no order or no memory. */
+int light_track_sort(LightTrack *f, int time, int kind);
+
 #endif

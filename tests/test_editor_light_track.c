@@ -145,7 +145,13 @@ static void edits(void)
     lamp.has_colour = 0, lamp.has_radius = 0, lamp.mask = 0x20;   // a strip with no colour and no radius: the word is the strip, not a radius
     CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
     CHECK(light_track_get_lamp(&f, LT_TIME_N, 0, &back) && back.has_strip && back.mask == 0x20 && !back.has_colour && !back.has_radius);
-    lamp.mask = 0x5;   // points 0 and 2: not a run
+    lamp.mask = 0x5;   // points 0 and 2: not a run, so the list
+    CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
+    t = text_of(&f);
+    CHECK(strstr(t, "\n  lamp 130 90 p0,p2\n") != NULL);
+    free(t);
+    CHECK(light_track_get_lamp(&f, LT_TIME_N, 0, &back) && back.has_strip && back.mask == 0x5);
+    lamp.mask = 0;   // no point at all is no strip: refused
     CHECK(!light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why) && why[0] != '\0');
     lamp.has_strip = 0;   // none again: no word
     CHECK(light_track_set_lamp(&f, LT_TIME_N, 0, &lamp, why, sizeof why));
@@ -231,8 +237,22 @@ static void refuses_edits(void)
     CHECK(!light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
     b = (LightTrackBrightness){ 5, 6, 1001, LT_ALL_POINTS };
     CHECK(!light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
-    b = (LightTrackBrightness){ 5, 6, 50, (1u << 1) | (1u << 4) };   // not a run
+    b = (LightTrackBrightness){ 5, 6, 50, 0 };   // no point picked
     CHECK(!light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
+    // points that are not a run are a list in the file, read back as the same points (brightness and tone)
+    b = (LightTrackBrightness){ 5, 6, 50, (1u << 1) | (1u << 4) | (1u << 10) };
+    CHECK(light_track_set_brightness(&f, LT_TIME_B, -1, &b, why, sizeof why));
+    LightTrackBrightness got;
+    CHECK(light_track_get_brightness(&f, LT_TIME_B, light_track_count(&f, LT_TIME_B, LT_BRIGHTNESS) - 1, &got) && got.mask == b.mask);
+    char *gt = text_of(&f);
+    CHECK(strstr(gt, "  brightness 5 6 50 p1,p4,p10\n") != NULL);
+    free(gt);
+    LightTrackTone tone = { 5, 6, (1u << 0) | (1u << 6), 50, "ff8000" };
+    CHECK(light_track_set_tone(&f, LT_TIME_B, -1, &tone, why, sizeof why));
+    gt = text_of(&f);
+    CHECK(strstr(gt, "  tone 5 6 p0,p6 ff8000:50\n") != NULL);
+    free(gt);
+    CHECK(light_track_first_bad(&f) == 0);
     LightTrackLamp lamp = { .node = NODES, .percent = 50 };
     CHECK(!light_track_set_lamp(&f, LT_TIME_B, -1, &lamp, why, sizeof why));
     lamp = (LightTrackLamp){ .node = 5, .percent = 0 };
@@ -503,6 +523,58 @@ static void lamps_to_all(void)
     light_track_free(&f);
 }
 
+// the lists are in the order of their first node, but the file's order is the order the game applies the lines in: a brightness or a tone passes another only when they share no node or no point
+static int kind_in(const char *text)
+{
+    return strstr(text, "brightness") ? LT_BRIGHTNESS : strstr(text, "tone") ? LT_TONE : strstr(text, "lamp") ? LT_LAMP : LT_TUNNEL;
+}
+
+static void sorts(void)
+{
+    static const struct { const char *in, *out; } CASES[] = {
+        // apart: 600..800 then 595..599 swap (brightness, tone, lamps and tunnels alike)
+        { "track CY1\ntime A\n  brightness 600 800 70\n  brightness 595 599 80\n", "track CY1\ntime A\n  brightness 595 599 80\n  brightness 600 800 70\n" },
+        { "track CY1\ntime A\n  tone 600 800 ffe080:50\n  tone 595 599 ff0000:40\n", "track CY1\ntime A\n  tone 595 599 ff0000:40\n  tone 600 800 ffe080:50\n" },
+        { "track CY1\ntime A\n  lamp 700 100\n  lamp 20 100\n  lamp 300 90 right\n", "track CY1\ntime A\n  lamp 20 100\n  lamp 300 90 right\n  lamp 700 100\n" },
+        { "track CY1\ntunnel 1064 1171\ntunnel 100 200 lit\ntime A\n", "track CY1\ntunnel 100 200 lit\ntunnel 1064 1171\ntime A\n" },
+        // sharing nodes and points: the file's order stays (the scaling and the last tone depend on it)
+        { "track CY1\ntime A\n  brightness 600 800 70\n  brightness 595 650 80\n", "track CY1\ntime A\n  brightness 600 800 70\n  brightness 595 650 80\n" },
+        { "track CY1\ntime A\n  tone 600 800 ffe080:50\n  tone 595 650 ff0000:40\n", "track CY1\ntime A\n  tone 600 800 ffe080:50\n  tone 595 650 ff0000:40\n" },
+        // a node has one tone, the last line's: two tones that share a node stay even on other points
+        { "track CY1\ntime A\n  tone 600 800 p0,p3 ffe080:50\n  tone 595 650 p1,p5 ff0000:40\n", "track CY1\ntime A\n  tone 600 800 p0,p3 ffe080:50\n  tone 595 650 p1,p5 ff0000:40\n" },
+        // brightness on the same nodes but other points: they swap
+        { "track CY1\ntime A\n  brightness 600 800 70 left\n  brightness 595 650 80 right\n", "track CY1\ntime A\n  brightness 595 650 80 right\n  brightness 600 800 70 left\n" },
+        // a tone between two brightnesses stays where it is; the two brightnesses change places
+        { "track CY1\ntime A\n  brightness 600 800 70\n  tone 10 20 ffe080:50\n  brightness 5 9 80\n", "track CY1\ntime A\n  brightness 5 9 80\n  tone 10 20 ffe080:50\n  brightness 600 800 70\n" },
+        // three: the one that cannot pass stays behind the one it shares nodes with, the others sort around it
+        { "track CY1\ntime A\n  brightness 700 710 70\n  brightness 600 800 80\n  brightness 10 20 90\n", "track CY1\ntime A\n  brightness 10 20 90\n  brightness 700 710 70\n  brightness 600 800 80\n" },
+    };
+    for (size_t c = 0; c < sizeof CASES / sizeof CASES[0]; c++) {
+        LightTrack f;
+        CHECK(parse(CASES[c].in, NODES, &f));
+        CHECK(light_track_sort(&f, LT_TIME_A, kind_in(CASES[c].in)) >= 0);
+        CHECK(same(&f, CASES[c].out));
+        CHECK(light_track_sort(&f, LT_TIME_A, kind_in(CASES[c].in)) == 0);   // sorted stays sorted
+        CHECK(light_track_first_bad(&f) == 0);
+        light_track_free(&f);
+    }
+    // add 600..800, then 595..599: the second goes first; an add that shares nodes with them goes at the end
+    LightTrack f;
+    char why[LT_WHY];
+    CHECK(parse("track CY1\ntime A\n", NODES, &f));
+    LightTrackBrightness b = { 600, 800, 70, LT_ALL_POINTS };
+    CHECK(light_track_set_brightness(&f, LT_TIME_A, -1, &b, why, sizeof why));
+    b = (LightTrackBrightness){ 595, 599, 80, LT_ALL_POINTS };
+    CHECK(light_track_set_brightness(&f, LT_TIME_A, -1, &b, why, sizeof why));
+    LightTrackBrightness got;
+    CHECK(light_track_get_brightness(&f, LT_TIME_A, 0, &got) && got.from == 595);
+    b = (LightTrackBrightness){ 590, 610, 60, LT_ALL_POINTS };
+    CHECK(light_track_set_brightness(&f, LT_TIME_A, -1, &b, why, sizeof why));
+    CHECK(light_track_get_brightness(&f, LT_TIME_A, 2, &got) && got.from == 590);
+    CHECK(light_track_sort(&f, LT_TIME_A, LT_LOOK) == -1);
+    light_track_free(&f);
+}
+
 int main(int argc, char **argv)
 {
     sun_auto();
@@ -510,6 +582,7 @@ int main(int argc, char **argv)
     reads();
     refuses_reading();
     edits();
+    sorts();
     refuses_edits();
     shapes();
     shared_zones();

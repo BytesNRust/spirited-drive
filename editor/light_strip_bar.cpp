@@ -19,26 +19,20 @@ bool light_strip_bar(const char *id, unsigned *mask)
         ui_probe(s.label);
         ImGui::SameLine();
     }
-    char text[32];
+    char text[48];
     const bool one_line = light_strip_text(*mask, text, sizeof text) != 0;
-    ImGui::TextDisabled("%s", one_line ? text : "not one line");
+    ImGui::TextDisabled("%s", one_line ? text : "no point picked");
     const float cell_w = fmaxf(ImGui::GetContentRegionAvail().x / LIGHT_STRIP_POINTS, 1.0f), cell_h = ImGui::GetFrameHeight() * 1.3f;
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     ImGui::InvisibleButton("##bar", ImVec2(cell_w * LIGHT_STRIP_POINTS, cell_h));
     ui_probe("bar");
-    ImGuiStorage *storage = ImGui::GetStateStorage();   // the drag's first cell is this bar's own: several bars are on screen
-    const ImGuiID bar = ImGui::GetItemID();
-    int anchor = storage->GetInt(bar, -1);
-    const ImVec2 mouse = ImGui::GetIO().MousePos;
-    float at = cell_w > 0.0f ? (mouse.x - origin.x) / cell_w : 0.0f;   // no mouse is a huge negative: clamp in floats before the cast
-    at = !(at > 0.0f) ? 0.0f : at > static_cast<float>(LIGHT_STRIP_POINTS - 1) ? static_cast<float>(LIGHT_STRIP_POINTS - 1) : at;
-    const int cell = static_cast<int>(at);
-    if (ImGui::IsItemActivated()) anchor = cell, storage->SetInt(bar, anchor);
-    if (ImGui::IsItemActive() && anchor >= 0) {
-        const unsigned picked = light_strip_span(anchor, cell);
-        if (picked != *mask) *mask = picked, changed = true;
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {   // a click turns that point on or off: any set of points, not only a run
+        const ImVec2 mouse = ImGui::GetIO().MousePos;
+        float at = cell_w > 0.0f ? (mouse.x - origin.x) / cell_w : 0.0f;   // no mouse is a huge negative: clamp in floats before the cast
+        at = !(at > 0.0f) ? 0.0f : at > static_cast<float>(LIGHT_STRIP_POINTS - 1) ? static_cast<float>(LIGHT_STRIP_POINTS - 1) : at;
+        *mask ^= 1u << light_strip_cell_point(static_cast<int>(at));
+        changed = true;
     }
-    if (ImGui::IsItemDeactivated()) storage->SetInt(bar, -1);
     ImDrawList *draw = ImGui::GetWindowDrawList();
     for (int c = 0; c < LIGHT_STRIP_POINTS; c++) {
         const int point = light_strip_cell_point(c);

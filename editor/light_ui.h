@@ -40,6 +40,7 @@ typedef struct {
     unsigned drive_serial;       /* the edit_serial the running drive's copy was written for */
     double drive_wrote;          /* the clock of that write: a slider dragged for a second is ten writes, not sixty */
     char error[LIGHT_UI_MSG];    /* why the last Save, select or photo was refused, until the next try; "" for none */
+    int resort;                  /* a line of the lists was edited: they are put in order when no field is being edited (light_track_sort), not while it is typed in */
     LightCompare compare;        /* part D: the Before picture or the four times of day beside the photo (light_compare.h) */
 } LightUi;
 

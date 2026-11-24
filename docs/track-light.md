@@ -37,7 +37,7 @@ line. A time appears at most once; a time with no block is the made light with n
 | `tone A B [STRIP] RRGGBB:PERCENT` | a colour cast on the strip (exact: a polygon takes it when its four corners have it). 16 different tones a time at most. |
 | `rows A B p0..p10` | the hand override of the made rows of those nodes (11 values, 0..255). A time's `rows` lines may write each node of the track 64 times in all (a longer file is refused at the line that passes it). |
 
-STRIP is `pA pB` (the points A..B of the row's 11, inclusive; `pA` alone is one point) or a word: `right` = p1..p5, `left` = p6..p10, `road` = p0 p1 p6, `all` = p0..p10. Point 0 is the centre, 1..5 a chain to the right,
+STRIP is `pA pB` (the points A..B of the row's 11, inclusive; `pA` alone is one point), a list in one word with commas and no spaces, `p1,p3,p7` (any points, in any order: the ones that are not a run), or a word: `right` = p1..p5, `left` = p6..p10, `road` = p0 p1 p6, `all` = p0..p10. Point 0 is the centre, 1..5 a chain to the right,
 6..10 one to the left.
 
 Order of application: the made rows (terrain, tunnels, the looks) -> `rows` -> `brightness` and `tone` in file order -> the `lamp`s lift the row. A car reads the row by its lane after `brightness` and `tone` and before the
@@ -73,8 +73,8 @@ instead of the original track's.) What the window has, top to bottom:
   `tunnel_look` line; an empty cell is inherited from the **default** row, and the row's cell, from the code). **Add tunnel** adds one from the photo's node to 50 nodes on. **Lamps % = 0** is an unlit tunnel:
   the car there does not blink (see What decides what).
 * **Lamps (N)**: **Add lamp** at the photo's node; per lamp **Remove**, **Node**, **Light %**, **Colour**, **Radius** and **Strip** (none, all, left, right, road: where across the road it stands).
-* **Retouches**: **Brightness (N)** and **Tone (N)** with **Add brightness** / **Add tone** (from the photo's node to 50 nodes on), the lines' numbers and the strip bar (drag over the points C, 1..10, or **All /
-  Left / Right / Road**); **Remove** takes a line away.
+* **Retouches**: **Brightness (N)** and **Tone (N)** with **Add brightness** / **Add tone** (from the photo's node to 50 nodes on), the lines' numbers and the strip bar (a click on a point 10 9 8 7 6 C 1 2 3 4 5 turns it on or off, so the points need not be a run; **All /
+  Left / Right / Road** only set the picked points, which can then be changed one by one; the line under the buttons says the strip as the file has it, e.g. `p1,p3,p7`); **Remove** takes a line away. Tunnels, Lamps, Brightness and Tone are kept in the order of their first node: a line that is added goes to its place, and an edited one when its field is let go. The file's order is the order the game applies the lines in, so a Brightness does not pass one that shares a node and a point with it, nor a Tone one that shares a node (a node has one tone: the last line's): those stay as they are.
 * **Save** and **Revert** (the file as it was read or saved), and on an original track **Copy to game repo** (the same window as File > Copy to game repo: it lists what would change in the game repo's `data/`,
   the light file and the changed mask PNGs, and writes only on Copy; the repo's folder is set once in File > Game repo folder...; Save first).
 * **Light compare** (its own tab): **Off**, **Before** (the file on disk beside the edit) or **Four times** (dawn, day, dusk and night at the node).

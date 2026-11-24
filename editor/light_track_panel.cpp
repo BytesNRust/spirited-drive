@@ -377,10 +377,11 @@ void tunnel_rows(App *a)
                             continue;
                         }
                         app_light_touch(a);
+                        a->light.resort = 1;
                         continue;
                     }
                 }
-                if (light_track_set_tunnel(&f, rows[r].tunnel, &t, why, sizeof why)) app_light_touch(a);
+                if (light_track_set_tunnel(&f, rows[r].tunnel, &t, why, sizeof why)) app_light_touch(a), a->light.resort = 1;
                 else refused(a, why);
             } else if (look_changed) {
                 put_look(a, rows[r].look, v);
@@ -439,7 +440,7 @@ bool lamp_strip_combo(LightTrackLamp *l)
 {
     struct Choice { const char *label; unsigned mask; };
     static const Choice CHOICES[] = { { "all", LT_ALL_POINTS }, { "left", LT_STRIP_LEFT }, { "right", LT_STRIP_RIGHT }, { "road", LT_STRIP_ROAD } };
-    char custom[16] = "";
+    char custom[48] = "";
     const char *shown = "none";
     if (l->has_strip) {
         shown = nullptr;
@@ -532,7 +533,7 @@ void lamp_rows(App *a)
                 ui_probe_scope("");
                 ImGui::PopID();
                 if (changed) {
-                    if (light_track_set_lamp(&f, time_of(a), i, &l, why, sizeof why)) app_light_touch(a);
+                    if (light_track_set_lamp(&f, time_of(a), i, &l, why, sizeof why)) { app_light_touch(a); a->light.resort = 1; }
                     else refused(a, why);
                 }
             }
@@ -602,7 +603,7 @@ void brightness_rows(App *a)
                 continue;
             }
             b.from = non_negative(v[0]), b.to = non_negative(v[1]), b.percent = non_negative(v[2]);
-            if (light_track_set_brightness(&f, time_of(a), i, &b, why, sizeof why)) app_light_touch(a);
+            if (light_track_set_brightness(&f, time_of(a), i, &b, why, sizeof why)) { app_light_touch(a); a->light.resort = 1; }
             else refused(a, why);
         }
     }
@@ -658,7 +659,7 @@ void tone_rows(App *a)
                 continue;
             }
             t.from = non_negative(v[0]), t.to = non_negative(v[1]), t.percent = non_negative(v[2]);
-            if (light_track_set_tone(&f, time_of(a), i, &t, why, sizeof why)) app_light_touch(a);
+            if (light_track_set_tone(&f, time_of(a), i, &t, why, sizeof why)) { app_light_touch(a); a->light.resort = 1; }
             else refused(a, why);
         }
     }
@@ -690,6 +691,18 @@ void bad_lines(const App *a)
 
 }   // namespace
 
+// the lists in the order of their first node, once the field being typed in is let go (a row that moves under the cursor would lose it)
+void put_in_order(App *a)
+{
+    if (!a->light.resort || ImGui::IsAnyItemActive()) return;
+    a->light.resort = 0;
+    LightTrack &f = file_of(a);
+    int moved = 0;
+    static const int KINDS[] = { LT_TUNNEL, LT_LAMP, LT_BRIGHTNESS, LT_TONE };
+    for (const int kind : KINDS) { const int n = light_track_sort(&f, time_of(a), kind); moved += n > 0 ? n : 0; }
+    if (moved > 0) app_light_touch(a);
+}
+
 void light_track_rows(App *a)
 {
     bad_lines(a);
@@ -707,4 +720,5 @@ void light_track_rows(App *a)
     ImGui::PushID("tone");
     tone_rows(a);
     ImGui::PopID();
+    put_in_order(a);
 }

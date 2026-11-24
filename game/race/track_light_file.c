@@ -1,4 +1,5 @@
 /* port: see track_light_file.h. */
+#include "formats/light_points.h"
 #include "game/race/track_light_file.h"
 #include "game/race/terrain_light.h"
 
@@ -104,6 +105,9 @@ static int lamp_strip_word(const char *word, const char **rest, uint16_t *mask)
     if (strcmp(word, "road") == 0) return *mask = 0x043, 1;
     unsigned a, b;
     char tail;
+    unsigned points = 0;
+    const int list = light_points_parse(word, &points);   /* `p1,p3,p7` */
+    if (list != 0) return *mask = (uint16_t)points, 1;
     if (word[0] != 'p' || sscanf(word + 1, "%u%c", &a, &tail) != 1) return 0;
     if (a > 10) return 1;
     char next[32];

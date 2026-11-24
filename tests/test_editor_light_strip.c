@@ -1,5 +1,6 @@
 /* The strip of a light line (editor/light_strip.h): the words of a file, the masks they make, the bar's cells. */
 #include "light_strip.h"
+#include "formats/light_points.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -39,15 +40,17 @@ static void text(void)
     CHECK(light_strip_text(0x00f, t, sizeof t) == 1 && strcmp(t, "p0 p3") == 0);
     CHECK(light_strip_text(0x7fe, t, sizeof t) == 1 && strcmp(t, "p1 p10") == 0);
     CHECK(light_strip_text(0, t, sizeof t) == 0 && t[0] == '\0');
-    CHECK(light_strip_text(0x00a, t, sizeof t) == 0 && t[0] == '\0');   // p1 and p3: a gap
+    CHECK(light_strip_text(0x00a, t, sizeof t) == 1 && strcmp(t, "p1,p3") == 0);   // p1 and p3: a gap, so the list
+    CHECK(light_strip_text(0x482, t, sizeof t) == 1 && strcmp(t, "p1,p7,p10") == 0);
+    CHECK(light_strip_text(0x7fd, t, sizeof t) == 1 && strcmp(t, "p0,p2,p3,p4,p5,p6,p7,p8,p9,p10") == 0 && strlen(t) < 48);   // the longest, fits the 48 the panel gives
     CHECK(light_strip_text(0x800, t, sizeof t) == 0);                    // a point past 10
     for (unsigned m = 1; m <= 0x7ff; m++) {   // what a line says comes back as the same mask
         unsigned back = 0;
         if (light_strip_text(m, t, sizeof t)) {
-            char a[16] = "", b[16] = "";
-            const int n = sscanf(t, "%15s %15s", a, b);
+            char a[48] = "", b[48] = "";
+            const int n = sscanf(t, "%47s %47s", a, b);
             const char *w[2] = { a, b };
-            CHECK(light_strip_parse(w, n, &back) == n && back == m);
+            CHECK(light_strip_parse(w, n, &back) == n && back == m);   // a list is one word
         }
     }
 }
@@ -56,15 +59,22 @@ static void bar(void)
 {
     CHECK(light_strip_cell_point(0) == 10 && light_strip_cell_point(4) == 6 && light_strip_cell_point(5) == 0 && light_strip_cell_point(6) == 1 && light_strip_cell_point(10) == 5);
     CHECK(light_strip_cell_point(-1) == -1 && light_strip_cell_point(11) == -1);
-    CHECK(light_strip_span(0, 10) == 0x7ff);
-    CHECK(light_strip_span(10, 0) == 0x7ff);            // either order
-    CHECK(light_strip_span(6, 10) == 0x03e);           // the right side
-    CHECK(light_strip_span(0, 4) == 0x7c0);            // the left side
-    CHECK(light_strip_span(4, 6) == LIGHT_STRIP_ROAD); // p6 p0 p1: the road
-    CHECK(light_strip_span(5, 5) == 1u);
-    char t[32];
-    CHECK(light_strip_text(light_strip_span(5, 8), t, sizeof t) == 1 && strcmp(t, "p0 p3") == 0);   // centre and the right's first three
-    CHECK(light_strip_text(light_strip_span(3, 5), t, sizeof t) == 0);                              // p7 p6 p0: points 0, 6, 7 skip p1..p5
+}
+
+static void list_word(void)
+{
+    unsigned m = 77;
+    CHECK(parse("p1,p3,p7", NULL, &m) == 1 && m == ((1u << 1) | (1u << 3) | (1u << 7)));
+    CHECK(parse("p10,p0", "70", &m) == 1 && m == ((1u << 10) | 1u));      // any order; the next word is the caller's
+    CHECK(parse("p4,p4", NULL, &m) == 1 && m == 1u << 4);
+    m = 77;
+    CHECK(parse("p1,p11", NULL, &m) == 0 && parse("p1,", NULL, &m) == 0 && parse("p1,,p3", NULL, &m) == 0 && parse("p1,3", NULL, &m) == 0 && parse("p1,p03", NULL, &m) == 0 && m == 77);
+    CHECK(light_points_parse("left", &m) == 0 && light_points_parse("p1", &m) == 0 && m == 77);   // no comma: not a list
+    CHECK(light_points_parse("p1,p3", &m) == 1 && light_points_parse("p1,x", &m) == -1);
+    char t[48];
+    CHECK(light_points_text(0x00a, t, sizeof t) == 1 && strcmp(t, "p1,p3") == 0);
+    CHECK(light_points_text(0, t, sizeof t) == 0 && t[0] == '\0');
+    CHECK(light_points_text(0x7ff, t, 8) == 0 && t[0] == '\0');   // too small a buffer
 }
 
 int main(void)
@@ -72,5 +82,6 @@ int main(void)
     words();
     text();
     bar();
+    list_word();
     return TEST_REPORT();
 }

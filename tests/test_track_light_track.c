@@ -105,6 +105,79 @@ static void test_a_lamps_strip(void)
     track_light_file_free(&f);
 }
 
+/* a strip that is a list of points (`p1,p3,p7`, any set, not a run): the masks, and only the marked points of a row take the line */
+static void test_a_list_strip_marks_only_its_points(void)
+{
+    static const char TEXT[] = "track CY1\ntime A\n  lamp 7 100 8 p2,p9\n  brightness 10 20 50 p1,p3,p7\n  tone 30 40 p0,p5,p9 ffe080:50\n  brightness 50 60 25 p10,p0\n";
+    TrackLightFile f;
+    CHECK(parse(TEXT, 'A', &f, NULL));
+    CHECK_EQ_INT(f.tweaks.lamps[0].mask, (1 << 2) | (1 << 9));
+    CHECK_EQ_INT(f.tweaks.lamps[0].radius, 8);
+    CHECK_EQ_INT(f.tweaks.brightness[0].mask, (1 << 1) | (1 << 3) | (1 << 7));
+    CHECK_EQ_INT(f.tweaks.brightness[1].mask, (1 << 10) | 1);   /* any order */
+    CHECK_EQ_INT(f.tweaks.tone_runs[0].mask, (1 << 0) | (1 << 5) | (1 << 9));
+    TrackNodeLight light = { 0 };
+    light.nodes = NODES;
+    light.data = malloc((size_t)NODES * TRACK_NODE_LIGHT_POINTS);
+    memset(light.data, 200, (size_t)NODES * TRACK_NODE_LIGHT_POINTS);
+    track_light_apply(&f.tweaks, &light, 0, 0);
+    for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
+        CHECK_EQ_INT(light.data[15 * TRACK_NODE_LIGHT_POINTS + p], p == 1 || p == 3 || p == 7 ? 100 : 200);
+        CHECK_EQ_INT(light.data[55 * TRACK_NODE_LIGHT_POINTS + p], p == 0 || p == 10 ? 50 : 200);
+    }
+    free(light.data);
+    track_light_file_free(&f);
+}
+
+/* Studio keeps the lists in the order of their first node (editor/light_track.c light_track_sort: tests/test_editor_light_track.c has the same texts and their sorted forms): the rows
+ * the game makes from the sorted file are the rows it makes from the file as it was, with the lines that share nodes and points left in their order */
+static void make_rows(const char *text, uint8_t *rows, uint8_t *tone_id, uint16_t *tone_mask)
+{
+    TrackLightFile f;
+    CHECK(parse(text, 'A', &f, NULL));
+    TrackNodeLight light = { 0 };
+    light.nodes = NODES;
+    light.data = malloc((size_t)NODES * TRACK_NODE_LIGHT_POINTS);
+    memset(light.data, 200, (size_t)NODES * TRACK_NODE_LIGHT_POINTS);
+    track_light_apply(&f.tweaks, &light, 0, 0);
+    memcpy(rows, light.data, (size_t)NODES * TRACK_NODE_LIGHT_POINTS);
+    memset(tone_id, 0, (size_t)NODES * 4), memset(tone_mask, 0, NODES * sizeof *tone_mask);   /* the tones' numbers follow the order they are met in: compare their colours */
+    if (light.tone_id != NULL)
+        for (int n = 0; n < NODES; n++) {
+            if (light.tone_id[n] == 0) continue;
+            const TrackNodeLightTone *t = &light.tone[light.tone_id[n] - 1];
+            tone_id[4 * n] = t->rgb[0], tone_id[4 * n + 1] = t->rgb[1], tone_id[4 * n + 2] = t->rgb[2], tone_id[4 * n + 3] = t->percent;
+            tone_mask[n] = light.tone_mask[n];
+        }
+    free(light.data), free(light.tone_id), free(light.tone_mask);
+    track_light_file_free(&f);
+}
+
+static void test_the_sorted_lists_make_the_same_rows(void)
+{
+    static const struct { const char *in, *out; } CASES[] = {
+        { "track CY1\ntime A\n  brightness 600 800 70\n  brightness 595 599 80\n", "track CY1\ntime A\n  brightness 595 599 80\n  brightness 600 800 70\n" },
+        { "track CY1\ntime A\n  tone 600 800 ffe080:50\n  tone 595 599 ff0000:40\n", "track CY1\ntime A\n  tone 595 599 ff0000:40\n  tone 600 800 ffe080:50\n" },
+        { "track CY1\ntime A\n  brightness 600 800 70 left\n  brightness 595 650 80 right\n", "track CY1\ntime A\n  brightness 595 650 80 right\n  brightness 600 800 70 left\n" },
+        { "track CY1\ntime A\n  tone 600 800 p0,p3 ffe080:50\n  tone 595 650 p1,p5 ff0000:40\n", "track CY1\ntime A\n  tone 600 800 p0,p3 ffe080:50\n  tone 595 650 p1,p5 ff0000:40\n" },   /* a node has one tone: the last line's, whatever its points */
+        { "track CY1\ntime A\n  brightness 600 800 70\n  tone 10 20 ffe080:50\n  brightness 5 9 80\n", "track CY1\ntime A\n  brightness 5 9 80\n  tone 10 20 ffe080:50\n  brightness 600 800 70\n" },
+        { "track CY1\ntime A\n  brightness 700 710 70\n  brightness 600 800 80\n  brightness 10 20 90\n", "track CY1\ntime A\n  brightness 10 20 90\n  brightness 700 710 70\n  brightness 600 800 80\n" },
+        { "track CY1\ntime A\n  brightness 600 800 77\n  brightness 595 650 83\n", "track CY1\ntime A\n  brightness 600 800 77\n  brightness 595 650 83\n" },
+    };
+    uint8_t *a = malloc((size_t)NODES * TRACK_NODE_LIGHT_POINTS), *b = malloc((size_t)NODES * TRACK_NODE_LIGHT_POINTS), *ia = malloc((size_t)NODES * 4), *ib = malloc((size_t)NODES * 4);
+    uint16_t *ma = malloc(NODES * sizeof *ma), *mb = malloc(NODES * sizeof *mb);
+    for (size_t c = 0; c < sizeof CASES / sizeof CASES[0]; c++) {
+        make_rows(CASES[c].in, a, ia, ma), make_rows(CASES[c].out, b, ib, mb);
+        CHECK(memcmp(a, b, (size_t)NODES * TRACK_NODE_LIGHT_POINTS) == 0);
+        CHECK(memcmp(ia, ib, (size_t)NODES * 4) == 0 && memcmp(ma, mb, NODES * sizeof *ma) == 0);
+    }
+    /* what the rule saves: two tones that share nodes give other tones in the other order, so Studio leaves them */
+    make_rows("track CY1\ntime A\n  tone 600 800 p0,p3 ffe080:50\n  tone 595 650 p1,p5 ff0000:40\n", a, ia, ma);
+    make_rows("track CY1\ntime A\n  tone 595 650 p1,p5 ff0000:40\n  tone 600 800 p0,p3 ffe080:50\n", b, ib, mb);
+    CHECK(memcmp(ia, ib, (size_t)NODES * 4) != 0);
+    free(a), free(b), free(ia), free(ib), free(ma), free(mb);
+}
+
 static void test_the_night_block(void)
 {
     TrackLightFile f;
@@ -167,6 +240,13 @@ static void test_bad_lines(void)
         { "track CY1\ntime A\n  brightness 1 2 50 shade\n", 3 },                       /* no `shade` */
         { "track CY1\ntime A\n  brightness 1 2 50 p5 p3\n", 3 },                       /* a strip backwards */
         { "track CY1\ntime A\n  brightness 1 2 50 p11\n", 3 },                         /* a point out of the row */
+        { "track CY1\ntime A\n  brightness 1 2 50 p1,p11\n", 3 },                     /* a list with a point out of the row */
+        { "track CY1\ntime A\n  brightness 1 2 50 p1,,p3\n", 3 },                     /* an empty item */
+        { "track CY1\ntime A\n  brightness 1 2 50 p1,3\n", 3 },                       /* an item with no p */
+        { "track CY1\ntime A\n  brightness 1 2 50 p1,p3,\n", 3 },                     /* a comma at the end */
+        { "track CY1\ntime A\n  tone 1 2 p1,x ffe080:50\n", 3 },                      /* a bad list in a tone */
+        { "track CY1\ntime A\n  lamp 5 100 p3,p\n", 3 },                             /* a bad list in a lamp */
+        { "track CY1\ntime A\n  lamp 5 100 p3,p4 right\n", 3 },                      /* one strip a lamp */
         { "track CY1\ntime A\n  lamp 5 100 p5 p3\n", 3 },                              /* a lamp's strip backwards */
         { "track CY1\ntime A\n  lamp 5 100 p11\n", 3 },                                /* a point out of the row */
         { "track CY1\ntime A\n  lamp 5 100 left right\n", 3 },                         /* one strip a lamp */
@@ -316,6 +396,8 @@ int main(void)
     test_the_night_block();
     test_a_lamps_strip();
     test_a_brightness_strip_scales_its_points();
+    test_a_list_strip_marks_only_its_points();
+    test_the_sorted_lists_make_the_same_rows();
     test_a_time_without_a_block_and_another_track();
     test_bad_lines();
     test_the_sun_is_finite();

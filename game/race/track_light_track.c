@@ -1,4 +1,5 @@
 /* port: see track_light_track.h. */
+#include "formats/light_points.h"
 #include "game/race/track_light_track.h"
 
 #include <ctype.h>
@@ -44,7 +45,7 @@ static int point(const char *word, unsigned *p)
     return word[0] == 'p' && number(word + 1, p) && *p < TRACK_NODE_LIGHT_POINTS;
 }
 
-/* STRIP at `*at`, if there is one: its points in `mask` (every point when there is none). 0 for a malformed strip (`pA pB` with B before A). */
+/* STRIP at `*at`, if there is one: its points in `mask` (every point when there is none). 0 for a malformed strip (`pA pB` with B before A, a bad `p1,p3` list). */
 static int strip(const char **at, unsigned *mask)
 {
     const char *save = *at;
@@ -56,6 +57,8 @@ static int strip(const char **at, unsigned *mask)
     if (strcmp(word, "left") == 0) return *mask = 0x7c0u, 1;
     if (strcmp(word, "right") == 0) return *mask = 0x03eu, 1;
     if (strcmp(word, "road") == 0) return *mask = (1u << 0) | (1u << 1) | (1u << 6), 1;
+    const int list = light_points_parse(word, mask);   /* `p1,p3,p7`: any points, one word */
+    if (list != 0) return list > 0;
     if (!point(word, &a)) return *at = save, 1;   /* not a strip: what follows is the next part of the line */
     const char *after = *at;
     if (next_word(at, word, sizeof word) && point(word, &b)) {

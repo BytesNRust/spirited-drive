@@ -85,6 +85,7 @@ add_library(tnfs_core STATIC
     core/formats/mesh_exchange.c
     core/formats/modpath.c
     core/formats/mod_check.c
+    core/formats/light_points.c
     core/formats/mod_ini.c
     core/formats/edition_ini.c
     core/formats/stock_content.c
@@ -1150,7 +1151,8 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_compile_options(test_track_light_parity PRIVATE ${TNFS_WARNINGS})
     add_test(NAME track_light_parity COMMAND test_track_light_parity)
     add_executable(test_editor_light_strip tests/test_editor_light_strip.c editor/light_strip.c)   # the strip of a light line (the panel's 10-strip bar): words, masks, the bar's cells
-    target_include_directories(test_editor_light_strip PRIVATE editor tests)
+    target_include_directories(test_editor_light_strip PRIVATE editor tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(test_editor_light_strip PRIVATE tnfs_core)   # light_strip.c reads the point list through core/formats/light_points.c
     target_compile_options(test_editor_light_strip PRIVATE ${TNFS_WARNINGS})
     add_test(NAME editor_light_strip COMMAND test_editor_light_strip)
     add_executable(make_fake_tri tests/make_fake_tri.c)   # a synthetic TRI for the shell tests of the Track light window (the Studio reads the node count from the track's TRI)
