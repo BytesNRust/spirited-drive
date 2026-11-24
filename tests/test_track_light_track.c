@@ -400,6 +400,42 @@ static double look_percent(const TrackNodeLight *light, uint32_t node)
     return percent;
 }
 
+/* the colour of a tunnel's gradient steps: each step is the TUNNEL's colour (its own, else the time's, never the default row's once the tunnel has one) faded toward the open road by the step's blend, 25, 50, 75 % (gradient 3) or 33, 66 % (gradient 2; whole percents), the same at both mouths */
+static void check_cast(const TrackNodeLight *light, uint32_t node, float blend, const float full[3])
+{
+    double percent;
+    float cast[3];
+    CHECK(track_node_light_zone_look_blend(light, node, 1.0f, &percent, cast));
+    for (int k = 0; k < 3; k++) CHECK(cast[k] > 1.0f + (full[k] - 1.0f) * blend - 0.01f && cast[k] < 1.0f + (full[k] - 1.0f) * blend + 0.01f);
+}
+
+static void test_gradient_steps_carry_the_tunnels_colour(void)
+{
+    static const char TEXT[] =
+        "track CY1\n"
+        "tunnel 100 140\n"             /* the time's colour */
+        "tunnel 300 340 gradient 2\n"  /* its own colour */
+        "time B\n"
+        "  tunnel_look 80 0000ff\n"
+        "  tunnel_look 300 340 50 ff0000\n";
+    TrackLightFile file;
+    int bad = -1;
+    CHECK(parse(TEXT, 'B', &file, &bad));
+    track_light_apply(&file.tweaks, &file.light, 0, 0);
+    static const float BLUE[3] = { 0.0f, 0.0f, 1.0f }, RED[3] = { 1.0f, 0.0f, 0.0f };
+    for (uint32_t d = 0; d < 3; d++) {
+        check_cast(&file.light, 100 + d, (float)(d + 1) / 4.0f, BLUE);
+        check_cast(&file.light, 140 - d, (float)(d + 1) / 4.0f, BLUE);
+    }
+    check_cast(&file.light, 103, 1.0f, BLUE);   /* inside: the whole colour */
+    for (uint32_t d = 0; d < 2; d++) {
+        check_cast(&file.light, 300 + d, (float)(d + 1) / 3.0f, RED);
+        check_cast(&file.light, 340 - d, (float)(d + 1) / 3.0f, RED);
+    }
+    check_cast(&file.light, 302, 1.0f, RED);
+    track_light_file_free(&file);
+}
+
 static void test_a_tunnel_mouth_gradient(void)
 {
     static const char TEXT[] =
@@ -463,6 +499,7 @@ static void test_a_tunnel_mouth_gradient(void)
 int main(void)
 {
     test_a_tunnel_mouth_gradient();
+    test_gradient_steps_carry_the_tunnels_colour();
     test_the_facts_and_a_time();
     test_the_night_block();
     test_a_lamps_strip();

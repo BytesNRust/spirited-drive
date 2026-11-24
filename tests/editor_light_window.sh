@@ -207,6 +207,26 @@ grep -q '^tunnel 12 20 gradient 8$' "$f" || fail "a Gradient past 8 was not held
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 \
     --steps ui-click:tunnel0_from,ui-click:tunnel0_kind,ui-click:tunnel0_kind_hall,ui-click:save,light-print > "$work/tkind" 2>&1 || fail "the clicked Kind combo: $(tail -3 "$work/tkind")"
 grep -q '^tunnel 12 20 lit' "$f" || fail "the Kind combo's hall is not in the saved file: $(grep '^tunnel' "$f")"
+# the Colour column: a tunnel with no colour of its own shows the default row's (here written r/g/b, which a six-digit reading would turn white) and says so; a colour of its own has an x that gives it back
+mkdir -p "$work/light2/track_light"
+cat > "$work/light2/track_light/AL1.txt" <<'TXT'
+# tnfs track light 2
+track AL1
+tunnel 10 20
+tunnel 60 71
+
+time B
+  sun 150 50 55
+  tunnel_look 100 1/0.8/0.15
+  tunnel_look 60 71 90 336699
+TXT
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light2" --ask light --window 1280x800 --frames 80 \
+    --steps print-tunnels,ui-click:time_B,ui-click:show_colour,ui-click:tunnel1_day_x,print-tunnels,ui-click:save,light-print > "$work/tcol" 2>&1 || fail "the Colour column flow: $(tail -3 "$work/tcol")"
+grep -q '^tunnel 1: 60-71 own: light 90 lamps - 0 reach - 0 colour 336699' "$work/tcol" || fail "the tunnel's own colour is not listed before the x: $(grep '^tunnel ' "$work/tcol")"
+grep -q '^tunnel 1: 60-71 own: light 90 lamps - 0 reach - 0 colour -$' "$work/tcol" || fail "the x did not give the tunnel back the default colour: $(grep '^tunnel ' "$work/tcol")"
+grep -q '^default: light 100 lamps - 0 reach - 0 colour 1/0.8/0.15' "$work/tcol" || fail "the default row's r/g/b colour is not kept: $(grep '^default' "$work/tcol")"
+grep -q '^  tunnel_look 60 71 90$' "$work/light2/track_light/AL1.txt" || fail "Save did not write the tunnel's look without its colour: $(cat "$work/light2/track_light/AL1.txt")"
+grep -q '^  tunnel_look 100 1/0.8/0.15$' "$work/light2/track_light/AL1.txt" || fail "the default row's colour changed: $(cat "$work/light2/track_light/AL1.txt")"
 # a tunnel moved takes its looks of the four moments with it, and Remove takes the tunnel and its four looks: From 12 typed as 14 (the hall's looks at Dawn..Night follow), then the second tunnel removed
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 \
     --steps ui-click:tunnel0_from,ui-text:14,key:Return,ui-click:tunnel1_remove,ui-click:save,light-print > "$work/tmove" 2>&1 || fail "the tunnel move and Remove flow: $(tail -3 "$work/tmove")"

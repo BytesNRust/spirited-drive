@@ -219,7 +219,8 @@ void put_look(App *a, int time, int index, const LightTrackLook &v)
 }
 
 // a cell of the Tunnels table: the look's value `which` (0 Light %, 1 Lamps %, 2 Reach, 3 Colour) at one time; true when it changed. A hall takes no Light % or Colour.
-bool value_cell(LightTrackLook &v, int which, bool hall, bool open_time)
+// `inherited`: the colour a look with none of its own shows (the default row's at this time, as factors; white when it has none either); `xname` names the reset button for the tests
+bool value_cell(LightTrackLook &v, int which, bool hall, bool open_time, const float inherited[3], const char *xname)
 {
     if (open_time) ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(60, 90, 140, 80));
     if (hall && (which == 0 || which == 3)) {
@@ -230,9 +231,24 @@ bool value_cell(LightTrackLook &v, int which, bool hall, bool open_time)
     if (which == 1) return optional_number("##value", &v.has_lamps, &v.lamps, "%g", -FLT_MIN);
     if (which == 2) return optional_number("##value", &v.has_reach, &v.reach, "%g", -FLT_MIN);
     bool changed = false;
-    char hex[8] = "ffffff";
-    if (v.has_colour && strlen(v.colour) >= 6) snprintf(hex, sizeof hex, "%.6s", v.colour);
-    if (swatch("##value", hex, sizeof hex)) v.has_colour = 1, snprintf(v.colour, sizeof v.colour, "%s", hex), changed = true;
+    float rgb[3] = { inherited[0], inherited[1], inherited[2] };
+    if (v.has_colour) light_track_colour_rgb(v.colour, rgb);   // its own, whatever form the file wrote (RRGGBB or r/g/b, with a strength)
+    if (ImGui::ColorEdit3("##value", rgb, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_PickerHueWheel)) {
+        char hex[8];
+        rgb_to_hex(rgb, hex, sizeof hex);
+        v.has_colour = 1, snprintf(v.colour, sizeof v.colour, "%s", hex), changed = true;
+    }
+    if (!v.has_colour && ImGui::IsItemHovered()) {
+        char hex[8];
+        rgb_to_hex(inherited, hex, sizeof hex);
+        ImGui::SetTooltip("Default colour (%s): this tunnel takes the default row's. Pick one to give it its own.", hex);
+    }
+    if (v.has_colour) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("x")) v.has_colour = 0, changed = true;
+        ui_probe(xname);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Back to the default colour");
+    }
     return changed;
 }
 
@@ -241,7 +257,16 @@ bool value_cell(LightTrackLook &v, int which, bool hall, bool open_time)
 void value_cells(App *a, const int look[LT_TIMES], bool nodes, unsigned from, unsigned to, bool hall, int first_column)
 {
     static const char *const CELL[LT_TIMES] = { "dawn", "day", "dusk", "night" };
+    static const char *const XCELL[LT_TIMES] = { "dawn_x", "day_x", "dusk_x", "night_x" };
     LightTrack &f = file_of(a);
+    float inherited[LT_TIMES][3];   // the default row's colour of each moment: what a tunnel with none of its own looks like
+    int dflt[LT_TIMES];
+    light_track_default_looks(&f, dflt);
+    for (int t = 0; t < LT_TIMES; ++t) {
+        LightTrackLook d;
+        inherited[t][0] = inherited[t][1] = inherited[t][2] = 1.0f;
+        if (nodes && dflt[t] >= 0 && light_track_get_look(&f, t, dflt[t], &d) && d.has_colour) light_track_colour_rgb(d.colour, inherited[t]);
+    }
     for (int t = 0; t < LT_TIMES; ++t) {
         LightTrackLook v;
         memset(&v, 0, sizeof v);
@@ -249,7 +274,7 @@ void value_cells(App *a, const int look[LT_TIMES], bool nodes, unsigned from, un
         else if (nodes) v.has_nodes = 1, v.from = from, v.to = to;
         ImGui::TableSetColumnIndex(first_column + t);
         ImGui::PushID(t);
-        const bool changed = value_cell(v, a->light.tunnel_show, hall, t == time_of(a));
+        const bool changed = value_cell(v, a->light.tunnel_show, hall, t == time_of(a), inherited[t], XCELL[t]);
         ui_probe(CELL[t]);
         ImGui::PopID();
         if (changed) put_look(a, t, look[t], v);

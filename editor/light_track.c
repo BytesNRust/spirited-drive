@@ -376,6 +376,8 @@ static int cast_of(const char *token, float cast[3])
     return 1;
 }
 
+int light_track_colour_rgb(const char *text, float rgb[3]) { return cast_of(text, rgb); }
+
 // the end of a time's block: the zones' slots after the tones' (`tones` distinct ones); the line of the first zone that does not fit is marked
 static void zone_slots(LightTrack *f, int tones, const ZoneLook *zl, int zn, int has_light, double base_light, int has_colour, const float base_cast[3])
 {

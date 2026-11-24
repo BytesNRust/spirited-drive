@@ -101,6 +101,8 @@ int light_track_get_tunnel(const LightTrack *f, int i, LightTrackTunnel *out);
 int light_track_get_snow(const LightTrack *f, int *on);
 int light_track_get_sun(const LightTrack *f, int time, LightTrackSun *out);
 int light_track_get_look(const LightTrack *f, int time, int i, LightTrackLook *out);
+/* a look's colour text (RRGGBB or r/g/b, then :strength) as the factors on each channel the game applies; 0 when it is neither */
+int light_track_colour_rgb(const char *text, float rgb[3]);
 int light_track_get_lamp(const LightTrack *f, int time, int i, LightTrackLamp *out);
 int light_track_get_brightness(const LightTrack *f, int time, int i, LightTrackBrightness *out);
 int light_track_get_tone(const LightTrack *f, int time, int i, LightTrackTone *out);
