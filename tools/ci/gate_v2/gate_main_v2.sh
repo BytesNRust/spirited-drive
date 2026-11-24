@@ -142,6 +142,6 @@ echo "apple_universal: now in GitHub CI (check the branch: gh run list -R BytesN
 if (( DRY )); then echo "+ verdict OK | verdict FAIL: <what failed>"
 elif (( $#FAILS )); then echo "verdict FAIL: ${(j:, :)FAILS}"
 else echo "verdict OK (scope $SCOPE)"; fi
-(( CCACHE )) && heavy "nix develop -c ccache -s | grep -E '^ *(Hits|Misses):' | tr -s ' ' | tr '\n' ' ' | sed 's/^/ccache/'; echo"
+(( CCACHE )) && heavy "nix develop -c ccache -s | grep -E '^ *(Hits|Misses):' | head -2 | tr -s ' ' | tr '\n' ' ' | sed 's/^/ccache/'; echo"
 echo "times$TIMES"
 (( $#FAILS == 0 ))
