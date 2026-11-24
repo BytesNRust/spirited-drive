@@ -97,6 +97,7 @@ for label, p in (
     ("a compile option", patch_of("target_compile_options(test_new PRIVATE -O2)")),
     ("an add_executable that is not a test", patch_of("add_executable(tnfs2 game/main.c)")),
     ("an if that is not TARGET", patch_of("if(APPLE)", "endif()")),
+    ("a new test target with its target_link_libraries on another line", patch_of("add_executable(test_new tests/test_new.c)", "target_link_libraries(test_new PRIVATE tnfs_game)", "add_test(NAME new COMMAND test_new)")),
     ("a test line then another line", patch_of("add_test(NAME x COMMAND y)", "set(A 1)")),
 ):
     r = run(["CMakeLists.txt"], patch=p)

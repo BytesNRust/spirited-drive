@@ -2535,6 +2535,18 @@ if(NOT EMSCRIPTEN)
     endif()
 endif()
 
+
+# the gate v2 (tools/ci/gate_v2): the test selection on synthetic diffs, and the scripts run on a scratch repo with fake nix, cmake, ctest and ccache
+find_program(TNFS_ZSH zsh)
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_FOUND)
+    add_test(NAME gate_select COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/gate_select_test.py ${CMAKE_SOURCE_DIR})
+    if(TNFS_ZSH)
+        add_test(NAME gate_v2_flow COMMAND ${TNFS_ZSH} ${CMAKE_SOURCE_DIR}/tests/gate_v2_flow.sh ${CMAKE_SOURCE_DIR})
+        set_tests_properties(gate_v2_flow PROPERTIES TIMEOUT 600)
+    endif()
+endif()
+
 include(fuzz/fuzz.cmake)
 
 # port: every test, whenever it was registered above, gets a scratch pref dir, so a test that starts tnfs with no --user (or forgets one) writes in the build, never in the player's own
@@ -2710,13 +2722,4 @@ endforeach()
 if(tnfs_unlabeled)
     list(JOIN tnfs_unlabeled " " tnfs_unlabeled_text)
     message(STATUS "ctest labels: no layer for: ${tnfs_unlabeled_text}")
-# the gate v2 (tools/ci/gate_v2): the test selection on synthetic diffs, and the scripts run on a scratch repo with fake nix, cmake, ctest and ccache
-find_program(TNFS_ZSH zsh)
-find_package(Python3 COMPONENTS Interpreter)
-if(Python3_FOUND)
-    add_test(NAME gate_select COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/gate_select_test.py ${CMAKE_SOURCE_DIR})
-    if(TNFS_ZSH)
-        add_test(NAME gate_v2_flow COMMAND ${TNFS_ZSH} ${CMAKE_SOURCE_DIR}/tests/gate_v2_flow.sh ${CMAKE_SOURCE_DIR})
-        set_tests_properties(gate_v2_flow PROPERTIES TIMEOUT 600)
-    endif()
 endif()
