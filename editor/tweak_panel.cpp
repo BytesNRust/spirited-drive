@@ -96,24 +96,57 @@ void own_popup(App *a)
         ImGui::EndPopup();
         return;
     }
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 520.0f);
-    ImGui::TextUnformatted("These files are not the game's own any more in the repo, and the tweak has another version of each:");
-    ImGui::PopTextWrapPos();
+    ImGui::TextUnformatted("Files the repo has changed itself");
+    ImGui::SameLine();
+    help_marker("These files are not the game's own any more in the repo, and the tweak has another version of each.");
     if (ImGui::BeginChild("##own", ImVec2(520.0f, 150.0f), ImGuiChildFlags_Borders)) {
         for (int i = 0; i < a->tweak_st.count; ++i)
             if (a->tweak_st.item[i].own) ImGui::TextUnformatted(a->tweak_st.item[i].file);
     }
     ImGui::EndChild();
-    ImGui::TextDisabled("Replace writes the tweak's over them; Skip leaves them and applies the rest.");
     if (ImGui::Button("Replace")) app_tweak_apply_answer(a, 1);
     ui_probe("tweak_replace");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Write the tweak's over them");
     ImGui::SameLine();
     if (ImGui::Button("Skip")) app_tweak_apply_answer(a, 0);
     ui_probe("tweak_skip");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Leave them and apply the rest");
     ImGui::SameLine();
     if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->tweak_own_dialog = 0;
     ui_probe("tweak_cancel");
     if (!a->tweak_own_dialog) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
+}
+
+// Apply to game repo: what it writes into the repo's data/, with Apply and Cancel (nothing is written before)
+void confirm_popup(App *a)
+{
+    static const char *const NAME = "Apply to game repo";
+    if (a->tweak_confirm_dialog && !ImGui::IsPopupOpen(NAME)) ImGui::OpenPopup(NAME);
+    if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    if (!a->tweak_confirm_dialog) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    ImGui::TextDisabled("%s", app_repo_data(a));
+    if (ImGui::BeginChild("##confirmlist", ImVec2(560.0f, 220.0f), ImGuiChildFlags_Borders)) {
+        int shown = 0;
+        for (int i = 0; i < a->tweak_st.count; ++i) {
+            const TweakFile &f = a->tweak_st.item[i];
+            if (f.state == TWEAK_SAME) continue;
+            ImGui::Text("%s  %s%s%s", f.file, state_word(f), f.note[0] != '\0' ? "  " : "", f.note);
+            ++shown;
+        }
+        if (shown == 0) ImGui::TextDisabled("Nothing to write: the repo has all of it.");
+    }
+    ImGui::EndChild();
+    if (ImGui::Button("Apply")) app_tweak_apply_confirmed(a);
+    ui_probe("tweak_confirm");
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->tweak_confirm_dialog = 0;
+    ui_probe("tweak_confirm_cancel");
+    if (!a->tweak_confirm_dialog) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
 
@@ -123,7 +156,9 @@ void tweak_panel(App *a)
 {
     if (ImGui::Begin(PANEL_TWEAK)) {
         if (!app_tweak_active(a)) {
-            ImGui::TextDisabled("A tweak is of one of the game's own cars or tracks.");
+            ImGui::TextDisabled("No tweak here");
+            ImGui::SameLine();
+            help_marker("A tweak is of one of the game's own cars or tracks.");
         } else {
             // the tweak is made again from the project when it first shows, when the masks changed under it, and by Check and Apply: no disk work per frame
             const unsigned stamp = a->kind == APP_KIND_CAR ? a->mask.generation : a->tmask_serial;
@@ -139,6 +174,7 @@ void tweak_panel(App *a)
             ImGui::SetWindowFontScale(1.0f);
             ImGui::SameLine();
             help_marker("The tweak is this car's or track's folder in the workspace's tweaks/. It holds what differs from the game, in the game's own paths: copying its car_masks, dash_masks, track_light and track_masks folders over the repo's data/ is the same as Apply.\n"
+                        "Opening one of the game's own cars or tracks makes this folder (and makes it again when its masks change); nothing else of your workspace is touched.\n"
                         "The colors are the exception: they go into the car's row of core/formats/car_paint.c, and only Apply writes them.\nApply never commits; it asks for the game repo's folder the first time and remembers it.");
             char dir[APP_PATH];
             snprintf(dir, sizeof dir, "%s/tweaks/%s", a->workspace, a->tweak_id);
@@ -153,7 +189,7 @@ void tweak_panel(App *a)
             ui_probe("tweak_check");
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make the tweak again from the project and look for what is wrong with it (no game needed)");
             ImGui::SameLine();
-            if (ImGui::Button("Apply to game repo...")) app_tweak_apply_open(a, 1);
+            if (ImGui::Button("Apply to game repo...")) app_tweak_apply_open(a);
             ui_probe("tweak_apply");
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", app_repo_data(a)[0] == '\0' ? "Asks for the game repo's folder, once" : "Write the changed files into the game repo's data/ (and the colors into core/formats/car_paint.c); nothing is committed");
             if (!a->tweak_st_ok) {
@@ -180,6 +216,7 @@ void tweak_panel(App *a)
                 ImGui::EndChild();
                 ImGui::TextUnformatted(a->tweak_st.summary);
             }
+            confirm_popup(a);
             own_popup(a);
         }
     }

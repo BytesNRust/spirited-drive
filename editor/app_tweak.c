@@ -143,6 +143,7 @@ int app_tweak_refresh(App *a)
     char id[64], dir[APP_PATH];
     a->tweak_st_ok = 0;
     a->tweak_why[0] = '\0';
+    a->tweak_seen = a->tmask_serial;   /* also when it fails: the panel does not try again every frame */
     if (!open_id(a, id, sizeof id)) return snprintf(a->tweak_why, sizeof a->tweak_why, "only one of the game's own cars or tracks has a tweak"), 0;
     char said[APP_MSG];
     snprintf(said, sizeof said, "%s", a->status);   /* making the tweak again is the panel's own work: what the status said stays */
@@ -227,14 +228,22 @@ static int apply_now(App *a)
     return 1;
 }
 
-int app_tweak_apply_open(App *a, int ask)
+int app_tweak_apply_open(App *a)
 {
     if (app_repo_data(a)[0] == '\0') {   /* the first time: the repo's folder is asked for, here and only here, and kept */
         app_repo_data_pick(a);
         return snprintf(a->status, sizeof a->status, "choose the game repo's folder, then Apply again"), 0;
     }
     if (!app_tweak_refresh(a)) return snprintf(a->status, sizeof a->status, "apply to game repo: %s", a->tweak_why), 0;
-    if (a->tweak_st.own > 0 && ask) return a->tweak_own_dialog = 1, 0;
+    a->tweak_confirm_dialog = 1;   /* what it writes is listed first, as Copy to game repo did: nothing is written before the answer */
+    return 0;
+}
+
+int app_tweak_apply_confirmed(App *a)
+{
+    a->tweak_confirm_dialog = 0;
+    if (!app_tweak_refresh(a)) return snprintf(a->status, sizeof a->status, "apply to game repo: %s", a->tweak_why), 0;
+    if (a->tweak_st.own > 0) return a->tweak_own_dialog = 1, 0;
     return apply_now(a);
 }
 

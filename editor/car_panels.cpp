@@ -154,7 +154,8 @@ void start_screen(App *a)
             ImGui::SetWindowFontScale(1.25f);
             ImGui::TextUnformatted("Edit car mod");
             ImGui::SetWindowFontScale(1.0f);
-            muted_wrapped("your own car");
+            ImGui::SameLine();
+            help_marker("A car of your own: a new one, or one you open.");
             ImGui::BeginDisabled(a->workspace[0] == '\0');
             if (ImGui::Button("New car...", ImVec2(third, 0))) app_ask(a, APP_ACT_NEW_CAR, "");
             ImGui::EndDisabled();
@@ -165,7 +166,8 @@ void start_screen(App *a)
             ImGui::SetWindowFontScale(1.25f);
             ImGui::TextUnformatted("Edit track mod");
             ImGui::SetWindowFontScale(1.0f);
-            muted_wrapped("your own track");
+            ImGui::SameLine();
+            help_marker("A track of your own: a new one, or one you open.");
             if (ImGui::Button("New track...", ImVec2(third, 0))) app_ask(a, APP_ACT_NEW, "");
             if (ImGui::Button("Open track...", ImVec2(third, 0))) app_ask(a, APP_ACT_OPEN, "");
             ImGui::BeginDisabled(a->workspace[0] == '\0');
@@ -177,7 +179,8 @@ void start_screen(App *a)
             ImGui::SetWindowFontScale(1.25f);
             ImGui::TextUnformatted("Edit tweak");
             ImGui::SetWindowFontScale(1.0f);
-            muted_wrapped("the game's own cars and tracks");
+            ImGui::SameLine();
+            help_marker("The game's own cars and tracks: change their masks, colors and light.");
             if (ImGui::Button("Edit tweak...", ImVec2(third, 0))) {
                 a->tweak_list = 1;
                 a->tweak_pick = -1;

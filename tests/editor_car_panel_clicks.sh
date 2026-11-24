@@ -18,7 +18,7 @@ changed_lines() { diff "$table" "$repo_src/core/formats/car_paint.c" | grep -c '
 
 # the NSX: the third colour's name edited by keyboard and text, Save, Apply to game repo
 make_kit ANSX "Berlina Black:0e0e10,Grand Prix White:f1f1ee,Formula Red:b3121e,Citrous Yellow Metallic:e6d94a"
-clicked "$kit" --port-data "$repo/data" --steps ui-at:colour2_name,0.98,key:BackSpace,key:BackSpace,key:BackSpace,ui-text:Ink,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,status > "$work/log" 2>&1 || fail "ANSX clicks: $(cat "$work/log")"
+clicked "$kit" --port-data "$repo/data" --steps ui-at:colour2_name,0.98,key:BackSpace,key:BackSpace,key:BackSpace,ui-text:Ink,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm,status > "$work/log" 2>&1 || fail "ANSX clicks: $(cat "$work/log")"
 grep -q "^paints: Berlina Black #0e0e10 Grand Prix White #f1f1ee Formula Ink #b3121e Citrous Yellow Metallic #e6d94a$" "$work/log" || fail "ANSX: the name typed into the box is not in the card: $(grep '^paints' "$work/log")"
 grep -q "^name=\|paints=.*Formula Ink:b3121e" "$kit/mod.ini" || fail "ANSX: Save did not write the new name: $(cat "$kit/mod.ini")"
 grep -q '{ "Formula Ink", { 179, 18, 30 } }' "$table" || fail "ANSX: Apply to game repo did not put the new name in the table: $(diff "$table" "$repo_src/core/formats/car_paint.c")"
@@ -31,12 +31,12 @@ grep '^paints' "$work/log" | tail -1 | grep -q "^paints: Berlina Black #0e0e10 G
 
 # the Diablo: two colours; Add color makes a third, named and cleared by the keyboard, Save, Copy: the row has three colours
 make_kit LDIABL "Rosso Diablo:b3121e,30th Anniversary Lavende:9878c8"
-clicked "$kit" --port-data "$repo/data" --steps ui-click:add_color,ui-at:colour2_name,0.98,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,ui-text:Nero,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,status > "$work/log" 2>&1 || fail "LDIABL clicks: $(cat "$work/log")"
+clicked "$kit" --port-data "$repo/data" --steps ui-click:add_color,ui-at:colour2_name,0.98,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,ui-text:Nero,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm,status > "$work/log" 2>&1 || fail "LDIABL clicks: $(cat "$work/log")"
 grep -q "^paints: Rosso Diablo #b3121e 30th Anniversary Lavende #9878c8 Nero #808080$" "$work/log" || fail "LDIABL: Add color and the typed name are not in the card: $(grep '^paints' "$work/log")"
 grep -A2 "\"LDiabl\"" "$table" | grep -q "{ \"Nero\", { 128, 128, 128 } }" || fail "LDIABL: the third colour is not in the table's row: $(diff "$table" "$repo_src/core/formats/car_paint.c")"
 grep -q '"30th Anniversary Lavender"' "$table" || fail "LDIABL: the game's full name was cut in the table"
 # Remove on the third colour: back to two, the row is the game's own again (nothing left to copy)
-clicked "$kit" --port-data "$repo/data" --steps ui-click:colour2_remove,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,status > "$work/log" 2>&1 || fail "LDIABL remove: $(cat "$work/log")"
+clicked "$kit" --port-data "$repo/data" --steps ui-click:colour2_remove,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm,status > "$work/log" 2>&1 || fail "LDIABL remove: $(cat "$work/log")"
 grep -q "^paints: Rosso Diablo #b3121e 30th Anniversary Lavende #9878c8$" "$work/log" || fail "LDIABL: Remove did not take the third colour away: $(grep '^paints' "$work/log")"
 grep -A2 "\"LDiabl\"" "$table" | grep -q "\"Nero\"" && fail "LDIABL: the removed colour is still in the table"
 clicked "$kit" --port-data "$repo/data" --steps ui-click:no_such_button > "$work/log" 2>&1 && fail "a click on a widget that is not there went"

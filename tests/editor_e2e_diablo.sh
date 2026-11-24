@@ -24,7 +24,7 @@ mkdir -p "$repo/core/formats" "$repo/data/car_masks" "$repo/data/dash_masks"
 cp "$repo_src/core/formats/car_paint.c" "$repo/core/formats/car_paint.c"
 cp -R "$data/car_masks/LDiabl" "$repo/data/car_masks/LDiabl"
 [ -d "$data/dash_masks/LDIABL" ] && cp -R "$data/dash_masks/LDIABL" "$repo/data/dash_masks/LDIABL"
-studio "$kit" --port-data "$repo/data" --frames 30 --steps paint-print,ui-at:colour0_name,0.98,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,ui-text:Corsa,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,status \
+studio "$kit" --port-data "$repo/data" --frames 30 --steps paint-print,ui-at:colour0_name,0.98,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,key:BackSpace,ui-text:Corsa,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm,status \
     || fail "the clicked flow: $(cat "$work/log")"
 grep -q "^paints: Rosso Corsa #8a0600 30th Anniversary Lavende #b57edc Giallo Orion #eba628 Grigio Antares #494844 Blue Hera #091a30 Verde Hydra #081815 Celeste #48abb4 Bianco #e1e3db$" "$work/log" || fail "the name typed into the box is not in the card: $(grep '^paints' "$work/log")"
 grep -q "^status: applied to the game repo: .*colors written" "$work/log" || fail "Apply to game repo did not say the colors were written: $(grep '^status' "$work/log")"

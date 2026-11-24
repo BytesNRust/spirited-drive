@@ -248,11 +248,13 @@ int tweak_apply(const char *dir, const char *repo_data, TweakApplied *out, char 
         target_value(target, "folder", folder, sizeof folder), target_value(target, "file", file, sizeof file), target_value(target, "model", model, sizeof model);
         snprintf(from, sizeof from, "%s/car_masks/%s", dir, folder);
         snprintf(to, sizeof to, "%s/car_masks/%s", repo_data, folder);
+        if (!apply_colors(dir, repo_data, folder, atoi(model), out, why, cap)) return 0;   /* first: a table that cannot take the colors stops it before any mask is written */
+        snprintf(from, sizeof from, "%s/car_masks/%s", dir, folder);
         if (is_dir(from) && !apply_masks(from, to, 0, &out->masks, why, cap)) return 0;
         snprintf(from, sizeof from, "%s/dash_masks/%s", dir, file);
         snprintf(to, sizeof to, "%s/dash_masks/%s", repo_data, file);
         if (is_dir(from) && !apply_masks(from, to, 1, &out->dash, why, cap)) return 0;
-        return apply_colors(dir, repo_data, folder, atoi(model), out, why, cap);
+        return 1;
     }
     if (strcmp(kind, "track") == 0) {
         target_value(target, "stem", stem, sizeof stem);

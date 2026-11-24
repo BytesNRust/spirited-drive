@@ -34,7 +34,7 @@ studio $opts --frames 30 --steps tweak-open-row:CY1,tweak-check && fail "Check p
 grep -q 'another' "$work/log" || fail "Check does not say what is wrong: $(grep check: "$work/log")"
 rm -rf "$t/track_masks/AL1"
 # Apply by its button: the repo has the tweak's file; the panel then says everything is the game's
-studio $opts --frames 90 --steps tweak-open-row:CY1,ui-click:tweak_apply,tweak-status || fail "Apply: $(tail -3 "$work/log")"
+studio $opts --frames 90 --steps tweak-open-row:CY1,ui-click:tweak_apply,ui-click:tweak_confirm,tweak-status || fail "Apply: $(tail -3 "$work/log")"
 cmp -s "$work/r/data/track_light/CY1.txt" "$t/track_light/CY1.txt" || fail "Apply did not put the tweak's light file in the repo"
 grep -q '^tweak cy1-tweak: same as the game' "$work/log" || fail "after Apply the tweak is not the game's: $(grep -A3 '^tweak cy1' "$work/log")"
 
@@ -42,12 +42,12 @@ grep -q '^tweak cy1-tweak: same as the game' "$work/log" || fail "after Apply th
 studio $opts --frames 60 --steps tweak-open-row:CY1,sun:130,40,80,save,tweak-status || fail "CY1 again: $(tail -3 "$work/log")"
 echo "# the repo's own line" >>"$work/r/data/track_light/CY1.txt"
 cp "$work/r/data/track_light/CY1.txt" "$work/own.txt"
-studio $opts --frames 90 --steps tweak-open-row:CY1,tweak-status,ui-click:tweak_apply,ui-click:tweak_cancel || fail "own change, Cancel: $(tail -3 "$work/log")"
+studio $opts --frames 90 --steps tweak-open-row:CY1,tweak-status,ui-click:tweak_apply,ui-click:tweak_confirm,ui-click:tweak_cancel || fail "own change, Cancel: $(tail -3 "$work/log")"
 grep -q 'repo has changes of its own' "$work/log" || fail "the panel does not mark the file the repo changed: $(grep -A3 '^tweak cy1' "$work/log")"
 cmp -s "$work/r/data/track_light/CY1.txt" "$work/own.txt" || fail "Cancel changed the repo"
-studio $opts --frames 90 --steps tweak-open-row:CY1,ui-click:tweak_apply,ui-click:tweak_skip || fail "own change, Skip: $(tail -3 "$work/log")"
+studio $opts --frames 90 --steps tweak-open-row:CY1,ui-click:tweak_apply,ui-click:tweak_confirm,ui-click:tweak_skip || fail "own change, Skip: $(tail -3 "$work/log")"
 cmp -s "$work/r/data/track_light/CY1.txt" "$work/own.txt" || fail "Skip changed the repo's own file"
-studio $opts --frames 90 --steps tweak-open-row:CY1,ui-click:tweak_apply,ui-click:tweak_replace || fail "own change, Replace: $(tail -3 "$work/log")"
+studio $opts --frames 90 --steps tweak-open-row:CY1,ui-click:tweak_apply,ui-click:tweak_confirm,ui-click:tweak_replace || fail "own change, Replace: $(tail -3 "$work/log")"
 cmp -s "$work/r/data/track_light/CY1.txt" "$t/track_light/CY1.txt" || fail "Replace did not write the tweak's file"
 
 # a traffic car: its masks reach car_masks/Wagon and no color goes anywhere
@@ -57,10 +57,21 @@ kit=$(ls -d "$work"/ws/cars/* | head -n 1)
 [ ! -f "$work/ws/tweaks/wagon-tweak/studio/paints.txt" ] || fail "a traffic car's tweak has colors"
 m=$(ls -S "$kit/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
 [ -n "$m" ] && python3 -I "$here/mask_poke.py" "$m" 30 30 20 20 200
-studio $opts --frames 90 --steps tweak-open-row:Wagon,tweak-status,ui-click:tweak_apply,tweak-status || fail "Wagon apply: $(tail -3 "$work/log")"
+studio $opts --frames 90 --steps tweak-open-row:Wagon,tweak-status,ui-click:tweak_apply,ui-click:tweak_confirm,tweak-status || fail "Wagon apply: $(tail -3 "$work/log")"
 grep -q 'changed' "$work/log" || fail "Wagon: the retouched mask is not listed as changed: $(grep -A4 '^tweak wagon' "$work/log")"
 diff -rq "$repo/data/car_masks/Wagon" "$work/r/data/car_masks/Wagon" >/dev/null 2>&1 && fail "Wagon: Apply changed nothing in the repo"
 cmp -s "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c" || fail "Wagon: the colors table changed for a traffic car"
+
+# the confirmation: Apply lists what it writes first and Cancel writes nothing
+cp "$work/r/data/track_light/CY1.txt" "$work/before.txt"
+studio $opts --frames 60 --steps tweak-open-row:CY1,sun:100,20,60,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm_cancel || fail "confirm, Cancel: $(tail -3 "$work/log")"
+cmp -s "$work/r/data/track_light/CY1.txt" "$work/before.txt" || fail "Cancel on the list wrote into the repo"
+# Apply with no repo set asks for the folder (the dialog itself is the system's) and writes nothing
+studio --frames 40 --port-data "" --steps tweak-open-row:CY1,ui-click:tweak_apply,status || fail "Apply with no repo: $(tail -3 "$work/log")"
+grep -q "^status: choose the game repo's folder, then Apply again" "$work/log" || fail "Apply with no repo did not ask for the folder: $(grep status "$work/log")"
+# a car with colors by the doors: the Diablo, a color changed, Save, Apply: its row in the repo's table has it
+studio $opts --frames 90 --steps ui-click:door_tweak,ui-click:tweak_row_Lamborghini\ Diablo\ VT,ui-click:tweak_open,paint-rgb:0,9,9,9,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm || fail "Diablo by the doors: $(tail -3 "$work/log")"
+grep -q '{ 9, 9, 9 }' "$work/r/core/formats/car_paint.c" || fail "the Diablo's color is not in the repo's table: $(diff "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c" | head -4)"
 
 # an old workspace: a car exported the old way, no tweaks/: the list says so; Open makes the tweak and leaves the old folder as it was
 rm -rf "$work/old" && mkdir -p "$work/old/cars" "$work/old/ws" || exit 1

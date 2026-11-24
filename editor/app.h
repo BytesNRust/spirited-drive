@@ -169,6 +169,7 @@ typedef struct {
     char tweak_why[APP_MSG], tweak_report[APP_MSG];   /* why there is no status; Check's answer */
     char tweak_id[64];           /* the open tweak's folder name in <workspace>/tweaks/ ("" when what is open has none) */
     unsigned tweak_seen;         /* the track masks' serial the tweak was last made at: they are generated after the track opens */
+    int tweak_confirm_dialog;    /* the list of what Apply writes, with Apply and Cancel, is up */
     int tweak_own_dialog;        /* the Replace / Skip / Cancel question about the repo's own changes is up */
     int export_pick;             /* the car chosen in it (car_export_car's index), -1 for none */
     RaceJob race;                /* Test in race / Race photo of the open original car (car_race.h), running or last run */
@@ -426,7 +427,8 @@ int app_tweak_open_track(App *a, int index);
 int app_tweak_active(const App *a);               /* what is open is one of the game's own cars or tracks: the Tweak panel is for it */
 int app_tweak_refresh(App *a);                    /* the tweak made again from the project, its fingerprints kept, its status read: 1 when a->tweak_st is it */
 int app_tweak_check(App *a);                      /* the same, then the checks that need no game: tweak_report says */
-int app_tweak_apply_open(App *a, int ask);        /* Apply to game repo...: asks for the repo folder the first time; with the repo's own changes asks Replace / Skip / Cancel when `ask`; 1 when it applied */
+int app_tweak_apply_open(App *a);                 /* Apply to game repo...: asks for the repo folder the first time, then the list of what it writes with Apply / Cancel (tweak_confirm_dialog) */
+int app_tweak_apply_confirmed(App *a);            /* that list's Apply: with the repo's own changes it asks Replace / Skip / Cancel; else writes. 1 when it applied */
 int app_tweak_apply_answer(App *a, int replace);  /* the answer to that question: Replace (1) or Skip (0) */
 /* The Masks panel of an original track (app_track_masks.c, editor only). app_track_masks_load scans the folder and makes the PNGs of the PSDs that need them (NEW and STALE), once
  * per open; app_track_masks_refresh scans again. app_track_mask_select puts row `i`'s picture in tmask_rgba; app_track_mask_regenerate makes the selected one's PNG from its PSD
