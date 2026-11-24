@@ -400,7 +400,8 @@ static double look_percent(const TrackNodeLight *light, uint32_t node)
     return percent;
 }
 
-/* the colour of a tunnel's gradient steps: each step is the TUNNEL's colour (its own, else the time's, never the default row's once the tunnel has one) faded toward the open road by the step's blend, 25, 50, 75 % (gradient 3) or 33, 66 % (gradient 2; whole percents), the same at both mouths */
+/* the colour of a tunnel's gradient steps: the time's colour fades with the light over the steps (25, 50, 75 %; 33, 66 % at gradient 2), a tunnel's OWN colour (a `tunnel_look A B` colour) is whole on every step; both
+ * mouths. AL3 at day: the colour picked for a tunnel stayed the default's yellow on the steps */
 static void check_cast(const TrackNodeLight *light, uint32_t node, float blend, const float full[3])
 {
     double percent;
@@ -409,7 +410,7 @@ static void check_cast(const TrackNodeLight *light, uint32_t node, float blend, 
     for (int k = 0; k < 3; k++) CHECK(cast[k] > 1.0f + (full[k] - 1.0f) * blend - 0.01f && cast[k] < 1.0f + (full[k] - 1.0f) * blend + 0.01f);
 }
 
-static void test_gradient_steps_carry_the_tunnels_colour(void)
+static void test_gradient_steps_colour(void)
 {
     static const char TEXT[] =
         "track CY1\n"
@@ -424,13 +425,13 @@ static void test_gradient_steps_carry_the_tunnels_colour(void)
     track_light_apply(&file.tweaks, &file.light, 0, 0);
     static const float BLUE[3] = { 0.0f, 0.0f, 1.0f }, RED[3] = { 1.0f, 0.0f, 0.0f };
     for (uint32_t d = 0; d < 3; d++) {
-        check_cast(&file.light, 100 + d, (float)(d + 1) / 4.0f, BLUE);
+        check_cast(&file.light, 100 + d, (float)(d + 1) / 4.0f, BLUE);   /* the time's: faded with the light */
         check_cast(&file.light, 140 - d, (float)(d + 1) / 4.0f, BLUE);
     }
-    check_cast(&file.light, 103, 1.0f, BLUE);   /* inside: the whole colour */
+    check_cast(&file.light, 103, 1.0f, BLUE);
     for (uint32_t d = 0; d < 2; d++) {
-        check_cast(&file.light, 300 + d, (float)(d + 1) / 3.0f, RED);
-        check_cast(&file.light, 340 - d, (float)(d + 1) / 3.0f, RED);
+        check_cast(&file.light, 300 + d, 1.0f, RED);                     /* its own: whole on every step */
+        check_cast(&file.light, 340 - d, 1.0f, RED);
     }
     check_cast(&file.light, 302, 1.0f, RED);
     track_light_file_free(&file);
@@ -499,7 +500,7 @@ static void test_a_tunnel_mouth_gradient(void)
 int main(void)
 {
     test_a_tunnel_mouth_gradient();
-    test_gradient_steps_carry_the_tunnels_colour();
+    test_gradient_steps_colour();
     test_the_facts_and_a_time();
     test_the_night_block();
     test_a_lamps_strip();

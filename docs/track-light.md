@@ -42,7 +42,7 @@ STRIP is `pA pB` (the points A..B of the row's 11, inclusive; `pA` alone is one 
 6..10 one to the left.
 
 A tunnel's `gradient N` (Studio: the Tunnels table's Gradient column) grades the light at both mouths: the nodes outside the portal keep the open road's light, and inside it falls node by node over N nodes, the
-d-th node in at (d + 1) / (N + 1) of the way from the open road's light and colour to the tunnel's look (a zone's own look if it has one), the same at both mouths and in both directions; a tunnel shorter than 2N nodes
+d-th node in at (d + 1) / (N + 1) of the way from the open road's light to the tunnel's look (a zone's own look if it has one), the same at both mouths and in both directions; the tunnel's colour goes with it when it is the time's (faded by the same share), and stays whole on every step when the tunnel has a colour of its own (a `tunnel_look A B` colour); the road's own light, which a tunnel clamps from its first node, comes in over the steps by the square of the share (the darkening is steep at the bright end); a tunnel shorter than 2N nodes
 meets in the middle. It acts on the tunnel's polygons (road, walls, ceiling) and on the car, not on the headlights' pool or the tunnel lamps; each step is a scene tone slot (16 slots a time with the `tone` lines and the zones' own
 looks: N steps for each distinct look; when they do not fit the tunnels keep the straight cut and the file is not refused). 0 is the straight cut of the earlier files. A hall (`lit`) has no gradient. Only Restomod, whose light it is, shows it.
 

@@ -110,7 +110,8 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
         if (slot->look == 2) {   /* a gradient step of a tunnel mouth: part of the way from the open road (gain 1, no cast) to the tunnel's */
             const float f = (float)slot->blend / 100.0f;
             gain = 1.0f + (gain - 1.0f) * f;
-            for (int k = 0; k < 3; k++) cast[k] = 1.0f + (cast[k] - 1.0f) * f;
+            if (!slot->own)   /* the time's colour fades with the light; a tunnel's own colour stays whole on every step */
+                for (int k = 0; k < 3; k++) cast[k] = 1.0f + (cast[k] - 1.0f) * f;
         }
         const float grey[3] = { gain, gain, gain };
         modern_tunnel_tables(tone_palette, grey, cast, 0.0f, t);

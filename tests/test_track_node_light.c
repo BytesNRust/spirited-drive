@@ -434,9 +434,41 @@ static void test_a_mouth_object_takes_the_open_roads_light(void)
     CHECK_EQ_INT(track_node_light_object_node(&none, 2, NULL), track_node_light_node(&none, 2));
 }
 
+/* a tunnel mouth's gradient on the road's light: the road inside a tunnel is clamped to TRACK_NODE_LIGHT_TUNNEL_ROAD (the shoulder to TRACK_NODE_LIGHT_WALL), and over the gradient's steps that clamp comes in
+ * by the step's blend squared (25, 50, 75 % come in as 6, 25, 56 %: the darkening is steep at the bright end, so a straight share was a cliff at the first step) from the row's own bytes, node by node, at both mouths; with no steps the clamp is whole from the first node, as before */
+static void test_the_gradient_grades_the_tunnels_road_clamp(void)
+{
+    enum { N = 12 };
+    static uint8_t rows[N * TRACK_NODE_LIGHT_POINTS];
+    for (int n = 0; n < N; n++)
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) rows[n * TRACK_NODE_LIGHT_POINTS + p] = (p == 0 || p == 1 || p == 6) ? 215 : p == 2 || p == 7 ? 196 : 0;
+    static uint8_t marks[N] = { 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0 };   /* a tunnel on nodes 2..9 */
+    static uint8_t ids[N] = { 0, 0, 1, 2, 3, 0, 0, 3, 2, 1, 0, 0 };    /* its steps: 25, 50, 75 % at each mouth */
+    TrackNodeLightTone tones[TRACK_NODE_LIGHT_TONES];
+    memset(tones, 0, sizeof tones);
+    for (int i = 0; i < 3; i++) tones[i].look = 2, tones[i].blend = (uint8_t)(25 * (i + 1));
+    static uint16_t mask[N];
+    for (int n = 0; n < N; n++) mask[n] = 0x7ff;
+    TrackNodeLight light = { .data = rows, .nodes = N, .tunnel = marks, .tone_id = ids, .tone_mask = mask, .tone_count = 3 };
+    memcpy(light.tone, tones, sizeof tones);
+    const int road[] = { track_node_light_at(&light, 2, 0), track_node_light_at(&light, 3, 0), track_node_light_at(&light, 4, 0), track_node_light_at(&light, 5, 0) };
+    CHECK_EQ_INT(road[0], 215 - (215 - TRACK_NODE_LIGHT_TUNNEL_ROAD) * 6 / 100);   /* the mouth's first node: a sixteenth of the way in */
+    CHECK_EQ_INT(road[1], 215 - (215 - TRACK_NODE_LIGHT_TUNNEL_ROAD) * 25 / 100);
+    CHECK_EQ_INT(road[2], 215 - (215 - TRACK_NODE_LIGHT_TUNNEL_ROAD) * 56 / 100);
+    CHECK_EQ_INT(road[3], TRACK_NODE_LIGHT_TUNNEL_ROAD);                              /* past the steps: the clamp, whole */
+    CHECK(road[0] > road[1] && road[1] > road[2] && road[2] > road[3]);
+    for (int k = 0; k < 4; k++) CHECK_EQ_INT(track_node_light_at(&light, 9 - (uint32_t)k, 1), road[k]);   /* the other mouth: the same, mirrored; point 1 as point 0 */
+    CHECK_EQ_INT(track_node_light_at(&light, 2, 2), 196 - (196 - TRACK_NODE_LIGHT_WALL) * 6 / 100);   /* the shoulder's far edge too */
+    CHECK_EQ_INT(track_node_light_at(&light, 5, 2), TRACK_NODE_LIGHT_WALL);
+    CHECK_EQ_INT(track_node_light_at(&light, 1, 0), 215);                              /* outside: the row's bytes */
+    light.tone_id = NULL;                                                              /* no steps: the clamp whole from the first node, as before */
+    CHECK_EQ_INT(track_node_light_at(&light, 2, 0), TRACK_NODE_LIGHT_TUNNEL_ROAD);
+}
+
 int main(void)
 {
     test_a_mouth_object_takes_the_open_roads_light();
+    test_the_gradient_grades_the_tunnels_road_clamp();
     test_marks_start_the_tunnel();
     test_tunnel_road();
     test_script();
