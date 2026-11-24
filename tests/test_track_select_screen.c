@@ -52,10 +52,12 @@ static void blit_masked(void *ctx, const uint8_t *s)
 static void blit_word(void *ctx, int32_t s) { (void)ctx, (void)s; }
 static void style(void *ctx, int32_t s) { (void)ctx, (void)s; }
 static int night_words;   /* the times the word Night was written */
+static int variant_words;   /* the times Mirror or Rally was written */
 static void text(void *ctx, const char *t, int32_t x, int32_t y)
 {
     (void)ctx, (void)x, (void)y;
     if (strcmp(t, "Night") == 0) night_words++;
+    if (strcmp(t, "Mirror") == 0 || strcmp(t, "Rally") == 0) variant_words++;
 }
 static void mark(void *ctx, DialogPointer *p) { (void)ctx, (void)p; }
 static int32_t zero(void *ctx) { (void)ctx; return 0; }
@@ -81,7 +83,7 @@ static int32_t key(void *ctx)
 
 static int *custom_laps;   /* dep55: Restomod's laps row (TrackSelectPlus.laps); NULL the exe's */
 /* dep56: Restomod's switch rows (TrackSelectPlus.variant_switches) with both variants unlocked, and the variants after the run */
-static int switches, locked;   /* locked: a tournament past its first race (TrackSelectPlus.variants_locked) */
+static int switches, locked, entries_unlocked;   /* entries_unlocked: the variants unlocked with no switch rows (Stock, Restored) */   /* locked: a tournament past its first race (TrackSelectPlus.variants_locked) */
 static int32_t variant_m_in, variant_r_in, variant_m_out, variant_r_out;
 static int kept_m_in, kept_r_in, kept_m_out, kept_r_out;   /* dep65: the choice kept through Lost Vegas (TrackSelectPlus.kept_m) */
 static int track_out;
@@ -96,7 +98,7 @@ static void run_on(const uint16_t *keys, int count, int *weather, int *light_tim
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
     config[TRACK_SELECT_LAPS] = 8;
     const TrackSelectInputs in = { "", 0, 0, 0, 1, 1, 1, edition_in };   /* Lost Vegas on (the standard edition's; an edition lists its own) */
-    TrackSelectPlus plus = { switches, switches, &variant_m, &variant_r, 0, 1, weather, use_light_time ? light_time : NULL, reverse, custom_laps,
+    TrackSelectPlus plus = { switches || entries_unlocked, switches || entries_unlocked, &variant_m, &variant_r, 0, 1, weather, use_light_time ? light_time : NULL, reverse, custom_laps,
                              switches, locked, kept_m_in, kept_r_in, lunar_in, lunar_list_in };
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     DialogPointer p = { 0, 0, 0, 0, 0, 0 };
@@ -507,8 +509,33 @@ static void test_locked_rows_do_not_turn(void)
     switches = 0;
 }
 
+/* owner 2026-11-24, the three profiles (captured: notes/mockups/variants-by-profile-2026-11-24): Stock and Restored (no switch rows) walk the variants as entries of their own, as the exe's screen does:
+ * on Rusty with mirror and rally unlocked and the mirror on, Next goes to the rally entry of the same track, and the variant's name is written; Restomod (switch rows) steps to the next track keeping the
+ * flags, and writes the rows' words */
+static void test_variants_by_profile(void)
+{
+    int weather = 0, light_time = 0, reverse = 0;
+    const uint16_t next[] = { RIGHT, RIGHT, ENTER, LEFT, LEFT, ENTER };   /* Done -> Prev -> Next; back to Done */
+    for (int profile = 0; profile < 3; profile++) {   /* 0 Stock, 1 Restored: the same screen; 2 Restomod */
+        switches = profile == 2, entries_unlocked = profile != 2, variant_m_in = 1, variant_r_in = 0, variant_words = 0;
+        run_on(next, 6, &weather, &light_time, 0, &reverse, 3);
+        if (profile == 2) {
+            CHECK_EQ_INT(track_out, 4);   /* the next track, the flags kept */
+            CHECK_EQ_INT(variant_m_out, 1);
+            CHECK_EQ_INT(variant_r_out, 0);
+        } else {
+            CHECK_EQ_INT(track_out, 3);   /* the same track's rally entry */
+            CHECK_EQ_INT(variant_m_out, 0);
+            CHECK_EQ_INT(variant_r_out, 1);
+        }
+        CHECK(variant_words > 0);   /* the entry's name (Stock, Restored) or the rows' (Restomod) */
+    }
+    switches = entries_unlocked = 0, variant_m_in = variant_r_in = 0;
+}
+
 int main(void)
 {
+    test_variants_by_profile();
     test_switch_rows();
     test_the_switches_come_back_after_lost_vegas();
     test_an_edition_walks_its_tracks();
