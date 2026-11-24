@@ -155,6 +155,11 @@ grep -q '^  tunnel_look 85$' "$f" || fail "the default row's Light % is not in t
 grep -q '^  tunnel_look 60 71 65 .*lamps 220' "$f" || fail "the tunnel's Light % (its Lamps % kept) is not in the saved file: $(grep tunnel_look "$f")"
 grep -q '^  tunnel_look 12 20 .*lamps 120' "$f" || fail "the first tunnel's Lamps % is not in the saved file: $(grep tunnel_look "$f")"
 grep -Eq '^  tunnel_look 60 71 .*reach 3' "$f" || fail "the typed Reach is not in the saved file (20 is out of 0.5..4: the second entry, 3, is): $(grep tunnel_look "$f")"
+# Lamps % to all moments: the Day row of the first tunnel has lamps 120 (typed above); the button gives it to Dawn, Dusk and Night, and Save writes the four lines
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 --steps ui-click:time_B,ui-click:lamps_all,ui-click:save,light-print > "$work/lall" 2>&1 || fail "the Lamps % to all moments flow: $(tail -3 "$work/lall")"
+[ "$(grep -Ec '^  tunnel_look 12 20 .*lamps 120' "$f")" = 4 ] || fail "Lamps % to all moments did not write the tunnel's lamps 120 in the four moments: $(grep -n 'time\|tunnel_look' "$f")"
+[ "$(grep -Ec '^  tunnel_look 60 71 .*lamps 220' "$f")" = 4 ] || fail "the second tunnel's lamps 220 did not go to the four moments too: $(grep -n 'time\|tunnel_look' "$f")"
+[ "$(grep -Ec '^  tunnel_look [0-9]+ [0-9]+ .*reach 3' "$f")" = 1 ] || fail "a value other than the lamps was copied with them (the Reach 3 of the Day row): $(grep -n 'tunnel_look' "$f")"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 \
     --steps ui-click:tunnel0_from,ui-click:tunnel0_kind,ui-click:tunnel0_kind_hall,ui-click:save,light-print > "$work/tkind" 2>&1 || fail "the clicked Kind combo: $(tail -3 "$work/tkind")"
 grep -q '^tunnel 12 20 lit' "$f" || fail "the Kind combo's hall is not in the saved file: $(grep '^tunnel' "$f")"
@@ -171,7 +176,7 @@ sun_flow ui-click:azimuth_tick,light-print,ui-click:save
 grep -q '^  sun ' "$f" && fail "a sun with every part auto is still a line in the file: $(grep '  sun' "$f")"
 grep '^light:' "$work/sunout" | head -1 | grep -q ' sun ' && fail "the window's model still has a sun with every part auto: $(grep '^light:' "$work/sunout")"
 sun_flow ui-click:azimuth_tick,ui-click:shadow_tick,ui-click:save
-grep -Eq '^  sun [0-9]+ - 55$' "$f" || fail "ticking Direction and Shadow strength from no sun did not make 'sun AZ - 55': $(grep '  sun' "$f")"
+grep -Eq '^  sun 180 - 55$' "$f" || fail "ticking Direction and Shadow strength from no sun at Day did not start from the generator's own values (sun 180 - 55): $(grep '  sun' "$f")"
 # the window's other widgets, clicked (ui_probe.h; light-state prints what the panel has): the View combo's item and the HUD box (the photo's camera and HUD), the Light compare radios, the Test drive button
 # (it starts a drive on this track, time and node), a brightness line's Remove, and the track combo: a file with changes is not left for another track ("Save or Revert"), and after Revert it is asked
 light_flow() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --steps "$1" > "$work/lout" 2>&1 || fail "the flow $1: $(tail -3 "$work/lout")"; }

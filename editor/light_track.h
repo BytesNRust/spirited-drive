@@ -117,6 +117,14 @@ int light_track_set_brightness(LightTrack *f, int time, int i, const LightTrackB
 int light_track_set_tone(LightTrack *f, int time, int i, const LightTrackTone *v, char *why, size_t cap);
 int light_track_set_rows(LightTrack *f, int time, int i, const LightTrackRows *v, char *why, size_t cap);
 
+/* The sun a part left "auto" uses (the generator's own, game/race/terrain_light.c terrain_light_sun_shadowed: dawn 90 degrees, day 180, dusk 270, night 0; height 15, 50, 12, 12 degrees; shadow strength
+ * 55 percent, 100 at night), so the panel can say it and a ticked part starts from it. Every has_* is 1; 0 for a time that does not exist. A test keeps it equal to the game's. */
+int light_track_sun_auto(int time, LightTrackSun *out);
+
+/* The `lamps` strength of every look line of `from`'s block copied to the same line of the other three times (the same nodes; the default look for the default look), a line made where a time has none,
+ * the line's other values kept. 1; or 0 with `why` when a time would hold a line the game refuses (the file is then as it was). The number of lines touched goes in `*lines` when it is not NULL. */
+int light_track_lamps_to_all_times(LightTrack *f, int from, int *lines, char *why, size_t cap);
+
 /* Drops the i-th line of an owned kind (nothing else moves). 1, or 0 when there is no such line or dropping it would leave a look outside the tunnels (`why`). */
 int light_track_remove(LightTrack *f, int time, int kind, int i, char *why, size_t cap);
 

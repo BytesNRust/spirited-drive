@@ -235,6 +235,13 @@ static void test_the_default_suns_stand_on_their_own_sides(void)
     terrain_light_sun_shadowed(LIGHT_SYNTH_DAWN, &dawn), terrain_light_sun_shadowed(LIGHT_SYNTH_DAY, &day), terrain_light_sun_shadowed(LIGHT_SYNTH_DUSK, &dusk);
     terrain_light_sun_shadowed(LIGHT_SYNTH_NIGHT, &night);
     const float pi = 3.14159265f;
+    {   /* the numbers the Studio's panel says for "auto" (editor/light_track.c light_track_sun_auto, held against these by tests/test_editor_light_track.c): degrees, height, shadow strength in percent */
+        static const double DEG = 180.0 / 3.14159265358979;
+        const TerrainLightSun *const suns[4] = { &dawn, &day, &dusk, &night };
+        static const double AZIMUTH[4] = { 90, 180, 270, 0 }, HEIGHT[4] = { 15, 50, 12, 12 }, SHADOW[4] = { 55, 55, 55, 100 };
+        for (int k = 0; k < 4; ++k)
+            CHECK(fabs(suns[k]->azimuth * DEG - AZIMUTH[k]) < 0.5 && fabs(suns[k]->elevation * DEG - HEIGHT[k]) < 0.5 && fabs(suns[k]->shadow * 100.0 - SHADOW[k]) < 0.5);
+    }
     CHECK(fabsf(dawn.azimuth - 0.5f * pi) < 1e-4f && fabsf(dusk.azimuth - 1.5f * pi) < 1e-4f);   /* 90 and 270 degrees: opposite sides */
     CHECK(fabsf(fabsf(dawn.azimuth - dusk.azimuth) - pi) < 1e-4f);
     CHECK(fabsf(day.azimuth - pi) < 1e-4f && day.azimuth != dawn.azimuth && day.azimuth != dusk.azimuth);

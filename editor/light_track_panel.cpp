@@ -131,8 +131,12 @@ void sun_dial(const LightTrackSun &s)
 }
 
 // one of the sun's numbers: a slider while it is set, "Auto" (the generator's own) while not
-bool sun_part(const char *label, int *has, double *value, float lo, float hi, const char *format, float auto_value)
+bool sun_part(const char *label, int *has, double *value, float lo, float hi, const char *format, float auto_value, const char *auto_unit)
 {
+    char auto_text[32];   // what "auto" is: the generator's own value, as the game takes it at this time ("auto: 90 deg"); auto_unit is a printf text, a percent sign doubled
+    char auto_format[40];
+    snprintf(auto_text, sizeof auto_text, "%.0f", static_cast<double>(auto_value));
+    snprintf(auto_format, sizeof auto_format, "auto: %s %s", auto_text, auto_unit);
     bool changed = false;
     ImGui::PushID(label);
     ui_probe_scope(label);
@@ -148,7 +152,7 @@ bool sun_part(const char *label, int *has, double *value, float lo, float hi, co
     ImGui::BeginDisabled(!set);
     float v = static_cast<float>(*value);
     ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::SliderFloat("##v", &v, lo, hi, set ? format : "auto")) *value = static_cast<double>(v), changed = true;
+    if (ImGui::SliderFloat("##v", &v, lo, hi, set ? format : auto_format)) *value = static_cast<double>(v), changed = true;
     ui_probe("slider");
     ImGui::EndDisabled();
     ui_probe_scope("");
@@ -173,11 +177,13 @@ void sun_rows(App *a)
     ImGui::SameLine();
     ImGui::BeginGroup();
     ImGui::TextUnformatted("Direction");
-    changed = sun_part("azimuth", &s.has_azimuth, &s.azimuth, 0.0f, 360.0f, "%.0f deg", 150.0f) || changed;
+    LightTrackSun autos;   // the generator's own sun at this time: shown as "auto" and where a ticked part starts
+    light_track_sun_auto(time_of(a), &autos);
+    changed = sun_part("azimuth", &s.has_azimuth, &s.azimuth, 0.0f, 360.0f, "%.0f deg", static_cast<float>(autos.azimuth), "deg") || changed;
     ImGui::TextUnformatted("Height");
-    changed = sun_part("elevation", &s.has_elevation, &s.elevation, -90.0f, 90.0f, "%.0f deg", 20.0f) || changed;
+    changed = sun_part("elevation", &s.has_elevation, &s.elevation, -90.0f, 90.0f, "%.0f deg", static_cast<float>(autos.elevation), "deg") || changed;
     ImGui::TextUnformatted("Shadow strength");
-    changed = sun_part("shadow", &s.has_shadow, &s.shadow, 0.0f, 100.0f, "%.0f %%", 55.0f) || changed;
+    changed = sun_part("shadow", &s.has_shadow, &s.shadow, 0.0f, 100.0f, "%.0f %%", static_cast<float>(autos.shadow), "%%") || changed;
     ImGui::EndGroup();
     if (changed) {
         if (!s.has_azimuth && !s.has_elevation && !s.has_shadow) {   // everything auto again: the time has no sun line (the generator's own)
@@ -291,6 +297,8 @@ void tunnel_rows(App *a)
         ImGui::TableSetupColumn("Lamps %", ImGuiTableColumnFlags_WidthFixed, 48.0f);
         ImGui::TableSetupColumn("Reach", ImGuiTableColumnFlags_WidthFixed, 44.0f);
         ImGui::TableHeadersRow();
+        if (ImGui::TableGetHoveredColumn() == 6)
+            ImGui::SetTooltip("Lamps %%: the strength of the tunnel's lamps at this moment (100 = as the game has them).\n0 is a tunnel with no lighting: the car does not blink going through it.\nIt belongs to one moment and one tunnel: Lamps %% to all moments copies it to the other three.");
         // the default row: the look of every tunnel with no row of its own
         {
             LightTrackLook v;
@@ -400,6 +408,14 @@ void tunnel_rows(App *a)
     }
     const bool add_tunnel = ImGui::Button("Add tunnel");
     ui_probe("add_tunnel");
+    ImGui::SameLine();
+    const bool lamps_all = ImGui::Button("Lamps % to all moments");
+    ui_probe("lamps_all");
+    ImGui::SetItemTooltip("Copies the Lamps %% of each row at this moment to the same row (the same nodes; the default row for the default) at Dawn, Day, Dusk and Night.\nThe other values of those rows stay as they are.");
+    if (lamps_all) {
+        if (light_track_lamps_to_all_times(&f, time_of(a), nullptr, why, sizeof why)) app_light_touch(a);
+        else refused(a, why);
+    }
     if (add_tunnel) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
         const LightTrackTunnel t = { node, node + 50 < last ? node + 50 : last, 0 };
