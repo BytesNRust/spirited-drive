@@ -8,6 +8,7 @@
 #include "platform/platform.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum { PATH_MAX_LEN = 512 };
@@ -65,6 +66,8 @@ int config_load(void)
     name_saved = saved;
     if (!found) config_dat_defaults(&config, resource_german());
     config_dat_name(&config, frontend_player_name);
+    const char *music = getenv("TNFS_MUSIC");   /* port: the Studio's test drive runs with the music off (the setting at 0x73, 00524e63); only this run's copy of the config, the saved file is the scratch folder's */
+    if (music != NULL && strcmp(music, "0") == 0) memset(config.image + 0x73, 0, 2);
     /* 0042a010's end: without the pad (004fcdcc, 0043c744 ran first) the joystick's controls back to keys */
     if (!drive_joy_state()->present) game_file_controls_to_keys(config.image);
     loaded = 1;

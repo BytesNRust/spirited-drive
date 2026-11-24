@@ -82,6 +82,7 @@ static void test_command(void)
     CHECK(has(c.argv, "--type") && has(c.argv, "0") && !has(c.argv, "--racers"));   /* the game's time trial (docs/track-editor.md): the player alone, no rivals, no police, no traffic */
     CHECK(has(c.envp, "TNFS_LIGHT_EDIT=1") && has(c.envp, "TNFS_LIGHT_TIME=night") && has(c.envp, "TNFS_START_NODE=1596") && has(c.envp, "TNFS_WEATHER=rain"));
     CHECK(has(c.envp, "PATH=/usr/bin") && has(c.envp, "KEEP_ME=yes"));
+    CHECK(has(c.envp, "TNFS_MUSIC=0"));   /* the drive plays no music: the setting travels in this run's environment, never in a file of the person */
     CHECK(has(c.envp, "TNFS_VIEW=1"));   /* the preview's camera (the bumper by default): the drive starts from it */
     CHECK(!has(c.envp, "TNFS_PERSON=1") && !has(c.envp, "SDL_VIDEO_DRIVER=dummy"));   /* the person's own game variables do not change the drive */
     for (char *const *e = c.envp; *e != NULL; ++e) CHECK(strncmp(*e, "SDL_", 4) != 0 && strncmp(*e, "TNFS_FRAMES", 11) != 0 && strncmp(*e, "TNFS_AUTOPILOT", 14) != 0);

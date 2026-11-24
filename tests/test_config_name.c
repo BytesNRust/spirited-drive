@@ -69,10 +69,42 @@ static void test_a_saved_config_gives_the_saved_name(void)
     saved_bytes = NULL;
 }
 
+static int16_t music_setting(void)
+{
+    int16_t v;
+    memcpy(&v, config_current()->image + 0x73, sizeof v);
+    return v;
+}
+
+/* the Studio's test drive runs with TNFS_MUSIC=0: the music setting (00524e63) is off in this run's config, saved one or defaults; without the variable it is the config's own */
+static void test_music_off_for_the_test_drive(void)
+{
+    ConfigDat c;
+    config_dat_defaults(&c, 0);
+    uint8_t out[CONFIG_DAT_SIZE];
+    CHECK_EQ_INT(config_dat_serialise(&c, out, sizeof out), CONFIG_DAT_SIZE);
+    saved_bytes = out, saved_size = sizeof out;
+    unsetenv("TNFS_MUSIC");
+    config_load();
+    const int16_t own = music_setting();
+    CHECK(own != 0);   /* the game's default has the music on */
+    setenv("TNFS_MUSIC", "0", 1);
+    config_load();
+    CHECK_EQ_INT(music_setting(), 0);
+    saved_bytes = NULL;
+    config_load();
+    CHECK_EQ_INT(music_setting(), 0);   /* the defaults too */
+    setenv("TNFS_MUSIC", "1", 1);
+    config_load();
+    CHECK_EQ_INT(music_setting(), own);   /* any other value leaves the setting alone */
+    unsetenv("TNFS_MUSIC");
+}
+
 int main(void)
 {
     exe_tables_for_test();
     test_no_saved_config_no_saved_name();
     test_a_saved_config_gives_the_saved_name();
+    test_music_off_for_the_test_drive();
     return TEST_REPORT();
 }

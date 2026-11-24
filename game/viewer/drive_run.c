@@ -663,7 +663,8 @@ int drive_window(const Track *t, uint8_t *pixels)
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.wait_ticks = drive_link_on ? link_wait_ticks : 0;
-    w.music_on = drive_menus_on ? (int16_t)drive_menus.music : DRIVE_MUSIC_SETTING;
+    const char *music_env = getenv("TNFS_MUSIC");   /* port: the Studio's test drive runs with the music off (0) */
+    w.music_on = drive_menus_on ? (int16_t)drive_menus.music : music_env != NULL && strcmp(music_env, "0") == 0 ? 0 : DRIVE_MUSIC_SETTING;
     w.unknown_4c53a0 = 0;
     drive_replay.pace = &w.unknown_4c53a0, drive_replay.timer = &w.timer, drive_replay.due = &w.due, drive_replay.done = &w.done;
     DriveRun r = { t, pixels, &w, platform_ticks_ms(), 0, 0, 0, 0, 0, -1, drive_clock_of_level(DRIVE_CLOCK_LEVEL) };
