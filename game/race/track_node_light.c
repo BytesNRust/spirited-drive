@@ -166,7 +166,7 @@ int track_node_light_tunnel_class(const TrackNodeLight *light, uint32_t node)
 {
     const uint32_t file_node = light != NULL ? track_node_light_old_node(light, node) : 0;
     const int forest = light != NULL && light->forest_road && file_node >= light->forest_from && file_node <= light->forest_to;   /* port (forest_neutral): its shade is not a tunnel's */
-    if (unlit_open_at(light, file_node)) return 0;   /* port (tunnel_pool) */
+    if (unlit_open_at(light, file_node)) return TRACK_NODE_LIGHT_CLASS_UNLIT;   /* port (tunnel_pool) */
     if (!forest && track_node_light_tunnel(light, node)) return 1;
     if (light == NULL || light->pool_class == NULL || light->nodes == 0) return 0;
     const uint8_t c = light->pool_class[node % light->nodes];

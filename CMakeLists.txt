@@ -1865,6 +1865,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(lamp_strip_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME vegas_lamps_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/vegas_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(vegas_lamps_game PROPERTIES TIMEOUT 400 SKIP_RETURN_CODE 77)
+        add_test(NAME tunnel_look_tint_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_look_tint_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # an unlit tunnel (lamps 0) keeps its tunnel_look colour at the four times of day
+        set_tests_properties(tunnel_look_tint_game PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77)
         add_test(NAME tunnel_flare_crest COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_flare_crest.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(tunnel_flare_crest PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME tunnel_flare_flicker COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_flare_flicker.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

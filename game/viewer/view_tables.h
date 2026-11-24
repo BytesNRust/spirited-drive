@@ -30,11 +30,12 @@ int reflect_thin_here(void);   /* reflector_thin of the polygon reflect_level_he
 extern const FshEntry *street_bitmap[STREET_BOARDS];
 extern int street_scenery[STREET_BOARDS], street_count;
 extern uint8_t street_entry[3];
+extern uint8_t unlit_tables[MODERN_FOG_LEVELS][256];
 extern uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];
 extern int lamp_cache_used, lamp_cache_next, tunnel_lamp_cache_used, tunnel_lamp_cache_next;
 void street_halo_sync(void);
 extern uint8_t street_tables[MODERN_FOG_LEVELS][256];
-extern uint8_t tone_made[TRACK_NODE_LIGHT_TONES][2];
+extern uint8_t tone_made[TRACK_NODE_LIGHT_TONES][3];
 extern const FshEntry *window_bitmap[WINDOW_BOARDS_MAX];
 extern int window_scenery[WINDOW_BOARDS_MAX], window_count;
 extern uint8_t window_entry;

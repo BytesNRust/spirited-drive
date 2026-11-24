@@ -15,6 +15,7 @@
 
 enum { TRACK_NODE_LIGHT_POINTS = 11, TRACK_NODE_LIGHT_FULL = 255, TRACK_NODE_LIGHT_WALL = 128, TRACK_NODE_LIGHT_WALL_FOOT = 64, TRACK_NODE_LIGHT_TUNNEL_ROAD = 100 };
 
+enum { TRACK_NODE_LIGHT_CLASS_UNLIT = 7 };   /* port (tunnel_pool): the polygon class of a tunnel with no lamps while a beam can light it (track_node_light_tunnel_class; the low 3 bits above the lamp pools 2..5) */
 enum { TRACK_NODE_LIGHT_BEAM_TUNNEL = 180 };   /* port: the light out of 255 the console version headlight beam gives a tunnel's walls and road and a lit hall's, at night (the exe's TUNNEL_BEAM is 150) */
 enum { TRACK_NODE_LIGHT_SNOW_SLOTS = 144 };   /* TRACK_TEXTURE_SLOTS (track_art.h), checked in track_light_file.c */
 

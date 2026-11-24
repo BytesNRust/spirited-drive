@@ -265,7 +265,7 @@ static void test_unlit_tunnel_has_the_pool(void)
     const int want = track_node_light_at_xz(&open, 1, 1, in_beam);
     CHECK(want > 150);   /* the open road's pool */
     CHECK_EQ_INT(track_node_light_at_xz(&unlit, 1, 1, in_beam), want);   /* an unlit tunnel's: the same */
-    CHECK_EQ_INT(track_node_light_vertex_class(&unlit, 1, 1), 0);         /* drawn as the open night */
+    CHECK_EQ_INT(track_node_light_vertex_class(&unlit, 1, 1), TRACK_NODE_LIGHT_CLASS_UNLIT);   /* its own tables: the look's colour, the beam in the light */
     CHECK_EQ_INT(track_node_light_vertex_class(&lit_tunnel, 1, 1), 1);    /* a lit tunnel is still a tunnel */
     CHECK(track_node_light_at_xz(&lit_tunnel, 1, 1, in_beam) != want);   /* and keeps its own light */
     CHECK_EQ_INT(track_node_light_vertex_class(&by_day, 1, 1), 1);        /* by day (no pool) the tunnel is as it was */

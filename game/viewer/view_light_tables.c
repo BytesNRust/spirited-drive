@@ -71,6 +71,12 @@ static void light_tables_make(const TrackArt *art, const TrackNodeTunnelLook *lo
     memcpy(tone_cast, look->cast, sizeof tone_cast);
     if (look->cast_on) modern_tunnel_tables(art->palette, look->tint, look->cast, look->min_light, tunnel_tables);
     else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, tunnel_tables);
+    if (look->cast_on) {   /* port (tunnel_pool): the same colour at the full light (the look's percent is in the polygons' light there) */
+        float full[3];
+        const float percent = (float)light_effects->look_light / 100.0f;
+        for (int c = 0; c < 3; c++) full[c] = percent > 0.01f ? look->tint[c] / percent : look->tint[c];
+        modern_tunnel_tables(art->palette, full, look->cast, look->min_light, unlit_tables);
+    } else modern_light_tables_cast(art->palette, lit_tint, NO_CAST, unlit_tables);
     if (has_pool) pool_tables_make(art);
     pool_ready = has_pool;
 }

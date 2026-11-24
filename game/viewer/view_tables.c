@@ -23,6 +23,7 @@
 uint8_t lit_tables[MODERN_FOG_LEVELS][256];
 uint8_t pool_tables[4][MODERN_FOG_LEVELS][256];   /* port (lamp_pool_tint): the tables of a street lamp's pool, by class: the lit ones with a warm tint, the more the nearer the lamp */
 int pool_ready;
+uint8_t unlit_tables[MODERN_FOG_LEVELS][256];   /* port (tunnel_pool): the tunnel look's colour at the full light, for a tunnel with no lamps and a beam: the dark is in the polygons' light, the beam lifts it */
 uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];   /* the same with the tunnel's cast, for the polygons all in a tunnel's rows */
 int lit_level;
 int tables_made;          /* the tables above have been made by a render (the mirror's follow pass draws with them) */
@@ -81,8 +82,8 @@ void street_halo_sync(void) { street_halo_boards(street_bitmap, street_count, st
 
 /* port (track light file, `tone`): the tables of a scene tone, one set for the open road and one for a tunnel's polygons, each made when its first polygon asks (a track has 16 tones at most:
  * 4 KB a set, about 2.5 ms to make) from what the table block below saved (the palette and the tints it was made with); the block drops them all when any of that changes */
-static uint8_t tone_tables[TRACK_NODE_LIGHT_TONES][2][MODERN_FOG_LEVELS][256];
-uint8_t tone_made[TRACK_NODE_LIGHT_TONES][2];
+static uint8_t tone_tables[TRACK_NODE_LIGHT_TONES][3][MODERN_FOG_LEVELS][256];   /* [2]: the zone look at the full light (tone_get_unlit) */
+uint8_t tone_made[TRACK_NODE_LIGHT_TONES][3];
 uint8_t tone_palette[768];
 float tone_lit_tint[3], tone_tunnel_tint[3], tone_cast[3];
 int tone_have_cast;
@@ -120,6 +121,19 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
         modern_light_tables(tone_palette, lit, t);
     }
     tone_made[id][in_tunnel != 0] = 1;
+    return t;
+}
+
+/* port (tunnel_pool): a zone look's colour at the full light (the dark is in the polygons' light), for a tunnel with no lamps and a beam; NULL when the tone has no look */
+static uint8_t (*tone_get_unlit(int id))[256]
+{
+    if (light_effects == NULL || id < 0 || id >= light_effects->tone_count || !light_effects->tone[id].look) return NULL;
+    uint8_t (*t)[256] = tone_tables[id][2];
+    if (tone_made[id][2]) return t;
+    const float gain = tone_mean > 0.05f ? 1.0f / tone_mean : 1.0f;
+    const float grey[3] = { gain, gain, gain };
+    modern_tunnel_tables(tone_palette, grey, light_effects->tone[id].cast, 0.0f, t);
+    tone_made[id][2] = 1;
     return t;
 }
 
@@ -226,6 +240,10 @@ int lamp_polygon_tunnel(float heat[4], const uint8_t (**top)[256]) { return lamp
 static uint8_t (*light_tables(void))[256]
 {
     const int base = track_light_tunnel & 7, tone = track_light_tunnel >> 3;
+    if (base == TRACK_NODE_LIGHT_CLASS_UNLIT) {   /* port (tunnel_pool): a tunnel with no lamps: its look's colour, the polygons' light holds the dark */
+        uint8_t (*t)[256] = tone > 0 ? tone_get_unlit(tone - 1) : NULL;
+        return t != NULL ? t : unlit_tables;
+    }
     if (tone > 0) {
         uint8_t (*t)[256] = tone_get(tone - 1, base == 1);
         if (t != NULL) return t;
