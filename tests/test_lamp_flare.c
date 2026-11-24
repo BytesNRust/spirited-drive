@@ -197,8 +197,47 @@ static void test_traffic_halo_in_low_light(void)
     CHECK_EQ_INT(lamp_flare_traffic_halo(0, 0), 0);
 }
 
+/* port (lamp_flares): a tunnel lamp's halo fades in and out with how much of the lamp's own light shows, instead of switching on and off: the small far lamps (4..20 px) show a bright
+ * texel in one frame and none in the next, and the halo blinked with it */
+static void test_lamp_halo_fades(void)
+{
+    CHECK_EQ_INT(lamp_fade_target(0, 0), 0);
+    CHECK_EQ_INT(lamp_fade_target(46, 1), 0);   /* the road's asphalt and paint (46 % of the glow) never keep a halo */
+    CHECK_EQ_INT(lamp_fade_target(50, 0), 0);   /* a halo starts at 55 % ... */
+    CHECK_EQ_INT(lamp_fade_target(55, 0), 100);
+    CHECK_EQ_INT(lamp_fade_target(50, 1), 100);   /* ... and is kept down to 47 % */
+    CHECK_EQ_INT(lamp_fade_target(137, 0), 100);
+    int level = 0, miss = 0;   /* a lamp comes in: a ramp, not a flash */
+    for (int f = 1; f <= 3; f++) {
+        const int next = lamp_fade_step(level, 100, &miss);
+        CHECK(next > level && next - level <= LAMP_FADE_IN);
+        level = next;
+    }
+    CHECK_EQ_INT(level, 100);
+    for (int f = 1; f <= LAMP_FADE_HOLD; f++) CHECK_EQ_INT(lamp_fade_step(level, 0, &miss), 100);   /* not found: it stays LAMP_FADE_HOLD frames ... */
+    for (int f = 1; f <= 10; f++) {   /* ... then goes in steps */
+        const int next = lamp_fade_step(level, 0, &miss);
+        CHECK_EQ_INT(next, level - LAMP_FADE_OUT);
+        level = next;
+    }
+    CHECK_EQ_INT(level, 0);
+    /* a small lamp whose bright texel shows one frame in two (70 %, then 45 %): its halo never goes out and never moves */
+    level = 0, miss = 0;
+    int lowest = 100, step_max = 0;
+    for (int f = 0; f < 40; f++) {
+        const int next = lamp_fade_step(level, lamp_fade_target(f % 2 ? 45 : 70, level > 0), &miss);
+        if (f >= 6 && next < lowest) lowest = next;
+        if (abs(next - level) > step_max) step_max = abs(next - level);
+        level = next;
+    }
+    CHECK(lowest == 100 && step_max <= LAMP_FADE_IN);
+    CHECK_EQ_INT(lamp_fade_match_px(3), LAMP_FADE_MATCH_MIN_PX);   /* a far lamp: the least */
+    CHECK_EQ_INT(lamp_fade_match_px(23), 23);                      /* a near lamp moves more pixels a frame: as many as it is wide */
+}
+
 int main(void)
 {
+    test_lamp_halo_fades();
     test_traffic_halo_in_low_light();
     test_far_fade();
     test_blobs();

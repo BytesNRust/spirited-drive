@@ -55,6 +55,16 @@ int lamp_far_fade(int32_t z, int32_t far_z);
  * racers' own criterion, not the night alone. */
 int lamp_flare_traffic_halo(int setting_on, int lamps_low);
 
+/* port (lamp_flares): a tunnel lamp's halo fades. `best` is the brightest of the lamp's own colours at its centre, in percent of its glow (the road's asphalt and paint that share the lamp's
+ * colours are 46 %, the lamp's own texels 60..137 % as it moves): the halo's target is 100 once `best` reaches LAMP_FADE_START_PERCENT and stays 100 while it is at least LAMP_FADE_KEEP_PERCENT
+ * (`was`: the halo was shown a frame before), else 0. The halo's level (0..100) climbs to the target by at most LAMP_FADE_IN a frame; with a target of 0 it stays LAMP_FADE_HOLD frames (`*miss`, the frames it has not been found) and then falls by at most LAMP_FADE_OUT, so a lamp that shows in one
+ * frame and not in the next keeps its halo and a halo comes and goes in steps. A lamp is the same one as last frame's when it is within lamp_fade_match_px(size) pixels: as wide as the lamp, at least
+ * LAMP_FADE_MATCH_MIN_PX. */
+enum { LAMP_FADE_START_PERCENT = 55, LAMP_FADE_KEEP_PERCENT = 47, LAMP_FADE_IN = 34, LAMP_FADE_OUT = 10, LAMP_FADE_HOLD = 10, LAMP_FADE_MATCH_MIN_PX = 6, LAMP_FADE_MIN_LEVEL = 6 };
+int lamp_fade_target(int best_percent, int was);
+int lamp_fade_step(int level, int target, int *miss);
+int lamp_fade_match_px(int size);
+
 /* The halo's dither level (0 none .. LAMP_FLARE_LEVELS) at (dx, dy) from the centre: the intensity falls off with the square of the distance
  * from 1 at the centre to 0 at `radius`, and a 4 x 4 ordered dither picks the level. */
 int lamp_halo_level(int dx, int dy, int radius);

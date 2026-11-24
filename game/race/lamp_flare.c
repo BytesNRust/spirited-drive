@@ -122,6 +122,23 @@ int lamp_flare_radius(int area)
 
 int lamp_flare_traffic_halo(int setting_on, int lamps_low) { return setting_on != 0 && lamps_low != 0; }
 
+int lamp_fade_target(int best_percent, int was) { return best_percent >= (was ? LAMP_FADE_KEEP_PERCENT : LAMP_FADE_START_PERCENT) ? 100 : 0; }
+
+int lamp_fade_step(int level, int target, int *miss)
+{
+    if (target > 0) {
+        *miss = 0;
+        return target - level > LAMP_FADE_IN ? level + LAMP_FADE_IN : target > level ? target : level;
+    }
+    if (*miss < LAMP_FADE_HOLD) {
+        ++*miss;
+        return level;
+    }
+    return level > LAMP_FADE_OUT ? level - LAMP_FADE_OUT : 0;
+}
+
+int lamp_fade_match_px(int size) { return size > LAMP_FADE_MATCH_MIN_PX ? size : LAMP_FADE_MATCH_MIN_PX; }
+
 int lamp_flare_radius_scaled(int area, int percent)
 {
     const int r = lamp_flare_radius(area) * (percent < 100 ? 100 : percent) / 100;

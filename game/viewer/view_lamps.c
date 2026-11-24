@@ -29,12 +29,12 @@ void ported_view_set_tunnel_lamps(const TunnelLampTexture *lamps, int count)
  * across the polygon's corners); once the 3D is done a halo is drawn at each that still shows one of the lamp's own colours at that pixel (nothing nearer
  * covers it; the colours stay unchanged through the lamp tables, shared entries or not), by day and by night. */
 static int flare_on;   /* port (lamp_flares): a soft halo round a lit brake light and the tunnel lamps (lamp_flare.h) */
-/* LAMP_SHOWS_BRIGHT_PERCENT: a pixel is the lamp's own when it is at least this much of the glow's brightness. A lamp's texels are 60..137 % of it from one frame to the next as it
- * moves, the road's asphalt and paint that share its colours are 46 %: a halo STARTS at LAMP_SHOWS_BRIGHT_PERCENT and is KEPT at LAMP_KEEP_BRIGHT_PERCENT (above the road's), and a halo that was shown
- * lingers LAMP_HOLD_FRAMES frames when it is not found (a flicker of the lamp's own pixels), at the place it was within LAMP_MATCH_PX of this frame's. */
-enum { TUNNEL_FLARES_MAX = 128, LAMP_SHOWS_BRIGHT_PERCENT = 55, LAMP_KEEP_BRIGHT_PERCENT = 47, LAMP_HOLD_FRAMES = 10, LAMP_MATCH_PX = 6 };
-typedef struct { int lamp, x, y, hold; } ShownFlare;
-static ShownFlare shown_prev[TUNNEL_FLARES_MAX];   /* the halos drawn in the frame before, with the frames they still linger */
+/* A halo's strength follows how much of the lamp's own light shows at its centre (lamp_flare.h's lamp_fade_*): the lamp's texels are 60..137 % of its glow from one frame to the next as it moves,
+ * the road's asphalt and paint that share its colours are 46 %, and a small far lamp (4..20 px) shows a bright texel in one frame and none in the next. A halo climbs to its target and falls from it
+ * by steps, and is the same halo as the last frame's when it is within lamp_fade_match_px of it, so no lamp blinks. */
+enum { TUNNEL_FLARES_MAX = 128 };
+typedef struct { int lamp, x, y, level, miss; } ShownFlare;
+static ShownFlare shown_prev[TUNNEL_FLARES_MAX];   /* the halos drawn in the frame before, with their strength */
 static int shown_prev_count;
 typedef struct { int lamp, x, y, size; } TunnelFlare;
 static TunnelFlare tunnel_flares[TUNNEL_FLARES_MAX];
@@ -146,6 +146,34 @@ void view_lamps_make_tables(const TrackArt *art, const uint8_t (*tunnel_tables)[
     }
 }
 
+typedef struct { int d, flare, prev; } Pair;
+
+static int pair_nearer(const void *a, const void *b)
+{
+    const Pair *p = a, *q = b;
+    return p->d != q->d ? p->d - q->d : p->flare != q->flare ? p->flare - q->flare : p->prev - q->prev;
+}
+
+/* match[i]: which of the last frame's halos (shown_prev) the flare i is the same lamp as: of the pairs of one lamp within lamp_fade_match_px of the flare's size, the nearest first, and each halo and each flare once */
+static void match_flares(int match[TUNNEL_FLARES_MAX])
+{
+    enum { PAIRS_MAX = 4096 };
+    static Pair pairs[PAIRS_MAX];
+    int count = 0;
+    uint8_t taken[TUNNEL_FLARES_MAX] = { 0 };
+    for (int i = 0; i < tunnel_flare_count; i++) {
+        match[i] = -1;
+        for (int k = 0; k < shown_prev_count && count < PAIRS_MAX; k++) {
+            const TunnelFlare *f = &tunnel_flares[i];
+            const int dx = abs(shown_prev[k].x - f->x), dy = abs(shown_prev[k].y - f->y), d = dx > dy ? dx : dy;
+            if (shown_prev[k].lamp == f->lamp && d <= lamp_fade_match_px(f->size)) pairs[count++] = (Pair){ d, i, k };
+        }
+    }
+    qsort(pairs, (size_t)count, sizeof pairs[0], pair_nearer);
+    for (int n = 0; n < count; n++)
+        if (match[pairs[n].flare] < 0 && !taken[pairs[n].prev]) match[pairs[n].flare] = pairs[n].prev, taken[pairs[n].prev] = 1;
+}
+
 /* port (lamp_flares): the halos of the tunnel lamps noted this frame (tunnel_flare_note), over the finished 3D */
 void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
 {
@@ -163,6 +191,8 @@ void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
     static int trace = -1, trace_frame;
     if (trace < 0) trace = getenv("TNFS_LAMP_FLARE_TRACE") != NULL;
     trace_frame++;
+    int match[TUNNEL_FLARES_MAX];   /* the last frame's halo each lamp of this frame is the same one as, -1 none: the nearest pairs first, each halo taken once */
+    match_flares(match);
     for (int i = 0; i < tunnel_flare_count; i++) {
         const TunnelFlare *f = &tunnel_flares[i];
         if (f->x < t->clip_left || f->x >= t->clip_right || f->y < t->clip_top || f->y >= t->clip_bottom) continue;
@@ -180,15 +210,12 @@ void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
                 const int percent = (q[0] + q[1] + q[2]) * 100 / glow_sum;
                 if (percent > best) best = percent;
             }
-        int hold = 0, was = 0;   /* was: a halo of this lamp was drawn here a frame before (hold: the frames it still lingers) */
-        for (int k = 0; k < shown_prev_count && !was; k++)
-            if (shown_prev[k].lamp == f->lamp && abs(shown_prev[k].x - f->x) <= LAMP_MATCH_PX && abs(shown_prev[k].y - f->y) <= LAMP_MATCH_PX) was = 1, hold = shown_prev[k].hold;
-        const int shows = best >= (was ? LAMP_KEEP_BRIGHT_PERCENT : LAMP_SHOWS_BRIGHT_PERCENT);
-        if (shows) hold = LAMP_HOLD_FRAMES;
-        else if (was && hold > 0) hold--;   /* not found this frame: it lingers, fading out over LAMP_HOLD_FRAMES */
-        else continue;
-        if (shown_next_count < TUNNEL_FLARES_MAX) shown_next[shown_next_count++] = (ShownFlare){ f->lamp, f->x, f->y, hold };
-        if (trace) port_log("flare_trace: %d %d %d\n", trace_frame, f->x, f->y);   /* port (dev, env only): TNFS_LAMP_FLARE_TRACE=1 logs each halo drawn with the frame's number, for the flicker test */
+        int level = 0, miss = 0;
+        if (match[i] >= 0) level = shown_prev[match[i]].level, miss = shown_prev[match[i]].miss;
+        level = lamp_fade_step(level, lamp_fade_target(best, level > 0), &miss);
+        if (level < LAMP_FADE_MIN_LEVEL) continue;
+        if (shown_next_count < TUNNEL_FLARES_MAX) shown_next[shown_next_count++] = (ShownFlare){ f->lamp, f->x, f->y, level, miss };
+        if (trace) port_log("flare_trace: %d %d %d %d\n", trace_frame, f->x, f->y, level);   /* port (dev, env only): TNFS_LAMP_FLARE_TRACE=1 logs each halo drawn with the frame's number and strength, for the flicker test */
         if (!made[f->lamp]) {
             for (int l = 0; l < LAMP_FLARE_LEVELS; l++)
                 for (int d = 0; d < 256; d++) {
@@ -202,8 +229,8 @@ void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
             made[f->lamp] = 1;
         }
         const uint8_t *const map[LAMP_FLARE_LEVELS] = { maps[f->lamp][0], maps[f->lamp][1], maps[f->lamp][2] };
-        lamp_halo_draw(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, f->x, f->y,
-                       lamp_flare_radius(f->size * f->size), map);
+        lamp_halo_draw_pct(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, f->x, f->y,
+                           lamp_flare_radius(f->size * f->size), level, map);
         static int logged;
         if (logged++ < 4) port_log("tunnel_flare: halo at %d,%d size %d (lamp %d, glow entry %d)\n", f->x, f->y, f->size, f->lamp, entry);
     }
