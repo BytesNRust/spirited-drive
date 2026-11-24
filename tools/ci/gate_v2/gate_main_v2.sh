@@ -116,7 +116,20 @@ heavy "(cd build/asan56 && UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 nix 
 (( ! DRY )) && { grep -q '^100% tests passed' $S/gate_ctest_asan.out || bad ctest_asan; }
 tm ctest_asan
 
+# ui_kit_check (the UI kit's measures against the real binary and the CD): its walks read the release build, and its checkers want ImageMagick on the PATH, which the flake's devShell
+# does not give (it broke 13 editor tests there), so it runs in its own nix shell. A FAIL line, a non-zero status or a skip (77: no CD) fails the gate; the count of ok lines is printed
+ui_kit() {
+    nix shell --inputs-from . nixpkgs#imagemagick -c sh tools/ui_kit_check.sh build/release/tnfs $PWD $PWD/original > $S/gate_uikit.out 2>&1; local rc=$?
+    local ok=$(grep -c '^ok ' $S/gate_uikit.out) nf=$(grep -c '^FAIL' $S/gate_uikit.out)
+    echo "ui_kit_check: status $rc, $ok ok, $nf FAIL"
+    grep '^FAIL' $S/gate_uikit.out | head -5
+    (( rc == 0 && nf == 0 && ok > 0 )) || { (( rc == 0 && ok == 0 )) && echo "ui_kit_check: no ok line: nothing was measured"; (( rc != 77 )) || echo "ui_kit_check: skipped (no CD in original/): not proven"; bad ui_kit_check; }
+}
 if (( GAME )); then
+    if (( DRY )); then echo "+ nix shell --inputs-from . nixpkgs#imagemagick -c sh tools/ui_kit_check.sh build/release/tnfs \$PWD \$PWD/original (a FAIL line fails the gate; the ok count is printed)"
+    elif [[ -x tools/ui_kit_check.sh ]]; then ui_kit
+    else echo "ui_kit_check: not run (no tools/ui_kit_check.sh)"; fi
+    tm ui_kit
     heavy "zsh tools/golden_frames.sh build/release $S/gate.md5 2>/dev/null && cmp -s $S/gate.md5 tests/golden/frames.md5 && echo golden_ok || { echo GOLDEN_DIFF; bad golden; }"
     tm golden
     heavy "zsh tools/frame_compare.sh build/release 'TNFS_BANDS=0' 'TNFS_BANDS=4' 2>&1 | tail -1 | tee $S/gate_frames.out"

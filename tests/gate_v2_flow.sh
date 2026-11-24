@@ -11,6 +11,7 @@ bin=$work/bin; mkdir -p $bin
 cat > $bin/nix <<'SH'
 #!/bin/sh
 # nix develop -c CMD... runs CMD; nix shell ... -c CMD... runs it too (menu_compare is not part of these cases)
+[ "$1" = shell ] && echo "nix $*" >> "$FAKE_LOG"
 while [ $# -gt 0 ] && [ "$1" != -c ]; do shift; done
 shift
 exec "$@"
@@ -78,6 +79,24 @@ gate GATE_SCOPE=auto
 grep -q '^scope=\|scope game' $work/out || true
 grep 'ctest .*asan56' $work/fake.log | grep -v show-only | grep -q 'tests-from-file' && fail "ASan was cut for a game change: $(grep asan56 $work/fake.log)"
 grep 'ctest .*release' $work/fake.log | grep -v show-only | grep -q 'tests-from-file' || fail "release ran every test for a game change"
+
+# 2b. ui_kit_check runs in the gate for a game change, in a nix shell with imagemagick, after the release build: its ok lines are counted, a FAIL line or a bad status fails the gate, a skip is not a pass
+fake_uikit() { mkdir -p $work/repo/tools; printf '#!/bin/sh\necho "ok   /x/a.png: arrow_w 9 (CD 9)"\necho "ok   /x/a.png: gap_left 14 (CD 14)"\n[ -n "$FAKE_UIKIT_FAIL" ] && echo "FAIL /x/a.png: gap_right 3 (CD 15)"\n[ -n "$FAKE_UIKIT_SKIP" ] && { echo "skip: no CD"; exit 77; }\n[ -n "$FAKE_UIKIT_FAIL" ] && exit 1\nexit 0\n' > $work/repo/tools/ui_kit_check.sh; chmod +x $work/repo/tools/ui_kit_check.sh; }
+make_repo game/a.c; fake_uikit
+gate GATE_SCOPE=auto
+grep -q '^ui_kit_check: status 0, 2 ok, 0 FAIL' $work/out || fail "the gate did not print the ui_kit_check count: $(grep ui_kit $work/out)"
+grep -q 'nix shell .*imagemagick' $work/fake.log || fail "ui_kit_check ran without an imagemagick shell: $(grep '^nix' $work/fake.log)"
+grep -q '^verdict FAIL:.*ui_kit_check' $work/out && fail "a passing ui_kit_check failed the gate: $(grep verdict $work/out)"
+make_repo game/a.c; fake_uikit
+gate GATE_SCOPE=auto FAKE_UIKIT_FAIL=1
+grep -q '^verdict FAIL:.*ui_kit_check' $work/out || fail "a FAIL line did not fail the gate: $(grep -E 'ui_kit|verdict' $work/out)"
+grep -q '^FAIL /x/a.png: gap_right' $work/out || fail "the FAIL line was not printed: $(grep -E 'ui_kit|FAIL' $work/out)"
+make_repo game/a.c; fake_uikit
+gate GATE_SCOPE=auto FAKE_UIKIT_SKIP=1
+grep -q '^verdict FAIL:.*ui_kit_check' $work/out || fail "a skipped ui_kit_check passed the gate: $(grep -E 'ui_kit|verdict' $work/out)"
+make_repo docs/a.md; fake_uikit
+gate
+grep -q 'ui_kit_check: status' $work/out && fail "ui_kit_check ran for a docs diff"
 
 # 3. a build that fails: exit 1, no verdict (nightly says so), the lock is dropped (the trap on exit inside eval)
 make_repo docs/a.md
