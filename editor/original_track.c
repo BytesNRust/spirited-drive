@@ -254,20 +254,18 @@ static void rel_of(char *out, size_t cap, const char *stem)
     snprintf(out, cap, "track_light/%s.txt", stem);
 }
 
-int original_track_publish_plan(const char *dir, const char *data_dir, OriginalPublish *out, char *why, size_t cap)
+int original_track_light_plan(const char *light_file, const char *stem, const char *data_dir, OriginalPublish *out, char *why, size_t cap)
 {
-    char stem[16];
     memset(out, 0, sizeof *out);
-    if (!original_track_stem_of(dir, stem, sizeof stem)) return fail(why, cap, "%s is not an original track's folder", dir), 0;
     {
         OriginalPublishItem *it = &out->item[out->count];
         char mine[1100], theirs[1100];
         rel_of(it->file, sizeof it->file, stem);
-        snprintf(mine, sizeof mine, "%s/light/%s", dir, it->file);
+        snprintf(mine, sizeof mine, "%s", light_file);
         snprintf(theirs, sizeof theirs, "%s/%s", data_dir, it->file);
         size_t lm, lt;
         unsigned char *m = slurp(mine, &lm);
-        if (m == NULL) return fail(why, cap, "the project has no %s", it->file), 0;
+        if (m == NULL) return fail(why, cap, "there is no %s", it->file), 0;
         unsigned char *t = slurp(theirs, &lt);
         if (t == NULL) it->state = OT_NEW, ++out->added;
         else if (lm == lt && memcmp(m, t, lm) == 0) it->state = OT_SAME, ++out->same;
@@ -278,15 +276,24 @@ int original_track_publish_plan(const char *dir, const char *data_dir, OriginalP
     return 1;
 }
 
-int original_track_publish(const char *dir, const char *data_dir, int *written, char *why, size_t cap)
+int original_track_publish_plan(const char *dir, const char *data_dir, OriginalPublish *out, char *why, size_t cap)
+{
+    char stem[16], light[1100];
+    memset(out, 0, sizeof *out);
+    if (!original_track_stem_of(dir, stem, sizeof stem)) return fail(why, cap, "%s is not an original track's folder", dir), 0;
+    snprintf(light, sizeof light, "%s/light/track_light/%s.txt", dir, stem);
+    return original_track_light_plan(light, stem, data_dir, out, why, cap);
+}
+
+int original_track_light_publish(const char *light_file, const char *stem, const char *data_dir, int *written, char *why, size_t cap)
 {
     OriginalPublish plan;
     *written = 0;
-    if (!original_track_publish_plan(dir, data_dir, &plan, why, cap)) return 0;
+    if (!original_track_light_plan(light_file, stem, data_dir, &plan, why, cap)) return 0;
     for (int i = 0; i < plan.count; ++i) {
         if (plan.item[i].state == OT_SAME) continue;
         char mine[1100], theirs[1100], parent[1100];
-        snprintf(mine, sizeof mine, "%s/light/%s", dir, plan.item[i].file);
+        snprintf(mine, sizeof mine, "%s", light_file);
         snprintf(theirs, sizeof theirs, "%s/%s", data_dir, plan.item[i].file);
         snprintf(parent, sizeof parent, "%s/%.*s", data_dir, (int)strcspn(plan.item[i].file, "/"), plan.item[i].file);
         size_t len;
@@ -297,6 +304,15 @@ int original_track_publish(const char *dir, const char *data_dir, int *written, 
         ++*written;
     }
     return 1;
+}
+
+int original_track_publish(const char *dir, const char *data_dir, int *written, char *why, size_t cap)
+{
+    char stem[16], light[1100];
+    *written = 0;
+    if (!original_track_stem_of(dir, stem, sizeof stem)) return fail(why, cap, "%s is not an original track's folder", dir), 0;
+    snprintf(light, sizeof light, "%s/light/track_light/%s.txt", dir, stem);
+    return original_track_light_publish(light, stem, data_dir, written, why, cap);
 }
 
 void original_track_publish_text(const OriginalPublish *p, const char *stem, char *out, size_t cap)
