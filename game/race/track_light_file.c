@@ -195,6 +195,62 @@ static int zone_slots(TrackLightTweaks *tweaks, int *bad_line)
     return 1;
 }
 
+/* the look of the tunnel at `node` this time: the last zone over it that has a look of its own, else the time's (the dark default: 10 % of full light, no colour) */
+static void tunnel_look_at(const TrackLightTweaks *tweaks, uint32_t node, double *light, float cast[3])
+{
+    *light = tweaks->look_has_light ? tweaks->look_light : 10.0;
+    for (int k = 0; k < 3; k++) cast[k] = tweaks->look_has_colour ? tweaks->look_cast[k] : 1.0f;
+    for (int i = 0; i < tweaks->zone_count; i++) {
+        const TrackLightZone *const z = &tweaks->zones[i];
+        if (z->lit || node < z->from || node > z->to || (!z->has_light && !z->has_colour)) continue;
+        if (z->has_light) *light = z->light;
+        if (z->has_colour) memcpy(cast, z->cast, 3 * sizeof(float));
+    }
+}
+
+/* the gradients' steps: for each tunnel with a gradient of N nodes, the node d inside a mouth (d = 0 .. N - 1, from whichever end is nearer: the same at both mouths) is step d + 1 of N + 1, its blend
+ * (d + 1) / (N + 1) of the way from the open road to the tunnel's look; a short tunnel meets in the middle. Slots are numbered by blend, the shallowest first, so a polygon across two steps takes the lower id.
+ * When the 512 steps or the 16 slots do not fit there is no gradient at all (the straight cut): a file is not refused for it, the tones it has were written first. */
+static int gradient_steps(TrackLightTweaks *tweaks, int *bad_line)
+{
+    const int tones_before = tweaks->tone_count;
+    (void)bad_line;
+    tweaks->step_count = 0;
+    for (int g = 0; g < tweaks->gradient_count; g++) {
+        const TrackLightGradient *const gr = &tweaks->gradients[g];
+        for (uint32_t n = gr->from; n <= gr->to; n++) {
+            const uint32_t d = n - gr->from < gr->to - n ? n - gr->from : gr->to - n;
+            if (d >= (uint32_t)gr->nodes) continue;
+            if (tweaks->step_count >= TRACK_LIGHT_MAX_STEPS) goto cut;
+            TrackLightZone *const s = &tweaks->steps[tweaks->step_count++];
+            *s = (TrackLightZone){ .from = n, .to = n, .has_light = 1, .has_colour = 1, .tone = -1, .blend = (int)((d + 1) * 100 / ((uint32_t)gr->nodes + 1)) };
+            tunnel_look_at(tweaks, n, &s->light, s->cast);
+        }
+    }
+    for (int blend = 1; blend < 100; blend++)
+        for (int i = 0; i < tweaks->step_count; i++) {
+            TrackLightZone *const s = &tweaks->steps[i];
+            if (s->blend != blend) continue;
+            TrackNodeLightTone slot;
+            memset(&slot, 0, sizeof slot);
+            slot.rgb[0] = slot.rgb[1] = slot.rgb[2] = 255, slot.look = 2, slot.blend = (uint8_t)blend, slot.light = (float)s->light;
+            memcpy(slot.cast, s->cast, sizeof slot.cast);
+            int id = -1;
+            for (int t = 0; t < tweaks->tone_count; t++)
+                if (memcmp(&tweaks->tones[t], &slot, sizeof slot) == 0) id = t;
+            if (id < 0) {
+                if (tweaks->tone_count >= TRACK_NODE_LIGHT_TONES) goto cut;
+                id = tweaks->tone_count;
+                tweaks->tones[tweaks->tone_count++] = slot;
+            }
+            s->tone = id;
+        }
+    return 1;
+cut:
+    tweaks->tone_count = tones_before, tweaks->step_count = 0;
+    return 1;
+}
+
 static int parse_uint(const char *token, unsigned *out)
 {
     char *end = NULL;
@@ -276,6 +332,12 @@ static int parse_line(const char *line, uint32_t nodes, TrackLightTweaks *tweaks
         if (has_colour) memcpy(z->cast, cast, sizeof z->cast);
         return 1;
     }
+    if (strcmp(key, "tunnel_gradient") == 0) {   /* tunnel_gradient A B N: made from the track file's `tunnel A B gradient N` for each block */
+        int n = 0;
+        if (sscanf(rest, "%u %u %u%n", &a, &b, &c, &n) != 3 || a > b || b >= nodes || c < 1 || c > TRACK_LIGHT_MAX_GRADIENT || tweaks->gradient_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
+        tweaks->gradients[tweaks->gradient_count++] = (TrackLightGradient){ a, b, (int)c };
+        return 1;
+    }
     if (strcmp(key, "brightness") == 0) {
         int n = 0;
         if (sscanf(rest, "%u %u %u%n", &a, &b, &c, &n) != 3 || a > b || b >= nodes || c > 1000 || tweaks->brightness_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
@@ -340,7 +402,7 @@ int track_light_tweak_line(const char *line, uint32_t nodes, TrackLightTweaks *t
 
 int track_light_tweaks_finish(TrackLightTweaks *tweaks, int *bad_line)
 {
-    return zone_slots(tweaks, bad_line);
+    return zone_slots(tweaks, bad_line) && gradient_steps(tweaks, bad_line);
 }
 
 /* `sun AZIMUTH ELEVATION SHADOW`: degrees, degrees, percent; a word may be `-` for the generator's own. One a file. */
@@ -452,6 +514,7 @@ void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, in
         }
     int zone_looks = 0;
     for (int i = 0; i < tweaks->zone_count; i++) zone_looks += tweaks->zones[i].tone >= 0;
+    zone_looks += tweaks->step_count;
     if ((tweaks->tone_run_count > 0 || zone_looks > 0) && light->nodes > 0) {   /* the scene tones and the zones' own looks: a node's slot is its last line's (the zones first, then the `tone` lines) */
         free(light->tone_id), free(light->tone_mask);
         light->tone_id = calloc(light->nodes, 1), light->tone_mask = calloc(light->nodes, sizeof *light->tone_mask);
@@ -464,6 +527,10 @@ void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, in
             for (int i = 0; i < tweaks->zone_count; i++) {
                 const TrackLightZone *z = &tweaks->zones[i];
                 for (uint32_t n = z->from; z->tone >= 0 && n <= z->to && n < light->nodes; n++) light->tone_id[n] = (uint8_t)(z->tone + 1), light->tone_mask[n] = (1u << TRACK_NODE_LIGHT_POINTS) - 1u;
+            }
+            for (int i = 0; i < tweaks->step_count; i++) {   /* the gradients' steps over the zones' looks */
+                const TrackLightZone *s = &tweaks->steps[i];
+                if (s->tone >= 0 && s->from < light->nodes) light->tone_id[s->from] = (uint8_t)(s->tone + 1), light->tone_mask[s->from] = (1u << TRACK_NODE_LIGHT_POINTS) - 1u;
             }
             for (int i = 0; i < tweaks->tone_run_count; i++) {
                 const TrackLightToneRun *r = &tweaks->tone_runs[i];

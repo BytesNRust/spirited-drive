@@ -90,6 +90,23 @@ static void test_tones(void)
     cls[3] = 0;
     track_light_set(&in, 0, corner);
     CHECK(now[5] == 0);   /* one corner out of the tone: the polygon is the road's */
+    /* across two steps of a tunnel mouth's gradient (tones 2 and 3 here) a polygon is the shallower step's; a corner with no tone (past the last step) does not make it the tunnel's own; a tone that is not a step still
+     * leaves it with none */
+    track_light_gradient_tones = (1u << 2) | (1u << 3);
+    const uint8_t two = (uint8_t)(1 | 2 << TRACK_NODE_LIGHT_TONE_BASE_BITS), three = (uint8_t)(1 | 3 << TRACK_NODE_LIGHT_TONE_BASE_BITS), plain = 1;
+    cls[0] = cls[1] = two, cls[2] = cls[3] = three;
+    track_light_set(&in, 0, corner);
+    CHECK(now[5] == two);
+    cls[0] = cls[1] = three, cls[2] = cls[3] = plain;
+    track_light_set(&in, 0, corner);
+    CHECK(now[5] == three);
+    cls[0] = cls[1] = three, cls[2] = cls[3] = (uint8_t)(1 | 4 << TRACK_NODE_LIGHT_TONE_BASE_BITS);   /* tone 4 is a scene tone, not a step */
+    track_light_set(&in, 0, corner);
+    CHECK(now[5] == 1);
+    track_light_gradient_tones = 0;   /* no gradient: a polygon across two tones is the tunnel's own, as before */
+    cls[0] = cls[1] = two, cls[2] = cls[3] = three;
+    track_light_set(&in, 0, corner);
+    CHECK(now[5] == 1);
     cls[0] = cls[1] = cls[2] = cls[3] = (uint8_t)(1 | 3 << TRACK_NODE_LIGHT_TONE_BASE_BITS);   /* a tunnel's polygon with a tone */
     track_light_set(&in, 0, corner);
     CHECK(now[5] == (1 | 3 << TRACK_NODE_LIGHT_TONE_BASE_BITS));

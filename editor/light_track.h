@@ -67,7 +67,8 @@ typedef struct {
     unsigned nodes;      /* the track's node count (the file does not say it) */
 } LightTrack;
 
-typedef struct { unsigned from, to; int lit; } LightTrackTunnel;
+typedef struct { unsigned from, to; int lit; int has_gradient, gradient; } LightTrackTunnel;   /* gradient: the nodes inside each mouth the light falls over (0 a straight cut, LT_MAX_GRADIENT at most); the game's default (LT_DEFAULT_GRADIENT) when the line has none */
+enum { LT_MAX_GRADIENT = 8, LT_DEFAULT_GRADIENT = 3 };
 typedef struct { int has_azimuth, has_elevation, has_shadow; double azimuth, elevation, shadow; int has_reach; double reach; } LightTrackSun;   /* degrees, degrees (-90..90), percent 0..100; a part not set is `-`; the reach in units 1..2000 (the terrain that can shade a point), no reach: the generator's */
 typedef struct {
     int has_nodes; unsigned from, to;   /* no nodes: the default look of the time */

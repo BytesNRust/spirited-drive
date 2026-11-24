@@ -2,7 +2,8 @@
  * time looks: the sun, the tunnels' look, the lamps, the retouches, and `rows` for the nodes whose rows are written by hand (the other rows are made when the track loads). The format is in
  * notes/track-light-format-2026-11-22.md; a line is one of
  *
- *   track CY1 | tunnel A B [lit] | snow 0|1 | snow_map FROM TO                          the facts, before the first `time`
+ *   track CY1 | tunnel A B [lit | gradient N] | snow 0|1 | snow_map FROM TO                          the facts, before the first `time`
+ *     gradient N: the nodes inside each mouth of the tunnel over which its light falls from the open road's to the tunnel's, 0 a straight cut, 1..8, 3 when the line has none
  *   time A|B|C|N                                                                       a time's block runs to the next `time`
  *   sun AZ EL SHADOW                      degrees, degrees, percent of light left in full shadow; a part may be `-` (the generator's)
  *   tunnel_look [A B] [LIGHT] [COLOUR] [lamps S [COLOUR]] [reach R]

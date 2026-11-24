@@ -20,11 +20,16 @@
 const TrackNodeLight *light_effects;   /* the track's light (set below) */
 int light_changed;   /* the light editor's reload put new rows in the same light: the built track is built again */
 
-void ported_view_light_changed(void) { light_changed = 1; }
+void ported_view_light_changed(void)
+{
+    light_changed = 1;
+    track_light_gradient_tones = track_node_light_gradient_ids(light_effects);   /* the light was made again: its tones may have changed */
+}
 
 void ported_view_set_light(const TrackNodeLight *light, const float tint[3])
 {
     light_effects = light;
+    track_light_gradient_tones = track_node_light_gradient_ids(light);
     for (int k = 0; k < 3; k++) lit_tint[k] = light != NULL && tint != NULL ? tint[k] : 1.0f;
     lit_tinted = lit_tint[0] != 1.0f || lit_tint[1] != 1.0f || lit_tint[2] != 1.0f;
 }

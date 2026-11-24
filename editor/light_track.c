@@ -170,11 +170,15 @@ static const char *strip_text(unsigned mask, char *buf, size_t cap)
 
 static const char *p_tunnel(const Words *w, unsigned nodes, LightTrackTunnel *out)
 {
-    LightTrackTunnel v = { 0, 0, 0 };
-    if (w->n < 3 || w->n > 4 || !number(w->w[1], &v.from) || !number(w->w[2], &v.to)) return "tunnel FROM TO [lit]";
+    LightTrackTunnel v = { 0, 0, 0, 0, 0 };
+    if (w->n < 3 || w->n > 5 || !number(w->w[1], &v.from) || !number(w->w[2], &v.to)) return "tunnel FROM TO [lit | gradient N]";
     if (w->n == 4) {
-        if (strcmp(w->w[3], "lit") != 0) return "tunnel FROM TO [lit]";
+        if (strcmp(w->w[3], "lit") != 0) return "tunnel FROM TO [lit | gradient N]";
         v.lit = 1;
+    } else if (w->n == 5) {
+        unsigned g;
+        if (strcmp(w->w[3], "gradient") != 0 || !number(w->w[4], &g) || g > LT_MAX_GRADIENT) return "tunnel FROM TO gradient N, N from 0 to 8";
+        v.has_gradient = 1, v.gradient = (int)g;
     }
     if (v.from > v.to || v.to >= nodes) return "the nodes of a tunnel are in order and inside the track";
     if (out != NULL) *out = v;
@@ -832,7 +836,8 @@ static int kind_ok(int time, int facts)
 int light_track_set_tunnel(LightTrack *f, int i, const LightTrackTunnel *v, char *why, size_t cap)
 {
     char body[96];
-    snprintf(body, sizeof body, "tunnel %u %u%s", v->from, v->to, v->lit ? " lit" : "");
+    int n = snprintf(body, sizeof body, "tunnel %u %u%s", v->from, v->to, v->lit ? " lit" : "");
+    if (!v->lit && v->has_gradient && n > 0 && (size_t)n < sizeof body) snprintf(body + n, sizeof body - (size_t)n, " gradient %d", v->gradient < 0 ? 0 : v->gradient > LT_MAX_GRADIENT ? LT_MAX_GRADIENT : v->gradient);   // a hall has no mouth to grade
     return sorted(f, LT_TIME_FACTS, LT_TUNNEL, i, change(f, LT_TIME_FACTS, LT_TUNNEL, i, body, why, cap));
 }
 

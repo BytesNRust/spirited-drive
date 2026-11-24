@@ -20,8 +20,8 @@ run() {   # FILE OUT
 }
 sed 's/^\(  tunnel_look .*\)$/\1 lamps 0/' "$src" > "$work/off.txt"
 run "$src" "$work/on_ratios"; run "$work/off.txt" "$work/off_ratios"
-# the red channel of the car's ratio at each node of the tunnel's middle (1598..1605): the spread of the nodes' values
-spread() { awk '$1 >= 1598 && $1 <= 1605 { if (!($1 in v)) { v[$1] = $2 } } END { n = 0; for (k in v) { if (n == 0 || v[k] < lo) lo = v[k]; if (n == 0 || v[k] > hi) hi = v[k]; n++ } printf "%d %.3f\n", n, hi - lo }' "$1"; }
+# the red channel of the car's ratio at each node of the tunnel's middle (1599..1604, past the mouths' gradient steps): the spread of the nodes' values
+spread() { awk '$1 >= 1599 && $1 <= 1604 { if (!($1 in v)) { v[$1] = $2 } } END { n = 0; for (k in v) { if (n == 0 || v[k] < lo) lo = v[k]; if (n == 0 || v[k] > hi) hi = v[k]; n++ } printf "%d %.3f\n", n, hi - lo }' "$1"; }
 set -- $(spread "$work/on_ratios"); on_n=$1; on_spread=$2
 set -- $(spread "$work/off_ratios"); off_n=$1; off_spread=$2
 status=0

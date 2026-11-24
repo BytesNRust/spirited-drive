@@ -379,6 +379,7 @@ static int at_once(App *a, const char *name, const double *arg)
                 int have = 0;
                 for (int j = 0; j < looks && !have; ++j) have = light_track_get_look(f, time, j, &own) && own.has_nodes && own.from == t.from && own.to == t.to;
                 fprintf(stdout, "tunnel %d: %u-%u%s", i, t.from, t.to, t.lit ? " hall" : "");
+                if (t.has_gradient) fprintf(stdout, " gradient %d", t.gradient);
                 if (have) fprintf(stdout, " own: light %s%g lamps %s%g reach %s%g", own.has_light ? "" : "- ", own.light, own.has_lamps ? "" : "- ", own.lamps, own.has_reach ? "" : "- ", own.reach);
                 fprintf(stdout, "\n");
             }

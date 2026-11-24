@@ -10,6 +10,7 @@ int track_light_tunnel = 0;
 double track_light_xz[4][2];
 int track_light_xz_ok;
 uint32_t track_light_node[4];
+uint32_t track_light_gradient_tones;
 
 unsigned outcode_shared(const ClipRect *clip, const int32_t *screen, int count)
 {

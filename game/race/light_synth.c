@@ -220,7 +220,7 @@ static void car_tunnel_look(const TrackNodeLight *light, uint32_t node, int matc
         if (zone == light->nodes) continue;
         double percent;
         float cast[3];
-        track_node_light_zone_look_at(light, zone, &percent, cast);
+        track_node_light_zone_look_blend(light, zone, mean, &percent, cast);   /* a gradient step's light, as the world's tables take it */
         const float lamp_gap = (float)LIGHT_SYNTH_LAMP_GAP_PERCENT / 100.0f;
         const float dark = 1.0f - (float)d / (float)LIGHT_SYNTH_LOOK_RAMP;
         const int unlit = light->lamps_off != NULL && light->lamps_off[zone];   /* the zone's lamps are at 0 %: the car does not alternate */

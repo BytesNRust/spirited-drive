@@ -188,6 +188,16 @@ grep -q '^  tunnel_look 85$' "$f" || fail "the default row's Light % is not in t
 grep -q '^  tunnel_look 60 71 65 .*lamps 220' "$f" || fail "the tunnel's Light % (its Lamps % kept) is not in the saved file: $(grep tunnel_look "$f")"
 grep -q '^  tunnel_look 12 20 .*lamps 120' "$f" || fail "the first tunnel's Lamps % is not in the saved file: $(grep tunnel_look "$f")"
 grep -Eq '^  tunnel_look 60 71 .*reach 3' "$f" || fail "the typed Reach is not in the saved file (20 is out of 0.5..4: the second entry, 3, is): $(grep tunnel_look "$f")"
+# the Gradient column: the nodes inside each mouth the light falls over, a tunnel's own (not a moment's): typed 5 in the second tunnel's cell it is `tunnel 60 71 gradient 5` in the saved file, the first
+# tunnel has none (the game's default 3); 0 (a straight cut) is written as such, and a value past 8 is held at 8
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 \
+    --steps ui-click:time_B,ui-click:tunnel1_gradient,ui-text:5,key:Return,ui-click:save,light-print > "$work/tgrad" 2>&1 || fail "the clicked Gradient cell flow: $(tail -3 "$work/tgrad")"
+grep -q '^tunnel 60 71 gradient 5$' "$f" || fail "the typed Gradient is not in the saved file: $(grep '^tunnel' "$f")"
+grep -q '^tunnel 12 20$' "$f" || fail "the first tunnel gained a gradient it was not given: $(grep '^tunnel' "$f")"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 \
+    --steps ui-click:time_C,ui-click:tunnel1_gradient,ui-text:0,key:Return,ui-click:tunnel0_gradient,ui-text:99,key:Return,ui-click:save,light-print > "$work/tgrad0" 2>&1 || fail "the clicked Gradient cell flow, 0 and 99: $(tail -3 "$work/tgrad0")"
+grep -q '^tunnel 60 71 gradient 0$' "$f" || fail "a Gradient of 0 (a straight cut) is not in the saved file: $(grep '^tunnel' "$f")"
+grep -q '^tunnel 12 20 gradient 8$' "$f" || fail "a Gradient past 8 was not held at 8: $(grep '^tunnel' "$f")"
 # Lamps % to all moments: the Day row of the first tunnel has lamps 120 (typed above); the button gives it to Dawn, Dusk and Night, and Save writes the four lines
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 --steps ui-click:time_B,ui-click:lamps_all,ui-click:save,light-print > "$work/lall" 2>&1 || fail "the Lamps % to all moments flow: $(tail -3 "$work/lall")"
 [ "$(grep -Ec '^  tunnel_look 12 20 .*lamps 120' "$f")" = 4 ] || fail "Lamps % to all moments did not write the tunnel's lamps 120 in the four moments: $(grep -n 'time\|tunnel_look' "$f")"

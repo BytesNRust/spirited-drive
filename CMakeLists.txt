@@ -1867,6 +1867,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(dash_light_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME reflectors_day_weather_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/reflectors_day_weather_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # by day the reflectors shine in fog, not in rain or clear sun
         set_tests_properties(reflectors_day_weather_game PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+        add_test(NAME tunnel_gradient_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_gradient_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+        set_tests_properties(tunnel_gradient_game PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         add_test(NAME lamp_strip_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lamp_strip_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(lamp_strip_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME vegas_lamps_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/vegas_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

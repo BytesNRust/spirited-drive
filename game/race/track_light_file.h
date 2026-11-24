@@ -24,7 +24,10 @@ typedef struct { uint32_t from, to; int percent; int side; int shade; uint16_t m
 typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightToneRun;
 /* a `tunnel a b [light] [colour | lit]` line: lit, a hall (a tunnel with a lot of light, lit by its own lamps); else the zone's own look when the line gives a light and / or a colour (what it leaves out is the
  * time's tunnel_tone's), which is a tone slot (`tone`: its number, or -1 when the look is the time's) once the file is read. `line` is the line's number, for the slot that does not fit. */
-typedef struct { uint32_t from, to; int lit; int has_light, has_colour; double light; float cast[3]; int line; int tone; } TrackLightZone;
+typedef struct { uint32_t from, to; int lit; int has_light, has_colour; double light; float cast[3]; int line; int tone; int blend; } TrackLightZone;   /* blend 1..99: a step of a tunnel mouth's gradient (made at the end of a time's lines, not read), `light` and `cast` the tunnel's; 0 a zone */
+/* `tunnel_gradient A B N` (the track file's `tunnel A B gradient N`, a line of every block): the tunnel A..B's mouths fall off over N nodes, 1..TRACK_LIGHT_MAX_GRADIENT */
+typedef struct { uint32_t from, to; int nodes; } TrackLightGradient;
+enum { TRACK_LIGHT_MAX_GRADIENT = 8, TRACK_LIGHT_DEFAULT_GRADIENT = 3, TRACK_LIGHT_MAX_STEPS = 512 };
 /* a `lamp` line: the lamp's node, its light in percent (1..TRACK_LIGHT_MAX_LAMP_PERCENT), its radius in nodes, and its colour (the warm street lamp's when `coloured` is 0; else rgb mixed toward the warm by 100 - strength percent), and its STRIP (`mask`: bit k = row point k; 0 none: the lamp stands at a scenery post, else the node's centre) */
 typedef struct { uint32_t node; uint16_t percent; uint8_t radius; uint8_t coloured, strength; uint8_t rgb[3]; uint16_t mask; } TrackLightLamp;
 typedef struct {
@@ -39,6 +42,10 @@ typedef struct {
     float look_cast[3];                    /* the colour as the factor on each channel, 0..1 (the file's RRGGBB[:strength]) */
     TrackLightZone zones[TRACK_LIGHT_MAX_BRIGHT];   /* the `tunnel a b ...` lines: they add to the places' tunnels, and `lit` makes the nodes a hall */
     int zone_count;
+    TrackLightGradient gradients[TRACK_LIGHT_MAX_BRIGHT];   /* tunnel_gradient: the tunnels whose mouths take a gradient; zones for it are added at the end (track_light_tweaks_finish) */
+    int gradient_count;
+    TrackLightZone steps[TRACK_LIGHT_MAX_STEPS];   /* the gradients' steps, one a node (blend > 0), made by track_light_tweaks_finish and laid over the zones */
+    int step_count;
     TrackLightLamp lamps[TRACK_LIGHT_MAX_LAMPS];   /* lamp: in file order */
     int lamp_count;
     TrackLightTunnelLamp tunnel_lamps[TRACK_LIGHT_MAX_TUNNEL_LAMPS];   /* tunnel_lamp: in file order */

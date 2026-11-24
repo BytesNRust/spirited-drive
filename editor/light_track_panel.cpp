@@ -261,7 +261,7 @@ void tunnel_rows(App *a)
     ImGui::SameLine();
     help_marker("The track's tunnels: where each is (nodes) and what it is (a tunnel, or a hall: a roofed straight lit by its own lamps) are the same at every time. Light (percent of "
                 "full light inside), Colour, Lamps (the lamps' strength, percent) and Reach (the lamp pools' reach, in nodes) are this time's look of that tunnel; an empty cell takes the "
-                "default row's. A hall takes only Lamps and Reach.");
+                "default row's. A hall takes only Lamps and Reach. Gradient (nodes, 0 to 8) is where the light falls inside each mouth: it is the tunnel's, not a moment's.");
     if (!open) return;
     const int tunnels = light_track_count(&f, LT_TIME_FACTS, LT_TUNNEL), looks = light_track_count(&f, time, LT_LOOK);
     TunnelRow rows[2 * LT_MAX_PER_TIME];
@@ -289,17 +289,18 @@ void tunnel_rows(App *a)
     const float row_h = ImGui::GetFrameHeight() + 2.0f * ImGui::GetStyle().CellPadding.y;
     const float table_height = row_h * static_cast<float>(count + 2) + ImGui::GetStyle().ScrollbarSize + 2.0f;
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(2.0f, ImGui::GetStyle().CellPadding.y));   // the eight columns fit the panel at 1280 px (Lamps % and Reach were past its edge)
-    const bool tunnel_table = ImGui::BeginTable("##tunnels", 8, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX, ImVec2(0.0f, table_height));
+    const bool tunnel_table = ImGui::BeginTable("##tunnels", 9, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX, ImVec2(0.0f, table_height));
     if (!tunnel_table) ImGui::PopStyleVar();
     if (tunnel_table) {
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 54.0f);   // Remove first: the table scrolls across at the panel's width, and a last column was past its edge
-        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 44.0f);
-        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 44.0f);
-        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 62.0f);
-        ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 48.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 50.0f);   // Remove first: the table scrolls across at the panel's width, and a last column was past its edge
+        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 56.0f);
+        ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 46.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
         ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 38.0f);
-        ImGui::TableSetupColumn("Lamps %", ImGuiTableColumnFlags_WidthFixed, 48.0f);
-        ImGui::TableSetupColumn("Reach", ImGuiTableColumnFlags_WidthFixed, 44.0f);
+        ImGui::TableSetupColumn("Lamps %", ImGuiTableColumnFlags_WidthFixed, 46.0f);
+        ImGui::TableSetupColumn("Reach", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        ImGui::TableSetupColumn("Gradient", ImGuiTableColumnFlags_WidthFixed, 52.0f);
         ImGui::TableHeadersRow();
         if (ImGui::TableGetHoveredColumn() == 6)
             ImGui::SetTooltip("Lamps %%: the strength of the tunnel's lamps at this moment (100 = as the game has them).\n0 is a tunnel with no lighting: the car does not blink going through it.\nIt belongs to one moment and one tunnel: Lamps %% to all moments copies it to the other three.");
@@ -321,7 +322,7 @@ void tunnel_rows(App *a)
             ImGui::PopID();
         }
         for (int r = 0; r < count; ++r) {
-            LightTrackTunnel t = { 0, 0, 0 };
+            LightTrackTunnel t = { 0, 0, 0, 0, 0 };
             LightTrackLook v;
             memset(&v, 0, sizeof v);
             if (rows[r].tunnel >= 0) light_track_get_tunnel(&f, rows[r].tunnel, &t);
@@ -358,6 +359,14 @@ void tunnel_rows(App *a)
                 ImGui::TextDisabled("inside");
             }
             const bool look_changed = look_cells(v, rows[r].tunnel >= 0 && t.lit != 0);
+            ImGui::TableSetColumnIndex(8);
+            if (rows[r].tunnel >= 0 && !t.lit) {   // the nodes inside each mouth over which the light falls (0: a straight cut); the same at every moment and at both mouths
+                int g = t.has_gradient ? t.gradient : LT_DEFAULT_GRADIENT;
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                if (ImGui::InputInt("##gradient", &g, 0, 0)) t.has_gradient = 1, t.gradient = g < 0 ? 0 : g > LT_MAX_GRADIENT ? LT_MAX_GRADIENT : g, tunnel_changed = true;
+                ui_probe("gradient");
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Gradient: the nodes inside each mouth over which the light falls from the open road's to the tunnel's.\n0 is a straight cut. It is the same at every moment and at both mouths.");
+            }
             if (remove_row) {
                 remove_tunnel = rows[r].tunnel;
                 remove_look = rows[r].look;
@@ -423,7 +432,7 @@ void tunnel_rows(App *a)
     }
     if (add_tunnel) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
-        const LightTrackTunnel t = { node, node + 50 < last ? node + 50 : last, 0 };
+        const LightTrackTunnel t = { node, node + 50 < last ? node + 50 : last, 0, 0, 0 };
         if (light_track_set_tunnel(&f, -1, &t, why, sizeof why)) app_light_touch(a);
         else refused(a, why);
     }

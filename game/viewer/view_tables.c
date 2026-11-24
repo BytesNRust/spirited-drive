@@ -105,9 +105,15 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
     uint8_t (*t)[256] = tone_tables[id][in_tunnel != 0];
     if (tone_made[id][in_tunnel != 0]) return t;
     if (slot->look) {   /* the zone's own light and colour, as the time's look is made (track_node_light_tunnel_look): the light over the time's own tint, the colour as the cast */
-        const float gain = (float)(tone_mean > 0.05f ? (double)slot->light / 100.0 / (double)tone_mean : (double)slot->light / 100.0);
+        float gain = (float)(tone_mean > 0.05f ? (double)slot->light / 100.0 / (double)tone_mean : (double)slot->light / 100.0);
+        float cast[3] = { slot->cast[0], slot->cast[1], slot->cast[2] };
+        if (slot->look == 2) {   /* a gradient step of a tunnel mouth: part of the way from the open road (gain 1, no cast) to the tunnel's */
+            const float f = (float)slot->blend / 100.0f;
+            gain = 1.0f + (gain - 1.0f) * f;
+            for (int k = 0; k < 3; k++) cast[k] = 1.0f + (cast[k] - 1.0f) * f;
+        }
         const float grey[3] = { gain, gain, gain };
-        modern_tunnel_tables(tone_palette, grey, slot->cast, 0.0f, t);
+        modern_tunnel_tables(tone_palette, grey, cast, 0.0f, t);
         tone_made[id][1] = 1;
         return t;
     }

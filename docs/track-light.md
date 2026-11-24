@@ -13,6 +13,7 @@ line. A time appears at most once; a time with no block is the made light with n
 
     track CY1
     tunnel 1064 1171            # a tunnel (the same at every time of day)
+    tunnel 1064 1171 gradient 5 # the light inside each mouth falls over 5 nodes (0: a straight cut; 1..8; 3 when the line has none)
     tunnel 1 62 lit             # a hall: a roofed straight lit by its own lamps (TR7's steelworks)
     snow 0                      # snow 1: the track's rain is snow
     snow_map FROM TO            # a snowy track's road art: texture slot FROM is drawn as slot TO
@@ -39,6 +40,11 @@ line. A time appears at most once; a time with no block is the made light with n
 
 STRIP is `pA pB` (the points A..B of the row's 11, inclusive; `pA` alone is one point), a list in one word with commas and no spaces, `p1,p3,p7` (any points, in any order: the ones that are not a run), or a word: `right` = p1..p5, `left` = p6..p10, `road` = p0 p1 p6, `all` = p0..p10. Point 0 is the centre, 1..5 a chain to the right,
 6..10 one to the left.
+
+A tunnel's `gradient N` (Studio: the Tunnels table's Gradient column) grades the light at both mouths: the nodes outside the portal keep the open road's light, and inside it falls node by node over N nodes, the
+d-th node in at (d + 1) / (N + 1) of the way from the open road's light and colour to the tunnel's look (a zone's own look if it has one), the same at both mouths and in both directions; a tunnel shorter than 2N nodes
+meets in the middle. It acts on the tunnel's polygons (road, walls, ceiling) and on the car, not on the headlights' pool or the tunnel lamps; each step is a scene tone slot (16 slots a time with the `tone` lines and the zones' own
+looks: N steps for each distinct look; when they do not fit the tunnels keep the straight cut and the file is not refused). 0 is the straight cut of the earlier files. A hall (`lit`) has no gradient. Only Restomod, whose light it is, shows it.
 
 Order of application: the made rows (terrain, tunnels, the looks) -> `rows` -> `brightness` and `tone` in file order -> the `lamp`s lift the row. A car reads the row by its lane after `brightness` and `tone` and before the
 lamps' lift. At most 64 `tunnel_look`, `brightness` and `tone` lines in a time and 2048 `lamp` lines.

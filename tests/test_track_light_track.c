@@ -390,8 +390,79 @@ static void test_a_track_id_is_not_a_path(void)
     (void)rmdir(dir);
 }
 
+
+/* a tunnel mouth's gradient (`tunnel A B gradient N`): the light inside each mouth falls over N nodes, node by node, the same at both mouths and in both directions; 0 is the straight cut as before */
+static double look_percent(const TrackNodeLight *light, uint32_t node)
+{
+    double percent = -1.0;
+    float cast[3];
+    CHECK(track_node_light_zone_look_blend(light, node, 1.0f, &percent, cast));
+    return percent;
+}
+
+static void test_a_tunnel_mouth_gradient(void)
+{
+    static const char TEXT[] =
+        "track CY1\n"
+        "tunnel 100 120\n"             /* the default: 3 nodes */
+        "tunnel 300 305 gradient 0\n"  /* a straight cut */
+        "tunnel 500 540 gradient 2\n"
+        "tunnel 700 703 gradient 3\n"  /* shorter than twice its gradient: the two meet in the middle */
+        "tunnel 900 910 lit\n"         /* a hall has no mouth to grade */
+        "time A\n"
+        "  tunnel_look 50\n"
+        "  tunnel_look 500 540 20\n"
+        "time B\n"
+        "  tunnel_look 50\n";
+    TrackLightFile file;
+    int bad = -1;
+    CHECK(parse(TEXT, 'A', &file, &bad));
+    track_light_apply(&file.tweaks, &file.light, 0, 0);
+    const TrackNodeLight *const l = &file.light;
+    /* the default of 3: 87.5, 75, 62.5 inside the mouth, then the tunnel's 50, falling node by node; the same at the other end */
+    CHECK_EQ_INT((int)(look_percent(l, 100) * 10.0 + 0.5), 875);
+    CHECK_EQ_INT((int)(look_percent(l, 101) * 10.0 + 0.5), 750);
+    CHECK_EQ_INT((int)(look_percent(l, 102) * 10.0 + 0.5), 625);
+    CHECK_EQ_INT((int)(look_percent(l, 103) * 10.0 + 0.5), 500);
+    for (uint32_t d = 0; d < 5; d++) CHECK(look_percent(l, 100 + d) == look_percent(l, 120 - d));   /* both mouths, both directions */
+    for (uint32_t n = 100; n < 110; n++) CHECK(look_percent(l, n + 1) <= look_percent(l, n));   /* monotonic inward */
+    /* gradient 0: no step, the tunnel's own look from the first node, as before */
+    for (uint32_t n = 300; n <= 305; n++) CHECK(look_percent(l, n) == 50.0 && l->tone_id[n] == 0);
+    /* N = 2 over a zone with its own light (20): 1/3 and 2/3 of the way from the open road's 100 */
+    CHECK(look_percent(l, 500) > 73.5 && look_percent(l, 500) < 73.7);   /* 100 - 80 * 0.33 */
+    CHECK(look_percent(l, 501) > 47.1 && look_percent(l, 501) < 47.3);   /* 100 - 80 * 0.66 */
+    CHECK_EQ_INT((int)(look_percent(l, 502) + 0.5), 20);
+    CHECK(look_percent(l, 540) == look_percent(l, 500) && look_percent(l, 539) == look_percent(l, 501));
+    /* a short tunnel: each node takes the nearer end's step */
+    CHECK(look_percent(l, 700) == look_percent(l, 703) && look_percent(l, 701) == look_percent(l, 702));
+    CHECK(look_percent(l, 700) > look_percent(l, 701));
+    /* the slots are numbered by depth, and are the gradient's ids */
+    CHECK(l->tone_id[100] < l->tone_id[101] && l->tone_id[101] < l->tone_id[102] && l->tone_id[102] > 0);
+    CHECK(track_node_light_gradient_ids(l) == ((1u << l->tone_id[100]) | (1u << l->tone_id[101]) | (1u << l->tone_id[102]) | (1u << l->tone_id[500]) | (1u << l->tone_id[501])));
+    /* outside the tunnel and in a hall: nothing */
+    CHECK(l->tone_id[99] == 0 && l->tone_id[121] == 0 && l->tone_id[900] == 0 && l->tone_id[905] == 0);
+    track_light_file_free(&file);
+    /* the same file at another moment: the same steps over that moment's look */
+    CHECK(parse(TEXT, 'B', &file, &bad));
+    track_light_apply(&file.tweaks, &file.light, 0, 0);
+    CHECK(look_percent(&file.light, 500) > 83.4 && look_percent(&file.light, 500) < 83.6);   /* 100 -> the time's 50 at 0.33 (no zone look of its own at B) */
+    track_light_file_free(&file);
+    /* the 16 slots all used by scene tones and zone looks: no room for the steps, so no gradient (a straight cut), and the file is not refused for it */
+    char full[2048] = "track CY1\ntunnel 100 120\ntime A\n";
+    for (int i = 1; i <= 14; i++) snprintf(full + strlen(full), sizeof full - strlen(full), "  tone 50 60 %02x0000:50\n", i);
+    CHECK(parse(full, 'A', &file, &bad));
+    CHECK(file.tweaks.tone_count == 14 && file.tweaks.step_count == 0);
+    track_light_apply(&file.tweaks, &file.light, 0, 0);
+    CHECK(file.light.tone_id[100] == 0 && track_node_light_gradient_ids(&file.light) == 0);
+    track_light_file_free(&file);
+    /* the lines that are not */
+    const char *const BAD[] = { "track CY1\ntunnel 1 9 lit gradient 2\n", "track CY1\ntunnel 1 9 gradient 9\n", "track CY1\ntunnel 1 9 gradient\n", "track CY1\ntunnel 1 9 gradient 2 3\n", "track CY1\ntunnel 1 9 gradient x\n" };
+    for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) CHECK(!parse(BAD[i], 'A', &file, &bad) && bad > 0);
+}
+
 int main(void)
 {
+    test_a_tunnel_mouth_gradient();
     test_the_facts_and_a_time();
     test_the_night_block();
     test_a_lamps_strip();

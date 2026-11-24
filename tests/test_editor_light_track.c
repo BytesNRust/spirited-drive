@@ -169,11 +169,38 @@ static void edits(void)
         light_track_free(&g);
     }
     // a tunnel fact keeps its comment when it changes
-    LightTrackTunnel tun = { 1, 70, 1 };
+    LightTrackTunnel tun = { 1, 70, 1, 0, 0 };
     CHECK(light_track_set_tunnel(&f, 1, &tun, why, sizeof why));
     t = text_of(&f);
     CHECK(strstr(t, "tunnel 1 70 lit # the steelworks\n") != NULL);
     free(t);
+    // a tunnel's gradient: read, written after the nodes with the comment kept, none for a hall, 0 a straight cut, past 8 refused
+    LightTrackTunnel got, grad = { 1064, 1171, 0, 0, 0 };
+    char *txt;
+    CHECK(light_track_set_tunnel(&f, 0, &grad, why, sizeof why));
+    CHECK(light_track_get_tunnel(&f, 0, &got) && !got.has_gradient);   // none given: the game's default
+    grad.has_gradient = 1, grad.gradient = 5;
+    CHECK(light_track_set_tunnel(&f, 0, &grad, why, sizeof why));
+    CHECK(light_track_get_tunnel(&f, 0, &got) && got.has_gradient && got.gradient == 5 && !got.lit);
+    txt = text_of(&f);
+    CHECK(strstr(txt, "tunnel 1064 1171 gradient 5\n") != NULL);
+    free(txt);
+    grad.gradient = 0;
+    CHECK(light_track_set_tunnel(&f, 0, &grad, why, sizeof why));
+    CHECK(light_track_get_tunnel(&f, 0, &got) && got.has_gradient && got.gradient == 0);
+    const LightTrackTunnel hall = { 1, 70, 1, 1, 4 };
+    CHECK(light_track_set_tunnel(&f, 1, &hall, why, sizeof why));
+    txt = text_of(&f);
+    CHECK(strstr(txt, "tunnel 1 70 lit # the steelworks\n") != NULL && strstr(txt, "lit gradient") == NULL);   // a hall has no mouth to grade
+    free(txt);
+    {
+        LightTrack g;
+        const char *two = "track X\ntunnel 1 5 gradient 9\ntunnel 6 9 lit gradient 2\ntunnel 10 20 gradient\ntunnel 30 40 gradient 8\n";
+        CHECK(light_track_parse(two, strlen(two), NODES, &g, why, sizeof why));
+        CHECK(light_track_first_bad(&g) == 2);
+        CHECK(light_track_get_tunnel(&g, 0, &got) && got.from == 30 && got.has_gradient && got.gradient == 8);   // only the line that is well-formed is a tunnel
+        light_track_free(&g);
+    }
     // add: a lamp goes to the end of its block, a tone in a time with no block makes the block at the end
     lamp = (LightTrackLamp){ .node = 300, .percent = 100 };
     CHECK(light_track_set_lamp(&f, LT_TIME_N, -1, &lamp, why, sizeof why));
@@ -228,7 +255,7 @@ static void refuses_edits(void)
     // the tunnel a look needs cannot be dropped or shrunk away from it
     CHECK(!light_track_remove(&f, LT_TIME_FACTS, LT_TUNNEL, 0, why, sizeof why));
     CHECK(strstr(why, "line") != NULL);
-    LightTrackTunnel tun = { 1100, 1171, 0 };
+    LightTrackTunnel tun = { 1100, 1171, 0, 0, 0 };
     CHECK(!light_track_set_tunnel(&f, 0, &tun, why, sizeof why));
     // ranges and limits
     LightTrackBrightness b = { 5, 4, 50, LT_ALL_POINTS };
@@ -293,7 +320,7 @@ static void shapes(void)
     LightTrackLamp lamp = { .node = 9, .percent = 70 };
     CHECK(light_track_set_lamp(&f, LT_TIME_N, -1, &lamp, why, sizeof why));
     CHECK(same(&f, "track X\r\ntunnel 1 5\r\ntime N\r\n  lamp 3 50\r\n  lamp 9 70\r\n"));
-    LightTrackTunnel t = { 20, 30, 0 };
+    LightTrackTunnel t = { 20, 30, 0, 0, 0 };
     CHECK(light_track_set_tunnel(&f, -1, &t, why, sizeof why));
     CHECK(same(&f, "track X\r\ntunnel 1 5\r\ntunnel 20 30\r\ntime N\r\n  lamp 3 50\r\n  lamp 9 70\r\n"));
     light_track_free(&f);

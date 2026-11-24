@@ -126,6 +126,26 @@ int track_node_light_zone_look_at(const TrackNodeLight *light, uint32_t at, doub
     return 1;
 }
 
+int track_node_light_zone_look_blend(const TrackNodeLight *light, uint32_t at, float mean, double *percent, float cast[3])
+{
+    if (!track_node_light_zone_look_at(light, at, percent, cast)) return 0;
+    if (light->tone_id == NULL || light->nodes == 0) return 1;
+    const int id = light->tone_id[at % light->nodes];
+    if (id <= 0 || id > light->tone_count || light->tone[id - 1].look != 2) return 1;
+    const float f = (float)light->tone[id - 1].blend / 100.0f, open = mean > 0.0f ? mean * 100.0f : 100.0f;
+    *percent = (double)(open + ((float)*percent - open) * f);
+    for (int k = 0; k < 3; k++) cast[k] = 1.0f + (cast[k] - 1.0f) * f;
+    return 1;
+}
+
+uint32_t track_node_light_gradient_ids(const TrackNodeLight *light)
+{
+    uint32_t ids = 0;
+    for (int i = 0; light != NULL && i < light->tone_count && i < TRACK_NODE_LIGHT_TONES; i++)
+        if (light->tone[i].look == 2) ids |= 1u << (i + 1);
+    return ids;
+}
+
 void track_node_light_tunnel_look(const TrackNodeLight *light, const float shown[3], const float lit_tint[3], int lamp_count, TrackNodeTunnelLook *out)
 {
     static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };

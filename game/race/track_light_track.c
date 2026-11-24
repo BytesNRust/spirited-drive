@@ -81,6 +81,8 @@ typedef struct {
     uint32_t nodes;
     uint8_t *fact;                  /* per node: 1 a tunnel, 2 a hall (a `tunnel` fact) */
     int has_time[4];
+    struct { unsigned from, to; int nodes; } gradient[TRACK_LIGHT_MAX_BRIGHT];   /* the tunnels' mouths: `tunnel A B [gradient N]`, N 0 a straight cut (the default is TRACK_LIGHT_DEFAULT_GRADIENT) */
+    int gradient_count;
     TrackLightTweaks *scratch;      /* the tweaks of a block that is not the one asked for: read to be checked, then dropped */
 } State;
 
@@ -267,6 +269,12 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
                 snprintf(hall, sizeof hall, "tunnel %d %d lit", halls[h][0], halls[h][1]);
                 if (!track_light_tweak_line(hall, nodes, cur)) goto bad;
             }
+            for (int g = 0; g < st.gradient_count; g++) {   /* and the tunnels' gradients */
+                char gradient[96];
+                if (st.gradient[g].nodes == 0) continue;
+                snprintf(gradient, sizeof gradient, "tunnel_gradient %u %u %d", st.gradient[g].from, st.gradient[g].to, st.gradient[g].nodes);
+                if (!track_light_tweak_line(gradient, nodes, cur)) goto bad;
+            }
             continue;
         }
         if (!in_block) {   /* the facts */
@@ -274,14 +282,24 @@ int track_light_track_parse(const char *text, size_t size, const char *track, ch
             if (strcmp(key, "tunnel") == 0) {
                 char w[32], lit[32];
                 if (!next_word(&rest, w, sizeof w) || !number(w, &a) || !next_word(&rest, w, sizeof w) || !number(w, &b) || a > b || b >= nodes) goto bad;
-                int is_hall = 0;
+                int is_hall = 0, grad = TRACK_LIGHT_DEFAULT_GRADIENT;
                 if (next_word(&rest, lit, sizeof lit)) {
-                    if (strcmp(lit, "lit") != 0 || next_word(&rest, lit, sizeof lit) || junk_follows(rest)) goto bad;
-                    is_hall = 1;
+                    if (strcmp(lit, "lit") == 0) {
+                        if (next_word(&rest, lit, sizeof lit) || junk_follows(rest)) goto bad;
+                        is_hall = 1;
+                    } else if (strcmp(lit, "gradient") == 0) {   /* the nodes inside each mouth the light falls over, 0 to TRACK_LIGHT_MAX_GRADIENT */
+                        unsigned g;
+                        if (!next_word(&rest, w, sizeof w) || !number(w, &g) || g > TRACK_LIGHT_MAX_GRADIENT || next_word(&rest, lit, sizeof lit) || junk_follows(rest)) goto bad;
+                        grad = (int)g;
+                    } else {
+                        goto bad;
+                    }
                 } else if (junk_follows(rest)) {
                     goto bad;
                 }
                 if (is_hall && hall_count >= TRACK_LIGHT_MAX_BRIGHT) goto bad;
+                if (!is_hall && st.gradient_count >= TRACK_LIGHT_MAX_BRIGHT) goto bad;
+                if (!is_hall) st.gradient[st.gradient_count].from = a, st.gradient[st.gradient_count].to = b, st.gradient[st.gradient_count++].nodes = grad;
                 for (unsigned node = a; node <= b; node++) st.fact[node] = is_hall ? 2 : 1;
                 if (is_hall) halls[hall_count][0] = (int)a, halls[hall_count][1] = (int)b, hall_count++;
                 else memset(places.tunnel + a, 1, b - a + 1), tunnel_facts = 1;
