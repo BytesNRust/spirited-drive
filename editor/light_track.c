@@ -934,47 +934,6 @@ int light_track_sun_auto(int time, LightTrackSun *out)
     return 1;
 }
 
-int light_track_lamps_to_all_times(LightTrack *f, int from, int *lines, char *why, size_t cap)
-{
-    if (!kind_ok(from, 0)) return fail(why, cap, "no such time");
-    LightTrack backup = { 0 };
-    size_t size = 0;
-    char *text = light_track_format(f, &size);
-    if (text == NULL) return fail(why, cap, "out of memory");
-    const int kept = light_track_parse(text, size, f->nodes, &backup, why, cap);   // the file as it is now, to put back when a time refuses
-    free(text);
-    if (!kept) return 0;
-    int touched = 0, ok = 1;
-    LightTrackLook v;
-    for (int i = 0; ok && light_track_get_look(f, from, i, &v); ++i) {
-        if (!v.has_lamps) continue;
-        const LightTrackLook source = v;
-        for (int t = 0; ok && t < LT_TIMES; ++t) {
-            if (t == from) continue;
-            int found = -1;
-            LightTrackLook other;
-            for (int j = 0; found < 0 && light_track_get_look(f, t, j, &other); ++j)
-                if (other.has_nodes == source.has_nodes && (!source.has_nodes || (other.from == source.from && other.to == source.to))) found = j;
-            if (found < 0) {
-                memset(&other, 0, sizeof other);
-                other.has_nodes = source.has_nodes, other.from = source.from, other.to = source.to;
-            }
-            other.has_lamps = 1, other.lamps = source.lamps;
-            ok = light_track_set_look(f, t, found, &other, why, cap);
-            touched += ok;
-        }
-    }
-    if (!ok) {   // a time refused the line: the file goes back to what it was
-        LightTrack swap = *f;
-        *f = backup;
-        light_track_free(&swap);
-        return 0;
-    }
-    light_track_free(&backup);
-    if (lines != NULL) *lines = touched;
-    return 1;
-}
-
 // ---- order ------------------------------------------------------------------------------------------------------------------------------------------------------
 
 typedef struct { unsigned from, to, mask; } SortKey;

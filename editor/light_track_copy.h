@@ -49,6 +49,26 @@ int light_track_copy_key(const LightTrack *f, int kind, int time, int index, uns
 int light_track_copy_key_text(const LightTrack *f, int kind, int time, int index, char *out, size_t cap);
 int light_track_copy_value_text(const LightTrack *f, int kind, int time, int index, char *out, size_t cap);
 
+/* ---- the Tunnels table: one row for each tunnel (and each look over nodes inside one), a look in each of the four times -------------------------------------------------------------- */
+
+typedef struct {
+    int tunnel;            /* the `tunnel` fact's index, -1 for a row that is only a look over some nodes (inside a tunnel) */
+    unsigned from, to;     /* the row's nodes (the key: the fact's, or the look's) */
+    int lit;               /* a hall (1) takes only Lamps and Reach */
+    int look[LT_TIMES];    /* the time's `tunnel_look` line over exactly these nodes (its index among the time's looks), -1 for none */
+} LightTrackLookRow;
+
+/* The rows: the facts in the file's order, then the other looks' nodes in the order the times (Dawn to Night) have them. Returns how many rows (at most `cap`). */
+int light_track_look_rows(const LightTrack *f, LightTrackLookRow *rows, int cap);
+/* The default row (a look with no nodes): its index in each time, -1 for none. */
+void light_track_default_looks(const LightTrack *f, int look[LT_TIMES]);
+/* The tunnel `i` with new nodes or kind, and the looks over its old nodes at all four times moved with it: all or nothing (`why`: the game's rule that refused). */
+int light_track_move_tunnel(LightTrack *f, int i, const LightTrackTunnel *t, char *why, size_t cap);
+/* The tunnel `i` (the fact) and its looks at all four times away: all or nothing. A look over only part of it that is left makes the game refuse, and says so. */
+int light_track_remove_tunnel(LightTrack *f, int i, char *why, size_t cap);
+/* The looks over exactly [from, to] at all four times away (a row that is only looks): all or nothing. */
+int light_track_remove_looks(LightTrack *f, unsigned from, unsigned to, char *why, size_t cap);
+
 #ifdef __cplusplus
 }
 #endif

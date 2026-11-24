@@ -49,6 +49,7 @@ typedef struct {
     unsigned copy_mark_times, copy_mark_key[3];
     char copy_note[72];          /* the line beside Save: what the last Copy to... did ("Copied to Dusk", ...) and, for its (?), copy_detail hour by hour */
     char copy_detail[320];
+    int tunnel_show;             /* the Tunnels table's value: 0 Light %, 1 Lamps %, 2 Reach, 3 Colour (kept while Studio runs) */
     int resort;                  /* a line of the lists was edited: they are put in order when no field is being edited (light_track_sort), not while it is typed in */
     LightCompare compare;        /* part D: the Before picture or the four times of day beside the photo (light_compare.h) */
 } LightUi;

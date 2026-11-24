@@ -205,147 +205,126 @@ bool look_is_empty(const LightTrackLook &v)
     return !v.has_light && !v.has_colour && !v.has_lamps && !v.has_lamp_colour && !v.has_reach;
 }
 
-// writes a look the row edited: a new line when `index` is -1, a line with nothing left in it is dropped
-void put_look(App *a, int index, const LightTrackLook &v)
+// writes a look the row edited at `time`: a new line when `index` is -1, a line with nothing left in it is dropped
+void put_look(App *a, int time, int index, const LightTrackLook &v)
 {
     char why[LT_WHY];
     LightTrack &f = file_of(a);
     if (look_is_empty(v) && v.has_nodes) {
-        if (index >= 0 && !light_track_remove(&f, time_of(a), LT_LOOK, index, why, sizeof why)) return refused(a, why);
+        if (index >= 0 && !light_track_remove(&f, time, LT_LOOK, index, why, sizeof why)) return refused(a, why);
         return app_light_touch(a);
     }
-    if (light_track_set_look(&f, time_of(a), index, &v, why, sizeof why)) app_light_touch(a);
+    if (light_track_set_look(&f, time, index, &v, why, sizeof why)) app_light_touch(a);
     else refused(a, why);
 }
 
-// the cells of a look: light, colour, lamps strength, reach; true when one changed. A hall takes only the lamps and the reach.
-bool look_cells(LightTrackLook &v, bool hall)
+// a cell of the Tunnels table: the look's value `which` (0 Light %, 1 Lamps %, 2 Reach, 3 Colour) at one time; true when it changed. A hall takes no Light % or Colour.
+bool value_cell(LightTrackLook &v, int which, bool hall, bool open_time)
 {
+    if (open_time) ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(60, 90, 140, 80));
+    if (hall && (which == 0 || which == 3)) {
+        ImGui::TextDisabled("--");
+        return false;
+    }
+    if (which == 0) return optional_number("##value", &v.has_light, &v.light, "%g", -FLT_MIN);
+    if (which == 1) return optional_number("##value", &v.has_lamps, &v.lamps, "%g", -FLT_MIN);
+    if (which == 2) return optional_number("##value", &v.has_reach, &v.reach, "%g", -FLT_MIN);
     bool changed = false;
-    ImGui::TableSetColumnIndex(4);
-    ImGui::BeginDisabled(hall);
-    changed = optional_number("##light", &v.has_light, &v.light, "%g", -FLT_MIN) || changed;
-    ui_probe("light");
-    ImGui::EndDisabled();
-    ImGui::TableSetColumnIndex(5);
-    ImGui::BeginDisabled(hall);
     char hex[8] = "ffffff";
     if (v.has_colour && strlen(v.colour) >= 6) snprintf(hex, sizeof hex, "%.6s", v.colour);
-    if (swatch("##colour", hex, sizeof hex)) v.has_colour = 1, snprintf(v.colour, sizeof v.colour, "%s", hex), changed = true;
-    if (v.has_colour) {
-        ImGui::SameLine();
-        if (ImGui::SmallButton("x")) v.has_colour = 0, changed = true;
-    }
-    ImGui::EndDisabled();
-    ImGui::TableSetColumnIndex(6);
-    changed = optional_number("##lamps", &v.has_lamps, &v.lamps, "%g", -FLT_MIN) || changed;
-    ui_probe("lamps");
-    ImGui::TableSetColumnIndex(7);
-    changed = optional_number("##reach", &v.has_reach, &v.reach, "%g", -FLT_MIN) || changed;
-    ui_probe("reach");
+    if (swatch("##value", hex, sizeof hex)) v.has_colour = 1, snprintf(v.colour, sizeof v.colour, "%s", hex), changed = true;
     return changed;
 }
 
-struct TunnelRow {
-    int tunnel;   // the fact's index, -1 for a look over some nodes inside a tunnel
-    int look;     // the time's look line, -1 for none yet
-};
+// the four value cells of a row (Dawn, Day, Dusk, Night): the look of that time is read, the cell edited, and the look written at that time. `look[t]` is the look's index there (-1: none yet; the row's nodes
+// make a new one), `nodes` 0 for the default row.
+void value_cells(App *a, const int look[LT_TIMES], bool nodes, unsigned from, unsigned to, bool hall, int first_column)
+{
+    static const char *const CELL[LT_TIMES] = { "dawn", "day", "dusk", "night" };
+    LightTrack &f = file_of(a);
+    for (int t = 0; t < LT_TIMES; ++t) {
+        LightTrackLook v;
+        memset(&v, 0, sizeof v);
+        if (look[t] >= 0) light_track_get_look(&f, t, look[t], &v);
+        else if (nodes) v.has_nodes = 1, v.from = from, v.to = to;
+        ImGui::TableSetColumnIndex(first_column + t);
+        ImGui::PushID(t);
+        const bool changed = value_cell(v, a->light.tunnel_show, hall, t == time_of(a));
+        ui_probe(CELL[t]);
+        ImGui::PopID();
+        if (changed) put_look(a, t, look[t], v);
+    }
+}
 
 void tunnel_rows(App *a)
 {
     LightTrack &f = file_of(a);
     char why[LT_WHY];
-    const int time = time_of(a);
     const bool open = ImGui::CollapsingHeader("Tunnels###lighttunnels", ImGuiTreeNodeFlags_DefaultOpen);
     ui_probe("tunnels_header");
     ImGui::SameLine();
-    help_marker("The track's tunnels: where each is (nodes) and what it is (a tunnel, or a hall: a roofed straight lit by its own lamps) are the same at every time. Light (percent of "
-                "full light inside), Colour, Lamps (the lamps' strength, percent) and Reach (the lamp pools' reach, in nodes) are this time's look of that tunnel; an empty cell takes the "
-                "default row's. A hall takes only Lamps and Reach. Gradient (nodes, 0 to 8) is where the light falls inside each mouth: it is the tunnel's, not a moment's.");
+    help_marker("The track's tunnels: where each is (nodes) and what it is (a tunnel, or a hall: a roofed straight lit by its own lamps) are the same at every time. The four columns are Dawn, Day, Dusk and Night: "
+                "the value chosen above (Light %: percent of full light inside; Lamps %: the lamps' strength, 100 as the game has them, 0 a tunnel with no lighting, the car does not blink going through it; "
+                "Reach: the lamp pools' reach, in nodes; Colour) of that tunnel at that time. An empty cell takes the default row's. A hall takes only Lamps and Reach. Gradient (nodes, 0 to 8) is where the light falls inside each mouth: it is the tunnel's own, one for all four times. To copy a value to another time, "
+                "type it there. The time that is open is tinted. A tunnel moved or removed takes its looks of all four times with it.");
     if (!open) return;
-    const int tunnels = light_track_count(&f, LT_TIME_FACTS, LT_TUNNEL), looks = light_track_count(&f, time, LT_LOOK);
-    TunnelRow rows[2 * LT_MAX_PER_TIME];
-    int count = 0, default_look = -1;
-    bool used[LT_MAX_PER_TIME + 1] = { false };
-    for (int i = 0; i < tunnels && count < 2 * LT_MAX_PER_TIME; ++i) {
-        LightTrackTunnel t;
-        if (!light_track_get_tunnel(&f, i, &t)) continue;
-        int found = -1;
-        for (int j = 0; j < looks && j < LT_MAX_PER_TIME && found < 0; ++j) {
-            LightTrackLook v;
-            if (light_track_get_look(&f, time, j, &v) && v.has_nodes && v.from == t.from && v.to == t.to && !used[j]) found = j;
-        }
-        if (found >= 0) used[found] = true;
-        rows[count++] = { i, found };
+    LightTrackLookRow rows[2 * LT_MAX_PER_TIME];
+    const int count = light_track_look_rows(&f, rows, 2 * LT_MAX_PER_TIME);
+    int default_look[LT_TIMES];
+    light_track_default_looks(&f, default_look);
+    ImGui::TextUnformatted("Show");
+    static const char *const SHOW[4] = { "Light %", "Lamps %", "Reach", "Colour" };
+    static const char *const SHOW_PROBE[4] = { "show_light", "show_lamps", "show_reach", "show_colour" };
+    for (int k = 0; k < 4; ++k) {
+        ImGui::SameLine();
+        ImGui::RadioButton(SHOW[k], &a->light.tunnel_show, k);
+        ui_probe(SHOW_PROBE[k]);
     }
-    for (int j = 0; j < looks && j < LT_MAX_PER_TIME; ++j) {
-        LightTrackLook v;
-        if (!light_track_get_look(&f, time, j, &v)) continue;
-        if (!v.has_nodes) default_look = j;
-        else if (!used[j] && count < 2 * LT_MAX_PER_TIME) rows[count++] = { -1, j };
-    }
-    int remove_tunnel = -1, remove_look = -1;
+    int remove_row = -1;
     // the table scrolls across when the panel is narrow; its height is its rows' (a scrolling table would otherwise take what is left of the window)
     const float row_h = ImGui::GetFrameHeight() + 2.0f * ImGui::GetStyle().CellPadding.y;
     const float table_height = row_h * static_cast<float>(count + 2) + ImGui::GetStyle().ScrollbarSize + 2.0f;
-    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(2.0f, ImGui::GetStyle().CellPadding.y));   // the eight columns fit the panel at 1280 px (Lamps % and Reach were past its edge)
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(2.0f, ImGui::GetStyle().CellPadding.y));
     const bool tunnel_table = ImGui::BeginTable("##tunnels", 9, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX, ImVec2(0.0f, table_height));
     if (!tunnel_table) ImGui::PopStyleVar();
     if (tunnel_table) {
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 50.0f);   // Remove first: the table scrolls across at the panel's width, and a last column was past its edge
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 50.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
         ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 56.0f);
-        ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 46.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
-        ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 38.0f);
-        ImGui::TableSetupColumn("Lamps %", ImGuiTableColumnFlags_WidthFixed, 46.0f);
-        ImGui::TableSetupColumn("Reach", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        for (int t = 0; t < LT_TIMES; ++t) ImGui::TableSetupColumn(light_ui_time_name(t), ImGuiTableColumnFlags_WidthFixed, 42.0f);
         ImGui::TableSetupColumn("Gradient", ImGuiTableColumnFlags_WidthFixed, 52.0f);
         ImGui::TableHeadersRow();
-        if (ImGui::TableGetHoveredColumn() == 6)
-            ImGui::SetTooltip("Lamps %%: the strength of the tunnel's lamps at this moment (100 = as the game has them).\n0 is a tunnel with no lighting: the car does not blink going through it.\nIt belongs to one moment and one tunnel: Lamps %% to all moments copies it to the other three.");
         // the default row: the look of every tunnel with no row of its own
-        {
-            LightTrackLook v;
-            memset(&v, 0, sizeof v);
-            if (default_look >= 0) light_track_get_look(&f, time, default_look, &v);
-            ImGui::PushID("default");
-            ui_probe_scope("tunneldefault");
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(1);
-            ImGui::TextDisabled("default");
-            if (look_cells(v, false)) {
-                v.has_nodes = 0;
-                put_look(a, default_look, v);
-            }
-            ui_probe_scope("");
-            ImGui::PopID();
-        }
+        ImGui::PushID("default");
+        ui_probe_scope("tunneldefault");
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextDisabled("default");
+        value_cells(a, default_look, false, 0, 0, false, 4);
+        ui_probe_scope("");
+        ImGui::PopID();
         for (int r = 0; r < count; ++r) {
-            LightTrackTunnel t = { 0, 0, 0, 0, 0 };
-            LightTrackLook v;
-            memset(&v, 0, sizeof v);
-            if (rows[r].tunnel >= 0) light_track_get_tunnel(&f, rows[r].tunnel, &t);
-            if (rows[r].look >= 0) light_track_get_look(&f, time, rows[r].look, &v);
-            if (rows[r].tunnel < 0) t.from = v.from, t.to = v.to;
-            else if (rows[r].look < 0) v.has_nodes = 1, v.from = t.from, v.to = t.to;
-            ImGui::PushID(r);
-            ImGui::TableNextRow();
+            LightTrackTunnel t = { rows[r].from, rows[r].to, rows[r].lit, 0, 0 };
+            const bool fact = rows[r].tunnel >= 0;
+            if (fact) light_track_get_tunnel(&f, rows[r].tunnel, &t);
             bool tunnel_changed = false;
             char scope[16];
             snprintf(scope, sizeof scope, "tunnel%d", r);
+            ImGui::PushID(r);
+            ImGui::TableNextRow();
             ui_probe_scope(scope);
             ImGui::TableSetColumnIndex(0);
-            const bool remove_row = ImGui::Button("Remove");
+            if (ImGui::Button("Remove")) remove_row = r;
             ui_probe("remove");
             ImGui::TableSetColumnIndex(1);
-            if (rows[r].tunnel >= 0) tunnel_changed = node_box("##from", &t.from, -FLT_MIN) || tunnel_changed, ui_probe("from");
+            if (fact) tunnel_changed = node_box("##from", &t.from, -FLT_MIN) || tunnel_changed, ui_probe("from");
             else ImGui::Text("%u", t.from);
             ImGui::TableSetColumnIndex(2);
-            if (rows[r].tunnel >= 0) tunnel_changed = node_box("##to", &t.to, -FLT_MIN) || tunnel_changed, ui_probe("to");
+            if (fact) tunnel_changed = node_box("##to", &t.to, -FLT_MIN) || tunnel_changed, ui_probe("to");
             else ImGui::Text("%u", t.to);
             ImGui::TableSetColumnIndex(3);
-            if (rows[r].tunnel >= 0) {
+            if (fact) {
                 ImGui::SetNextItemWidth(-FLT_MIN);
                 if (ImGui::BeginCombo("##kind", t.lit ? "hall" : "tunnel")) {
                     if (ImGui::Selectable("tunnel", !t.lit) && t.lit) t.lit = 0, tunnel_changed = true;
@@ -358,7 +337,7 @@ void tunnel_rows(App *a)
             } else {
                 ImGui::TextDisabled("inside");
             }
-            const bool look_changed = look_cells(v, rows[r].tunnel >= 0 && t.lit != 0);
+            value_cells(a, rows[r].look, true, rows[r].from, rows[r].to, fact && rows[r].lit != 0, 4);
             ImGui::TableSetColumnIndex(8);
             if (rows[r].tunnel >= 0 && !t.lit) {   // the nodes inside each mouth over which the light falls (0: a straight cut); the same at every moment and at both mouths
                 int g = t.has_gradient ? t.gradient : LT_DEFAULT_GRADIENT;
@@ -367,69 +346,24 @@ void tunnel_rows(App *a)
                 ui_probe("gradient");
                 if (ImGui::IsItemHovered()) ImGui::SetTooltip("Gradient: the nodes inside each mouth over which the light falls from the open road's to the tunnel's.\n0 is a straight cut. It is the same at every moment and at both mouths.");
             }
-            if (remove_row) {
-                remove_tunnel = rows[r].tunnel;
-                remove_look = rows[r].look;
-            }
             ui_probe_scope("");
             ImGui::PopID();
-            if (tunnel_changed) {   // the nodes move with the look that follows them
-                if (rows[r].look >= 0 && (v.from != t.from || v.to != t.to)) {
-                    LightTrackLook moved = v;
-                    moved.from = t.from, moved.to = t.to;
-                    LightTrackTunnel old = t;
-                    if (light_track_get_tunnel(&f, rows[r].tunnel, &old) && (old.from != t.from || old.to != t.to)) {
-                        // the tunnel's nodes must hold the look: widen the tunnel first, then move the look, or the other way round when it narrows
-                        if (!light_track_set_tunnel(&f, rows[r].tunnel, &t, why, sizeof why)) {
-                            if (!light_track_set_look(&f, time, rows[r].look, &moved, why, sizeof why) || !light_track_set_tunnel(&f, rows[r].tunnel, &t, why, sizeof why)) {
-                                refused(a, why);
-                                continue;
-                            }
-                        } else if (!light_track_set_look(&f, time, rows[r].look, &moved, why, sizeof why)) {
-                            refused(a, why);
-                            continue;
-                        }
-                        app_light_touch(a);
-                        a->light.resort = 1;
-                        continue;
-                    }
-                }
-                if (light_track_set_tunnel(&f, rows[r].tunnel, &t, why, sizeof why)) app_light_touch(a), a->light.resort = 1;
+            if (tunnel_changed) {   // the nodes move with the looks of all four times, all or nothing
+                if (light_track_move_tunnel(&f, rows[r].tunnel, &t, why, sizeof why)) app_light_touch(a), a->light.resort = 1;
                 else refused(a, why);
-            } else if (look_changed) {
-                put_look(a, rows[r].look, v);
             }
         }
         ImGui::EndTable();
         ImGui::PopStyleVar();
     }
-    if (remove_tunnel >= 0 || remove_look >= 0) {   // the row's look of this time first, then the tunnel; the file changed after the first, so the window is touched either way
-        bool dropped = false;
-        if (remove_look >= 0) {
-            if (light_track_remove(&f, time, LT_LOOK, remove_look, why, sizeof why)) dropped = true;
-            else refused(a, why), remove_tunnel = -1;
-        }
-        if (remove_tunnel >= 0) {
-            if (light_track_remove(&f, LT_TIME_FACTS, LT_TUNNEL, remove_tunnel, why, sizeof why)) dropped = true;
-            else refused(a, why);
-        }
-        if (dropped) {
-            char said[sizeof a->light.error];   // the touch clears the error line: a refusal of the second removal stays
-            snprintf(said, sizeof said, "%s", a->light.error);
-            app_light_touch(a);
-            snprintf(a->light.error, sizeof a->light.error, "%s", said);
-        }
+    if (remove_row >= 0) {   // a tunnel and its looks of the four times, or a row that is only looks
+        const LightTrackLookRow &r = rows[remove_row];
+        const int ok = r.tunnel >= 0 ? light_track_remove_tunnel(&f, r.tunnel, why, sizeof why) : light_track_remove_looks(&f, r.from, r.to, why, sizeof why);
+        if (ok) app_light_touch(a);
+        else refused(a, why);
     }
     const bool add_tunnel = ImGui::Button("Add tunnel");
     ui_probe("add_tunnel");
-    ImGui::SameLine();
-    const bool lamps_all = ImGui::Button("Lamps % to all moments");
-    ui_probe("lamps_all");
-    ImGui::SetItemTooltip("Copies the Lamps %% of each row at this moment to the same row (the same nodes; the default row for the default) at Dawn, Day, Dusk and Night.\nThe other values of those rows stay as they are.");
-    if (lamps_all) {
-        if (light_track_lamps_to_all_times(&f, time_of(a), nullptr, why, sizeof why)) app_light_touch(a);
-        else refused(a, why);
-    }
     if (add_tunnel) {
         const unsigned node = static_cast<unsigned>(a->light.node), last = last_node(a);
         const LightTrackTunnel t = { node, node + 50 < last ? node + 50 : last, 0, 0, 0 };

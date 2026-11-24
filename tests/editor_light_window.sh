@@ -104,7 +104,7 @@ grep -q "^  sun 120 30 70$" "$work/light/track_light/AL1.txt" || fail "Save did 
 # the Save button; the file has the lines, a new window reads them again, the Remove button takes a line away and Save writes that too
 cp "$work/light/track_light/AL1.txt" "$work/ui_before.txt"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 \
-    --steps ui-at:azimuth_slider,0.25,ui-click:add_brightness,ui-click:brightness0_Right,ui-at:brightness0_bar,0.682,ui-at:brightness0_bar,0.864,ui-click:add_tone,ui-click:tone0_Left,light-print,ui-click:save,light-print > "$work/ui" 2>&1 ||
+    --steps ui-click:tunnels_header,ui-at:azimuth_slider,0.25,ui-click:add_brightness,ui-click:brightness0_Right,ui-at:brightness0_bar,0.682,ui-at:brightness0_bar,0.864,ui-click:add_tone,ui-click:tone0_Left,light-print,ui-click:save,light-print > "$work/ui" 2>&1 ||
     fail "the clicked flow: $(tail -3 "$work/ui")"
 grep -q "^light: AL1 nodes 120 time B (unsaved) .*brightness 1 tones 1 " "$work/ui" || fail "the clicks did not make the lines: $(grep '^light:' "$work/ui")"
 [ "$(grep '^light:' "$work/ui" | tail -1 | grep -c unsaved)" = 0 ] || fail "the Save button left the unsaved mark: $(grep '^light:' "$work/ui")"
@@ -177,10 +177,10 @@ grep -q '^  lamp 80 60 left$' "$work/light/track_light/AL1.txt" || fail "the typ
 m1=$(grep '^light: ' "$work/lamps2" | sed -n 1p | sed 's/.* lamps \([0-9]*\) .*/\1/'); m2=$(grep '^light: ' "$work/lamps2" | sed -n 2p | sed 's/.* lamps \([0-9]*\) .*/\1/')
 [ "$((m1 - m2))" = 1 ] || fail "a lamp row's Remove did not take the lamp away: $m1 -> $m2"
 grep -q '^  lamp 80 60' "$work/light/track_light/AL1.txt" && fail "the removed lamp is still in the saved file"
-# the Tunnels table, clicked: the nodes typed into From, the default row's and a tunnel's Light %, Lamps % and Reach (a reach out of 0.5..4 is refused with its reason), the Kind combo; Save writes them
+# the Tunnels table, clicked (its Show choice picks the value the four moment columns hold): the nodes typed into From, the default row's and a tunnel's Light %, Lamps % and Reach (a reach out of 0.5..4 is refused with its reason), the Kind combo; Save writes them
 sed -i.bak '/^  lamp /d' "$work/light/track_light/AL1.txt" && rm -f "$work/light/track_light/AL1.txt.bak"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 \
-    --steps ui-click:time_B,ui-click:tunnel0_from,ui-text:12,key:Return,ui-click:tunnel1_reach,ui-text:20,key:Return,ui-click:tunnel1_reach,ui-text:3,key:Return,ui-click:tunnel0_lamps,ui-text:120,key:Return,ui-click:tunnel1_light,ui-text:65,key:Return,ui-click:tunneldefault_light,ui-text:85,key:Return,ui-click:save,light-print > "$work/tcells" 2>&1 ||
+    --steps ui-click:time_B,ui-click:tunnel0_from,ui-text:12,key:Return,ui-click:show_reach,ui-click:tunnel1_day,ui-text:20,key:Return,ui-click:tunnel1_day,ui-text:3,key:Return,ui-click:show_lamps,ui-click:tunnel0_day,ui-text:120,key:Return,ui-click:show_light,ui-click:tunnel1_day,ui-text:65,key:Return,ui-click:tunneldefault_day,ui-text:85,key:Return,ui-click:save,light-print > "$work/tcells" 2>&1 ||
     fail "the clicked tunnel cells flow: $(tail -3 "$work/tcells")"
 f="$work/light/track_light/AL1.txt"
 grep -q '^tunnel 12 20' "$f" || fail "the typed From node is not in the saved file: $(grep '^tunnel' "$f")"
@@ -198,14 +198,21 @@ grep -q '^tunnel 12 20$' "$f" || fail "the first tunnel gained a gradient it was
     --steps ui-click:time_C,ui-click:tunnel1_gradient,ui-text:0,key:Return,ui-click:tunnel0_gradient,ui-text:99,key:Return,ui-click:save,light-print > "$work/tgrad0" 2>&1 || fail "the clicked Gradient cell flow, 0 and 99: $(tail -3 "$work/tgrad0")"
 grep -q '^tunnel 60 71 gradient 0$' "$f" || fail "a Gradient of 0 (a straight cut) is not in the saved file: $(grep '^tunnel' "$f")"
 grep -q '^tunnel 12 20 gradient 8$' "$f" || fail "a Gradient past 8 was not held at 8: $(grep '^tunnel' "$f")"
-# Lamps % to all moments: the Day row of the first tunnel has lamps 120 (typed above); the button gives it to Dawn, Dusk and Night, and Save writes the four lines
-"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 --steps ui-click:time_B,ui-click:lamps_all,ui-click:save,light-print > "$work/lall" 2>&1 || fail "the Lamps % to all moments flow: $(tail -3 "$work/lall")"
-[ "$(grep -Ec '^  tunnel_look 12 20 .*lamps 120' "$f")" = 4 ] || fail "Lamps % to all moments did not write the tunnel's lamps 120 in the four moments: $(grep -n 'time\|tunnel_look' "$f")"
-[ "$(grep -Ec '^  tunnel_look 60 71 .*lamps 220' "$f")" = 4 ] || fail "the second tunnel's lamps 220 did not go to the four moments too: $(grep -n 'time\|tunnel_look' "$f")"
-[ "$(grep -Ec '^  tunnel_look [0-9]+ [0-9]+ .*reach 3' "$f")" = 1 ] || fail "a value other than the lamps was copied with them (the Reach 3 of the Day row): $(grep -n 'tunnel_look' "$f")"
+# the other moments' columns: the Lamps % typed in Dawn, Dusk and Night of both tunnels (copying a value is typing it there) gives the four lines of each in the saved file, and no other value goes with them
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 \
+    --steps ui-click:show_lamps,ui-click:tunnel0_dawn,ui-text:120,key:Return,ui-click:tunnel0_dusk,ui-text:120,key:Return,ui-click:tunnel0_night,ui-text:120,key:Return,ui-click:tunnel1_dawn,ui-text:220,key:Return,ui-click:tunnel1_dusk,ui-text:220,key:Return,ui-click:tunnel1_night,ui-text:220,key:Return,ui-click:save,light-print > "$work/lall" 2>&1 || fail "the moments' columns flow: $(tail -3 "$work/lall")"
+[ "$(grep -Ec '^  tunnel_look 12 20 .*lamps 120' "$f")" = 4 ] || fail "typing the Lamps % in the other columns did not write the tunnel's lamps 120 in the four moments: $(grep -n 'time\|tunnel_look' "$f")"
+[ "$(grep -Ec '^  tunnel_look 60 71 .*lamps 220' "$f")" = 4 ] || fail "the second tunnel's lamps 220 is not in the four moments: $(grep -n 'time\|tunnel_look' "$f")"
+[ "$(grep -Ec '^  tunnel_look [0-9]+ [0-9]+ .*reach 3' "$f")" = 1 ] || fail "a value other than the lamps was written with them (the Reach 3 of the Day row): $(grep -n 'tunnel_look' "$f")"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 \
     --steps ui-click:tunnel0_from,ui-click:tunnel0_kind,ui-click:tunnel0_kind_hall,ui-click:save,light-print > "$work/tkind" 2>&1 || fail "the clicked Kind combo: $(tail -3 "$work/tkind")"
 grep -q '^tunnel 12 20 lit' "$f" || fail "the Kind combo's hall is not in the saved file: $(grep '^tunnel' "$f")"
+# a tunnel moved takes its looks of the four moments with it, and Remove takes the tunnel and its four looks: From 12 typed as 14 (the hall's looks at Dawn..Night follow), then the second tunnel removed
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 \
+    --steps ui-click:tunnel0_from,ui-text:14,key:Return,ui-click:tunnel1_remove,ui-click:save,light-print > "$work/tmove" 2>&1 || fail "the tunnel move and Remove flow: $(tail -3 "$work/tmove")"
+grep -q '^tunnel 14 20 lit' "$f" || fail "the moved tunnel is not at 14: $(grep '^tunnel' "$f")"
+[ "$(grep -Ec '^  tunnel_look 14 20 ' "$f")" = 4 ] && ! grep -q '^  tunnel_look 12 20 ' "$f" || fail "the looks did not move with the tunnel in the four moments: $(grep -n 'tunnel_look' "$f")"
+grep -q '60 71' "$f" && fail "Remove left the second tunnel or one of its looks: $(grep -n '60 71' "$f")"
 # the Sun's other two sliders and the three "auto" ticks, clicked: Height and Shadow strength set (the slider's ends are +-76 and the click at 0.9 of its width 76), each part unticked in turn (a "-" in the
 # line: the generator's own), and a sun with every part auto is no line at all; the file is saved after each flow
 sun_flow() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps "$1" > "$work/sunout" 2>&1 || fail "the sun flow $1: $(tail -3 "$work/sunout")"; }

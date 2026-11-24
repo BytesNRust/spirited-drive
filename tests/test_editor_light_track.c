@@ -518,38 +518,6 @@ static void sun_auto(void)
     CHECK(!light_track_sun_auto(-1, &none) && !light_track_sun_auto(LT_TIMES, &none));
 }
 
-/* Lamps % to all moments: each look line of a time with lamps gives its strength to the same line of the other times (made where there is none), the rest of those lines stays */
-static void lamps_to_all(void)
-{
-    LightTrack f;
-    char why[LT_WHY];
-    CHECK(parse(CY1, NODES, &f));
-    int lines = -1;
-    CHECK(light_track_lamps_to_all_times(&f, LT_TIME_A, &lines, why, sizeof why));
-    CHECK_EQ_INT(lines, 3);   // the one line of time A that has lamps (1064..1171, 220), to B, C and N
-    for (int t = LT_TIME_B; t <= LT_TIME_N; ++t) {
-        LightTrackLook v;
-        int found = 0;
-        for (int i = 0; light_track_get_look(&f, t, i, &v); ++i)
-            if (v.has_nodes && v.from == 1064 && v.to == 1171) {
-                found = 1;
-                CHECK(v.has_lamps && v.lamps == 220.0);
-            }
-        CHECK(found);
-    }
-    LightTrackLook n;
-    CHECK(light_track_get_look(&f, LT_TIME_N, 0, &n) && !n.has_nodes && !n.has_lamps && n.light == 115.0);   // the default look of the night is untouched
-    LightTrackLook a;
-    CHECK(light_track_get_look(&f, LT_TIME_A, 1, &a) && a.has_reach && a.reach == 2.0);   // time A's own line kept its reach
-    CHECK(light_track_lamps_to_all_times(&f, LT_TIME_A, &lines, why, sizeof why) && lines == 3);   // again: the same lines, nothing more (idempotent)
-    CHECK_EQ_INT(light_track_count(&f, LT_TIME_B, LT_LOOK), 1);
-    CHECK(!light_track_lamps_to_all_times(&f, 9, NULL, why, sizeof why));
-    char *before = text_of(&f);
-    CHECK(light_track_lamps_to_all_times(&f, LT_TIME_C, &lines, why, sizeof why) && lines == 3);   // from a time that has the line itself: also to A and N
-    free(before);
-    light_track_free(&f);
-}
-
 // the lists are in the order of their first node, but the file's order is the order the game applies the lines in: a brightness or a tone passes another only when they share no node or no point
 static int kind_in(const char *text)
 {
@@ -605,7 +573,6 @@ static void sorts(void)
 int main(int argc, char **argv)
 {
     sun_auto();
-    lamps_to_all();
     reads();
     refuses_reading();
     edits();

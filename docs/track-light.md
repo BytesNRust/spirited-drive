@@ -75,8 +75,10 @@ instead of the original track's.) What the window has, top to bottom:
   render scale 3 (a 2562x1440 window) with every effect on (lamp halos, soft shine, reflectors, headlight beams, sun_shadow, light effects), whatever the person's own settings say.
 * **Sun** (**Moon** at night): the compass and three sliders, **Direction**, **Height** and **Shadow strength** (100 = no shadow). The box to the left of each slider turns it on; unticked it is "auto" (the
   generator's own), and a sun with all three unticked is no `sun` line.
-* **Tunnels**: one row for each `tunnel` fact: **Remove**, **From**, **To**, **Kind** (tunnel / hall; a fact of every moment) and, for this moment, **Light %**, **Colour**, **Lamps %** and **Reach** (the
-  `tunnel_look` line; an empty cell is inherited from the **default** row, and the row's cell, from the code). **Add tunnel** adds one from the photo's node to 50 nodes on. **Lamps % = 0** is an unlit tunnel:
+* **Tunnels**: one row for each `tunnel` fact (and one for each `tunnel_look A B` over some nodes inside a tunnel, "inside"): **Remove**, **From**, **To**, **Kind** (tunnel / hall; a fact of every moment) and the four moments,
+  **Dawn**, **Day**, **Dusk**, **Night**, each with that moment's look of the row. **Show** (Light % / Lamps % / Reach / Colour) picks which value the four columns hold, and the open moment's column is tinted. An empty cell is
+  inherited from the **default** row, and the row's cell, from the code; a hall has no Light % or Colour. To give a value to another moment, type it in that moment's column. Moving From / To takes the row's looks of all four
+  moments with it, and **Remove** takes the tunnel and its looks of all four (both all or nothing: the game's rules refuse them as a whole). **Add tunnel** adds one from the photo's node to 50 nodes on. **Lamps % = 0** is an unlit tunnel:
   the car there does not blink (see What decides what).
 * **Lamps (N)**: **Add lamp** at the photo's node; per lamp **Remove**, **Node**, **Light %**, **Colour**, **Radius** and **Strip** (none, all, left, right, road: where across the road it stands).
 * **Retouches**: **Brightness (N)** and **Tone (N)** with **Add brightness** / **Add tone** (from the photo's node to 50 nodes on), the lines' numbers and the strip bar (a click on a point 10 9 8 7 6 C 1 2 3 4 5 turns it on or off, so the points need not be a run; **All /

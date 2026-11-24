@@ -182,6 +182,128 @@ static void bad_asks(void)
     light_track_free(&f);
 }
 
+static const char TUNNELS[] =
+    "track CY1\n"
+    "tunnel 100 200\n"
+    "tunnel 300 400 lit\n"
+    "time A\n"
+    "  tunnel_look 100\n"
+    "  tunnel_look 100 200 50 lamps 80\n"
+    "  tunnel_look 120 150 70\n"
+    "time B\n"
+    "  tunnel_look 100 200 60\n"
+    "time C\n"
+    "  tunnel_look 300 400 lamps 90\n"
+    "time N\n";
+
+static void the_tunnels_rows(void)
+{
+    LightTrack f;
+    open_file(TUNNELS, &f);
+    LightTrackLookRow rows[8];
+    const int n = light_track_look_rows(&f, rows, 8);
+    CHECK_EQ_INT(n, 3);
+    CHECK(rows[0].tunnel == 0 && rows[0].from == 100 && rows[0].to == 200 && !rows[0].lit);
+    CHECK(rows[0].look[LT_TIME_A] == 1 && rows[0].look[LT_TIME_B] == 0 && rows[0].look[LT_TIME_C] == -1 && rows[0].look[LT_TIME_N] == -1);
+    CHECK(rows[1].tunnel == 1 && rows[1].lit && rows[1].look[LT_TIME_C] == 0 && rows[1].look[LT_TIME_A] == -1);
+    CHECK(rows[2].tunnel == -1 && rows[2].from == 120 && rows[2].to == 150 && rows[2].look[LT_TIME_A] == 2 && rows[2].look[LT_TIME_B] == -1);   // only a look, only at Dawn
+    CHECK_EQ_INT(light_track_look_rows(&f, rows, 2), 2);   // the room given is kept
+    int def[LT_TIMES];
+    light_track_default_looks(&f, def);
+    CHECK(def[LT_TIME_A] == 0 && def[LT_TIME_B] == -1 && def[LT_TIME_C] == -1 && def[LT_TIME_N] == -1);
+    light_track_free(&f);
+}
+
+static void move_and_remove_a_tunnel_in_every_time(void)
+{
+    LightTrack f;
+    open_file(TUNNELS, &f);
+    char why[LT_WHY];
+    char *before = bytes(&f);
+    // widening: the tunnel and its looks at Dawn and Day move together
+    LightTrackTunnel t = { 100, 210, 0, 0, 0 };
+    CHECK(light_track_move_tunnel(&f, 0, &t, why, sizeof why));
+    char *after = bytes(&f);
+    CHECK(strstr(after, "tunnel 100 210\n") != NULL && strstr(after, "  tunnel_look 100 210 50 lamps 80\n") != NULL && strstr(after, "time B\n  tunnel_look 100 210 60\n") != NULL);
+    CHECK(strstr(after, "  tunnel_look 120 150 70\n") != NULL && strstr(after, "tunnel_look 300 400 lamps 90") != NULL);   // the others stay
+    // narrowing: the looks go first
+    t = (LightTrackTunnel){ 110, 190, 0, 0, 0 };
+    CHECK(light_track_move_tunnel(&f, 0, &t, why, sizeof why));
+    free(after);
+    after = bytes(&f);
+    CHECK(strstr(after, "tunnel 110 190\n") != NULL && strstr(after, "tunnel_look 110 190 50") != NULL && strstr(after, "tunnel_look 110 190 60") != NULL);
+    // a move the game refuses (the inside look would be outside): nothing changes, in any time
+    free(before);
+    before = bytes(&f);
+    t = (LightTrackTunnel){ 130, 140, 0, 0, 0 };
+    CHECK(!light_track_move_tunnel(&f, 0, &t, why, sizeof why) && why[0] != '\0');
+    free(after);
+    after = bytes(&f);
+    CHECK(strcmp(before, after) == 0);
+    // kind change only
+    t = (LightTrackTunnel){ 110, 190, 1, 0, 0 };
+    CHECK(light_track_move_tunnel(&f, 0, &t, why, sizeof why));
+    // removing: refused while a look over part of it is left, then the rows' own looks first
+    free(before);
+    before = bytes(&f);
+    CHECK(!light_track_remove_tunnel(&f, 0, why, sizeof why));
+    free(after);
+    after = bytes(&f);
+    CHECK(strcmp(before, after) == 0);
+    CHECK(light_track_remove_looks(&f, 120, 150, why, sizeof why));
+    CHECK(light_track_remove_tunnel(&f, 0, why, sizeof why));
+    free(after);
+    after = bytes(&f);
+    CHECK(strstr(after, "tunnel 110 190") == NULL && strstr(after, "tunnel_look 110 190") == NULL && strstr(after, "tunnel 300 400 lit\n") != NULL && strstr(after, "  tunnel_look 100\n") != NULL);   // the default look stays
+    CHECK(light_track_first_bad(&f) == 0);
+    CHECK(!light_track_move_tunnel(&f, 7, &t, why, sizeof why) && !light_track_remove_tunnel(&f, 7, why, sizeof why));
+    free(before), free(after);
+    light_track_free(&f);
+}
+
+static const char GRADED[] =
+    "track CY1\n"
+    "tunnel 100 200 gradient 5\n"
+    "tunnel 300 400 gradient 0\n"
+    "tunnel 500 600\n"
+    "time A\n"
+    "  tunnel_look 100 200 50\n"
+    "time B\n"
+    "  tunnel_look 100 200 60\n"
+    "time C\n"
+    "time N\n";
+
+static void a_tunnels_gradient_follows_it(void)
+{
+    LightTrack f;
+    open_file(GRADED, &f);
+    char why[LT_WHY];
+    LightTrackTunnel t = { 100, 210, 0, 0, 0 };   // the row's own cells do not carry it: the model keeps the tunnel's
+    CHECK(light_track_move_tunnel(&f, 0, &t, why, sizeof why));
+    char *s = bytes(&f);
+    CHECK(strstr(s, "tunnel 100 210 gradient 5\n") != NULL && strstr(s, "tunnel_look 100 210 50") != NULL && strstr(s, "tunnel_look 100 210 60") != NULL);
+    CHECK(strstr(s, "tunnel 300 400 gradient 0\n") != NULL && strstr(s, "tunnel 500 600\n") != NULL);   // the others' stay as they were
+    // typing a new one: it is the new one, and the hall kind drops it (a hall has no mouth)
+    t = (LightTrackTunnel){ 100, 210, 0, 1, 7 };
+    CHECK(light_track_move_tunnel(&f, 0, &t, why, sizeof why));
+    free(s);
+    s = bytes(&f);
+    CHECK(strstr(s, "tunnel 100 210 gradient 7\n") != NULL);
+    t = (LightTrackTunnel){ 100, 210, 1, 0, 0 };
+    CHECK(light_track_move_tunnel(&f, 0, &t, why, sizeof why));
+    free(s);
+    s = bytes(&f);
+    CHECK(strstr(s, "tunnel 100 210 lit\n") != NULL);
+    // removing one tunnel leaves the others' gradients, the 0 too
+    CHECK(light_track_remove_tunnel(&f, 0, why, sizeof why));
+    free(s);
+    s = bytes(&f);
+    CHECK(strstr(s, "tunnel 100") == NULL && strstr(s, "tunnel 300 400 gradient 0\n") != NULL && strstr(s, "tunnel 500 600\n") != NULL);
+    CHECK(light_track_first_bad(&f) == 0);
+    free(s);
+    light_track_free(&f);
+}
+
 int main(void)
 {
     brightness_plan_and_apply();
@@ -189,5 +311,8 @@ int main(void)
     tones_and_lamps();
     the_games_limits_are_all_or_nothing();
     bad_asks();
+    the_tunnels_rows();
+    move_and_remove_a_tunnel_in_every_time();
+    a_tunnels_gradient_follows_it();
     return TEST_REPORT();
 }

@@ -20,6 +20,18 @@ static int fail(char *why, size_t cap, const char *text)
     return 0;
 }
 
+// a copy of the file to change: replaces the file only when everything went through
+static int clone(const LightTrack *f, LightTrack *out)
+{
+    size_t size = 0;
+    char reason[LT_WHY];
+    char *text = light_track_format(f, &size);
+    if (text == NULL) return 0;
+    const int ok = light_track_parse(text, size, f->nodes, out, reason, sizeof reason);
+    free(text);
+    return ok;
+}
+
 static int kind_ok(int kind) { return kind == LT_BRIGHTNESS || kind == LT_TONE || kind == LT_LAMP; }
 
 static int get_any(const LightTrack *f, int kind, int time, int i, Any *a)
@@ -94,14 +106,9 @@ int light_track_copy_apply(LightTrack *f, const LightTrackCopyPlan *plan, int re
     LightTrackCopyResult done = { 0, 0, 0, 0 };
     Any src;
     if (!kind_ok(plan->kind) || !get_any(f, plan->kind, plan->from_time, plan->index, &src)) return fail(why, cap, "there is no such line");
-    size_t size = 0;
-    char *text = light_track_format(f, &size);
-    if (text == NULL) return fail(why, cap, "out of memory");
     LightTrack work;
     char reason[LT_WHY];
-    const int cloned = light_track_parse(text, size, f->nodes, &work, reason, sizeof reason);
-    free(text);
-    if (!cloned) return fail(why, cap, "out of memory");
+    if (!clone(f, &work)) return fail(why, cap, "out of memory");
     for (int t = 0; t < LT_TIMES; t++) {
         const LightTrackCopyTime *to = &plan->to[t];
         int ok = 1;
@@ -167,5 +174,141 @@ int light_track_copy_key(const LightTrack *f, int kind, int time, int index, uns
     if (kind == LT_BRIGHTNESS) key[0] = a.b.from, key[1] = a.b.to, key[2] = a.b.mask;
     else if (kind == LT_TONE) key[0] = a.t.from, key[1] = a.t.to, key[2] = a.t.mask;
     else key[0] = a.l.node, key[1] = (unsigned)a.l.has_strip, key[2] = lamp_mask(&a.l);
+    return 1;
+}
+
+// ---- the Tunnels table ------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+static int look_over(const LightTrack *f, int time, unsigned from, unsigned to)
+{
+    const int n = light_track_count(f, time, LT_LOOK);
+    for (int j = 0; j < n; j++) {
+        LightTrackLook v;
+        if (light_track_get_look(f, time, j, &v) && v.has_nodes && v.from == from && v.to == to) return j;
+    }
+    return -1;
+}
+
+int light_track_look_rows(const LightTrack *f, LightTrackLookRow *rows, int cap)
+{
+    int count = 0;
+    const int tunnels = light_track_count(f, LT_TIME_FACTS, LT_TUNNEL);
+    for (int i = 0; i < tunnels && count < cap; i++) {
+        LightTrackTunnel t;
+        if (!light_track_get_tunnel(f, i, &t)) continue;
+        LightTrackLookRow *r = &rows[count++];
+        *r = (LightTrackLookRow){ i, t.from, t.to, t.lit, { -1, -1, -1, -1 } };
+        for (int time = 0; time < LT_TIMES; time++) r->look[time] = look_over(f, time, t.from, t.to);
+    }
+    const int facts = count;
+    for (int time = 0; time < LT_TIMES; time++) {
+        const int n = light_track_count(f, time, LT_LOOK);
+        for (int j = 0; j < n; j++) {
+            LightTrackLook v;
+            if (!light_track_get_look(f, time, j, &v) || !v.has_nodes) continue;
+            int at = -1;
+            for (int k = 0; k < count && at < 0; k++)
+                if (rows[k].from == v.from && rows[k].to == v.to) at = k;
+            if (at >= 0 && at < facts) continue;   // a tunnel's own look: the row has it
+            if (at < 0) {
+                if (count >= cap) continue;
+                at = count++;
+                rows[at] = (LightTrackLookRow){ -1, v.from, v.to, 0, { -1, -1, -1, -1 } };
+            }
+            if (rows[at].look[time] < 0) rows[at].look[time] = j;
+        }
+    }
+    return count;
+}
+
+void light_track_default_looks(const LightTrack *f, int look[LT_TIMES])
+{
+    for (int time = 0; time < LT_TIMES; time++) {
+        look[time] = -1;
+        const int n = light_track_count(f, time, LT_LOOK);
+        for (int j = 0; j < n; j++) {
+            LightTrackLook v;
+            if (light_track_get_look(f, time, j, &v) && !v.has_nodes) look[time] = j;
+        }
+    }
+}
+
+// the looks over [from, to] of every time, moved to [nf, nt]; 0 with `why` when one is refused
+static int move_looks(LightTrack *work, const int look[LT_TIMES], unsigned nf, unsigned nt, char *why, size_t cap)
+{
+    for (int time = 0; time < LT_TIMES; time++) {
+        LightTrackLook v;
+        if (look[time] < 0 || !light_track_get_look(work, time, look[time], &v)) continue;
+        v.from = nf, v.to = nt;
+        if (!light_track_set_look(work, time, look[time], &v, why, cap)) return 0;
+    }
+    return 1;
+}
+
+int light_track_move_tunnel(LightTrack *f, int i, const LightTrackTunnel *want, char *why, size_t cap)
+{
+    LightTrackTunnel old;
+    if (!light_track_get_tunnel(f, i, &old)) return fail(why, cap, "there is no such tunnel");
+    LightTrackTunnel own = *want;
+    const LightTrackTunnel *t = &own;
+    if (!own.has_gradient && old.has_gradient) own.has_gradient = 1, own.gradient = old.gradient;   // the gradient is the tunnel's own: moving or changing its kind keeps it
+    int look[LT_TIMES];
+    for (int time = 0; time < LT_TIMES; time++) look[time] = look_over(f, time, old.from, old.to);
+    LightTrack work;
+    if (!clone(f, &work)) return fail(why, cap, "out of memory");
+    const int moves = old.from != t->from || old.to != t->to;
+    char reason[LT_WHY];
+    int ok;
+    // the tunnel must hold its looks: widening it goes first, narrowing it goes after the looks have moved in
+    if (!moves) ok = light_track_set_tunnel(&work, i, t, reason, sizeof reason);
+    else if (light_track_set_tunnel(&work, i, t, reason, sizeof reason)) ok = move_looks(&work, look, t->from, t->to, reason, sizeof reason);
+    else ok = move_looks(&work, look, t->from, t->to, reason, sizeof reason) && light_track_set_tunnel(&work, i, t, reason, sizeof reason);
+    if (!ok) {
+        light_track_free(&work);
+        return fail(why, cap, reason);
+    }
+    light_track_free(f);
+    *f = work;
+    return 1;
+}
+
+int light_track_remove_tunnel(LightTrack *f, int i, char *why, size_t cap)
+{
+    LightTrackTunnel old;
+    if (!light_track_get_tunnel(f, i, &old)) return fail(why, cap, "there is no such tunnel");
+    LightTrack work;
+    if (!clone(f, &work)) return fail(why, cap, "out of memory");
+    char reason[LT_WHY];
+    int ok = 1;
+    for (int time = 0; time < LT_TIMES && ok; time++) {
+        const int j = look_over(&work, time, old.from, old.to);
+        if (j >= 0) ok = light_track_remove(&work, time, LT_LOOK, j, reason, sizeof reason);
+    }
+    if (ok) ok = light_track_remove(&work, LT_TIME_FACTS, LT_TUNNEL, i, reason, sizeof reason);
+    if (!ok) {
+        light_track_free(&work);
+        return fail(why, cap, reason);
+    }
+    light_track_free(f);
+    *f = work;
+    return 1;
+}
+
+int light_track_remove_looks(LightTrack *f, unsigned from, unsigned to, char *why, size_t cap)
+{
+    LightTrack work;
+    if (!clone(f, &work)) return fail(why, cap, "out of memory");
+    char reason[LT_WHY];
+    int ok = 1;
+    for (int time = 0; time < LT_TIMES && ok; time++) {
+        const int j = look_over(&work, time, from, to);
+        if (j >= 0) ok = light_track_remove(&work, time, LT_LOOK, j, reason, sizeof reason);
+    }
+    if (!ok) {
+        light_track_free(&work);
+        return fail(why, cap, reason);
+    }
+    light_track_free(f);
+    *f = work;
     return 1;
 }
