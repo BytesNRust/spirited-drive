@@ -27,9 +27,11 @@ void link_central_bind(const LinkMenu *menu);
 
 void link_sync(void);                 /* 004104d0 */
 /* port: the lost-link banner's TEXT ("Connection Terminated", "Verbindung abgebrochen"), or why the game was left when it
- * was for the host's track (link_sync refused it): told once. link_central_left_forget clears it (a new join). */
+ * was for the host's track (link_sync refused it): told once, and only in Restomod (Stock and Restored show the original's banner). link_central_left_forget clears it (a new join). */
 const char *link_central_lost_text(const char *text, int german);
 void link_central_left_forget(void);
+/* port: the game was left for the host's track (link_sync's refusal); Restomod's banner then says so, the other modes keep the original's */
+void link_central_host_track_refused(void);
 int32_t link_wait(int16_t stage);     /* 00410c18: nonzero when all came */
 int32_t link_ready(void);             /* 0044633c */
 void link_host_ready(void);           /* 00446284 */

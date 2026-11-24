@@ -22,17 +22,6 @@ static int16_t cars[1 + RACE_NET_PLAYERS];
 
 /* port: race_net_sync refused the host's settings for their track (RaceNetSync's bad_track) */
 static int bad_track;
-static int left_for_track;  /* the game was left for it, not yet told */
-
-const char *link_central_lost_text(const char *text, int german)
-{
-    if (!left_for_track || (strcmp(text, "Connection Terminated") != 0 && strcmp(text, "Verbindung abgebrochen") != 0))
-        return text;
-    left_for_track = 0;
-    return german ? "Strecke des Hosts unbekannt" : "The host's track is not in this version";
-}
-
-void link_central_left_forget(void) { left_for_track = 0; }
 
 void link_central_bind(const LinkMenu *menu) { M = menu; }
 
@@ -134,7 +123,7 @@ void link_sync(void)
     race_net_sync(&ops, &s);
     sync_out(&s);
     if (bad_track) {
-        bad_track = 0, left_for_track = 1;  /* port: a host's track this version has not; the game is left as when the host is lost */
+        bad_track = 0, link_central_host_track_refused();  /* port: a host's track this version has not; the game is left as when the host is lost */
         port_log("link: the host chose track %d, which is not one of this version's nine: leaving the game\n",
                  word_at(L->settings, RACE_NET_SET_TRACK));
         menu_words.link_lost = 1;

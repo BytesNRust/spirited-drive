@@ -202,6 +202,7 @@ endif()
 # The recovered game logic: platform-independent, links no SDL.
 add_library(tnfs_game STATIC
     game/frontend/best_times.c
+    game/frontend/link_banner.c
     game/frontend/best_times_pages.c
     game/frontend/record_conditions.c
     game/frontend/cheat_code.c
@@ -2116,6 +2117,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_game_mode_choices PRIVATE ${TNFS_WARNINGS})
     add_test(NAME game_mode_choices COMMAND test_game_mode_choices)
+    add_executable(test_link_banner tests/test_link_banner.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_link_banner PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_link_banner PRIVATE m)
+    endif()
+    target_compile_options(test_link_banner PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME link_banner COMMAND test_link_banner)
     add_executable(test_mod_store tests/test_mod_store.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_mod_store PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
