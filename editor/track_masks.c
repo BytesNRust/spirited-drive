@@ -296,6 +296,11 @@ int track_masks_publish_plan(const char *dir, const char *data_dir, const char *
 {
     char gen[1100];
     snprintf(gen, sizeof gen, "%s/art-generated/track_masks", dir);
+    return track_masks_plan_from(gen, data_dir, stem, plan, why, why_cap);
+}
+
+int track_masks_plan_from(const char *gen, const char *data_dir, const char *stem, OriginalPublish *plan, char *why, size_t why_cap)
+{
     DIR *d = opendir(gen);
     if (d == NULL) return 1;   /* no masks: nothing to publish */
     for (struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
@@ -332,11 +337,18 @@ int track_masks_publish_plan(const char *dir, const char *data_dir, const char *
 
 int track_masks_publish(const char *dir, const char *data_dir, const OriginalPublish *plan, int *written, char *why, size_t why_cap)
 {
+    char gen[1100];
+    snprintf(gen, sizeof gen, "%s/art-generated/track_masks", dir);
+    return track_masks_publish_from(gen, data_dir, plan, written, why, why_cap);
+}
+
+int track_masks_publish_from(const char *gen, const char *data_dir, const OriginalPublish *plan, int *written, char *why, size_t why_cap)
+{
     for (int i = 0; i < plan->count; ++i) {
         const OriginalPublishItem *it = &plan->item[i];
         if (!is_mask_item(it) || it->state == OT_SAME) continue;
         char mine[1200], theirs[1200], folder[1200];
-        snprintf(mine, sizeof mine, "%s/art-generated/track_masks/%s", dir, strrchr(it->file, '/') + 1);
+        snprintf(mine, sizeof mine, "%s/%s", gen, strrchr(it->file, '/') + 1);
         snprintf(theirs, sizeof theirs, "%s/%s", data_dir, it->file);
         snprintf(folder, sizeof folder, "%s/track_masks", data_dir);
         mkdir(folder, 0777);

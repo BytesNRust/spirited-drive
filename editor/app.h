@@ -389,6 +389,11 @@ int app_original_copy(App *a);
 int app_car_copy_can(const App *a);
 int app_car_copy_ask(App *a);
 int app_car_copy(App *a);
+
+/* Edit tweak, step 1 (app_tweak.c): the tweak folder of the open original car or track in <workspace>/tweaks/<id>/ (made again from the project when there), and Apply of a tweak folder to the game repo
+ * (what Copy to game repo writes, from the folder). 1, or 0 with the reason in status. */
+int app_tweak_make(App *a);
+int app_tweak_apply(App *a, const char *id);   /* id: the folder name in <workspace>/tweaks/ ("wagon-tweak") */
 /* The Masks panel of an original track (app_track_masks.c, editor only). app_track_masks_load scans the folder and makes the PNGs of the PSDs that need them (NEW and STALE), once
  * per open; app_track_masks_refresh scans again. app_track_mask_select puts row `i`'s picture in tmask_rgba; app_track_mask_regenerate makes the selected one's PNG from its PSD
  * again (after the warning: it replaces a PNG edited by hand). 1, or 0 with the reason in tmask_note. */

@@ -64,6 +64,10 @@ int track_masks_publish_plan(const char *dir, const char *data_dir, const char *
 /* Copies the changed and new mask items of `plan` into data/ (the folder made when missing); `written` is added to. 1, or 0 with `why`. */
 int track_masks_publish(const char *dir, const char *data_dir, const OriginalPublish *plan, int *written, char *why, size_t why_cap);
 
+/* The same two with the folder of PNGs given (the tweak folder's track_masks/<STEM>): the ones above are these with art-generated/track_masks */
+int track_masks_plan_from(const char *gen, const char *data_dir, const char *stem, OriginalPublish *plan, char *why, size_t why_cap);
+int track_masks_publish_from(const char *gen, const char *data_dir, const OriginalPublish *plan, int *written, char *why, size_t why_cap);
+
 /* a word for the state, for the panel and the tests: "ok", "new", "stale", "edited by hand", "PNG is the source", "no mask painted in the PSD", "unreadable PSD" */
 const char *track_mask_state_text(TrackMaskState s);
 

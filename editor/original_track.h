@@ -69,6 +69,10 @@ int original_track_publish_plan(const char *dir, const char *data_dir, OriginalP
 /* Copies the files of the plan that are changed or new into data/. `written` gets how many. 1, or 0 with `why` (the files before the failing one are written). */
 int original_track_publish(const char *dir, const char *data_dir, int *written, char *why, size_t cap);
 
+/* The same for one light file anywhere (the tweak folder's track_light/<STEM>.txt): the project functions above are these with the project's own file */
+int original_track_light_plan(const char *light_file, const char *stem, const char *data_dir, OriginalPublish *out, char *why, size_t cap);
+int original_track_light_publish(const char *light_file, const char *stem, const char *data_dir, int *written, char *why, size_t cap);
+
 /* The preview as text, one line a file, for the dialog and the tests */
 void original_track_publish_text(const OriginalPublish *p, const char *stem, char *out, size_t cap);
 
