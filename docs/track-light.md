@@ -58,6 +58,26 @@ a file or of the generator that changes a light shows there; one that is meant i
 
 ## The Studio
 
-The Track light panel of `tnfs-track-editor` edits these files (editor/light_track.h is its model: a file that was not changed is written back byte for byte, and a change the game would refuse is not made). The live mode
-`light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1`) shows in a race the node the car is at and the values there; **F10** holds the race where it is, and saving the light file in the folder given as `--mods` makes the
-race read it again (that run keeps no records and no replays: a tunnel fact changes the grip).
+The **Track light** window of `tnfs-track-editor` edits these files (editor/light_track.h is its model: a file that was not changed is written back byte for byte, and a change the game would refuse is not
+made, with its reason in red). Open it from the main menu: Tracks > **Open original track...** (a list of the workspace's 16 originals; **Add originals** / **Update originals** puts the game's tracks and their light
+file in the workspace first); File > Open original track... is the same list. (`--ask light --light-dir DIR` opens the window on a plain folder of light files, with a **Light folder** / **Choose...** row
+instead of the original track's.) What the window has, top to bottom:
+
+* **Track** and the four moments **Dawn / Day / Dusk / Night**; changing the track with unsaved changes is refused ("Save or Revert before another track"). **View** (Bumper, Dash, Chase near/mid/far, High) and **HUD**
+  are the photo's camera. **Photo at node**: the slider, **-10 -1 +1 +10** and a typed node.
+* **Test drive** (and **Stop test drive**) with the weather (Clear, Fog, Rain, Storm): the game in a window of its own on this track, moment and node, following every edit without Save. It is always Restomod 16:9 at
+  render scale 3 (a 2562x1440 window) with every effect on (lamp halos, soft shine, reflectors, headlight beams, sun_shadow, light effects), whatever the person's own settings say.
+* **Sun** (**Moon** at night): the compass and three sliders, **Direction**, **Height** and **Shadow strength** (100 = no shadow). The box to the left of each slider turns it on; unticked it is "auto" (the
+  generator's own), and a sun with all three unticked is no `sun` line.
+* **Tunnels**: one row for each `tunnel` fact: **Remove**, **From**, **To**, **Kind** (tunnel / hall; a fact of every moment) and, for this moment, **Light %**, **Colour**, **Lamps %** and **Reach** (the
+  `tunnel_look` line; an empty cell is inherited from the **default** row, and the row's cell, from the code). **Add tunnel** adds one from the photo's node to 50 nodes on. **Lamps % = 0** is an unlit tunnel:
+  the car there does not blink (see What decides what).
+* **Lamps (N)**: **Add lamp** at the photo's node; per lamp **Remove**, **Node**, **Light %**, **Colour**, **Radius** and **Strip** (none, all, left, right, road: where across the road it stands).
+* **Retouches**: **Brightness (N)** and **Tone (N)** with **Add brightness** / **Add tone** (from the photo's node to 50 nodes on), the lines' numbers and the strip bar (drag over the points C, 1..10, or **All /
+  Left / Right / Road**); **Remove** takes a line away.
+* **Save** and **Revert** (the file as it was read or saved), and on an original track **Copy to game repo** (the same window as File > Copy to game repo: it lists what would change in the game repo's `data/`,
+  the light file and the changed mask PNGs, and writes only on Copy; the repo's folder is set once in File > Game repo folder...; Save first).
+* **Light compare** (its own tab): **Off**, **Before** (the file on disk beside the edit) or **Four times** (dawn, day, dusk and night at the node).
+
+The live mode `light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1`) shows in a race the node the car is at and the values there; **F10** holds the race where it is, and saving the light file in the folder given as
+`--mods` makes the race read it again (that run keeps no records and no replays: a tunnel fact changes the grip).
