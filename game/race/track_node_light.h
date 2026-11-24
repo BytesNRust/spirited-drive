@@ -30,6 +30,7 @@ typedef struct { uint8_t rgb[3]; uint8_t percent; uint8_t look; uint8_t pad[3]; 
 
 typedef struct {
     uint8_t *data;      /* nodes * TRACK_NODE_LIGHT_POINTS bytes (owned), NULL when none is loaded */
+    uint8_t *data_plain; /* port (pool_brightness): `data` as it was before the file's `brightness` lines (owned), NULL when the file has none: the headlights' pool takes most of its row from it */
     uint32_t nodes;
     PsxLgs script;      /* the track's light script (track_node_light_set_script), read when `scripted` */
     int scripted;

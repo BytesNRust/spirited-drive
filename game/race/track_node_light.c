@@ -8,6 +8,8 @@
 void track_node_light_free(TrackNodeLight *light)
 {
     free(light->data);
+    free(light->data_plain);
+    light->data_plain = NULL;
     free(light->hall);
     free(light->tunnel);
     free(light->lamps_off);
@@ -174,13 +176,13 @@ int track_node_light_vertex_class(const TrackNodeLight *light, uint32_t node, in
     return cls;
 }
 
-static uint8_t light_at(const TrackNodeLight *light, uint32_t node, int point)
+static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, uint32_t node, int point)
 {
-    if (light == NULL || light->data == NULL || light->nodes < 2 || point < 0 || point >= TRACK_NODE_LIGHT_POINTS) return TRACK_NODE_LIGHT_FULL;
+    if (light == NULL || rows == NULL || light->nodes < 2 || point < 0 || point >= TRACK_NODE_LIGHT_POINTS) return TRACK_NODE_LIGHT_FULL;
     node = track_node_light_old_node(light, node);
     point = old_point(light, point);
     if (node == light->nodes - 1) node--;
-    const uint8_t *row = light->data + (size_t)node * TRACK_NODE_LIGHT_POINTS;
+    const uint8_t *row = rows + (size_t)node * TRACK_NODE_LIGHT_POINTS;
     if (light->scripted) {   /* the exe's light: the context's colour or the LGT through T, as the luminance of the three channels */
         float f[3];
         light_tint_script_light(&light->script, (int)node, row[point], f);
@@ -196,6 +198,23 @@ static uint8_t light_at(const TrackNodeLight *light, uint32_t node, int point)
     if (tunnel && (point == 0 || point == 1 || point == 6) && row[point] > TRACK_NODE_LIGHT_TUNNEL_ROAD) return TRACK_NODE_LIGHT_TUNNEL_ROAD;
     if (tunnel && (point == 2 || point == 7) && row[point] > TRACK_NODE_LIGHT_WALL) return TRACK_NODE_LIGHT_WALL;   /* the shoulder's far edge: half light too */
     return row[point];
+}
+
+static uint8_t light_at(const TrackNodeLight *light, uint32_t node, int point)
+{
+    return light_at_rows(light, light != NULL ? light->data : NULL, node, point);
+}
+
+/* port (pool_brightness): the share (of 256) of the file's `brightness` retouches the headlights' pool keeps. The owner's rule: none, the pool lights as it would with no retouch at all (a real
+ * headlight does not depend on the scene's brightness); a `tone` is not in the rows and acts as ever */
+enum { POOL_BRIGHTNESS_KEEP = 0 };
+
+/* the row point the pool lights: `v` (the row after the retouches) moved back toward the row before them by all but POOL_BRIGHTNESS_KEEP/256; `v` itself when the file has no brightness line */
+static uint8_t pool_row(const TrackNodeLight *light, uint32_t node, int point, uint8_t v)
+{
+    if (light->data_plain == NULL) return v;
+    const int plain = light_at_rows(light, light->data_plain, node, point);
+    return (uint8_t)(v + (plain - (int)v) * (256 - POOL_BRIGHTNESS_KEEP) / 256);
 }
 
 float track_node_light_road_light(const TrackNodeLight *light, uint32_t node)
@@ -270,7 +289,16 @@ static uint8_t light_at_dark(const TrackNodeLight *light, uint32_t node, int poi
         }
         if (light->night_lift > 0 && light->beam_on_top) gain = headlight_pool_gain_at_lift(floor, lift);   /* port (city_lift 3): the beam adds on top of the lifted floor, it is not lost under it */
         if (gain < floor) gain = floor;
-        uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
+        const int reach = floor + (gain - floor) * share / 256;
+        uint8_t open = headlight_pool_apply(v, reach);
+        if (light->data_plain != NULL && reach > floor) {   /* port (pool_brightness): the pool's added light is the row's before the retouches, mostly; the dark around it keeps them */
+            const uint8_t vp = pool_row(light, node, point, v);
+            const int dark = headlight_pool_apply(v, floor), lit = headlight_pool_apply(vp, reach), dark_vp = headlight_pool_apply(vp, floor);
+            const int share_of_pool = (reach - floor) * 256 / (256 - floor);
+            const int away = 256 - share_of_pool;   /* 0 in the pool's full light, 256 outside it; cubed, so the retouch's darkness fades in only well outside the lit patch (no seam at its edge) */
+            const int mixed = lit - (int)((int64_t)(dark_vp - dark) * away * away * away / (256 * 256 * 256));
+            open = (uint8_t)(mixed < 0 ? 0 : mixed > 255 ? 255 : mixed);
+        }
         if (light->beam_open > 0) {   /* port (city_lift 3): a visible patch where the rows are dark: the beam lights the ground to beam_open at its full, not only a share of the row's own light */
             const int lit = light->beam_open * lift / 256 * share / 256;
             if (lit > open) open = (uint8_t)lit;

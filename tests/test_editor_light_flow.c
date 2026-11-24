@@ -286,9 +286,16 @@ static void test_real_game(const char *game, const char *cd)
     double now = 1;
     CHECK(run_photo_for(a, &now, 6000) && a->light.photo.state == LIGHT_PHOTO_DONE && a->light.photo.w == 1280);
     if (a->light.photo.state != LIGHT_PHOTO_DONE) { app_free(a), free(a); return; }
-    const double before = mean_of(a->light.photo.rgba, a->light.photo.w, a->light.photo.h);
     uint8_t *first = malloc((size_t)a->light.photo.w * a->light.photo.h * 4);
     memcpy(first, a->light.photo.rgba, (size_t)a->light.photo.w * a->light.photo.h * 4);
+    // a brightness line at 100 percent first: the headlights' pool does not follow a brightness line (pool_brightness), so the darker photo is compared with one that has the same line at full
+    const LightTrackBrightness full = { 0, a->light.session.nodes - 1, 100, LT_ALL_POINTS };
+    CHECK(light_track_set_brightness(&a->light.session.file, LT_TIME_N, -1, &full, why, sizeof why));
+    app_light_touch(a);
+    now += LIGHT_UI_SETTLE + 0.1;
+    CHECK(app_light_poll(a, now));
+    CHECK(run_photo_for(a, &now, 6000) && a->light.photo.state == LIGHT_PHOTO_DONE);
+    const double before = mean_of(a->light.photo.rgba, a->light.photo.w, a->light.photo.h);
     const LightTrackBrightness dark = { 0, a->light.session.nodes - 1, 30, LT_ALL_POINTS };
     CHECK(light_track_set_brightness(&a->light.session.file, LT_TIME_N, -1, &dark, why, sizeof why));
     app_light_touch(a);

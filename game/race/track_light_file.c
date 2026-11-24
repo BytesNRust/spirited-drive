@@ -427,6 +427,11 @@ static void apply_lamps(const TrackLightTweaks *tweaks, TrackNodeLight *light, i
 void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, int lamps, int ring)
 {
     if (tweaks == NULL || light == NULL) return;
+    if (tweaks->brightness_count > 0 && light->data != NULL && light->nodes > 0) {   /* port (pool_brightness): the rows before the retouches, for the headlights' pool */
+        free(light->data_plain);
+        light->data_plain = malloc((size_t)light->nodes * TRACK_NODE_LIGHT_POINTS);
+        if (light->data_plain != NULL) memcpy(light->data_plain, light->data, (size_t)light->nodes * TRACK_NODE_LIGHT_POINTS);
+    }
     /* the lines with `shade` first, over the rows as the file gives them (that is the shade the sun calculated), then the plain ones in file order */
     for (int pass = 1; pass >= 0; pass--)
         for (int i = 0; i < tweaks->brightness_count && light->data != NULL; i++) {

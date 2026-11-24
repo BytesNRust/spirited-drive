@@ -219,6 +219,31 @@ static void test_shoulder_light(void)
     CHECK_EQ_INT(track_node_light_at_xz(&dark, 1, 7, at), 20);                /* by day (no pool) the row as it is */
 }
 
+/* port (pool_brightness): the headlights' pool does not depend on the file's `brightness` lines: rows halved by a retouch (data) over the rows before it (data_plain) light the pool as the plain
+ * rows do, where the beam is full; the dark around it (no beam) still takes the retouch; no retouch (no data_plain) changes nothing */
+static void test_pool_ignores_brightness(void)
+{
+    uint8_t plain[3 * TRACK_NODE_LIGHT_POINTS], half[3 * TRACK_NODE_LIGHT_POINTS];
+    memset(plain, 200, sizeof plain);
+    for (size_t i = 0; i < sizeof half; i++) half[i] = (uint8_t)(plain[i] / 2);   /* `brightness .. 50` */
+    HeadlightPool pool;
+    memset(&pool, 0, sizeof pool);
+    pool.cone = 1, pool.count = 1;
+    pool.cone_x[0] = 0.0, pool.cone_z[0] = 0.0, pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;
+    const TrackNodeLight reference = { .data = plain, .nodes = 3, .pool = &pool };
+    const TrackNodeLight retouched = { .data = half, .data_plain = plain, .nodes = 3, .pool = &pool };
+    const TrackNodeLight no_plain = { .data = half, .nodes = 3, .pool = &pool };
+    const double in_beam[2] = { 0.0, 8.0 }, outside[2] = { 0.0, 150.0 };
+    const int want = track_node_light_at_xz(&reference, 1, 1, in_beam);
+    CHECK(want > 60);   /* a visible pool */
+    CHECK_EQ_INT(track_node_light_at_xz(&retouched, 1, 1, in_beam), want);   /* brightness 50: the same pool as at 100 */
+    CHECK(track_node_light_at_xz(&no_plain, 1, 1, in_beam) < want - 20);     /* (without the plain rows it dimmed: as before this change) */
+    CHECK_EQ_INT(track_node_light_at_xz(&retouched, 1, 1, outside), track_node_light_at_xz(&no_plain, 1, 1, outside));   /* beyond the beam the retouch dims the scene as ever */
+    CHECK(track_node_light_at_xz(&retouched, 1, 1, outside) < track_node_light_at_xz(&reference, 1, 1, outside));
+    TrackNodeLight no_retouch = reference;   /* no brightness line: no plain copy, the same as ever */
+    CHECK_EQ_INT(track_node_light_at_xz(&no_retouch, 1, 1, in_beam), want);
+}
+
 /* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
 static void test_radial_lamps(void)
 {
@@ -345,6 +370,7 @@ int main(void)
     test_rejected_files();
     test_reversed();
     test_shoulder_light();
+    test_pool_ignores_brightness();
     test_radial_lamps();
     test_lamp_shaped_along_the_road();
     test_object_lamp();
