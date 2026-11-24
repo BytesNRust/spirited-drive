@@ -95,8 +95,10 @@ void drive_panel(App *a)
         if ((j.log != nullptr && j.log_len > 0) || (j.run.log != nullptr && j.run.log_len > 0)) {
             if (ImGui::CollapsingHeader("The game's log###drivelog")) {   // folded: the state line says how it went
                 if (ImGui::BeginChild("drivelog", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
+                    ImGui::PushTextWrapPos(0.0f);   // wrapped at the panel's edge: a long line of the log is not cut
                     if (j.log != nullptr) ImGui::TextUnformatted(j.log, j.log + j.log_len);
                     if (j.run.log != nullptr) ImGui::TextUnformatted(j.run.log, j.run.log + j.run.log_len);
+                    ImGui::PopTextWrapPos();
                 }
                 ImGui::EndChild();
             }

@@ -71,7 +71,9 @@ void masks_changes_section(App *a)
                 if (m.gained[k] > 0) n += snprintf(row + n, sizeof row - (size_t)n, "%s%s +%d", sep, mask_edit_class(k)->tag, m.gained[k]), sep = ", ";
             for (int k = 0; k < ME_CLASSES && n < (int)sizeof row - 40; ++k)
                 if (m.lost[k] > 0) n += snprintf(row + n, sizeof row - (size_t)n, "%s%s -%d", sep, mask_edit_class(k)->tag, m.lost[k]), sep = ", ";
-            ImGui::TextColored(ImVec4(0.95f, 0.78f, 0.35f, 1.0f), "%s", row);
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));   // wrapped: a long row of classes is not cut by a narrow panel
+            ImGui::TextWrapped("%s", row);
+            ImGui::PopStyleColor();
         } else if (m.kind == MC_NEW) {
             ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.45f, 1.0f), "new      %s", m.file);
         } else {

@@ -594,9 +594,15 @@ void masks_panel(App *a, ImTextureID tex)
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
                 if (busy) ImGui::SetTooltip("Converting: the masks are replaced when every PSD has been read");
                 else if (!found) ImGui::SetTooltip("No folder named %s in %s", c.folder, a->psd_root[0] != '\0' ? a->psd_root : "the PSD folder (--psd-root)");
-                else ImGui::SetTooltip("Reads the PSDs in %s (the car's art-source/masks) and writes the mask PNGs of this car (art-generated/car_masks, and the dash's).\n"
-                                       "Only the PSDs newer than their PNG are converted. The PSDs are never written.\n"
-                                       "A PNG edited by hand is not replaced without asking first.", psd);
+                else {   // wrapped: the PSD folder's path is long
+                    ImGui::BeginTooltip();
+                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 36.0f);
+                    ImGui::Text("Reads the PSDs in %s (the car's art-source/masks) and writes the mask PNGs of this car (art-generated/car_masks, and the dash's).\n"
+                                "Only the PSDs newer than their PNG are converted. The PSDs are never written.\n"
+                                "A PNG edited by hand is not replaced without asking first.", psd);
+                    ImGui::PopTextWrapPos();
+                    ImGui::EndTooltip();
+                }
             }
             ImGui::SameLine();
             char why[800];
