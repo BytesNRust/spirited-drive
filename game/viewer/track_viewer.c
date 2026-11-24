@@ -549,7 +549,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     const int free_race = replay_of != NULL ? !free_laps_is_exe(laps) : wanted > 0 && wanted != exe_laps;
     rival_liveries(&field, drive_link_on ? drive_link.slot : 0, name, replay_of != NULL);
     field.port_reverse = t->reversed;   /* port: the grid is placed at the start, before the race knows its direction otherwise */
-    race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
+    race_sim_start_field(&drive_sim, track_cars_tri(t), name, &specs, &field, laps, arcade);
     drive_start_world(t, data_root, name, &field, laps, exe_laps, free_race);
     drive_start_race_words(name, laps);
     drive_sim.race.port_no_cockpit = dash < 0;   /* port (dep59 3b): the chase never takes view 0 for it */

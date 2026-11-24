@@ -102,12 +102,29 @@ static void ported_view_render_from(const Tri *tri, const TrackArt *art, const T
 
 TrackRender render;
 
+/* port (portal_both): the picture's scenery list has records the race's has not (track_load.h); the race's knocked-over bytes (by its own record index) are read through the map, the added ones standing */
+static const uint16_t *scenery_map;
+static uint8_t knocked_view[2 * TRI_SCENERY_MAX];
+
+void ported_view_set_scenery_map(const uint16_t *map) { scenery_map = map; }
+
+static const uint8_t *race_knocked(void)
+{
+    if (scenery_map == NULL) return shadow_race->scenery_state;
+    for (uint32_t i = 0; i < TRI_SCENERY_MAX; i++) {
+        const uint16_t from = scenery_map[i];
+        knocked_view[2 * i] = from < TRI_SCENERY_MAX ? shadow_race->scenery_state[2 * from] : 0;
+        knocked_view[2 * i + 1] = from < TRI_SCENERY_MAX ? shadow_race->scenery_state[2 * from + 1] : 0;
+    }
+    return knocked_view;
+}
+
 /* 0043f540 on the race's scenery: the knocked-over bytes are the race's (004b9098, 0040fc64 sets them), and a knock's
  * 0043f51c (00504218 = -1) streams the scenery again at once; 0043f48c's 00504218 goes back to the race. */
 void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 {
     if (shadow_race != NULL && render.tri == tri) {
-        render.build.knocked = shadow_race->scenery_state;
+        render.build.knocked = race_knocked();
         if (shadow_race->scenery_stream_node < 0) render.build.first_node = -1;
     }
     track_render_set_light(&render, light_effects);  /* before the build: it fills the light with the vertices */
@@ -126,7 +143,7 @@ void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
         port_log("light edit: the track built again with the new light (%d vertices, light sum %llu)\n", (int)n, (unsigned long long)sum);
     }
     if (shadow_race != NULL) {
-        render.build.knocked = shadow_race->scenery_state;  /* again, for a first build that bound the track */
+        render.build.knocked = race_knocked();  /* again, for a first build that bound the track */
         shadow_race->scenery_stream_node = render.build.first_node;
     }
 }
@@ -134,6 +151,7 @@ void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 void ported_view_forget_track(void)
 {
     render.tri = NULL;
+    scenery_map = NULL;
     reflect_pass_forget_art();   /* port (reflectors): the next track's art may stand at this one's address; its textures are not these */
     ported_view_set_models(NULL, NULL, 0, 0, 0);  /* the next track's models sit at the same address, bound to these textures */
     horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */

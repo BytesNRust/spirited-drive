@@ -101,7 +101,7 @@ static int by_node(const void *a, const void *b)
 }
 
 /* the records of `list` into the file's, each after the records on its node or before the first of a later one */
-static void insert(uint8_t *file, const Tri *tri, Copy *list, uint32_t n)
+static void insert(uint8_t *file, const Tri *tri, Copy *list, uint32_t n, uint16_t *map)
 {
     uint8_t *base = file + tri->scenery_offset;
     qsort(list, n, sizeof list[0], by_node);
@@ -110,13 +110,17 @@ static void insert(uint8_t *file, const Tri *tri, Copy *list, uint32_t n)
         uint32_t at = 0;
         while (at < count && (int32_t)get32(base + (size_t)at * TRI_SCENERY_SIZE) <= (int32_t)list[k].node) at++;
         memmove(base + (size_t)(at + 1) * TRI_SCENERY_SIZE, base + (size_t)at * TRI_SCENERY_SIZE, (size_t)(count + 1 - at) * TRI_SCENERY_SIZE);   /* with the -1 */
+        if (map != NULL) {
+            memmove(map + at + 1, map + at, (size_t)(count - at) * sizeof *map);
+            map[at] = PORTAL_FACE_NEW;
+        }
         memcpy(base + (size_t)at * TRI_SCENERY_SIZE, list[k].record, TRI_SCENERY_SIZE);
         put32(base + (size_t)at * TRI_SCENERY_SIZE, list[k].node);
         count++;
     }
 }
 
-uint32_t portal_faces_add(uint8_t *file, size_t size, const TriPivot *pivots, uint32_t pivot_count)
+uint32_t portal_faces_add(uint8_t *file, size_t size, const TriPivot *pivots, uint32_t pivot_count, uint16_t *map)
 {
     Tri tri;
     if (tri_open(&tri, file, size) != TRI_OK || tri.node_count == 0) return 0;
@@ -145,7 +149,9 @@ uint32_t portal_faces_add(uint8_t *file, size_t size, const TriPivot *pivots, ui
             }
         }
     }
-    if (n > 0 && tri.scenery_count + n < TRI_SCENERY_MAX) insert(file, &tri, list, n);
+    if (map != NULL)
+        for (uint32_t i = 0; i < TRI_SCENERY_MAX; i++) map[i] = i < tri.scenery_count ? (uint16_t)i : PORTAL_FACE_NEW;
+    if (n > 0 && tri.scenery_count + n < TRI_SCENERY_MAX) insert(file, &tri, list, n, map);
     else n = 0;
 done:
     free(property);

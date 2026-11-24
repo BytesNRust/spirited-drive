@@ -24,6 +24,11 @@ enum { CAR_AHEAD = 2 };
 
 typedef struct {
     uint8_t *tri_file;
+    /* port (portal_both): the list of the scenery the cars and the police read is the file's own; `tri` (the picture's) has the portals' second faces added. tri_plain is the file as it came (NULL when
+     * nothing was added: then `tri` is both), scenery_map the plain index of each record of `tri` (portal_faces.h) */
+    uint8_t *tri_plain_file;
+    Tri tri_plain;
+    uint16_t scenery_map[TRI_SCENERY_MAX];
     uint8_t *fam_file;
     Tri tri;
     Chunk fam;
@@ -39,6 +44,9 @@ typedef struct {
     int car_ok;
     int reversed;           /* port: the circuit runs the other way round (tri_reverse.h) */
 } Track;
+
+/* the TRI the race (the cars, the police, the knocked-over bytes) is started on: the picture's, or the file as it came where portals were added */
+const Tri *track_cars_tri(const Track *t);
 
 /* The track `name` with 004510e8's art and 0043a370's sky for `look`; 0 and a message when a file is missing. */
 int track_viewer_load(Track *t, const char *data_root, const char *name, const TrackFamInputs *look);

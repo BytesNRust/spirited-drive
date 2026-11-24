@@ -13,6 +13,10 @@
 
 /* The TRI file in memory (`size` bytes, written in place: the records are inserted in their node order, there must be room in the 1000 slots); `pivots` as
  * tri_reverse_with has them (the centre of each model, NULL for none). Returns the records added. */
-uint32_t portal_faces_add(uint8_t *file, size_t size, const TriPivot *pivots, uint32_t pivot_count);
+uint32_t portal_faces_add(uint8_t *file, size_t size, const TriPivot *pivots, uint32_t pivot_count, uint16_t *map);
+
+/* `map` (TRI_SCENERY_MAX entries, or NULL): for each record of the list as it is after the call, the index it had before, PORTAL_FACE_NEW for the ones added. The cars and the police read the list as it was
+ * (the knocked-over bytes are by record index, race_sim's), only the picture takes the added ones. */
+enum { PORTAL_FACE_NEW = 0xFFFF };
 
 #endif

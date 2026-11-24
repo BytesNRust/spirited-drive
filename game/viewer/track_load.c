@@ -244,7 +244,12 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     if (look->port_portal_faces) {   /* port (portal_both): the portal's second face on the tunnel's other mouth */
         TriPivot pivots[TRACK_MODELS];
         const uint32_t count = model_pivots(t->fam_file, fam_size, pivots);
-        const uint32_t added = portal_faces_add(t->tri_file, tri_size, count > 0 ? pivots : NULL, count);
+        uint8_t *const plain = malloc(tri_size);
+        if (plain != NULL) memcpy(plain, t->tri_file, tri_size);
+        uint32_t added = plain != NULL ? portal_faces_add(t->tri_file, tri_size, count > 0 ? pivots : NULL, count, t->scenery_map) : 0;
+        if (added > 0 && tri_open(&t->tri_plain, plain, tri_size) != TRI_OK) memcpy(t->tri_file, plain, tri_size), added = 0;   /* the file as it came, no faces */
+        if (added > 0) t->tri_plain_file = plain;
+        else free(plain);
         if (added > 0) port_log("track_viewer: %s: %u portal faces added\n", name, added);
     }
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
@@ -359,11 +364,14 @@ void track_viewer_load_car(Track *t, const char *data_root, const char *name)
     t->car_ok = load_cfm(data_root, name, &t->car_file, &cfm, t->car);
 }
 
+const Tri *track_cars_tri(const Track *t) { return t->tri_plain_file != NULL ? &t->tri_plain : &t->tri; }
+
 void track_viewer_free(Track *t)
 {
     ported_view_forget_track();
     platform_free_file(t->car_file);
     platform_free_file(t->tri_file);
+    free(t->tri_plain_file);
     platform_free_file(t->fam_file);
     free(t->objects);
 }

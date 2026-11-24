@@ -87,7 +87,7 @@ static void test_the_second_face(int bend)
     static Synthetic s;
     fill(&s, bend);
     write_file(&s);
-    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2), 1);
+    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2, NULL), 1);
     Tri tri;
     CHECK_EQ_INT(tri_open(&tri, file, file_size), TRI_OK);
     CHECK_EQ_INT(tri.scenery_count, 4);
@@ -129,8 +129,26 @@ static void test_the_second_face(int bend)
     const double wx = cos(turn) * rx - sin(turn) * rz, wz = sin(turn) * rx + cos(turn) * rz;
     CHECK(fabs(cc[0] - n1.position.x / 256.0 - wx) < 40);
     CHECK(fabs(cc[1] - n1.position.z / 256.0 - wz) < 40);
+    /* the map: the records the cars know, in their order, and the added one */
+    {
+        static Synthetic again;
+        uint16_t map[TRI_SCENERY_MAX];
+        fill(&again, bend);
+        write_file(&again);
+        CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2, map), 1);
+        int added = 0, previous = -1;
+        for (uint32_t i = 0; i < 4; i++) {
+            if (map[i] == PORTAL_FACE_NEW) { added++; continue; }
+            CHECK(map[i] == previous + 1);
+            previous = map[i];
+        }
+        CHECK_EQ_INT(added, 1);
+        CHECK_EQ_INT(previous, 2);
+        write_file(&s);
+        CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2, NULL), 1);
+    }
     /* a second call adds nothing */
-    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2), 0);
+    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2, NULL), 0);
     CHECK_EQ_INT(tri_open(&tri, file, file_size), TRI_OK);
     CHECK_EQ_INT(tri.scenery_count, 4);
 }
@@ -142,7 +160,7 @@ static void test_a_mouth_that_has_the_model_is_left_alone(void)
     record(&s, 3, LAST + 1, 0, 128, 0, 5, 0);
     put32(s.scenery + 4 * TRI_SCENERY_SIZE, 0xffffffffu);
     write_file(&s);
-    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2), 0);
+    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2, NULL), 0);
 }
 
 static void test_a_portal_two_nodes_out_is_a_portal(void)
@@ -151,7 +169,7 @@ static void test_a_portal_two_nodes_out_is_a_portal(void)
     fill(&s, 0);
     put32(s.scenery, LAST + 2);
     write_file(&s);
-    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2), 1);
+    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2, NULL), 1);
     Tri tri;
     CHECK_EQ_INT(tri_open(&tri, file, file_size), TRI_OK);
     int at = 0;
@@ -169,7 +187,7 @@ static void test_no_tunnel_no_copy(void)
     fill(&s, 0);
     for (int n = 0; n < NODES; n++) s.header[NODE_AT + 36 * n + 7] = 0;
     write_file(&s);
-    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2), 0);
+    CHECK_EQ_INT(portal_faces_add(file, file_size, PIVOTS, 2, NULL), 0);
 }
 
 int main(void)
