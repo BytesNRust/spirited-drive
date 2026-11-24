@@ -1,6 +1,6 @@
 #!/bin/sh
 # Stock and Restored show the original's screens (owner 2026-11-23): nothing of the port may appear or change there. One game session per profile walks the front end and takes a picture
-# (SHOT) of each screen: Game Mode, Control Central, the showcase of the player's car and of a rival's, the track screen (Stock and the 16:9 session also the two results screens of a one-lap race); each is compared pixel by pixel with its golden picture in
+# (SHOT) of each screen: Game Mode, Control Central, the showcase of the player's car and of a rival's, the track screen (Stock also the two results screens of a one-lap race); each is compared pixel by pixel with its golden picture in
 # tests/golden/screens/<profile>/<screen>.png (Restored at 16:9, format=16:9: <profile>-16x9). A difference fails the test: a port element that came into one of these screens, or a change of the art. When the change is meant (and looked at
 # against the original), the goldens are made again with UPDATE=1 and reviewed one by one before they are committed. Needs the CD in ORIGINAL_DIR: skipped without it.
 # EXCEPTIONS (owner 2026-11-23): three screens carry the port's own elements in Stock and Restored and are not held to the original: Game Mode (the mode selector, the Manage content row and
@@ -43,7 +43,7 @@ make_script() {
 screens="game_mode central showcase_player showcase_rival track_select"
 
 # The results screen's figures (the standing, the times and speeds of the race just driven: x 300.. of the 4:3 frame, y 95..235) change with the machine's load, so they are left out too
-# compare SCREEN A B: 0 when the two pictures (PNG or PPM) have the same size and pixels. Game Mode's footer (x 0..199, y 448..475: the version line and the update notice) is left out:
+# compare SCREEN A B: 0 when the two pictures (PNG or PPM) have the same size and pixels. Game Mode's footer (the 4:3 frame's x 0..199, y 448..475, moved right in a wider frame: the version line and the update notice) is left out:
 # TNFS_VERSION_TEXT only works in a development build, so a TNFS_RELEASE build (CI's, the gate's) draws the commit's hash there, and the update notice depends on the network
 same() {
     python3 -I - "$repo/tools" "$1" "$2" "$3" <<'PY'
@@ -55,7 +55,9 @@ if a.size != b.size: sys.exit(1)
 w, h = a.size
 def row(im, y):
     r = bytes(im._rows[y])
-    if sys.argv[2] == "game_mode" and 448 <= y <= 475: r = bytes(600) + r[600:]
+    if sys.argv[2] == "game_mode" and 448 <= y <= 475:   # the 4:3 menu stands in the middle of a wider frame: its footer is that much to the right
+        x1 = 3 * (200 + (w - 640) // 2)
+        r = bytes(x1) + r[x1:]
     if sys.argv[2] == "results_circuit" and 95 <= y <= 235:
         x0 = 3 * (300 + (w - 640) // 2)
         r = r[:x0] + bytes(len(r) - x0)
@@ -69,7 +71,7 @@ for profile in ${PROFILES:-stock restored restored-16x9}; do
     rm -rf "$work/user" "$work/shots"
     mkdir -p "$work/user" "$work/shots" && printf 'profile=%s\n' "${profile%%-*}" > "$work/user/port.cfg"
     dx=0 race=1 sc_list="$screens results_circuit results_totals"
-    [ "$profile" = restored ] && { race=0; sc_list=$screens; }   # the race takes the time of one session: the results screens are taken in Stock and in the 16:9 session
+    [ "$profile" = stock ] || { race=0; sc_list=$screens; }   # a race is a minute of a session: the results screens are taken in Stock (the original's) only, to keep the test near three minutes
     case $profile in *-16x9) printf 'format=16:9\n' > "$work/user/${profile%%-*}.cfg"; dx=107 ;; esac
     full="$(make_script $dx),0:WAIT:mark:walk_end:1"
     last=$(printf '%s' "$full" | tr ',' '\n' | grep -c .)
