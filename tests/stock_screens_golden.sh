@@ -4,7 +4,7 @@
 # tests/golden/screens/<profile>/<screen>.png. A difference fails the test: a port element that came into one of these screens, or a change of the art. When the change is meant (and looked at
 # against the original), the goldens are made again with UPDATE=1 and reviewed one by one before they are committed. Needs the CD in ORIGINAL_DIR: skipped without it.
 # EXCEPTIONS (owner 2026-11-23): three screens carry the port's own elements in Stock and Restored and are not held to the original: Game Mode (the mode selector, the Manage content row and
-# the version text: its goldens are taken as they are, the version text fixed by TNFS_VERSION_TEXT), Options and Credits (not walked here). See docs/settings.md, "Stock and Restored keep the original's screens".
+# the version text: its goldens are taken as they are, and the footer's box is left out of the comparison), Options and Credits (not walked here). See docs/settings.md, "Stock and Restored keep the original's screens".
 # usage: [UPDATE=1] stock_screens_golden.sh TNFS REPO ORIGINAL_DIR
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
@@ -32,16 +32,21 @@ script="$script,$(click 480 170),$(wait_for screen=showcase),$(shot showcase_riv
 script="$script,$(click 400 320),$(wait_for screen=track_select),$(shot track_select)"
 screens="game_mode central showcase_player showcase_rival track_select"
 
-# compare A B: 0 when the two pictures (PNG or PPM) have the same size and pixels
+# compare SCREEN A B: 0 when the two pictures (PNG or PPM) have the same size and pixels. Game Mode's footer (x 0..199, y 448..475: the version line and the update notice) is left out:
+# TNFS_VERSION_TEXT only works in a development build, so a TNFS_RELEASE build (CI's, the gate's) draws the commit's hash there, and the update notice depends on the network
 same() {
-    python3 -I - "$repo/tools" "$1" "$2" <<'PY'
+    python3 -I - "$repo/tools" "$1" "$2" "$3" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1])
 from rgb_image import Image
-a, b = Image.open(sys.argv[2]), Image.open(sys.argv[3])
+a, b = Image.open(sys.argv[3]), Image.open(sys.argv[4])
 if a.size != b.size: sys.exit(1)
 w, h = a.size
-sys.exit(0 if all(a._rows[y] == b._rows[y] for y in range(h)) else 1)
+def row(im, y):
+    r = bytes(im._rows[y])
+    if sys.argv[2] == "game_mode" and 448 <= y <= 475: r = bytes(600) + r[600:]
+    return r
+sys.exit(0 if all(row(a, y) == row(b, y) for y in range(h)) else 1)
 PY
 }
 
@@ -66,7 +71,7 @@ for profile in ${PROFILES:-stock restored}; do
             mkdir -p "$golden/$profile" && python3 -I "$repo/tools/ppm2png.py" "$work/shots/$s.ppm" "$golden/$profile/$s.png" && echo "golden: $profile/$s"
         elif [ ! -f "$golden/$profile/$s.png" ]; then
             fail "$profile: no golden picture for $s (UPDATE=1 makes them)"
-        elif ! same "$work/shots/$s.ppm" "$golden/$profile/$s.png"; then
+        elif ! same "$s" "$work/shots/$s.ppm" "$golden/$profile/$s.png"; then
             fail "$profile: $s differs from its golden picture: something of the port shows in the original's screen, or the art changed"
             [ -n "${KEEP:-}" ] && mkdir -p "$KEEP" && python3 -I "$repo/tools/ppm2png.py" "$work/shots/$s.ppm" "$KEEP/${profile}_$s.png"
         fi
