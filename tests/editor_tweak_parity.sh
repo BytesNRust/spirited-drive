@@ -23,7 +23,7 @@ for c in $(ls "$repo/data/car_masks"); do
     "$editor" --export-car "$c" --into "$work/cars" --cd "$orig" --port-data "$repo/data" --frames 1 --user "$work/u" >"$work/log" 2>&1 || { fail "Export original car $c: $(cat "$work/log")"; continue; }
     kit=$work/cars/$(ls "$work/cars" | grep -vxF "$before" | head -n 1)
     # the retouch: a mask changed from outside, and (a car with colors) the first color of the card changed
-    m=$(ls "$kit/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
+    m=$(ls -S "$kit/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)   # the largest: a small one (axxess back_lo is 19x16) has no texel at the poke
     [ -n "$m" ] && python3 -I "$here/mask_poke.py" "$m" 30 30 20 20 200
     python3 -I - "$kit/mod.ini" <<'PY'
 import re, sys
