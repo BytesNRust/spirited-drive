@@ -686,6 +686,7 @@ static void drive_look_fill(TrackFamInputs *look, const char *data_root, const c
 {
     look->port_lunar = drive_moon();   /* port: the moon's textures for the rally on Rusty Springs (a replay's own) */
     look->port_reverse = replay_file == NULL ? (drive_link_on ? session_rules_active() != NULL && session_rules_active()->reverse : reverse_track_wanted()) : replay_of != NULL && replay_of->conditions.reverse;   /* port: the circuit backwards (a replay's: the way it was recorded; a link game's is the host's) */
+    look->port_portal_faces = port_portal_both(look->port_reverse != 0 || (port_extras_load().follow_camera && port_host_allows_radar_and_camera()));   /* port (portal_both): the portal on both mouths where the track is seen from the other way */
     if (replay_file != NULL) {
         const int32_t track = le32_at(replay_file + 6);
         look->variant_m = le32_at(replay_file + 0x31c), look->variant_r = le32_at(replay_file + 0x320), look->track = track;

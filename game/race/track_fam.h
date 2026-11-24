@@ -26,6 +26,8 @@ typedef struct {
     int port_lunar;
     /* port: 1 reverses a circuit's file as it loads (tri_reverse.h); 0 is the exe. Last, as above. */
     int port_reverse;
+    /* port (portal_both): 1 gives a tunnel's portal its second face on the other mouth as the file loads (portal_faces.h); 0 is the exe. Last, as above. */
+    int port_portal_faces;
 } TrackFamInputs;
 
 typedef struct {

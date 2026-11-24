@@ -157,6 +157,7 @@ int port_lamp_flares(void);
 /* 1 when the scenery's open models draw from behind too: TNFS_TWO_SIDED=0/1 (dev) when set, else `automatic`: the race has a reversed track or the 360 camera
  * on (both show the scenery from behind), decided when the track's models are made. No port.cfg key (an old two_sided_scenery line is ignored). */
 int port_two_sided_scenery(int automatic);
+int port_portal_both(int automatic);   /* TNFS_PORTAL_BOTH=0|1 over `automatic` (a reversed circuit or the 360 camera): a tunnel's portal on both mouths (portal_faces.h) */
 /* 1 when the L buildings (the two-sided boards) are closed into boxes (track_object_draw.h): TNFS_CLOSE_BOXES=0/1 (dev, for A/B) when set, else `automatic`, the same
  * condition as the open models drawn from behind: a reversed track or the 360 camera. No port.cfg key, no menu. */
 int port_close_boxes(int automatic);

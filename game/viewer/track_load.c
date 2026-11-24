@@ -16,6 +16,7 @@
 #include "game/sys/port_settings.h"
 #include "game/race/wet_zones.h"
 #include "formats/tri_reverse.h"
+#include "game/race/portal_faces.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -240,6 +241,12 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
         if (getenv("TNFS_TRACE_FAM") != NULL) port_log("track_viewer: rally art, %d far roads from the near\n", far);
     }
     if (look->port_reverse) t->reversed = reverse_file(t->tri_file, tri_size, name, t->fam_file, fam_size);
+    if (look->port_portal_faces) {   /* port (portal_both): the portal's second face on the tunnel's other mouth */
+        TriPivot pivots[TRACK_MODELS];
+        const uint32_t count = model_pivots(t->fam_file, fam_size, pivots);
+        const uint32_t added = portal_faces_add(t->tri_file, tri_size, count > 0 ? pivots : NULL, count);
+        if (added > 0) port_log("track_viewer: %s: %u portal faces added\n", name, added);
+    }
     TriResult tr = tri_open(&t->tri, t->tri_file, tri_size);
     ChunkResult cr = chunk_open(&t->fam, t->fam_file, fam_size);
     if (tr != TRI_OK || cr != CHUNK_OK || !track_art_load(&t->art, &t->fam)) {
