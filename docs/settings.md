@@ -179,7 +179,7 @@ Three screens are exceptions (owner, 2026-11-23): they carry the port's own elem
 - **Options**.
 - **Credits**.
 
-The test takes only Game Mode of the three (its pictures are goldens, with the version text fixed by `TNFS_VERSION_TEXT`); Options and Credits are not in it. Not covered: the results screen, the pause screen, and the menus at 16:9 and 21:9.
+The test takes only Game Mode of the three (its pictures are goldens, with the footer's box (the version text, the update notice) left out of the comparison: `TNFS_VERSION_TEXT` only works in a development build); Options and Credits are not in it. Not covered: the results screen, the pause screen, and the menus at 16:9 and 21:9.
 
 ## What each profile sets (`TABLES`)
 
