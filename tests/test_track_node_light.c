@@ -244,6 +244,34 @@ static void test_pool_ignores_brightness(void)
     CHECK_EQ_INT(track_node_light_at_xz(&no_retouch, 1, 1, in_beam), want);
 }
 
+/* port (tunnel_pool): at night (with the pool) a tunnel whose lamps are at 0 % (lamps_off) is lit by the car's beam as the open ground is and is drawn as it (class 0); a lit tunnel keeps its own
+ * way, and by day (no pool) nothing changes */
+static void test_unlit_tunnel_has_the_pool(void)
+{
+    uint8_t rows[3 * TRACK_NODE_LIGHT_POINTS];
+    memset(rows, 0, sizeof rows);
+    for (int n = 0; n < 3; n++) rows[n * TRACK_NODE_LIGHT_POINTS + 0] = rows[n * TRACK_NODE_LIGHT_POINTS + 1] = rows[n * TRACK_NODE_LIGHT_POINTS + 6] = 255;   /* the road */
+    HeadlightPool pool;
+    memset(&pool, 0, sizeof pool);
+    pool.cone = 1, pool.count = 1;
+    pool.cone_x[0] = 0.0, pool.cone_z[0] = 0.0, pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;
+    uint8_t tunnel[3] = { 1, 1, 1 }, unlit_marks[3] = { 1, 1, 1 };
+    const TrackNodeLight open = { .data = rows, .nodes = 3, .pool = &pool };
+    const TrackNodeLight lit_tunnel = { .data = rows, .nodes = 3, .pool = &pool, .tunnel = tunnel };
+    const TrackNodeLight unlit = { .data = rows, .nodes = 3, .pool = &pool, .tunnel = tunnel, .lamps_off = unlit_marks };
+    TrackNodeLight by_day = unlit;
+    by_day.pool = NULL;
+    const double in_beam[2] = { 0.0, 8.0 };
+    const int want = track_node_light_at_xz(&open, 1, 1, in_beam);
+    CHECK(want > 150);   /* the open road's pool */
+    CHECK_EQ_INT(track_node_light_at_xz(&unlit, 1, 1, in_beam), want);   /* an unlit tunnel's: the same */
+    CHECK_EQ_INT(track_node_light_vertex_class(&unlit, 1, 1), 0);         /* drawn as the open night */
+    CHECK_EQ_INT(track_node_light_vertex_class(&lit_tunnel, 1, 1), 1);    /* a lit tunnel is still a tunnel */
+    CHECK(track_node_light_at_xz(&lit_tunnel, 1, 1, in_beam) != want);   /* and keeps its own light */
+    CHECK_EQ_INT(track_node_light_vertex_class(&by_day, 1, 1), 1);        /* by day (no pool) the tunnel is as it was */
+    CHECK_EQ_INT(track_node_light_at_xz(&by_day, 1, 1, in_beam), TRACK_NODE_LIGHT_TUNNEL_ROAD);
+}
+
 /* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
 static void test_radial_lamps(void)
 {
@@ -371,6 +399,7 @@ int main(void)
     test_reversed();
     test_shoulder_light();
     test_pool_ignores_brightness();
+    test_unlit_tunnel_has_the_pool();
     test_radial_lamps();
     test_lamp_shaped_along_the_road();
     test_object_lamp();

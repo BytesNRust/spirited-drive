@@ -155,10 +155,18 @@ void track_node_light_tunnel_look(const TrackNodeLight *light, const float shown
     memcpy(out->cast, warm_cast != NULL ? warm_cast : kind == 2 ? NO_CAST : TUNNEL_CAST, sizeof out->cast);
 }
 
+/* port (tunnel_pool): at night (with the pool) a tunnel whose lamps are at 0 % is as dark as the open road and the car's beam lights it as it lights the open road: it is lit and drawn as the open night.
+ * `node` is a file's node (track_node_light_old_node) */
+static int unlit_open_at(const TrackNodeLight *light, uint32_t file_node)
+{
+    return light != NULL && light->pool != NULL && light->lamps_off != NULL && light->nodes > 0 && light->lamps_off[file_node % light->nodes] != 0;
+}
+
 int track_node_light_tunnel_class(const TrackNodeLight *light, uint32_t node)
 {
     const uint32_t file_node = light != NULL ? track_node_light_old_node(light, node) : 0;
     const int forest = light != NULL && light->forest_road && file_node >= light->forest_from && file_node <= light->forest_to;   /* port (forest_neutral): its shade is not a tunnel's */
+    if (unlit_open_at(light, file_node)) return 0;   /* port (tunnel_pool) */
     if (!forest && track_node_light_tunnel(light, node)) return 1;
     if (light == NULL || light->pool_class == NULL || light->nodes == 0) return 0;
     const uint8_t c = light->pool_class[node % light->nodes];
@@ -189,7 +197,7 @@ static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, u
         const float y = 0.30f * f[0] + 0.59f * f[1] + 0.11f * f[2];
         return (uint8_t)(y >= 1.0f ? 255 : y <= 0.0f ? 0 : y * 255.0f + 0.5f);
     }
-    const int tunnel = tunnel_in_file(light, node);
+    const int tunnel = tunnel_in_file(light, node) && !unlit_open_at(light, node);   /* port (tunnel_pool): an unlit tunnel at night reads as open ground */
     /* in a tunnel a 0 beyond a lit wall foot (point 2 right, 7 left) is no data, not black: the console version shows its walls and pillars at about half light;
      * anywhere else (a cutting, a bridge's shade) a 0 is the black it says */
     const int foot = point >= 3 && point <= 5 ? row[2] : point >= 8 ? row[7] : 0;
@@ -276,7 +284,8 @@ static uint8_t light_at_dark(const TrackNodeLight *light, uint32_t node, int poi
         const int road = light_at(light, node, point == 2 ? 1 : 6);
         if (road > v) v = (uint8_t)(v + (road - v) * (lift * lift / 256) / 256);   /* the beam's weight squared: the far, faint end of the cone leaves the row alone */
     }
-    if (!track_node_light_tunnel(light, node) && !headlight_pool_tunnel(light->pool, node)) {
+    const int unlit = unlit_open_at(light, track_node_light_old_node(light, node));   /* port (tunnel_pool) */
+    if (unlit || (!track_node_light_tunnel(light, node) && !headlight_pool_tunnel(light->pool, node))) {
         int gain = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);   /* the pool is as wide as the road and its shoulders: the ground beyond takes less of it */
         int floor = HEADLIGHT_FLOOR;
         if (light->night_lift > 0) floor += (256 - floor) * light->night_lift / 256;   /* port (city_lift, vegas_lift): the dark of the open night is less deep, a lit pool keeps its full light */
@@ -303,7 +312,7 @@ static uint8_t light_at_dark(const TrackNodeLight *light, uint32_t node, int poi
             const int lit = light->beam_open * lift / 256 * share / 256;
             if (lit > open) open = (uint8_t)lit;
         }
-        if (light->beam_tunnel > 0 && light->hall != NULL && light->nodes > 0 && light->hall[node % light->nodes]) {   /* port (the tunnel headlight): the lit hall's walls and pillars take the beam too */
+        if (light->beam_tunnel > 0 && light->nodes > 0 && (unlit || (light->hall != NULL && light->hall[node % light->nodes]))) {   /* port (the tunnel headlight): the lit hall's walls and pillars take the beam too */
             const int hall_lit = light->beam_tunnel * lift / 256;
             return hall_lit > open ? (uint8_t)hall_lit : open;
         }
