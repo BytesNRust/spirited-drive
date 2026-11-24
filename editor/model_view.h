@@ -24,7 +24,7 @@ const char *model_view_name(ModelView view);
 enum { MODEL_RENDER_SCALE_MAX = 3, MODEL_GAME_FRAME_W = 640, MODEL_GAME_FRAME_H = 480 };
 int model_view_render_size(int scale, int *w, int *h);
 /* The Model view's picture: the panel's shape, not the game's 4:3 (the Card and As the game draws it views keep 4:3). Its height is the game's frame's at the render scale (480 times it) and its width follows the
- * panel's (area_w : area_h), so the car fills the whole panel with no bars at the sides; a picture wider than max_w is made smaller with the same shape. Fills *w and *h (both at least 1) and returns 1, or 0 for an
+ * panel's (area_w : area_h), so the car fills the whole panel with no bars at the sides; a picture wider than max_w, or with more pixels than the game's frame at that scale (640 x 480 times scale squared: the cost of a 4:3 one), is made smaller with the same shape. Fills *w and *h (both at least 1) and returns 1, or 0 for an
  * area with no size. */
 int model_view_frame_size(int scale, int area_w, int area_h, int max_w, int *w, int *h);
 /* How far (in the picture's pixels, *sx and *sy) a w x h picture is to be moved so that the box the car is drawn in (x0, y0, x1, y1: box[0..3], x1 > x0) is in the middle of it; 0 and 0 for an empty box. A car whole in the

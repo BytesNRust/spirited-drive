@@ -47,10 +47,11 @@ for sc in 1 2; do
         out=$(run u5 --render-scale $sc --soft $sw --shine on --paint 1 --frames 40 "$kit" --steps psd-wait:3 --model-shot "$work/pic_${sc}_$sw.png" 2>&1) || fail "model shot scale $sc soft $sw: $out"
     done
 done
-high() { echo "$1" | sed -n 's/^model picture: [0-9]* x \([0-9]*\), [1-9][0-9]* drawn.*/\1/p' | tail -1; }   # the picture's height: 480 times the scale, less when the panel is so wide that its width is held at its most (3072)
+high() { echo "$1" | sed -n 's/^model picture: [0-9]* x \([0-9]*\), [1-9][0-9]* drawn.*/\1/p' | tail -1; }   # the picture's height: 480 times the scale, less in a wide panel (the picture has no more pixels than the game's frame at the scale)
 [ "$(high "$out")" -gt 480 ] 2>/dev/null || fail "the scale 2 picture is not higher than the scale 1 frame's 480, with a car in it: $out"
 out1=$(run u5 --render-scale 1 --soft on --shine on --paint 1 --frames 40 "$kit" --steps psd-wait:3 --model-shot "$work/pic_1_on2.png" 2>&1)
-echo "$out1" | grep -q '^model picture: [0-9]* x 480, [1-9][0-9]* drawn$' || fail "the scale 1 picture is not 480 high with a car in it: $out1"
+echo "$out1" | grep -q '^model picture: [0-9]* x [0-9]*, [1-9][0-9]* drawn$' || fail "the scale 1 picture has no car in it: $out1"
+[ "$(high "$out1")" -lt "$(high "$out")" ] 2>/dev/null || fail "the scale 1 picture is not smaller than the scale 2 one: $(high "$out1") and $(high "$out")"
 cmp -s "$work/pic_1_on.png" "$work/pic_1_off.png" || fail "at render scale 1 the soft edges changed the picture"
 cmp -s "$work/pic_2_on.png" "$work/pic_2_off.png" && fail "at render scale 2 the soft edges did not change the picture"
 
@@ -75,9 +76,10 @@ out=$(run u8 --render-scale 1 --soft off --frames 60 "$kit" --steps psd-wait:3,c
 
 # what moves is drawn on the scale 1 frame (Auto-rotate here), and the full frame when it stops
 out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_on.png" 2>&1) || fail "auto-rotate shot: $out"
-echo "$out" | grep -q '^model picture: [0-9]* x 480, ' || fail "with Auto-rotate on the picture is not the scale 1 frame: $out"
+rot_on=$(high "$out")
+[ -n "$rot_on" ] || fail "with Auto-rotate on there is no picture: $out"
 out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_off.png" 2>&1) || fail "auto-rotate off shot: $out"
-echo "$out" | grep -q '^model picture: [0-9]* x \([5-9][0-9][0-9]\), ' || fail "with Auto-rotate off again the picture is not the full frame (higher than 480): $out"
+[ "$(high "$out")" -gt "${rot_on:-0}" ] 2>/dev/null || fail "with Auto-rotate off again the picture is not the full one (higher than the moving one's $rot_on): $out"
 
 # the car whole inside the drawing frame from a side (Side is wider than the first view: the framing is made again for it): no row or column at the frame's edge has a car pixel, at render scale 1, 2 and 3
 cat > "$work/whole.py" <<'PY'

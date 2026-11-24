@@ -1,5 +1,6 @@
 #include "model_view.h"
 
+#include <math.h>
 #include <stdio.h>
 
 ModelView model_view_of(int card_view, int as_card)
@@ -23,10 +24,15 @@ int model_view_render_size(int scale, int *w, int *h)
 
 int model_view_frame_size(int scale, int area_w, int area_h, int max_w, int *w, int *h)
 {
-    model_view_render_size(scale, w, h);
+    const int s = model_view_render_size(scale, w, h);
     if (area_w < 1 || area_h < 1 || max_w < 1) return 0;
     long fw = ((long)*h * area_w + area_h / 2) / area_h, fh = *h;
     if (fw > max_w) fh = ((long)max_w * area_h + area_w / 2) / area_w, fw = max_w;   /* too wide: the same shape, smaller */
+    const long most = (long)MODEL_GAME_FRAME_W * MODEL_GAME_FRAME_H * s * s;   /* no more pixels than the game's frame at that scale: a wide panel costs what a 4:3 one does */
+    if (fw * fh > most) {
+        const double k = sqrt((double)most / ((double)fw * (double)fh));
+        fw = (long)(fw * k), fh = (long)(fh * k);
+    }
     *w = fw < 1 ? 1 : (int)fw, *h = fh < 1 ? 1 : (int)fh;
     return 1;
 }

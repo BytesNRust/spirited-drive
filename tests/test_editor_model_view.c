@@ -60,14 +60,13 @@ static void test_render_size(void)
 static void test_fit(void)
 {
     int x, y, w, h;
-    /* the Model view's picture has the panel's shape: height 480 times the scale, the width of the panel's shape (a wide panel gets a wide picture, no bars); too wide for max_w: smaller, the same shape */
+    /* the Model view's picture has the panel's shape and no more pixels than the game's frame at the scale (640 x 480 times the scale squared), so a wide panel costs what a 4:3 one does; max_w holds the width */
     CHECK_EQ_INT(model_view_frame_size(2, 1500, 440, 4096, &w, &h), 1);
-    CHECK_EQ_INT(h, 960);
-    CHECK(abs(w * 440 - 1500 * h) <= 440);
-    CHECK_EQ_INT(model_view_frame_size(2, 1500, 440, 2048, &w, &h), 1);
-    CHECK_EQ_INT(w, 2048);
-    CHECK(abs(w * 440 - 1500 * h) <= 1500);
-    CHECK_EQ_INT(model_view_frame_size(1, 400, 800, 2048, &w, &h), 1);   /* a tall panel: narrower than the game's frame */
+    CHECK(abs(w * 440 - 1500 * h) <= 1500 && (long)w * h <= 1280L * 960 && (long)w * h > 1280L * 960 * 98 / 100);   /* wide, the same pixel count as the game's frame */
+    CHECK(h > 480 && h < 960);
+    CHECK_EQ_INT(model_view_frame_size(2, 1500, 440, 1000, &w, &h), 1);
+    CHECK(w <= 1000 && abs(w * 440 - 1500 * h) <= 1500);
+    CHECK_EQ_INT(model_view_frame_size(1, 400, 800, 2048, &w, &h), 1);   /* a tall panel: narrower than the game's frame, under its pixels, 480 high */
     CHECK_EQ_INT(h, 480);
     CHECK_EQ_INT(w, 240);
     CHECK_EQ_INT(model_view_frame_size(3, 640, 480, 2048, &w, &h), 1);   /* the game's own shape: its frame */
