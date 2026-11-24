@@ -160,6 +160,10 @@ static void reflect_low_light(void)
     if (shadow_race == NULL) return;
     const Car *const car = shadow_race->cars[race_slot(shadow_race->player)];
     if (car == NULL || !drive_lamps_low(car->index)) return;
+    float tint[3];
+    drive_light_tint(tint);
+    const int tunnel = light_effects->nodes > 0 && track_node_light_tunnel(light_effects, light_tint_ring_node(car->node, light_effects->nodes));
+    if (!reflect_by_day_ok(drive_light_night(), tint, tunnel)) return;   /* port (day_shade): lamps lit by day in rain or fog shine nothing; only a tunnel does */
     double hx, hz;
     cone_heading(car, &hx, &hz);
     reflect_lamps_on = 1, reflect_dark = 1, reflect_x = car->x / 65536.0, reflect_z = car->z / 65536.0, reflect_hx = hx, reflect_hz = hz;

@@ -71,6 +71,16 @@ int lamp_emissive_low(const float tint[3], const float ratio[3])
     return 0;
 }
 
+int lamp_ratio_counts(const float tint[3], int in_tunnel)
+{
+    return in_tunnel || lamp_emissive_low(tint, NULL);
+}
+
+int reflect_by_day_ok(int night, const float tint[3], int in_tunnel)
+{
+    return night || lamp_ratio_counts(tint, in_tunnel);
+}
+
 int lamp_light_step(LampLight *s, const float tint[3], const float ratio[3])
 {
     const float on = LAMP_SHADE_ON_PERCENT / 100.0f, off = LAMP_SHADE_OFF_PERCENT / 100.0f;

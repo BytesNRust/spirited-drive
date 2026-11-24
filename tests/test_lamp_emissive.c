@@ -191,8 +191,30 @@ static void test_shade_does_not_light_the_lamps(void)
     CHECK(lamp_light_step(&l, dusk, NULL));
 }
 
+/* port (day_shade): per moment of the day, what the ratio at the car lights: day in a forest's shade nothing, day in a tunnel the lamps, dawn, dusk and night as they were */
+static void test_day_shade_lights_nothing(void)
+{
+    const float day[3] = { 1, 1, 1 }, dawn[3] = { 0.9f, 0.7f, 0.6f }, dusk[3] = { 0.88f, 0.55f, 0.46f }, night[3] = { 0.3f, 0.3f, 0.4f }, forest[3] = { 0.45f, 0.5f, 0.45f };
+    CHECK(!lamp_ratio_counts(day, 0));    /* day, a forest's shade: the ratio does not count */
+    CHECK(lamp_ratio_counts(day, 1));     /* day, a tunnel: it does */
+    CHECK(lamp_ratio_counts(dawn, 0));
+    CHECK(lamp_ratio_counts(dusk, 0));
+    CHECK(lamp_ratio_counts(night, 0));
+    LampLight l = { 0, 0 };
+    const float *seen = lamp_ratio_counts(day, 0) ? forest : day;   /* what the car's lamps are given in the shade by day */
+    CHECK(!reflect_by_day_ok(0, day, 0));   /* the reflectors: day (shade, rain or fog lit the lamps) nothing, day in a tunnel yes, dawn, dusk and night yes */
+    CHECK(reflect_by_day_ok(0, day, 1));
+    CHECK(reflect_by_day_ok(0, dawn, 0));
+    CHECK(reflect_by_day_ok(0, dusk, 0));
+    CHECK(reflect_by_day_ok(1, night, 0));
+    CHECK(!lamp_light_step(&l, day, seen));
+    seen = lamp_ratio_counts(day, 1) ? forest : day;
+    CHECK(lamp_light_step(&l, day, seen));
+}
+
 int main(void)
 {
+    test_day_shade_lights_nothing();
     test_collect_and_toggle();
     test_reversing_light_lit_only_in_reverse();
     test_four_entries();

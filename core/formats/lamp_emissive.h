@@ -59,6 +59,12 @@ int lamp_emissive_low(const float tint[3], const float ratio[3]);
  * LAMP_SHADE_HOLD frames in a row. Returns the state. */
 enum { LAMP_SHADE_ON_PERCENT = 70, LAMP_SHADE_OFF_PERCENT = 80, LAMP_SHADE_HOLD = 12 };
 typedef struct { int low, back; } LampLight;
+/* port (day_shade): whether the ambient ratio at the car may light the lamps. At dawn, dusk and night (the world's tint below 1) it always counts; by day only a tunnel's does: a forest's or a
+ * canyon's shade, however dark, lights neither the lamps nor (through drive_lamps_low) the reflectors. */
+int lamp_ratio_counts(const float tint[3], int in_tunnel);
+/* port (day_shade): whether the player's lit lamps make the track's reflective marks shine: at night, at dawn or dusk (the world's tint below 1) or in a tunnel; by day never, whatever lit the
+ * lamps (a forest's shade, rain or fog). */
+int reflect_by_day_ok(int night, const float tint[3], int in_tunnel);
 int lamp_light_step(LampLight *s, const float tint[3], const float ratio[3]);
 
 /* Up to `want` entries from `first` to `last` (inclusive) that `used` does not mark, into `out`: the ones whose colour (`rgb`, 256 x 3 at 8 bits) has the
