@@ -531,7 +531,7 @@ void car_panel(App *a)
         if (own_card) {
             ImGui::TextUnformatted("Card: the game's own");
             ImGui::SameLine();
-            help_marker("An original car's card is the game's own: it is shown, not edited, and it is not installed. Only its Colors travel: Copy to game repo writes them into this car's row of the colors table "
+            help_marker("An original car's card is the game's own: it is shown, not edited (the lines it does not have are not shown), and it is not installed. Only its Colors travel: Copy to game repo writes them into this car's row of the colors table "
                         "(core/formats/car_paint.c) of the game repo; the game then offers them in its Color box.");
         }
         ImGui::BeginDisabled(own_card);
@@ -540,7 +540,8 @@ void car_panel(App *a)
             ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
             static const char *const YES_NO[] = { "yes", "no" };
             const int fields[] = { CE_VERSION, CE_YEAR, CE_POWER, CE_WEIGHT, CE_MAKE, CE_MODEL, CE_COUNTRY, CE_CATEGORY, CE_AUTHOR, CE_DESCRIPTION };
-            for (int f : fields) text_row(a, f, problems, count);
+            for (int f : fields)
+                if (!own_card || a->edit.now.value[f][0] != '\0') text_row(a, f, problems, count);   // the game's own card shows the lines it has: an empty box would look unfinished
             word_row(a, CE_ABS, "Default (the car's own file)", YES_NO, 2, problems, count);
             word_row(a, CE_TRACTION, "Default (the car's own file)", YES_NO, 2, problems, count);
             const char *words[16];
