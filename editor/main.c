@@ -789,6 +789,7 @@ static int run(App *a, const Options *o)
         app_race_poll(a);
         perf_end(PERF_POLL, t), t = perf_begin();
         app_card_watch(a, SDL_GetTicks() / 1000.0);   /* mod.ini, the car file and the textures */
+        if (a->kind == APP_KIND_LIGHT && a->original_dir[0] != '\0') app_track_masks_load(a);   /* an original track's PNGs are made from the PSDs before the poll starts a photo: it copies them */
         const int light_busy = app_light_poll(a, SDL_GetTicks() / 1000.0);   /* the Track light photo: its output, and the next one when a change has settled */
         app_mask_watch(a, SDL_GetTicks() / 1000.0);   /* masks changed on disk by another program: about once a second */
         perf_end(PERF_WATCH, t), t = perf_begin();

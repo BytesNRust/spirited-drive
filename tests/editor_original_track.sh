@@ -156,15 +156,16 @@ record_has() {   # record_has LINE: 0 once the fake game's record holds that lin
     done
     return 1
 }
-out=$(run --frames 20 --steps open-original:0 2>&1) || fail "photo masks: $out"
+out=$(run --frames 20 --steps open-original:0,photo-wait:90 2>&1) || fail "photo masks: $out"   # photo-wait: the photo of this open is made (its game ran to its end) before the editor ends, whatever the machine's speed
 want=$(cksum < "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png")
 record_has "scenery_00.png $want" || fail "the photo's scenery_00 mask is not the workspace's: $(cat "$work/record" 2>/dev/null)"
 grep -q '^masks=.' "$work/record" 2>/dev/null || fail "the photo was not given the workspace's masks: $(cat "$work/record" 2>/dev/null)"
 before=$(grep '^scenery_00.png' "$work/record")
 sleep 1
 "$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" lamps   # retouched and saved: newer than its PNG
-out=$(run --frames 20 --steps open-original:0 2>&1) || fail "photo after a retouch: $out"
+out=$(run --frames 20 --steps open-original:0,photo-wait:90 2>&1) || fail "photo after a retouch: $out"
 want=$(cksum < "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png")
+echo "$out" | grep -q '^photo: done$' || fail "the photo after a retouch did not end: $out"
 record_has "scenery_00.png $want" || fail "the photo's mask is not the regenerated PNG: $(grep '^scenery_00.png' "$work/record")"
 after=$(grep '^scenery_00.png' "$work/record")
 [ -n "$after" ] && [ "$after" != "$before" ] || fail "a retouched PSD did not change the mask in the photo: $before -> $after"
