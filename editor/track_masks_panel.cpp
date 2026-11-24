@@ -156,6 +156,15 @@ void track_masks_panel(App *a, ImTextureID picture)
     if (ImGui::Checkbox("With mask only", &only)) a->tmask_masked_only = only;
     ui_probe("tmask_only");
     ImGui::SetItemTooltip("Hides the textures that have no mask, leaving the list of those that do.");
+    {   // beside the switch, above the table: always on screen, whatever the panel's height (the selected texture's detail is below the table, past the fold in a short panel)
+        const bool pick = a->tmask_sel >= 0 && a->tmask_sel < m.count && !m.row[a->tmask_sel].has_psd;
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!pick);
+        if (ImGui::Button("Create PSD")) app_track_mask_create_psd(a);
+        ImGui::EndDisabled();
+        ui_probe("tmask_create_psd");
+        ImGui::SetItemTooltip("Makes the layered PSD of the selected texture in art-source/masks: the texture on a locked layer and an empty mask layer over it, to paint what is reflective.\nOnly a texture with no PSD; a PSD that is already there is never replaced.");
+    }
     if (a->tmask_note[0] != '\0') ImGui::TextWrapped("%s", a->tmask_note);
     if (m.count == 0) {
         ImGui::TextDisabled("This track has no textures or masks to list.");
@@ -197,12 +206,6 @@ void track_masks_panel(App *a, ImTextureID picture)
     if (sel >= 0 && sel < m.count) {
         const TrackMaskRow &r = m.row[sel];
         ImGui::Text("%s", r.name);
-        if (!r.has_psd) {
-            ImGui::SameLine();
-            if (ImGui::SmallButton("Create PSD")) app_track_mask_create_psd(a);
-            ui_probe("tmask_create_psd");
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes the layered PSD of this texture in art-source/masks: the texture on a locked layer and an empty mask layer over it, to paint what is reflective.\nA PSD that is already there is never replaced.");
-        }
         if (r.has_psd && r.state != TM_EMPTY && r.state != TM_BAD) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Update this mask from its PSD")) {

@@ -56,12 +56,12 @@ made=$(cksum < "$dir/art-source/masks/$name.psd")
 run --frames 6 "$dir" --steps mask-psd:$i >/dev/null 2>&1 && fail "Create PSD went over a PSD that is there"
 [ "$(cksum < "$dir/art-source/masks/$name.psd")" = "$made" ] || fail "the PSD changed under a second Create PSD"
 
-# the same through the clicked button: the panel's detail under its table is on screen in a tall window (1280x1600), where the button is drawn and the click reaches it
+# the same through the clicked button, in the default window: Create PSD is beside the With mask only switch, above the table
 j=$(echo "$out" | grep '^mask ' | grep -n ': no mask,' | head -1 | cut -d: -f1)
 name2=$(echo "$out" | grep '^mask ' | sed -n "${j}p" | sed 's/^mask \([^:]*\):.*/\1/')
 j=$((j - 1))
 [ -n "$name2" ] && [ ! -e "$dir/art-source/masks/$name2.psd" ] || fail "no second texture without a PSD: $out"
-out=$(run --frames 20 --window 1280x1600 "$dir" --steps "mask-select:$j,ui-focus:Track masks,ui-click:tmask_create_psd,status" 2>&1) || fail "the clicked Create PSD: $out"
+out=$(run --frames 20 "$dir" --steps "mask-select:$j,ui-focus:Track masks,ui-click:tmask_create_psd,status" 2>&1) || fail "the clicked Create PSD: $out"
 [ "$(head -c 4 "$dir/art-source/masks/$name2.psd" 2>/dev/null)" = 8BPS ] || fail "the clicked Create PSD did not make $name2.psd: $out"
 echo "$out" | grep -q "$name2.psd made in art-source/masks" || fail "the clicked Create PSD says nothing: $out"
 
