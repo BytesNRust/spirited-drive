@@ -1,0 +1,12 @@
+# Gate v2: instalar y volver atrás (Mac del gate)
+
+1. **Probar sin ejecutar nada:** `cd dev/sd-gate && GATE_REPO=$PWD zsh tools/ci/gate_v2/gate_main_v2.sh -n` (imprime el alcance, cuántos tests y cada orden pesada con `+`; no toma el candado).
+2. **Usar el gate nuevo:** la misma orden de siempre con `v2/gate_main_v2.sh` en vez de `gate_main.sh`, redirigida a `work/gate-4h-<x>.log`. Usa `tail -20` (hay tres líneas más: `scope`, `tests`, `verdict`). Ahora sale con 1 si algo falla.
+3. **ccache:** `brew install ccache` o añadir `ccache` a `packages` del devShell en `flake.nix`. El gate lo detecta solo, reconfigura los dos árboles una vez (ese primer gate recompila todo) e imprime aciertos y fallos al final.
+4. **Candado:** `cat work/gate.lock` dice quién ocupa el Mac (kind, branch, commit, start, pid, scope). Se borra solo al acabar; si el proceso murió, el siguiente lo toma. Un gate no arranca con otro gate en marcha; si corre el barrido, espera hasta 2 h (para no esperar: `kill <pid del candado>`).
+5. **Políticas** (cabecera de `gate_main_v2.sh`, o por entorno): `GATE_ASAN_REDUCED="editor none"`, `GATE_CORE_E2E=gate`, `GATE_SCOPE=full` para forzar un gate completo.
+6. **Checkout del barrido** (una vez): `git -C dev/sd-gate worktree add --detach ../sd-nightly origin/main`, `ln -s ~/workspace/bytes-n-rust/dev/tnfs/original dev/sd-nightly/original`, y configurar `build/release` y `build/asan56` con las mismas opciones que en sd-gate (`grep CMAKE_BUILD_TYPE\|CMAKE_C_FLAGS: build/*/CMakeCache.txt`).
+7. **Barrido a las 05:00:** `sed "s#@WORKSPACE@#$HOME/workspace#g; s#@NIGHTLY@#$PWD/tools/ci/gate_v2/nightly.sh#" tools/ci/gate_v2/com.bytesnrust.gate-nightly.plist.in > ~/Library/LaunchAgents/com.bytesnrust.gate-nightly.plist && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.bytesnrust.gate-nightly.plist`. Si el Mac duerme a esa hora, launchd lo lanza al despertar. Con cron: `0 5 * * * /bin/zsh tools/ci/gate_v2/nightly.sh`.
+8. **Ver las noches:** `grep -h '^NIGHTLY_' work/nightly-*.log | tail -5` (`NIGHTLY_OK` o `NIGHTLY_FAIL <fecha> <commit>: <qué falló>`). Probar: `zsh v2/nightly.sh -n`.
+9. **Quitar el barrido:** `launchctl bootout gui/$(id -u)/com.bytesnrust.gate-nightly && rm ~/Library/LaunchAgents/com.bytesnrust.gate-nightly.plist`.
+10. **Volver al gate antiguo:** lanzar otra vez `gate_main.sh` (no se ha tocado). Si quedó ccache puesto y molesta: `cmake -S . -B build/release -UCMAKE_C_COMPILER_LAUNCHER -UCMAKE_CXX_COMPILER_LAUNCHER`, y lo mismo en `build/asan56`. `rm work/gate.lock` solo si su pid ya no existe.
