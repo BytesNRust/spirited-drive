@@ -405,6 +405,18 @@ uint8_t track_node_light_node_xz(const TrackNodeLight *light, uint32_t node, con
 
 uint8_t track_node_light_node(const TrackNodeLight *light, uint32_t node) { return track_node_light_node_xz(light, node, NULL); }
 
+uint8_t track_node_light_object_node(const TrackNodeLight *light, uint32_t node, const double *xz)
+{
+    if (light == NULL || light->data == NULL || light->nodes == 0) return TRACK_NODE_LIGHT_FULL;
+    if (light->tunnel != NULL && !track_node_light_tunnel(light, node) && (track_node_light_tunnel(light, node + 1) || track_node_light_tunnel(light, node + light->nodes - 1))) {
+        static const int ROAD[] = { 0, 1, 2, 6, 7 };
+        unsigned sum = 0;
+        for (size_t i = 0; i < sizeof ROAD / sizeof *ROAD; i++) sum += track_node_light_at_xz(light, node, ROAD[i], xz);
+        return (uint8_t)((sum + sizeof ROAD / sizeof *ROAD / 2) / (sizeof ROAD / sizeof *ROAD));
+    }
+    return track_node_light_node_xz(light, node, xz);
+}
+
 float track_node_light_lamp_falloff(float distance, float reach)
 {
     if (reach <= 0.0f || distance >= reach) return 0.0f;

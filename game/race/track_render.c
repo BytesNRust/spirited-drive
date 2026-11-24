@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "game/race/track_render.h"
 
 #include "game/race/race_detail.h"
@@ -467,7 +468,13 @@ static void object_light_on(const Glue *g, int32_t resource)
     const uint32_t node = (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node;
     const int cone = g->r->node_light->pool != NULL && g->r->node_light->pool->cone && track_port_object_at != NULL;   /* port (headlight_cone): the object at its own place in the cones */
     const double at[2] = { cone ? track_port_object_at[0] / 65536.0 : 0.0, cone ? track_port_object_at[2] / 65536.0 : 0.0 };
-    uint8_t v = cone ? track_node_light_node_xz(g->r->node_light, node, at) : track_node_light_node(g->r->node_light, node);
+    static int open_road = -1;   /* TNFS_PORTAL_LIGHT=0 (dev only, an A/B override for before / after pictures): the portal lit by the mouth node's terrain, as before */
+    if (open_road < 0) {
+        const char *env = getenv("TNFS_PORTAL_LIGHT");
+        open_road = env == NULL || atoi(env) != 0;
+    }
+    uint8_t v = open_road ? track_node_light_object_node(g->r->node_light, node, cone ? at : NULL)   /* the node's terrain, but a tunnel's mouth (the portal) takes the open road's light */
+                          : cone ? track_node_light_node_xz(g->r->node_light, node, at) : track_node_light_node(g->r->node_light, node);
     if (g->r->node_light->object_floor > v) v = g->r->node_light->object_floor;   /* port (vegas_objects): the buildings stay lit while the road is dark */
     if (g->r->node_light->lamp_n > 0 && track_port_object_at != NULL)   /* port (`lamp`): the object at its own place in the lamps' pools, the rows' bake only reaching its terrain's points */
         v = track_node_light_object_lamp(g->r->node_light, node, track_port_object_at[0] / 65536.0, track_port_object_at[2] / 65536.0, v);

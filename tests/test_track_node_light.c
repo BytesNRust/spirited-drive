@@ -414,8 +414,29 @@ static void test_marks_start_the_tunnel(void)
     CHECK(track_node_light_tunnel(&light, 3));
 }
 
+/* an object standing at a tunnel's mouth (the portal) takes the OPEN road's light: the mean of its row's road points (0, 1, 2, 6, 7), not the terrain points the mountain's shadow and the tunnel's own
+ * darkening reach; every other node, inside or away from a mouth, is lit as before */
+static void test_a_mouth_object_takes_the_open_roads_light(void)
+{
+    static uint8_t rows[8 * TRACK_NODE_LIGHT_POINTS];
+    for (int n = 0; n < 8; n++)
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) rows[n * TRACK_NODE_LIGHT_POINTS + p] = (p == 0 || p == 1 || p == 2 || p == 6 || p == 7) ? 200 : 20;   /* a bright road, shaded terrain */
+    static uint8_t marks[8] = { 0, 0, 0, 1, 1, 0, 0, 0 };   /* a tunnel on nodes 3, 4: the mouths are 2 and 5 */
+    const TrackNodeLight light = { .data = rows, .nodes = 8, .tunnel = marks };
+    CHECK_EQ_INT(track_node_light_node(&light, 2), 65);   /* the terrain's mean: points 2 and 7 bright, 3, 4, 5, 8, 9, 10 dark: (200 + 200 + 20 * 6) / 8 */
+    CHECK_EQ_INT(track_node_light_object_node(&light, 2, NULL), 200);   /* the entrance's mouth node: the road's */
+    CHECK_EQ_INT(track_node_light_object_node(&light, 5, NULL), 200);   /* the exit's */
+    CHECK_EQ_INT(track_node_light_object_node(&light, 3, NULL), track_node_light_node(&light, 3));   /* inside: as before */
+    CHECK_EQ_INT(track_node_light_object_node(&light, 1, NULL), track_node_light_node(&light, 1));   /* away from the mouth: as before */
+    CHECK_EQ_INT(track_node_light_object_node(&light, 7, NULL), track_node_light_node(&light, 7));
+    CHECK_EQ_INT(track_node_light_object_node(NULL, 2, NULL), TRACK_NODE_LIGHT_FULL);
+    const TrackNodeLight none = { .data = rows, .nodes = 8 };   /* no tunnel marks: nothing is a mouth */
+    CHECK_EQ_INT(track_node_light_object_node(&none, 2, NULL), track_node_light_node(&none, 2));
+}
+
 int main(void)
 {
+    test_a_mouth_object_takes_the_open_roads_light();
     test_marks_start_the_tunnel();
     test_tunnel_road();
     test_script();

@@ -188,6 +188,11 @@ uint8_t track_node_light_at_xz(const TrackNodeLight *light, uint32_t node, int p
  * TRACK_NODE_LIGHT_FULL without data. */
 uint8_t track_node_light_node(const TrackNodeLight *light, uint32_t node);
 
+/* The light of an object standing at `node` (xz as track_node_light_node_xz: its own place in the cones, NULL the node's): track_node_light_node_xz, except at a tunnel's mouth (a node that is not in the tunnel with
+ * the tunnel on the next or the one before: where the portal stands), which takes the OPEN road's light: the mean of its row's road points 0, 1, 2, 6, 7, with the time of day and the sun's shadow on the road and
+ * nothing of the tunnel's darkening or of the mountain's shade on the terrain beside it. TRACK_NODE_LIGHT_FULL without data. */
+uint8_t track_node_light_object_node(const TrackNodeLight *light, uint32_t node, const double *xz);
+
 /* port (lamp_pool_bright): the floor (0..256, 0 none) a street lamp's pool lifts a node to (0 for TRACK_NODE_LIGHT_NO_NODE); and the open night's gain (0..256) at a beam lift 0..256 with such a floor: what
  * track_node_light_at multiplies a row's byte by outside a tunnel, the dark's floor and the night lift in it (256 without a pool) */
 int track_node_light_lamp_floor(const TrackNodeLight *light, uint32_t node);
