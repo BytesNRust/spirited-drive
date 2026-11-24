@@ -129,7 +129,7 @@ if [ -r "$orig/SIMDATA/CARFAMS/LDIABL.CFM" ] && [ -d "$data/car_masks/$ldir" ] &
     cp "$repo3/core/formats/car_paint.c" "$work/car_paint.before"
     studio "$dia" --port-data "$repo3/data" --frames 2 --steps repo-ask,print-publish >"$work/log" 2>&1 || fail "Copy to game repo of the Diablo, the list: $(cat "$work/log")"
     grep -q "^changed: dash_mask.png" "$work/log" || fail "the Diablo's window does not list its dash: $(cat "$work/log")"
-    grep -q "the row of LDiabl" "$work/log" && grep -q "now: A #101010, B #202020, C #303030, D #404040, E #505050, F #606060" "$work/log" || fail "the window does not list the six colours it will write: $(cat "$work/log")"
+    grep -q "the row of LDiabl" "$work/log" && grep -q "now: A #101010, B #202020, C #303030, D #404040, E #505050, F #606060" "$work/log" && grep -q "^  colors: [0-9]* -> 6 (the game's table row goes to 6)" "$work/log" || fail "the window does not list the six colours it will write: $(cat "$work/log")"
     studio "$dia" --port-data "$repo3/data" --frames 2 --steps repo-ask,repo-copy,status >"$work/log" 2>&1 || fail "Copy to game repo of the Diablo, the copy: $(cat "$work/log")"
     grep -q "^status: copied to the game repo: .*1 dash file" "$work/log" || fail "Copy did not say it wrote the Diablo's dash: $(cat "$work/log")"
     cmp -s "$repo3/data/dash_masks/LDIABL/dash_mask.png" "$dia/art-generated/dash_masks/dash_mask.png" || fail "the repo's Diablo dash is not the kit's"

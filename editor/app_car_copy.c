@@ -2,6 +2,7 @@
  * folder (art-generated/dash_masks) against data/dash_masks/<file>/, the changed and new PNGs copied, and the card's Colors written into the car's row of TABLE in the repo's core/formats/car_paint.c (car_table_rewrite.h) when they are not what the row has; nothing is committed. */
 #include "app.h"
 #include "car_table_rewrite.h"
+#include "colour_row_diff.h"
 #include "formats/car_paint.h"
 #include "car_race.h"
 #include "mask_changes.h"
@@ -157,7 +158,9 @@ int app_car_copy_ask(App *a)
     }
     if (state == COLORS_CHANGED) {
         const size_t used = strlen(a->publish_text);
-        snprintf(a->publish_text + used, sizeof a->publish_text - used, "%score/formats/car_paint.c, the row of %s:\n  was: %s\n  now: %s\n", used > 0 ? "\n" : "", p.stem, before, after);
+        char diff[1024];
+        colour_row_diff(before, after, diff, sizeof diff);
+        snprintf(a->publish_text + used, sizeof a->publish_text - used, "%score/formats/car_paint.c, the row of %s:\n%s  was: %s\n  now: %s\n", used > 0 ? "\n" : "", p.stem, diff, before, after);
     }
     a->publish_car = 1;
     a->publish_dialog = 1;

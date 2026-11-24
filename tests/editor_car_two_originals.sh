@@ -16,7 +16,7 @@ one_car() {
     printf 'id=orig\nname=Orig\nversion=1\ntype=car\nstem=%s\nsound_from=911\npaints=%s\n' "$stem" "$paints" > "$kit/mod.ini"
     studio "$kit" --port-data "$repo/data" --steps repo-ask,status > "$work/log" 2>&1 && fail "$stem: Copy with the game's own colors went on: $(cat "$work/log")"
     studio "$kit" --port-data "$repo/data" --steps paint-rgb:"$index",1,2,3,save,repo-ask,print-publish > "$work/log" 2>&1 || fail "$stem: a changed color: $(cat "$work/log")"
-    grep -qi "core/formats/car_paint.c, the row of $stem" "$work/log" && grep -q "was: $old" "$work/log" && grep -q "now: $new" "$work/log" || fail "$stem: the window does not list was/now: $(cat "$work/log")"
+    grep -qi "core/formats/car_paint.c, the row of $stem" "$work/log" && grep -q "was: $old" "$work/log" && grep -q "now: $new" "$work/log" && grep -q "^  colors: [0-9]" "$work/log" || fail "$stem: the window does not list was/now and the count of colors: $(cat "$work/log")"
     cmp -s "$table" "$repo_src/core/formats/car_paint.c" || fail "$stem: the preview wrote into car_paint.c"
     studio "$kit" --port-data "$repo/data" --steps repo-ask,repo-copy,status > "$work/log" 2>&1 || fail "$stem: the copy: $(cat "$work/log")"
     grep -q "^status: copied to the game repo: .*the colors into $table" "$work/log" || fail "$stem: Copy did not say what it wrote: $(cat "$work/log")"
