@@ -73,8 +73,10 @@ instead of the original track's.) What the window has, top to bottom:
   are the photo's camera. **Photo at node**: the slider, **-10 -1 +1 +10** and a typed node.
 * **Test drive** (and **Stop test drive**) with the weather (Clear, Fog, Rain, Storm): the game in a window of its own on this track, moment and node, following every edit without Save. It is always Restomod 16:9 at
   render scale 3 (a 2562x1440 window) with every effect on (lamp halos, soft shine, reflectors, headlight beams, sun_shadow, light effects), whatever the person's own settings say. It is the game's time trial (`--type 0`): your car alone, with no rivals, no police and no traffic. The music of a `--drive` run is the game's own and has no setting that turns it off.
-* **Sun** (**Moon** at night): the compass and three sliders, **Direction**, **Height** and **Shadow strength** (100 = no shadow). The box to the left of each slider turns it on; unticked it is "auto" (the
-  generator's own), and a sun with all three unticked is no `sun` line.
+* **Sun** (**Moon** at night): the compass and three sliders, **Direction**, **Height** and **Shadow strength** (100 = no shadow). The box to the left of each slider turns it on; unticked it shows
+  "auto: N deg" (or "auto: 55 %"): the generator's own value for this moment, which is where the slider starts when you tick the box. Without a `sun` line the generator's sun stands at 90 (Dawn), 180 (Day),
+  270 (Dusk) and 0 (Night) degrees, 15 / 50 / 12 / 12 degrees high, with a shadow strength of 55 % (100 at night: no shadow); the shadow only falls where `sun_shadow` is on (the default in Restomod).
+  A sun with all three unticked is no `sun` line.
 * **Tunnels**: one row for each `tunnel` fact (and one for each `tunnel_look A B` over some nodes inside a tunnel, "inside"): **Remove**, **From**, **To**, **Kind** (tunnel / hall; a fact of every moment) and the four moments,
   **Dawn**, **Day**, **Dusk**, **Night**, each with that moment's look of the row. **Show** (Light % / Lamps % / Reach / Colour) picks which value the four columns hold, and the open moment's column is tinted. An empty cell is
   inherited from the **default** row, and the row's cell, from the code; a hall has no Light % or Colour. To give a value to another moment, type it in that moment's column. Moving From / To takes the row's looks of all four
