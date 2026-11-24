@@ -3,7 +3,10 @@
 #ifndef TNFS_VERSION_H
 #define TNFS_VERSION_H
 
-#define TNFS_VERSION "@TNFS_VERSION@"            /* what players see: 0.9.0, or 0.9.0-dev+abc1234 */
+/* What players see: 0.9.0, or 0.9.0-dev+abc1234. The text (with the commit's hash) lives in ONE file, the generated tnfs_version.c
+ * (tnfs_game), so a new commit recompiles that file only; this header holds nothing that changes with the commit. */
+extern const char tnfs_version[];
+#define TNFS_VERSION tnfs_version
 #define TNFS_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
 #define TNFS_VERSION_MINOR @PROJECT_VERSION_MINOR@
 #define TNFS_VERSION_PATCH @PROJECT_VERSION_PATCH@

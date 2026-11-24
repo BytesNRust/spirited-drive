@@ -6,7 +6,7 @@
 #   tools/package_macos.sh BUILD_DIR OUT_DIR [ICNS]
 #
 # BUILD_DIR holds the tnfs binary (configure it with -DTNFS_RELEASE=ON), tnfs-track-editor (built unless -DTNFS_EDITOR=OFF: without it
-# the DMG has the game only) and generated/tnfs_version.h.
+# the DMG has the game only) and generated/tnfs_version.c.
 # OUT_DIR receives "Spirited Drive.app", "Spirited Drive Studio.app" and Spirited-Drive-<version>-macos.dmg.
 # With REQUIRE_EDITOR=1 in the environment a missing editor binary is an error (a release must not ship without Studio).
 # ICNS is the game's icon; without it, the source tree's data/icon/tnfs.icns (tools/spirited_icon.py makes it).
@@ -36,10 +36,10 @@ MIN_MACOS="11.0"
 
 BIN="$BUILD_DIR/tnfs"
 EDITOR_BIN="$BUILD_DIR/tnfs-track-editor"
-VERSION_H="$BUILD_DIR/generated/tnfs_version.h"
+VERSION_H="$BUILD_DIR/generated/tnfs_version.c"
 [ -x "$BIN" ] || { echo "no tnfs binary in $BUILD_DIR" >&2; exit 1; }
-[ -f "$VERSION_H" ] || { echo "no generated/tnfs_version.h in $BUILD_DIR" >&2; exit 1; }
-VERSION=$(sed -n 's/^#define TNFS_VERSION "\(.*\)".*/\1/p' "$VERSION_H")
+[ -f "$VERSION_H" ] || { echo "no generated/tnfs_version.c in $BUILD_DIR" >&2; exit 1; }
+VERSION=$(sed -n 's/^const char tnfs_version\[\] = "\(.*\)";.*/\1/p' "$VERSION_H")
 [ -n "$VERSION" ] || { echo "cannot read TNFS_VERSION from $VERSION_H" >&2; exit 1; }
 # CFBundleShortVersionString takes only numbers: 0.9.0-beta.1 -> 0.9.0
 SHORT_VERSION=$(printf '%s' "$VERSION" | sed 's/[-+].*//')

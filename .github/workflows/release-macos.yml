@@ -62,7 +62,7 @@ jobs:
       - name: Check the version matches the tag
         run: |
           want="${GITHUB_REF_NAME#v}"
-          got=$(sed -n 's/^#define TNFS_VERSION "\(.*\)".*/\1/p' build/rel/generated/tnfs_version.h)
+          got=$(sed -n 's/^const char tnfs_version\[\] = "\(.*\)";.*/\1/p' build/rel/generated/tnfs_version.c)
           echo "tag $want, build $got"
           [ "$want" = "$got" ]
 

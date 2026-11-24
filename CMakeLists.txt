@@ -35,6 +35,8 @@ if(NOT TNFS_VERSION_CORE VERSION_EQUAL PROJECT_VERSION)
 endif()
 message(STATUS "tnfs version: ${TNFS_VERSION}")
 configure_file(${CMAKE_SOURCE_DIR}/game/tnfs_version.h.in ${CMAKE_BINARY_DIR}/generated/tnfs_version.h @ONLY)
+# The text with the commit's hash is in this one file (tnfs_game): a new commit recompiles it, not the dozens of files that include the header.
+configure_file(${CMAKE_SOURCE_DIR}/game/tnfs_version.c.in ${CMAKE_BINARY_DIR}/generated/tnfs_version.c @ONLY)
 
 # Release builds (the packaged app) never look in the source tree for data.
 option(TNFS_RELEASE "Build for distribution: no source-tree data fallbacks" OFF)
@@ -649,6 +651,7 @@ add_library(tnfs_game STATIC
     game/frontend/edition_rules.c
     game/frontend/card_marks.c
     game/sys/resource.c
+    ${CMAKE_BINARY_DIR}/generated/tnfs_version.c
 )
 target_include_directories(tnfs_game PUBLIC game . ${CMAKE_BINARY_DIR}/generated)
 if(NOT TNFS_RELEASE)
