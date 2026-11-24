@@ -26,7 +26,7 @@ one_car() {   # STEM (lower case folder in the workspace), STEM (upper), car_mas
     [ -d "$data/dash_masks/$up" ] && cp -R "$data/dash_masks/$up" "$repo/data/dash_masks/$up"
     cp "$repo_src/core/formats/car_paint.c" "$repo/core/formats/car_paint.c"
     # the kit as it is, converted once (a run without steps), then what Copy lists already (the owner's own edits), and the Preview of the mask's texture
-    clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 250 > /dev/null 2>&1 || true
+    clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 30 --steps psd-wait:5000 > /dev/null 2>&1 || true   # converts by itself: wait for it (bounded), not 250 frames
     clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 20 --steps repo-ask,print-publish > "$work/$low.before" 2>&1 || true
     names_of "$work/$low.before" > "$work/$low.n.before"
     psd=; for c in $cands; do grep -qx "${c}_mask.png" "$work/$low.n.before" || { psd=$c.psd; png=${c}_mask.png; break; }; done
@@ -38,7 +38,7 @@ one_car() {   # STEM (lower case folder in the workspace), STEM (upper), car_mas
     sleep 2   # the PSD must be newer than the mask by the clock Studio compares
     python3 "$repo_src/tests/psd_poke_layer.py" "$kit/art-source/masks/$psd" 200 || { fail "$low: the PSD could not be painted"; return; }
     # Studio converts it by itself (a run without steps); the list of changes is the one before plus this mask
-    clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 250 > /dev/null 2>&1 || true
+    clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 30 --steps psd-wait:5000 > /dev/null 2>&1 || true   # converts by itself: wait for it (bounded), not 250 frames
     clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 20 --steps repo-ask,print-publish > "$work/$low.after" 2>&1 || fail "$low: Copy to game repo after the PSD changed: $(tail -3 "$work/$low.after")"
     names_of "$work/$low.after" > "$work/$low.n.after"
     grep -qx "$png" "$work/$low.n.after" || fail "$low: the painted PSD's mask $png did not reach the list (Studio did not convert it): $(cat "$work/$low.after")"
@@ -52,7 +52,7 @@ one_car() {   # STEM (lower case folder in the workspace), STEM (upper), car_mas
     cmp -s "$work/$low.before.png" "$work/$low.after.png" && fail "$low: the Preview does not show the edit"
     # Copy writes into the temporary data/ only the listed masks
     (cd "$repo/data" && find . -type f | sort | xargs cksum) > "$work/$low.repo.before"
-    clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 200 --steps repo-ask,repo-copy,status > "$work/$low.copy" 2>&1 || fail "$low: Copy to game repo: $(tail -3 "$work/$low.copy")"
+    clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 30 --steps repo-ask,repo-copy,status > "$work/$low.copy" 2>&1 || fail "$low: Copy to game repo: $(tail -3 "$work/$low.copy")"
     (cd "$repo/data" && find . -type f | sort | xargs cksum) > "$work/$low.repo.after"
     written=$(diff "$work/$low.repo.before" "$work/$low.repo.after" | grep '^>' | awk '{print $4}' | xargs -n1 basename | sort -u)
     [ "$written" = "$(sort -u "$work/$low.n.after")" ] || fail "$low: Copy wrote $(echo $written) and the list said $(sort -u "$work/$low.n.after" | tr '\n' ' ')"
