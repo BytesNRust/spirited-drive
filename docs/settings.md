@@ -104,8 +104,8 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | key | default | exe | range | menu | env | Stock / Restored / Restomod |
 |---|---|---|---|---|---|---|
 | `radar_all_views` | 0 | 0 | 0, 1 (the police radar shows in every view outside the car) | EXTRAS page 2: the radar row, labelled "Police radar" when on | `TNFS_RADAR_ALL_VIEWS` | 0 / 0 / 1 |
-| `tach_dim` | 0 | 0 | 0, 1 (the outside views' tachometer takes the dash's half tint) | none | `TNFS_TACH_DIM` | 0 / 0 / 1 |
-| `gauge_wheel` | 0 | 0 | 0, 1 (at night the wheel in front of the gauges takes the dash's half tint) | none | `TNFS_GAUGE_WHEEL` | 0 / 0 / 1 |
+| `tach_dim` | 0 | 0 | 0, 1 (the outside views' tachometer takes the dash's tint) | none | `TNFS_TACH_DIM` | 0 / 0 / 1 |
+| `gauge_wheel` | 0 | 0 | 0, 1 (at night the wheel in front of the gauges takes the dash's tint) | none | `TNFS_GAUGE_WHEEL` | 0 / 0 / 1 |
 | `replay_no_ffb` | 0 | 0 | 0, 1 (a replay leaves the force-feedback stick and the pad's rumble still) | none | `TNFS_REPLAY_NO_FFB` | 0 / 0 / 1 |
 | `last_camera` | 0 | 0 (a race starts in the dash) | 0, 1 (a race starts in the last camera used) | none | `TNFS_LAST_CAMERA` | 0 / 0 / 1 |
 | `camera_kind` | -1 | -1 | -1 (none yet), 0..5 | none; the game writes it, read only with `last_camera` | none | not set |

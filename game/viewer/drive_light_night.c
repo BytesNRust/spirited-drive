@@ -340,10 +340,10 @@ void drive_light_dash_ratio(const float ratio[3])
     for (int k = 0; k < 3; k++) dash_ratio[k] = ratio != NULL ? ratio[k] : 1.0f;
 }
 
-/* the dash's art: half the world's tint (the whole at night), as the dawn / dusk base, times the car's light ratio */
+/* the dash's art: the world's tint, as the car's body takes it, times the car's light ratio */
 void drive_light_palette_half(const uint8_t palette[768], uint8_t out[768])
 {
-    light_tint_dash_palette(palette, tint, 1, night_look ? 1 : 2, out);   /* port: the dash is dark with the night; the dials (the HUD's class) are not touched */
+    light_tint_dash_palette(palette, tint, 1, 1, out);   /* port: the dash takes the track's light as the car's body does, at every time; the dials (the HUD's class) are not touched */
     if (dash_ratio[0] == 1.0f && dash_ratio[1] == 1.0f && dash_ratio[2] == 1.0f) return;
     uint8_t base[768];
     memcpy(base, out, sizeof base);
