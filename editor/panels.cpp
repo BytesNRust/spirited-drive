@@ -477,12 +477,6 @@ void track_panel(App *a)
     ImGui::End();
 }
 
-// the Locate game dialog's answer: the app (or program) the user picked, none when it was cancelled
-static void game_located(void *userdata, const char *const *list, int)
-{
-    if (list != NULL && list[0] != NULL) app_set_game(static_cast<App *>(userdata), list[0]);
-}
-
 void project_panel(App *a)
 {
     const bool open = ImGui::Begin(PANEL_PROJECT);
@@ -518,8 +512,7 @@ void project_panel(App *a)
         if (app_game_found(a)) {
             path_line("game ", a->game, false);
         } else {
-            ImGui::TextWrapped("game not found");
-            if (ImGui::Button("Locate game...")) SDL_ShowOpenFileDialog(game_located, a, NULL, NULL, 0, "/Applications", false);   // its .app, or its program
+            ImGui::TextWrapped("game not found: File > Settings...");
         }
         path_line("installs into ", a->user[0] != '\0' ? a->user : "the game's player folder", true);
         ImGui::TextWrapped("%s", a->status);

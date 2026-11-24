@@ -28,8 +28,8 @@ int shine_draw_get_soft(void);   /* core/raster/shine_draw.h, not included: its 
 int shine_draw_get_render_scale(void);
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "masks-changes", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "masks-only", "mask-psd", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "light-tone", "light-lamp", "light-remove", "ui-click", "ui-at", "ui-span", "ui-text", "ui-focus", "print-tunnels", "tunnel-lamps", "sun", "light-print", "light-node", "light-copy", "light-copy-answer", "light-note", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print", "psd-wait", "reset-layout", "ui-rect", "light-state", "tweak-make", "tweak-apply" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 2, 0, 0, 0, 2, 3, 0, 0, 4, 1, 0, 0, 1, 0, 4, 0, 1, 0, 0, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "masks-print", "masks-changes", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait", "check", "new-car-open", "new-car", "physics-from", "physics-open", "physics-print", "export-open", "export-track", "masks-only", "mask-psd", "print-publish", "light-drive", "drive-stop", "light-weather", "print-drive", "light-bright", "light-tone", "light-lamp", "light-remove", "ui-click", "ui-at", "ui-span", "ui-text", "ui-focus", "print-tunnels", "tunnel-lamps", "sun", "light-print", "light-node", "light-copy", "light-copy-answer", "light-note", "repo-choose", "camera", "car-buttons", "paint-rgb", "paint-print", "psd-wait", "reset-layout", "ui-rect", "light-state", "tweak-make", "tweak-apply", "tweak-status", "tweak-check", "tweak-list", "tweak-open-row", "settings-open" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 2, 0, 0, 0, 2, 3, 0, 0, 4, 1, 0, 0, 1, 0, 4, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -337,13 +337,37 @@ static int at_once(App *a, const char *name, const double *arg)
         return 1;
     }
     if (strcmp(name, "tweak-make") == 0) return app_tweak_make(a);   /* the open original's tweak folder in <workspace>/tweaks/ */
+    if (strcmp(name, "tweak-status") == 0 || strcmp(name, "tweak-check") == 0) {   /* the tweak made again from the project, then its status (or Check's answer) on stdout, as the Tweak panel shows it */
+        const int check = name[6] == 'c';
+        const int ok = check ? app_tweak_check(a) : app_tweak_refresh(a);
+        if (!a->tweak_st_ok) return printf("tweak: %s\n", a->tweak_why), 0;
+        printf("tweak %s: %s\n", a->tweak_id, a->tweak_st.summary);
+        for (int i = 0; i < a->tweak_st.count; ++i)
+            printf("  %s: %s%s%s%s\n", a->tweak_st.item[i].file, a->tweak_st.item[i].state == TWEAK_SAME ? "same" : a->tweak_st.item[i].state == TWEAK_NEW ? "new" : "changed", a->tweak_st.item[i].note[0] != '\0' ? " " : "", a->tweak_st.item[i].note, a->tweak_st.item[i].own ? " [repo has changes of its own]" : "");
+        if (check) printf("check: %s\n", a->tweak_report);
+        return check ? ok : 1;
+    }
+    if (strcmp(name, "settings-open") == 0) return a->settings_dialog = 1, 1;   /* File > Settings..., the window up */
+    if (strcmp(name, "tweak-list") == 0) {   /* the Edit tweak list's rows on stdout: name, kind, tweak, what changed */
+        app_tweak_list_refresh(a);
+        for (int i = 0; i < a->tweak_rows; ++i)
+            printf("tweak row: %s | %s | %s | %s\n", a->tweak_row[i].name, a->tweak_row[i].kind, a->tweak_row[i].has ? a->tweak_row[i].id : "-", a->tweak_row[i].usable ? a->tweak_row[i].summary : "not available");
+        return 1;
+    }
+    if (strncmp(name, "tweak-open-row:", 15) == 0) {   /* tweak-open-row:NAME, Open on the Edit tweak list's row of that car (its masks folder, "Wagon") or track ("CY1") */
+        char want[64];
+        app_tweak_list_refresh(a);
+        tweak_id(name + 15, want, sizeof want);   /* "wagon-tweak": a row is found by the id its tweak has */
+        for (int i = 0; i < a->tweak_rows; ++i)
+            if (strcmp(a->tweak_row[i].id, want) == 0) return app_tweak_open_row(a, i);
+        return printf("tweak-open-row: no row %s\n", name + 15), 0;
+    }
     if (strncmp(name, "tweak-apply:", 12) == 0) return app_tweak_apply(a, name + 12);   /* tweak-apply:ID, the tweak folder <workspace>/tweaks/ID, into the game repo */
     if (strcmp(name, "add-originals") == 0) return app_original_add_all(a);   /* the Add the 16 original tracks button */
     if (strncmp(name, "open-original:", 14) == 0) {   /* open-original:I: the I-th of the 16 CD tracks (AL1 is 0) opened from the workspace, as a click in Open original track does (a headless run drops the question about unsaved changes) */
         char dir[APP_PATH];
         return original_track_dir(a->workspace, original_track_stem((int)arg[0]), dir, sizeof dir) && app_open_original(a, dir);
     }
-    if (strcmp(name, "original-open") == 0) return a->original_dialog = 1, 1;   /* File > Open original track..., the window up (for a picture) */
     if (strcmp(name, "masks-print") == 0) {   /* the original track's masks (scanned and made from the PSDs as the panel does): the totals, then a line a mask */
         if (!app_track_masks_load(a)) return fprintf(stdout, "masks: none (%s)\n", a->tmask_note), 0;
         fprintf(stdout, "masks: %d to_make %d edited %d\n", a->tmasks.count, a->tmasks.to_make, a->tmasks.edited);
@@ -363,7 +387,7 @@ static int at_once(App *a, const char *name, const double *arg)
         const int ok = app_original_check_all(a, text, sizeof text);
         return fprintf(stdout, "%s\n", text), ok;
     }
-    if (strcmp(name, "repo-choose") == 0) {   /* File > Game repo folder...: the folder the dialog would give is TNFS_STUDIO_PICK; a refusal is in the status, not a failed step */
+    if (strcmp(name, "repo-choose") == 0) {   /* File > Settings...: the folder the dialog would give is TNFS_STUDIO_PICK; a refusal is in the status, not a failed step */
         const char *dir = getenv("TNFS_STUDIO_PICK");
         return dir != NULL && (app_repo_data_choose(a, dir), 1);
     }

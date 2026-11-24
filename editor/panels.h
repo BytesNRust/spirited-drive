@@ -43,6 +43,10 @@ void light_shortcuts(App *a);   // Cmd+S saves the light file
 
 // the start screen (nothing open) and the open car's panels: its card, its textures, its masks
 void start_screen(App *a);
+void tweak_list_view(App *a, float total);   // the main menu while Edit tweak is on: the cars or the tracks and Open (tweak_panel.cpp)
+void settings_popup(App *a);   // File > Settings: the game, the workspace and the game repo's data/ (settings_popup.cpp)
+void game_offer_row(App *a);   // the main menu's first-start question: where the game is, once
+void tweak_panel(App *a);   // the Tweak window of an original car or track: its folder, its files against the game repo, Check, Apply to game repo...
 void car_panel(App *a);
 void car_shortcuts(App *a);   // Cmd+S, Cmd+Z, Cmd+Shift+Z / Cmd+Y on a Mac; Ctrl elsewhere (command_keys.h)
 void masks_panel(App *a, ImTextureID picture);   // Masks: the changes, Convert PSD, a row for each texture with its mask's state, and the picked mask over its texture (a texture of mask_edit_compose, 0 for none)
@@ -74,6 +78,6 @@ void export_popup(App *a);    // the Export original car window, up while a->exp
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK, *const PANEL_ROAD_KEY;
 extern const char *const PANEL_MODEL, *const PANEL_DRIVE, *const PANEL_LIGHT, *const PANEL_LIGHT_PHOTO, *const PANEL_STRIP;
-extern const char *const PANEL_CAR, *const PANEL_MASKS, *const PANEL_RACE, *const PANEL_PREVIEW;
+extern const char *const PANEL_CAR, *const PANEL_MASKS, *const PANEL_RACE, *const PANEL_PREVIEW, *const PANEL_TWEAK;
 
 #endif

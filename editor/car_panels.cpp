@@ -133,47 +133,58 @@ void start_screen(App *a)
         ImGui::TextUnformatted("Spirited Drive Studio");
         ImGui::SetWindowFontScale(1.0f);
         muted_wrapped("Make cars and tracks for Spirited Drive.");
+        game_offer_row(a);   // the first start: where the game is, before the doors
         workspace_row(a);
         ImGui::Dummy(ImVec2(0, 10));
-        // two rooms behind this one door: Cars and Tracks, each with its own actions, what the workspace holds and what was opened lately
-        if (ImGui::BeginTable("rooms", 2, ImGuiTableFlags_SizingStretchSame, ImVec2(total, 0))) {
-            const float half = total / 2 - 16;
+        if (a->tweak_list != 0) {   // Edit tweak: the game's own cars and tracks, in place of the doors
+            tweak_list_view(a, total);
+            if (a->status[0] != '\0') {
+                ImGui::Dummy(ImVec2(0, 10));
+                muted_wrapped("%s", a->status);
+            }
+            ImGui::EndGroup();
+            ImGui::End();
+            return;
+        }
+        // three doors behind this one: Edit car mod, Edit track mod and Edit tweak, each with its own actions, what the workspace holds and what was opened lately
+        if (ImGui::BeginTable("rooms", 3, ImGuiTableFlags_SizingStretchSame, ImVec2(total, 0))) {
+            const float third = total / 3 - 16;
             ImGui::TableNextColumn();
-            ImGui::AlignTextToFramePadding();   // the same baseline in both columns
+            ImGui::AlignTextToFramePadding();   // the same baseline in the columns
             ImGui::SetWindowFontScale(1.25f);
-            ImGui::TextUnformatted("Cars");
+            ImGui::TextUnformatted("Edit car mod");
             ImGui::SetWindowFontScale(1.0f);
+            muted_wrapped("your own car");
             ImGui::BeginDisabled(a->workspace[0] == '\0');
-            if (ImGui::Button("New car...", ImVec2(half, 0))) app_ask(a, APP_ACT_NEW_CAR, "");
+            if (ImGui::Button("New car...", ImVec2(third, 0))) app_ask(a, APP_ACT_NEW_CAR, "");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Start a car as a copy of one of the eight you drive; it goes in the workspace's cars/ folder");
-            if (ImGui::Button("Open car...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN_CAR, "");
-            if (ImGui::Button("Export original car...", ImVec2(half, 0))) a->export_dialog = 1;
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make a project from one of the game's cars, to adjust its masks");
+            if (ImGui::Button("Open car...", ImVec2(third, 0))) app_ask(a, APP_ACT_OPEN_CAR, "");
             ImGui::TableNextColumn();
-            ImGui::AlignTextToFramePadding();   // the same baseline in both columns
+            ImGui::AlignTextToFramePadding();
             ImGui::SetWindowFontScale(1.25f);
-            ImGui::TextUnformatted("Tracks");
+            ImGui::TextUnformatted("Edit track mod");
             ImGui::SetWindowFontScale(1.0f);
-            if (ImGui::Button("New track...", ImVec2(half, 0))) app_ask(a, APP_ACT_NEW, "");
-            if (ImGui::Button("Open track...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN, "");
-            ImGui::BeginDisabled(a->light_dir[0] == '\0');
-            if (ImGui::Button("Open original track...", ImVec2(half, 0))) a->original_dialog = 1;
-            ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game%s", a->light_dir[0] == '\0' ? "\n(Choose File > Game repo folder... first.)" : "");
-            ImGui::BeginDisabled(a->workspace[0] == '\0' || !a->data_dir_ok);
-            if (ImGui::Button("Add originals", ImVec2(half, 0))) app_original_add_all(a);
-            ui_probe("add_originals");
-            ImGui::EndDisabled();
-            char missing[APP_PATH + 64];   // (the path that failed, shown in the tooltip)
-            snprintf(missing, sizeof missing, "\n(Game data folder not found: %s)", a->data_dir);
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("Put the game's 16 tracks in the workspace: their light file and their mask PSDs. Run it again to bring an older workspace up to date: the one light file replaces\nthe old light files, and whatever you already edited (light, PSDs, masks) is never touched.%s",
-                                  a->workspace[0] == '\0' ? "\n(Choose a workspace first: File > Workspace.)" : a->data_dir_ok ? "" : a->data_dir[0] == '\0' ? "\n(Choose File > Game repo folder... first: Studio needs the game's data/ to copy the light files from.)" : missing);
+            muted_wrapped("your own track");
+            if (ImGui::Button("New track...", ImVec2(third, 0))) app_ask(a, APP_ACT_NEW, "");
+            if (ImGui::Button("Open track...", ImVec2(third, 0))) app_ask(a, APP_ACT_OPEN, "");
             ImGui::BeginDisabled(a->workspace[0] == '\0');
-            if (ImGui::Button("Export original track...", ImVec2(half, 0))) app_ask(a, APP_ACT_EXPORT_TRACK, "");
+            if (ImGui::Button("New track from an original...", ImVec2(third, 0))) app_ask(a, APP_ACT_EXPORT_TRACK, "");
             ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Start a new track that follows the road of one of the CD's circuits; it goes in the workspace's tracks/ folder");
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Start a new track that follows the road of one of the CD's circuits; it goes in the workspace's tracks/ folder. It is your own track, not a tweak of the game's");
+            ImGui::TableNextColumn();
+            ImGui::AlignTextToFramePadding();
+            ImGui::SetWindowFontScale(1.25f);
+            ImGui::TextUnformatted("Edit tweak");
+            ImGui::SetWindowFontScale(1.0f);
+            muted_wrapped("the game's own cars and tracks");
+            if (ImGui::Button("Edit tweak...", ImVec2(third, 0))) {
+                a->tweak_list = 1;
+                a->tweak_pick = -1;
+                app_tweak_list_refresh(a);
+            }
+            ui_probe("door_tweak");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Change one of the game's own cars or tracks: its masks, its colors, its light. Nothing goes into the game until you apply it to the game repo");
             ImGui::EndTable();
         }
         // what the workspace holds and what was opened lately: each heading once across both rooms, the lists in the columns of their room
@@ -458,7 +469,7 @@ void car_panel(App *a)
         ImGui::Spacing();
         if (app_car_is_kit(a)) {   // a kit in the current layout: its car is made from its sources, then installed in the game
             const bool own = app_car_is_original(a);   // the game's own car: nothing to build or install
-            static const char *const OWN = "An original car is the game's own: retouch its masks and copy them to the game repo; it is not installed";
+            static const char *const OWN = "An original car is the game's own: retouch its masks and apply them to the game repo in the Tweak panel; it is not installed";
             ImGui::BeginDisabled(own || app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Build")) app_build(a);
             ui_probe("build");
@@ -466,17 +477,7 @@ void car_panel(App *a)
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", own ? OWN : app_car_building(a) ? "The car is being built" : "Make the car from this kit's files: build/piece and build/<id>.zip (save what you changed first)");
             ImGui::SameLine();
-            if (own) {   // the game's own car is not installed: what goes on is a copy of its masks and colors into the game repo
-                const bool repo_set = app_repo_data(a)[0] != '\0';
-                ImGui::BeginDisabled(repo_set && !app_car_copy_can(a));   // with no repo folder the button stays on: a click asks for it
-                const bool copy_now = ImGui::Button("Copy to game repo");
-                ui_probe("copy_repo");
-                if (copy_now) repo_set ? (void)app_car_copy_ask(a) : (void)app_repo_data_pick(a);
-                ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    ImGui::SetTooltip("%s", !repo_set ? "Set the game repo folder first: File > Game repo folder..."
-                                                     : "Copy this car's changed masks into the game repo's data/ and its Colors into core/formats/car_paint.c (nothing is committed); the window lists what goes");
-            } else {
+            if (!own) {   // the game's own car is not installed: its Tweak panel is where its changes go to the game repo
                 ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
                 if (ImGui::Button("Install")) app_install(a);
                 ImGui::EndDisabled();
@@ -492,7 +493,7 @@ void car_panel(App *a)
                 ImGui::SetTooltip("%s", app_car_building(a) ? "The car is being built or checked" : traffic ? "Looks for what is wrong with this car's masks and model (nothing is built or installed); a list of findings appears below" : "What is wrong with this kit before a build: the model, its wheels, its masks (save what you changed first)");
             ImGui::SameLine();
         }
-        if (traffic) help_marker("A traffic or police car has no card, specs, colors or showcase photos in the game: it only wears its masks. Retouch them in Masks (Update masks from PSD) and use Copy to game repo; "
+        if (traffic) help_marker("A traffic or police car has no card, specs, colors or showcase photos in the game: it only wears its masks. Retouch them in Masks (Update masks from PSD) and apply them to the game repo from the Tweak panel; "
                                  "there is nothing to Save here. Test drive and In-game photo (Drive) run it as traffic in the City, Coastal or Alpine stages only.");
         else help_marker("File > Save (Cmd+S) writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is; the showcase photos you add are copied into the folder, and Save removes the copies you took off the list.");
         if (a->cdisk.card_changed) {   // another program wrote mod.ini while the card has unsaved changes here
@@ -532,7 +533,7 @@ void car_panel(App *a)
         if (own_card) {
             ImGui::TextUnformatted("Card: the game's own");
             ImGui::SameLine();
-            help_marker("An original car's card is the game's own: it is shown, not edited (the lines it does not have are not shown), and it is not installed. Only its Colors travel: Copy to game repo writes them into this car's row of the colors table "
+            help_marker("An original car's card is the game's own: it is shown, not edited (the lines it does not have are not shown), and it is not installed. Only its Colors travel: Apply to game repo (Tweak panel) writes them into this car's row of the colors table "
                         "(core/formats/car_paint.c) of the game repo; the game then offers them in its Color box.");
         }
         ImGui::BeginDisabled(own_card);

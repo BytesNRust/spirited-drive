@@ -35,7 +35,7 @@ run_bg() { exec "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work
 if want a; then
 # the hub: the workspace is the hub's; adding makes the sixteen
 out=$(run --frames 4 --steps print-menu,add-originals,print-workspace 2>&1) || fail "add-originals: $out"
-echo "$out" | grep -q '^file: Workspace | Game repo folder... | Quit$' || fail "the hub's File menu: $out"
+echo "$out" | grep -q '^file: Workspace | Settings... | Quit$' || fail "the hub's File menu: $out"
 echo "$out" | grep -q '^tracks: AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7$' || fail "the 16 originals are listed: $out"
 for f in light/track_light/CL1.txt original.ini; do [ -f "$work/ws/tracks/CL1/$f" ] || fail "CL1 has no $f"; done
 [ -f "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" ] || fail "the PSD was not copied"
@@ -43,13 +43,13 @@ for f in light/track_light/CL1.txt original.ini; do [ -f "$work/ws/tracks/CL1/$f
 [ -f "$work/art/AL1/scenery_00.psd" ] || fail "the original PSD is gone from the art folder"
 
 # a workspace made before the new light format: its track folders hold the old light files (light/track/<T>.txt and light/track_light/<T>{A,B,C,N}.txt).
-# Add originals on it puts the one new file in and takes the old ones away; Copy then finds the file and has nothing to publish
+# opening it from the Edit tweak list puts the one new file in and takes the old ones away; Apply then finds the file and has nothing to publish
 mkdir -p "$work/oldws/tracks/CL1/light/track" "$work/oldws/tracks/CL1/light/track_light"
 printf 'old\n' > "$work/oldws/tracks/CL1/light/track/CL1.txt"
 for t in A B C N; do printf 'old\n' > "$work/oldws/tracks/CL1/light/track_light/CL1$t.txt"; done
 cp "$work/ws/tracks/CL1/original.ini" "$work/oldws/tracks/CL1/original.ini" || fail "no original.ini to copy for the old workspace"
-out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 30 --steps ui-click:add_originals,status,print-workspace 2>&1) || fail "the Add originals button on an old workspace: $out"
-echo "$out" | grep -q "^status: original tracks: 16 in the workspace" || fail "the button did not say what it did: $out"
+out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 30 --steps tweak-open-row:CL1,status 2>&1) || fail "Open on an old workspace's CL1: $out"
+echo "$out" | grep -q "^status: tweak CL1: " || fail "Open did not say what it did: $out"
 [ -f "$work/oldws/tracks/CL1/light/track_light/CL1.txt" ] || fail "the old workspace did not get the one light file"
 [ -f "$work/oldws/tracks/CL1/light/track/CL1.txt" ] && fail "the old light file light/track/CL1.txt is still there"
 for t in A B C N; do [ -f "$work/oldws/tracks/CL1/light/track_light/CL1$t.txt" ] && fail "the old light file CL1$t.txt is still there"; done
@@ -62,7 +62,7 @@ out=$(run --frames 20 --steps open-original:3,repo-ask,print-original,print-menu
 echo "$out" | grep -q "^original: $work/ws/tracks/CL1$" || fail "the original track is open: $out"
 echo "$out" | grep -q "^light: $work/ws/tracks/CL1/light$" || fail "the light folder is the track's own: $out"
 echo "$out" | grep -q '^track: CL1 time: B$' || fail "CL1 at day: $out"
-echo "$out" | grep -q '^file: New track... | Open track... | Open original track... | Export original track... | Open recent | Copy to game repo | Game repo folder... | Save | Main menu | Quit$' || fail "the room's File menu: $out"
+echo "$out" | grep -q '^file: New track... | Open track... | New track from an original... | Open recent | Settings... | Save | Main menu | Quit$' || fail "the room's File menu: $out"
 echo "$out" | grep -q '^preview: CL1:.*1 unchanged' || fail "an untouched track has nothing to publish: $out"
 
 # an edited light file: the preview names it, Copy writes it into data/ and nothing else
@@ -247,11 +247,11 @@ cmp -s "$edited_png" "$work/edited_scenery.png" && fail "update, Replace did not
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "update, Replace makes every PNG from its PSD: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "update, Replace: the PSD's mask is back: $out"
 
-# the copy action is hidden unless the game repo's data/ is given (--port-data): without it the room's File menu has no Copy item and print-repo says none
+# without the game repo's data/ (--port-data) print-repo says none; the room's File menu has no copy item either way: Apply is in the Tweak panel
 out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --window 1280x800 --frames 20 --steps open-original:3,print-menu,print-repo 2>&1) || fail "no repo: $out"
-echo "$out" | grep -qF 'Export original track... | Open recent | Copy to game repo (off: set the game repo folder first) | Game repo folder... | Save' || fail "Copy is shown off, with Game repo folder..., without the repo's data/: $out"
+echo "$out" | grep -q 'Copy to game repo' && fail "the room's File menu still has Copy to game repo: $out"
 echo "$out" | grep -q '^repo data: none$' || fail "no repo data is given: $out"
-# File > Game repo folder...: a folder without car_masks/ and track_light/ is refused, the repo's data/ (or the repo itself) is kept, and Copy turns on
+# the repo folder chosen: a folder without car_masks/ and track_light/ is refused, the repo's data/ (or the repo itself) is kept
 mkdir -p "$work/notrepo" "$work/repo2/data/car_masks" "$work/repo2/data/track_light"
 bare() { "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --art-dir "$work/art" --window 1280x800 "$@"; }
 out=$(TNFS_STUDIO_PICK="$work/notrepo" bare --frames 20 --steps open-original:3,repo-choose,status,print-repo 2>&1) || fail "repo refused: $out"
@@ -259,7 +259,6 @@ echo "$out" | grep -q 'is not the repo.s data/' || fail "a folder without car_ma
 echo "$out" | grep -q '^repo data: none$' || fail "nothing changed after a refusal: $out"
 out=$(TNFS_STUDIO_PICK="$work/repo2" bare --frames 20 --steps open-original:3,repo-choose,status,print-repo,print-menu 2>&1) || fail "repo chosen: $out"
 echo "$out" | grep -q "^repo data: $work/repo2/data$" || fail "the repo's data/ is kept when the repo is chosen: $out"
-echo "$out" | grep -q '^file: .*| Copy to game repo | Game repo folder... |' || fail "Copy is on once the folder is set: $out"
 out=$(run --frames 20 --steps print-repo 2>&1) || fail "repo: $out"
 echo "$out" | grep -q "^repo data: $work/data$" || fail "--port-data is the repo data: $out"
 

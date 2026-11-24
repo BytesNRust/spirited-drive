@@ -21,6 +21,7 @@
 #include "race_sheet.h"
 #include "session.h"
 #include "track_undo.h"
+#include "tweak.h"
 #include "view.h"
 #include "workspace.h"
 
@@ -101,6 +102,15 @@ typedef struct {
     double disk_looked;               /* when app_mask_watch last looked at the files (its clock); 0: never */
 } MaskUi;
 
+/* a row of the Edit tweak list: one of the game's cars or tracks, its tweak when it has one, and what that changes (app_tweak_list_refresh) */
+typedef struct {
+    char name[64], kind[12], id[64], summary[160], why[160];
+    int has;       /* the tweak folder is in the workspace */
+    int old;       /* no tweak, but the workspace holds the car's or track's project from before: opening it makes the tweak from that */
+    int usable;    /* the game's files for it are there to make a tweak from */
+} TweakRow;
+enum { TWEAK_ROWS = EXPORT_CARS + OT_STEMS };
+
 typedef struct {
     AppKind kind;                /* what is open: the track fields below are read for APP_KIND_TRACK, `car` for APP_KIND_CAR */
     CarProject car;              /* the car project, when kind is APP_KIND_CAR */
@@ -130,7 +140,6 @@ typedef struct {
     OriginalPublish tmask_changes;   /* the PNGs against the game repo's data/track_masks, read when the folder is scanned (never per frame) */
     int tmask_changes_have;      /* tmask_changes is valid (the repo's data/ is set) */
     char tmask_note[200];        /* why there is no picture, or what Regenerate did */
-    int original_dialog;         /* the Open original track window is up */
     int publish_dialog;          /* the Publish to the game window is up, with its preview in publish_text */
     int publish_car;             /* ...and it is for a car's masks (app_car_copy), not a track's files */
     OriginalPublish publish_plan;   /* what the preview lists: the light files and the masks of the original track against data/ */
@@ -150,6 +159,17 @@ typedef struct {
     int photo_dialog;            /* the Car window's Add photo... asks main.c for a PNG file dialog; main.c takes it back to 0 */
     int backdrop_dialog;         /* the Model window's Choose... asks main.c for a PNG file dialog (the card photo's backdrop); main.c takes it back to 0 */
     int export_dialog;           /* the Export original car window is up */
+    int settings_dialog;         /* File > Settings is up */
+    int game_asked;              /* the first start's question about where the game is was answered (the game located, or Not now): never asked again */
+    int tweak_list;              /* the Edit tweak list is on the main menu: 0 no, 1 the cars, 2 the tracks */
+    TweakRow tweak_row[TWEAK_ROWS];   /* its rows, cars then tracks (app_tweak_list_refresh) */
+    int tweak_rows, tweak_pick;  /* how many, and the one chosen (an index of tweak_row; -1 for none) */
+    TweakStatus tweak_st;        /* the Tweak panel's list: the open tweak against the game repo (app_tweak_refresh) */
+    int tweak_st_ok;             /* tweak_st is of the open tweak; else tweak_why says why not */
+    char tweak_why[APP_MSG], tweak_report[APP_MSG];   /* why there is no status; Check's answer */
+    char tweak_id[64];           /* the open tweak's folder name in <workspace>/tweaks/ ("" when what is open has none) */
+    unsigned tweak_seen;         /* the track masks' serial the tweak was last made at: they are generated after the track opens */
+    int tweak_own_dialog;        /* the Replace / Skip / Cancel question about the repo's own changes is up */
     int export_pick;             /* the car chosen in it (car_export_car's index), -1 for none */
     RaceJob race;                /* Test in race / Race photo of the open original car (car_race.h), running or last run */
     int race_night;              /* the preset: 0 Day, 1 Night */
@@ -396,6 +416,18 @@ int app_car_copy(App *a);
  * (what Copy to game repo writes, from the folder). 1, or 0 with the reason in status. */
 int app_tweak_make(App *a);
 int app_tweak_apply(App *a, const char *id);   /* id: the folder name in <workspace>/tweaks/ ("wagon-tweak") */
+/* Edit tweak, step 2: the list of the game's cars and tracks with their tweaks (the rows are made once per call, not per frame), Open of a row (makes the tweak, opens the car or the track),
+ * and the panel's calls. app_tweak_base is the game's data/ a tweak is compared with: the repo's when set, else the game's own. */
+const char *app_tweak_base(const App *a);
+void app_tweak_list_refresh(App *a);
+int app_tweak_open_row(App *a, int row);
+int app_tweak_open_car(App *a, int index);
+int app_tweak_open_track(App *a, int index);
+int app_tweak_active(const App *a);               /* what is open is one of the game's own cars or tracks: the Tweak panel is for it */
+int app_tweak_refresh(App *a);                    /* the tweak made again from the project, its fingerprints kept, its status read: 1 when a->tweak_st is it */
+int app_tweak_check(App *a);                      /* the same, then the checks that need no game: tweak_report says */
+int app_tweak_apply_open(App *a, int ask);        /* Apply to game repo...: asks for the repo folder the first time; with the repo's own changes asks Replace / Skip / Cancel when `ask`; 1 when it applied */
+int app_tweak_apply_answer(App *a, int replace);  /* the answer to that question: Replace (1) or Skip (0) */
 /* The Masks panel of an original track (app_track_masks.c, editor only). app_track_masks_load scans the folder and makes the PNGs of the PSDs that need them (NEW and STALE), once
  * per open; app_track_masks_refresh scans again. app_track_mask_select puts row `i`'s picture in tmask_rgba; app_track_mask_regenerate makes the selected one's PNG from its PSD
  * again (after the warning: it replaces a PNG edited by hand). 1, or 0 with the reason in tmask_note. */
@@ -532,10 +564,10 @@ void app_recent_remove(App *a, int index);
 void app_recent_clear(App *a, int kind);
 /* the folder dialog for a workspace, from the menu or the start screen: it does not ask about unsaved changes (it changes no project) */
 void app_workspace_pick(App *a);
-/* File > Game repo folder...: the folder dialog for the repo's data/ (main.c), and what it gives: the folder (or the repo whose data/ holds them) when it has car_masks/ and track_light/,
+/* File > Settings...: the folder dialog for the repo's data/ (main.c), and what it gives: the folder (or the repo whose data/ holds them) when it has car_masks/ and track_light/,
  * kept by app_repo_data_set; else the status says what is missing and nothing changes. 1 when it was kept. */
 void app_repo_data_pick(App *a);
-/* the chosen game repo (--port-data or File > Game repo folder...) is also the game data the original tracks are added from and the folder the Track light opens on, when Studio has none of its own */
+/* the chosen game repo (--port-data or File > Settings...) is also the game data the original tracks are added from and the folder the Track light opens on, when Studio has none of its own */
 void app_repo_data_apply(App *a);
 int app_repo_data_choose(App *a, const char *dir);
 /* the open project is one Copy to game repo is for (an original car or track) but the repo folder is not set: the File menu shows the item off, saying so */
@@ -563,6 +595,8 @@ int app_check_game(App *a);
 void app_set_game_lookup(App *a, const char *tried, const char *memo);
 /* the user located the game: `picked` is its app or its program (game_find_program_of); 1 when it is a file, it is then the game and is remembered; 0 says why in the status */
 int app_set_game(App *a, const char *picked);
+int app_game_offer(const App *a);      /* the game is not found and the first start's question was not answered yet */
+void app_game_put_aside(App *a);       /* Not now: the question is not asked again (remembered beside the located game's file) */
 /* 1 when the game's program is there */
 int app_game_found(const App *a);
 

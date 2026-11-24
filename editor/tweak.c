@@ -267,3 +267,364 @@ int tweak_apply(const char *dir, const char *repo_data, TweakApplied *out, char 
     }
     return say(why, cap, "%s: studio/target.txt says neither a car nor a track%s", dir, "");
 }
+
+/* ---- status and check ---- */
+
+static void add_item(TweakStatus *s, const char *file, TweakState state, const char *note)
+{
+    if (s->count >= TWEAK_FILES) return;
+    TweakFile *f = &s->item[s->count++];
+    snprintf(f->file, sizeof f->file, "%s", file);
+    f->state = state;
+    snprintf(f->note, sizeof f->note, "%s", note != NULL ? note : "");
+    if (state == TWEAK_SAME) ++s->same;
+    else ++s->changed;
+}
+
+static void masks_items(TweakStatus *s, const char *prefix, const MaskChanges *c)
+{
+    for (int i = 0; i < c->count; ++i) {
+        const MaskChange *m = &c->item[i];
+        char name[TWEAK_NAME], note[TWEAK_NOTE] = "";
+        if (m->kind == MC_MISSING) continue;   /* only the game has it: the tweak does not carry it */
+        snprintf(name, sizeof name, "%s/%s", prefix, m->file);
+        if (m->kind == MC_CHANGED) snprintf(note, sizeof note, "%d texels", m->texels);
+        add_item(s, name, m->kind == MC_UNCHANGED ? TWEAK_SAME : m->kind == MC_NEW ? TWEAK_NEW : TWEAK_CHANGED, note);
+    }
+}
+
+static void plan_items(TweakStatus *s, const OriginalPublish *p)
+{
+    for (int i = 0; i < p->count; ++i) {
+        const OriginalPublishItem *it = &p->item[i];
+        const int mask = strncmp(it->file, "track_masks/", 12) == 0;
+        char note[TWEAK_NOTE] = "";
+        if (it->state == OT_CHANGED && it->lines_added < 0) snprintf(note, sizeof note, "size differs from the game's");
+        else if (it->state == OT_CHANGED) snprintf(note, sizeof note, "+%d -%d %s", it->lines_added, it->lines_removed, mask ? "texels" : "lines");
+        add_item(s, it->file, it->state == OT_SAME ? TWEAK_SAME : it->state == OT_NEW ? TWEAK_NEW : TWEAK_CHANGED, note);
+    }
+}
+
+static int colors_same_as_game(const char *dir, int model)
+{
+    char path[PATH];
+    snprintf(path, sizeof path, "%s/studio/paints.txt", dir);
+    char *value = read_text(path);
+    if (value == NULL) return -1;   /* no colors in the tweak */
+    ModPaint paints[MOD_INI_PAINTS_MAX];
+    int count = 0;
+    char err[160] = "";
+    value[strcspn(value, "\n")] = '\0';
+    const int parsed = mod_ini_paints_parse(value, paints, &count, err, sizeof err);
+    free(value);
+    if (!parsed) return 0;
+    int same = count == car_paint_count(model);
+    for (int k = 0; same && k < count; k++) same = strcmp(paints[k].name, car_paint(model, k)->name) == 0 && memcmp(paints[k].rgb, car_paint(model, k)->rgb, 3) == 0;
+    return same;
+}
+
+static void summarize(TweakStatus *s)
+{
+    int files = 0, colors = 0;
+    for (int i = 0; i < s->count; ++i) {
+        if (s->item[i].state == TWEAK_SAME) continue;
+        if (strcmp(s->item[i].file, "colors") == 0) colors = 1;
+        else ++files;
+    }
+    if (files == 0 && !colors) {
+        snprintf(s->summary, sizeof s->summary, "same as the game");
+        return;
+    }
+    const char *what = strcmp(s->target, "car") == 0 ? "mask" : "file";
+    char head[80] = "";
+    if (files > 0) snprintf(head, sizeof head, "changed %d %s%s", files, what, files == 1 ? "" : "s");
+    snprintf(s->summary, sizeof s->summary, "%s%s%s", head, files > 0 && colors ? ", " : colors && files == 0 ? "changed " : "", colors ? "colors" : "");
+}
+
+static void mark_own(const char *dir, const char *repo_data, TweakStatus *s);
+
+int tweak_status(const char *dir, const char *base_data, TweakStatus *out, char *why, size_t cap)
+{
+    char path[PATH], target[LINE], folder[64], file[64], stem[16], model[8], from[PATH], to[PATH];
+    memset(out, 0, sizeof *out);
+    snprintf(path, sizeof path, "%s/studio/target.txt", dir);
+    char *text = read_text(path);
+    if (text == NULL) return say(why, cap, "%s is not a tweak made by Studio (no studio/target.txt)", dir, "");
+    snprintf(target, sizeof target, "%s", text);
+    free(text);
+    target_value(target, "kind", out->target, sizeof out->target);
+    if (base_data == NULL || !is_dir(base_data)) return say(why, cap, "the game's data/ is not there to compare with: %s", base_data != NULL ? base_data : "(none)", "");
+    if (strcmp(out->target, "car") == 0) {
+        static MaskChanges changes;
+        target_value(target, "folder", folder, sizeof folder), target_value(target, "file", file, sizeof file), target_value(target, "model", model, sizeof model);
+        snprintf(out->object, sizeof out->object, "%s", folder);
+        snprintf(from, sizeof from, "%s/car_masks/%s", dir, folder);
+        snprintf(to, sizeof to, "%s/car_masks/%s", base_data, folder);
+        if (is_dir(from)) {
+            memset(&changes, 0, sizeof changes);
+            if (!mask_changes_compare(from, to, &changes, why, cap)) return 0;
+            snprintf(from, sizeof from, "car_masks/%s", folder);
+            masks_items(out, from, &changes);
+        }
+        snprintf(from, sizeof from, "%s/dash_masks/%s", dir, file);
+        snprintf(to, sizeof to, "%s/dash_masks/%s", base_data, file);
+        if (is_dir(from)) {
+            memset(&changes, 0, sizeof changes);
+            if (!mask_changes_compare_dash(from, to, &changes, why, cap)) return 0;
+            snprintf(from, sizeof from, "dash_masks/%s", file);
+            masks_items(out, from, &changes);
+        }
+        const int colors = colors_same_as_game(dir, atoi(model));
+        if (colors >= 0) add_item(out, "colors", colors ? TWEAK_SAME : TWEAK_CHANGED, colors ? "" : "go into core/formats/car_paint.c");
+    } else if (strcmp(out->target, "track") == 0) {
+        static OriginalPublish plan;
+        target_value(target, "stem", stem, sizeof stem);
+        snprintf(out->object, sizeof out->object, "%s", stem);
+        snprintf(from, sizeof from, "%s/track_light/%s.txt", dir, stem);
+        struct stat st;
+        if (stat(from, &st) == 0) {
+            if (!original_track_light_plan(from, stem, base_data, &plan, why, cap)) return 0;
+            plan_items(out, &plan);
+        }
+        snprintf(from, sizeof from, "%s/track_masks/%s", dir, stem);
+        if (is_dir(from)) {
+            memset(&plan, 0, sizeof plan);
+            if (!track_masks_plan_from(from, base_data, stem, &plan, why, cap)) return 0;
+            plan_items(out, &plan);
+        }
+    } else {
+        return say(why, cap, "%s: studio/target.txt says neither a car nor a track%s", dir, "");
+    }
+    mark_own(dir, base_data, out);
+    summarize(out);
+    return 1;
+}
+
+int tweak_check(const char *dir, char *report, size_t cap)
+{
+    char path[PATH], target[LINE], kind[16], ini_why[160] = "";
+    snprintf(path, sizeof path, "%s/mod.ini", dir);
+    ExchangeError err;
+    size_t size = 0;
+    uint8_t *ini = fsio_read_file(path, &size, &err);
+    if (ini == NULL) return say(report, cap, "no mod.ini in %s", dir, "");
+    ModInfo info;
+    const int parsed = mod_ini_parse(ini, size, &info, ini_why, sizeof ini_why);
+    free(ini);
+    if (!parsed) return say(report, cap, "mod.ini: %s%s", ini_why, "");
+    if (info.type != MOD_TYPE_TWEAK) return say(report, cap, "mod.ini is not type=tweak%s%s", "", "");
+    snprintf(path, sizeof path, "%s/studio/target.txt", dir);
+    char *text = read_text(path);
+    if (text == NULL) return say(report, cap, "no studio/target.txt in %s", dir, "");
+    snprintf(target, sizeof target, "%s", text);
+    free(text);
+    target_value(target, "kind", kind, sizeof kind);
+    const int car = strcmp(kind, "car") == 0;
+    if (!car && strcmp(kind, "track") != 0) return say(report, cap, "studio/target.txt names no car or track%s%s", "", "");
+    char object[64];
+    target_value(target, car ? "folder" : "stem", object, sizeof object);
+    if (object[0] == '\0') return say(report, cap, "studio/target.txt has no %s", car ? "folder" : "stem", "");
+    /* every folder under the tweak's data/ paths is the object's: a stray one would be applied to another car or track */
+    static const char *const SUBS[] = { "car_masks", "dash_masks", "track_masks" };
+    char own_dash[64];
+    target_value(target, "file", own_dash, sizeof own_dash);
+    for (int i = 0; i < 3; ++i) {
+        char sub[PATH];
+        snprintf(sub, sizeof sub, "%s/%s", dir, SUBS[i]);
+        DIR *d = opendir(sub);
+        for (struct dirent *e; d != NULL && (e = readdir(d)) != NULL;) {
+            if (e->d_name[0] == '.') continue;
+            const char *own = i == 1 ? own_dash : object;
+            if (strcmp(e->d_name, own) != 0) {
+                snprintf(report, cap, "%s/%s is for another object than the tweak's (%s)", SUBS[i], e->d_name, own);
+                closedir(d);
+                return 0;
+            }
+        }
+        if (d != NULL) closedir(d);
+    }
+    snprintf(path, sizeof path, "%s/track_light", dir);
+    DIR *d = opendir(path);
+    char own_light[80];
+    snprintf(own_light, sizeof own_light, "%s.txt", object);
+    for (struct dirent *e; d != NULL && (e = readdir(d)) != NULL;) {
+        if (e->d_name[0] != '.' && strcmp(e->d_name, own_light) != 0) {
+            snprintf(report, cap, "track_light/%s is for another track than the tweak's (%s)", e->d_name, object);
+            closedir(d);
+            return 0;
+        }
+    }
+    if (d != NULL) closedir(d);
+    snprintf(report, cap, "ok");
+    return 1;
+}
+
+/* ---- the game's fingerprints and Apply that skips the repo's own changes ---- */
+
+#include <ftw.h>
+#include <unistd.h>
+
+enum { REL_MAX = 400 };
+
+typedef struct {
+    char rel[REL_MAX][TWEAK_NAME];
+    int count;
+} Rels;
+
+static void rels_add(Rels *r, const char *rel)
+{
+    if (r->count < REL_MAX) snprintf(r->rel[r->count++], TWEAK_NAME, "%s", rel);
+}
+
+static void rels_files(Rels *r, const char *dir, const char *sub, const char *ext)   /* sub/<file>.ext */
+{
+    char path[PATH];
+    snprintf(path, sizeof path, "%s/%s", dir, sub);
+    DIR *d = opendir(path);
+    for (struct dirent *e; d != NULL && (e = readdir(d)) != NULL;) {
+        char rel[TWEAK_NAME];
+        if (!has_extension(e->d_name, ext) || snprintf(rel, sizeof rel, "%s/%s", sub, e->d_name) >= (int)sizeof rel) continue;
+        rels_add(r, rel);
+    }
+    if (d != NULL) closedir(d);
+}
+
+/* every file of the tweak that Apply reads: the objects' folders below car_masks, dash_masks, track_masks, and track_light's files */
+static void rels_of(const char *dir, Rels *r)
+{
+    static const char *const SUBS[] = { "car_masks", "dash_masks", "track_masks" };
+    memset(r, 0, sizeof *r);
+    for (int i = 0; i < 3; ++i) {
+        char path[PATH];
+        snprintf(path, sizeof path, "%s/%s", dir, SUBS[i]);
+        DIR *d = opendir(path);
+        for (struct dirent *e; d != NULL && (e = readdir(d)) != NULL;) {
+            char sub[TWEAK_NAME];
+            if (e->d_name[0] == '.' || snprintf(sub, sizeof sub, "%s/%s", SUBS[i], e->d_name) >= (int)sizeof sub) continue;
+            rels_files(r, dir, sub, ".png");
+        }
+        if (d != NULL) closedir(d);
+    }
+    rels_files(r, dir, "track_light", ".txt");
+}
+
+static int fingerprint(const char *path, unsigned long long *out)   /* FNV-1a 64 of the file; 0 when it is not there */
+{
+    ExchangeError err;
+    size_t size = 0;
+    uint8_t *data = fsio_read_file(path, &size, &err);
+    if (data == NULL) return 0;
+    unsigned long long h = 1469598103934665603ULL;
+    for (size_t i = 0; i < size; ++i) h = (h ^ data[i]) * 1099511628211ULL;
+    free(data);
+    *out = h;
+    return 1;
+}
+
+int tweak_base_write(const char *dir, const char *base_data, char *why, size_t cap)
+{
+    char path[PATH], body[REL_MAX * (TWEAK_NAME + 24)];
+    struct stat st;
+    snprintf(path, sizeof path, "%s/studio/base.txt", dir);
+    if (stat(path, &st) == 0) return 1;
+    static Rels rels;
+    rels_of(dir, &rels);
+    size_t n = 0;
+    body[0] = '\0';
+    for (int i = 0; i < rels.count && n + TWEAK_NAME + 24 < sizeof body; ++i) {
+        char file[PATH];
+        unsigned long long h;
+        snprintf(file, sizeof file, "%s/%s", base_data, rels.rel[i]);
+        if (fingerprint(file, &h)) n += (size_t)snprintf(body + n, sizeof body - n, "%s\t%016llx\n", rels.rel[i], h);
+        else n += (size_t)snprintf(body + n, sizeof body - n, "%s\t-\n", rels.rel[i]);
+    }
+    if (!write_text(path, body)) return say(why, cap, "cannot write %s%s", path, "");
+    return 1;
+}
+
+/* the fingerprint studio/base.txt has for `rel`: 1 with it in `h`, 2 when the game had no such file, 0 when the file says nothing about it */
+static int base_of(const char *text, const char *rel, unsigned long long *h)
+{
+    const size_t n = strlen(rel);
+    for (const char *line = text; line != NULL && *line != '\0'; line = strchr(line, '\n') != NULL ? strchr(line, '\n') + 1 : NULL) {
+        if (strncmp(line, rel, n) != 0 || line[n] != '\t') continue;
+        if (line[n + 1] == '-') return 2;
+        *h = strtoull(line + n + 1, NULL, 16);
+        return 1;
+    }
+    return 0;
+}
+
+/* marks the items of `s` whose repo copy is neither the base's nor... (the item is changed or new against the repo, and the repo's file is not the one the tweak was made from) */
+static void mark_own(const char *dir, const char *repo_data, TweakStatus *s)
+{
+    char path[PATH];
+    snprintf(path, sizeof path, "%s/studio/base.txt", dir);
+    char *base = read_text(path);
+    if (base == NULL) return;
+    for (int i = 0; i < s->count; ++i) {
+        TweakFile *f = &s->item[i];
+        unsigned long long was, now;
+        char repo[PATH];
+        if (f->state == TWEAK_SAME || strcmp(f->file, "colors") == 0) continue;
+        snprintf(repo, sizeof repo, "%s/%s", repo_data, f->file);
+        const int known = base_of(base, f->file, &was);
+        if (known == 0 || !fingerprint(repo, &now)) continue;   /* nothing known, or the repo has no such file: nothing of its own */
+        if (known == 2 || now != was) f->own = 1, ++s->own;
+    }
+    free(base);
+}
+
+static int remove_entry(const char *path, const struct stat *st, int flag, struct FTW *ftw)
+{
+    (void)st, (void)flag, (void)ftw;
+    return remove(path);
+}
+
+static int copy_one(const char *from, const char *to)
+{
+    ExchangeError err;
+    size_t size = 0;
+    uint8_t *data = fsio_read_file(from, &size, &err);
+    const int ok = data != NULL && fsio_write_file(to, data, size, 1, &err);
+    free(data);
+    return ok;
+}
+
+int tweak_apply_skipping(const char *dir, const char *repo_data, TweakApplied *out, char *why, size_t cap)
+{
+    static TweakStatus status;
+    if (!tweak_status(dir, repo_data, &status, why, cap)) return 0;
+    if (status.own == 0) {
+        if (!tweak_apply(dir, repo_data, out, why, cap)) return 0;
+        char base[PATH];
+        snprintf(base, sizeof base, "%s/studio/base.txt", dir);
+        remove(base);   /* the repo is the tweak's now: the next base is the repo as it is then */
+        return 1;
+    }
+    char tmp[PATH];
+    const char *root = getenv("TMPDIR");
+    snprintf(tmp, sizeof tmp, "%s/tweak-skip-XXXXXX", root != NULL && root[0] != '\0' ? root : "/tmp");
+    if (mkdtemp(tmp) == NULL) return say(why, cap, "cannot make a folder to apply from in %s%s", tmp, "");
+    int ok = 1;
+    static const char *const KEEP[] = { "studio/target.txt", "studio/paints.txt" };
+    for (int i = 0; i < 2 && ok; ++i) {
+        char from[PATH], to[PATH];
+        struct stat st;
+        snprintf(from, sizeof from, "%s/%s", dir, KEEP[i]);
+        snprintf(to, sizeof to, "%s/%s", tmp, KEEP[i]);
+        if (stat(from, &st) == 0) ok = copy_one(from, to);
+    }
+    for (int i = 0; i < status.count && ok; ++i) {
+        char from[PATH], to[PATH];
+        if (status.item[i].own || strcmp(status.item[i].file, "colors") == 0) continue;
+        snprintf(from, sizeof from, "%s/%s", dir, status.item[i].file);
+        snprintf(to, sizeof to, "%s/%s", tmp, status.item[i].file);
+        ok = copy_one(from, to);
+    }
+    if (!ok) say(why, cap, "cannot copy the tweak's files to apply them%s%s", "", "");
+    else ok = tweak_apply(tmp, repo_data, out, why, cap);
+    nftw(tmp, remove_entry, 16, FTW_DEPTH | FTW_PHYS);
+    if (ok) out->skipped = status.own;
+    return ok;
+}

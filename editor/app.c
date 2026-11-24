@@ -72,6 +72,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     install_job_init(&a->install);
     psd_job_init(&a->psd);
     a->export_pick = -1;
+    a->tweak_pick = -1;
     a->preview_paint = -1;
     a->photo_view_open = 0;   /* the large photo belongs to the car that took it */
     a->night = night_settings_default();
@@ -134,7 +135,7 @@ static int car_into(App *a, const char *dir)
     app_card_arm(a);
     const ExportCar *own = app_car_is_original(a) ? car_race_original_of(&a->car) : NULL;
     set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)"
-                  : own != NULL && own->kind != EXPORT_DRIVABLE ? "opened: edit the masks; Copy to game repo sends them (a traffic or police car has no card or colors)"
+                  : own != NULL && own->kind != EXPORT_DRIVABLE ? "opened: edit the masks; the Tweak panel applies them to the game repo (a traffic or police car has no card or colors)"
                   : "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;
 }
@@ -462,8 +463,10 @@ void app_carry_window(App *to, const App *from)
     to->workspace_list = from->workspace_list;
     memcpy(to->game_tried, from->game_tried, sizeof to->game_tried);   /* what the game lookup found stays with the window, not with a project */
     memcpy(to->game_memo, from->game_memo, sizeof to->game_memo);
+    to->game_asked = from->game_asked;
     to->export_src = from->export_src;   /* so does where the game's files are */
     to->export_pick = from->export_pick;
+    to->tweak_list = from->tweak_list;   /* the main menu comes back on the list the tweak was opened from */
     to->drive_pick = from->drive_pick;   /* the editor's setting, not the project's */
     memcpy(to->light_dir, from->original_dir[0] != '\0' ? from->data_dir : from->light_dir, sizeof to->light_dir);   /* an original track's own light folder stays with it */
     memcpy(to->data_dir, from->data_dir, sizeof to->data_dir);
@@ -753,10 +756,38 @@ int app_game_found(const App *a)
     return game_there(a);
 }
 
+/* the file that says the first start's question was answered, beside the one that remembers the located game */
+static int asked_path(const App *a, char *out, size_t cap)
+{
+    return a->game_memo[0] != '\0' && snprintf(out, cap, "%s.asked", a->game_memo) < (int)cap;
+}
+
+static void game_asked_keep(App *a)
+{
+    char path[APP_PATH + 8];
+    a->game_asked = 1;
+    if (!asked_path(a, path, sizeof path)) return;
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) fputs("1\n", f), fclose(f);
+}
+
 void app_set_game_lookup(App *a, const char *tried, const char *memo)
 {
+    char path[APP_PATH + 8];
+    struct stat st;
     snprintf(a->game_tried, sizeof a->game_tried, "%s", tried != NULL ? tried : "");
     snprintf(a->game_memo, sizeof a->game_memo, "%s", memo != NULL ? memo : "");
+    if (asked_path(a, path, sizeof path) && stat(path, &st) == 0) a->game_asked = 1;
+}
+
+int app_game_offer(const App *a)
+{
+    return !game_there(a) && !a->game_asked;
+}
+
+void app_game_put_aside(App *a)
+{
+    game_asked_keep(a);
 }
 
 int app_set_game(App *a, const char *picked)
@@ -777,6 +808,7 @@ int app_set_game(App *a, const char *picked)
         FILE *m = fopen(a->game_memo, "wb");
         if (m != NULL) fprintf(m, "%s\n", program), fclose(m);
     }
+    game_asked_keep(a);   /* located: the first start's question has its answer */
     snprintf(a->status, sizeof a->status, "the game is %s", program);
     return 1;
 }

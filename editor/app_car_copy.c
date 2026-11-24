@@ -26,7 +26,7 @@ static int plan_of(const App *a, Plan *p, char *why, size_t why_cap)
     memset(p, 0, sizeof *p);
     p->car = a->kind == APP_KIND_CAR ? car_race_original_of(&a->car) : NULL;
     if (p->car == NULL) return snprintf(why, why_cap, "only one of the game's own cars goes to the game repo"), 0;
-    if (app_repo_data(a)[0] == '\0') return snprintf(why, why_cap, "the game repo's data/ is not set (File > Game repo folder...)"), 0;
+    if (app_repo_data(a)[0] == '\0') return snprintf(why, why_cap, "the game repo's data/ is not set (File > Settings...)"), 0;
     if (a->car.has_masks_dir) {
         car_project_masks_dir(&a->car, p->project, sizeof p->project);
         snprintf(p->repo, sizeof p->repo, "%s/car_masks/%s", app_repo_data(a), p->car->folder);

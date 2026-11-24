@@ -342,7 +342,7 @@ void default_layout(ImGuiID dock)
 }
 
 // the layout of a car's first run: its card on the left, the textures and the masks stacked on the right
-void car_layout(ImGuiID dock)
+void car_layout(ImGuiID dock, bool tweak)
 {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
@@ -350,6 +350,10 @@ void car_layout(ImGuiID dock)
     ImGuiID left = 0, right = 0;
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.4f, nullptr, &right);
     const ImGuiID model = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.4f, nullptr, &right);   // the car in 3D above its masks, the race and its photo
+    if (tweak) {   // an original car: the Tweak panel under its card
+        const ImGuiID below = ImGui::DockBuilderSplitNode(left, ImGuiDir_Down, 0.4f, nullptr, &left);
+        ImGui::DockBuilderDockWindow(PANEL_TWEAK, below);
+    }
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_MODEL, model);
     ImGui::DockBuilderDockWindow(PANEL_MASKS, right);   // the masks, which need the room
@@ -359,7 +363,7 @@ void car_layout(ImGuiID dock)
 }
 
 // the layout of the Track light window: the file's controls on the left, the photo on the right
-void light_layout(ImGuiID dock)
+void light_layout(ImGuiID dock, bool tweak)
 {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
@@ -368,6 +372,10 @@ void light_layout(ImGuiID dock)
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.34f, nullptr, &right);
     ImGuiID photo = 0, compare = 0;
     photo = ImGui::DockBuilderSplitNode(right, ImGuiDir_Left, 0.5f, nullptr, &compare);   // the photo and, beside it, the comparison
+    if (tweak) {   // an original track: the Tweak panel under the light's controls
+        const ImGuiID below = ImGui::DockBuilderSplitNode(left, ImGuiDir_Down, 0.45f, nullptr, &left);
+        ImGui::DockBuilderDockWindow(PANEL_TWEAK, below);
+    }
     ImGui::DockBuilderDockWindow(PANEL_LIGHT, left);
     ImGui::DockBuilderDockWindow(PANEL_LIGHT_PHOTO, photo);
     ImGui::DockBuilderDockWindow(PANEL_LIGHT_COMPARE, compare);
@@ -376,7 +384,7 @@ void light_layout(ImGuiID dock)
 }
 
 // the layout of a masks project: its facts on the left, the masks (list and view) and the race on the right
-void masks_layout(ImGuiID dock)
+void masks_layout(ImGuiID dock, bool tweak)
 {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
@@ -384,6 +392,10 @@ void masks_layout(ImGuiID dock)
     ImGuiID left = 0, right = 0, race = 0;
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.3f, nullptr, &right);
     race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.4f, nullptr, &right);   // the masks list, its changes and the view need room above
+    if (tweak) {
+        const ImGuiID below = ImGui::DockBuilderSplitNode(left, ImGuiDir_Down, 0.4f, nullptr, &left);
+        ImGui::DockBuilderDockWindow(PANEL_TWEAK, below);
+    }
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_MASKS, right);   // alone above: the list and the view need the room
     ImGui::DockBuilderDockWindow(PANEL_MODEL, race);
@@ -434,8 +446,8 @@ int mode_panels(const App *a, const char *out[], int cap)
         return n < cap ? n : cap;
     }
     if (a->kind == APP_KIND_LIGHT) {
-        const char *const light[] = { PANEL_LIGHT, PANEL_LIGHT_PHOTO, PANEL_LIGHT_COMPARE, PANEL_TRACK_MASKS };
-        const int n = a->original_dir[0] != '\0' ? 4 : 3;   // the masks are an original track's
+        const char *const light[] = { PANEL_LIGHT, PANEL_LIGHT_PHOTO, PANEL_LIGHT_COMPARE, PANEL_TRACK_MASKS, PANEL_TWEAK };
+        const int n = a->original_dir[0] != '\0' ? 5 : 3;   // the masks and the tweak are an original track's
         for (int i = 0; i < n && i < cap; ++i) out[i] = light[i];
         return cap < n ? cap : n;
     }
@@ -444,6 +456,7 @@ int mode_panels(const App *a, const char *out[], int cap)
     int n = 0;
     for (const char *name : all)
         if (n < cap) out[n++] = name;
+    if (app_tweak_active(a) && n < cap) out[n++] = PANEL_TWEAK;
     return n;
 }
 
@@ -501,7 +514,7 @@ bool track_edit_done()
 }
 
 // The File menu holds the actions of the room on screen only (Cars, Tracks, the main menu), New before Open: a car's room has no New track, a track's no Open car.
-enum FileItem { FILE_NEW_CAR, FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_EXPORT_TRACK, FILE_COPY, FILE_REPO, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
+enum FileItem { FILE_NEW_CAR, FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_EXPORT_TRACK, FILE_SETTINGS, FILE_OPEN_CAR, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
 
 static const char *file_label(FileItem item)
 {
@@ -509,12 +522,9 @@ static const char *file_label(FileItem item)
     case FILE_NEW_CAR: return "New car...";
     case FILE_NEW_TRACK: return "New track...";
     case FILE_OPEN_TRACK: return "Open track...";
-    case FILE_LIGHT: return "Open original track...";
-    case FILE_EXPORT_TRACK: return "Export original track...";
-    case FILE_COPY: return "Copy to game repo";
-    case FILE_REPO: return "Game repo folder...";
+    case FILE_EXPORT_TRACK: return "New track from an original...";
+    case FILE_SETTINGS: return "Settings...";
     case FILE_OPEN_CAR: return "Open car...";
-    case FILE_EXPORT: return "Export original car...";
     case FILE_RECENT: return "Open recent";
     case FILE_WORKSPACE: return "Workspace";
     case FILE_SAVE: return "Save";
@@ -529,13 +539,10 @@ static int file_items(const App *a, FileItem out[12])
 {
     int n = 0;
     const AppRoom room = app_room(a);
-    if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_EXPORT_TRACK, out[n++] = FILE_RECENT;
-    if (room == APP_ROOM_TRACKS && (app_original_can_copy(a) || app_repo_copy_unset(a))) out[n++] = FILE_COPY;   // off, with the reason, while the repo folder is not set
-    if (room == APP_ROOM_TRACKS) out[n++] = FILE_REPO;
-    if (room == APP_ROOM_CARS) out[n++] = FILE_NEW_CAR, out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
-    if (room == APP_ROOM_CARS && (app_car_copy_can(a) || app_repo_copy_unset(a))) out[n++] = FILE_COPY;
-    if (room == APP_ROOM_CARS) out[n++] = FILE_REPO;
-    if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE, out[n++] = FILE_REPO;   // the workspace is for both rooms: its menu is the main menu's, not a room's
+    if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_EXPORT_TRACK, out[n++] = FILE_RECENT;
+    if (room == APP_ROOM_CARS) out[n++] = FILE_NEW_CAR, out[n++] = FILE_OPEN_CAR, out[n++] = FILE_RECENT;
+    if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE;   // the workspace is for both rooms: its menu is the main menu's, not a room's
+    out[n++] = FILE_SETTINGS;   // the game, the workspace and the game repo's folder: asked once, changed here
     if (room == APP_ROOM_HUB) out[n++] = FILE_SEPARATOR;
     if (room != APP_ROOM_HUB) out[n++] = FILE_SAVE, out[n++] = FILE_MAIN;
     out[n++] = FILE_QUIT;
@@ -591,19 +598,13 @@ void main_menu(App *a)
                 char keys[16];
                 shortcut_label(keys, sizeof keys, SHORTCUT_MAC, "W");
                 if (ImGui::MenuItem("Main menu", keys)) app_ask(a, APP_ACT_MAIN, "");
-            } else if (item == FILE_COPY && app_repo_copy_unset(a)) {   // not hidden: off, and the tooltip says what to do
-                ImGui::MenuItem(file_label(item), nullptr, false, false);
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Set the game repo folder first: File > Game repo folder...");
             } else if (ImGui::MenuItem(file_label(item))) {
                 if (item == FILE_NEW_CAR) app_ask(a, APP_ACT_NEW_CAR, "");
                 else if (item == FILE_NEW_TRACK) app_ask(a, APP_ACT_NEW, "");
                 else if (item == FILE_OPEN_TRACK) app_ask(a, APP_ACT_OPEN, "");
-                else if (item == FILE_LIGHT) a->original_dialog = 1;
                 else if (item == FILE_EXPORT_TRACK) app_ask(a, APP_ACT_EXPORT_TRACK, "");
-                else if (item == FILE_COPY) app_original_copy_ask(a);
-                else if (item == FILE_REPO) app_repo_data_pick(a);
+                else if (item == FILE_SETTINGS) a->settings_dialog = 1;
                 else if (item == FILE_OPEN_CAR) app_ask(a, APP_ACT_OPEN_CAR, "");
-                else if (item == FILE_EXPORT) a->export_dialog = 1;
                 else if (item == FILE_QUIT) app_ask(a, APP_ACT_QUIT, "");
             }
         }
@@ -658,44 +659,6 @@ void new_track_popup(App *a)
     if (create && app_new_track_named(a, a->new_track_name, a->new_track_id)) a->new_track_dialog = 0;
     if (cancel) a->new_track_dialog = 0, a->new_track_error[0] = '\0';
     if (!a->new_track_dialog) ImGui::CloseCurrentPopup();
-    ImGui::EndPopup();
-}
-
-// Open original track: the originals in the workspace, one click each; Add makes all sixteen from the game's files when some are missing
-void original_popup(App *a)
-{
-    static const char *const NAME = "Open original track";
-    if (a->original_dialog && !ImGui::IsPopupOpen(NAME)) ImGui::OpenPopup(NAME);
-    if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
-    if (!a->original_dialog) {
-        ImGui::CloseCurrentPopup();
-        ImGui::EndPopup();
-        return;
-    }
-    const int have = app_original_count(a);
-    if (a->workspace[0] == '\0') {
-        ImGui::TextUnformatted("Choose a workspace first (File > Workspace on the main menu):\nthe original tracks are kept in its tracks/ folder.");
-    } else {
-        for (int i = 0; i < OT_STEMS; ++i) {
-            char dir[APP_PATH];
-            if (!original_track_dir(a->workspace, original_track_stem(i), dir, sizeof dir) || !original_track_present(dir)) continue;
-            if (ImGui::Selectable(original_track_stem(i), false, ImGuiSelectableFlags_DontClosePopups, ImVec2(160, 0))) {
-                a->original_dialog = 0;
-                app_ask(a, APP_ACT_OPEN_AT, dir);
-            }
-        }
-        if (have == 0) ImGui::TextDisabled("No original track is in this workspace.");
-        ImGui::BeginDisabled(!a->data_dir_ok);
-        if (ImGui::Button(have == 0 ? "Add originals" : "Update originals")) app_original_add_all(a);
-        ImGui::EndDisabled();
-        char missing[APP_PATH + 64];   // (the path that failed, shown in the tooltip)
-        snprintf(missing, sizeof missing, "\n(Game data folder not found: %s)", a->data_dir);
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("Put the game's 16 tracks in the workspace (their light file and mask PSDs), or bring an older workspace up to date: the one light file replaces the old light files.\nWhat you already edited is never touched.%s", a->data_dir_ok ? "" : a->data_dir[0] == '\0' ? "\n(Choose File > Game repo folder... first: Studio needs the game's data/ to copy the light files from.)" : missing);
-    }
-    ImGui::Spacing();
-    if (ImGui::Button("Close") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->original_dialog = 0;
-    if (!a->original_dialog) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
 
@@ -834,7 +797,7 @@ void ui_print_menu(const App *a)
     const AppRoom room = app_room(a);
     printf("room: %s\nfile:", room == APP_ROOM_CARS ? "cars" : room == APP_ROOM_TRACKS ? "tracks" : "hub");
     for (int i = 0; i < n; ++i)
-        if (items[i] != FILE_SEPARATOR) printf("%s%s%s", i == 0 ? " " : " | ", file_label(items[i]), items[i] == FILE_COPY && app_repo_copy_unset(a) ? " (off: set the game repo folder first)" : "");
+        if (items[i] != FILE_SEPARATOR) printf("%s%s", i == 0 ? " " : " | ", file_label(items[i]));
     printf("\n");
 }
 
@@ -1013,7 +976,7 @@ static ImTextureID mask_texture(SDL_Renderer *ren, const App *a)
 
 void ui_frame(SDL_Renderer *ren, App *a)
 {
-    static bool track_laid_out = false, car_laid_out = false, masks_laid_out = false, light_laid_out = false;
+    static bool track_laid_out = false, car_laid_out[4] = { false, false, false, false }, light_laid_out[2] = { false, false };   // by the dock: [masks * 2 + tweak]
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -1076,14 +1039,18 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (track_edit_done()) app_track_commit(a);
     } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout
         const bool masks = a->car.masks_only;   // a masks project keeps a layout of its own: it shows fewer windows
-        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr(masks ? "StudioMasksDock" : "StudioCarDock"), ImGui::GetMainViewport());
-        bool &laid_out = masks ? masks_laid_out : car_laid_out;
+        const bool tweak = app_tweak_active(a);   // and so does one of the game's own cars: its Tweak panel has a place
+        static const char *const DOCKS[4] = { "StudioCarDock", "StudioTweakCarDock", "StudioMasksDock", "StudioTweakMasksDock" };
+        const int which = (masks ? 2 : 0) + (tweak ? 1 : 0);
+        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr(DOCKS[which]), ImGui::GetMainViewport());
+        bool &laid_out = car_laid_out[which];
         if (!laid_out || reset) {
             laid_out = true;
-            if (reset || dock_is_empty(dock)) (masks ? masks_layout : car_layout)(dock);
+            if (reset || dock_is_empty(dock)) (masks ? masks_layout : car_layout)(dock, tweak);
         }
         if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
         if (panel_open(PANEL_CAR)) car_panel(a);
+        if (tweak && panel_open(PANEL_TWEAK)) tweak_panel(a);
         uint64_t perf = perf_begin();
         if (panel_open(PANEL_MODEL)) model_panel(a, ren);
         perf_end(PERF_MODEL, perf), perf = perf_begin();
@@ -1096,10 +1063,11 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (panel_open(PANEL_PREVIEW)) preview_panel(a, ren);
         perf_end(PERF_PREVIEW, perf);
     } else if (a->kind == APP_KIND_LIGHT) {   // the Track light window has a dock space of its own
-        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr("StudioLightDock"), ImGui::GetMainViewport());
-        if (!light_laid_out || reset) {
-            light_laid_out = true;
-            if (reset || dock_is_empty(dock)) light_layout(dock);
+        const bool tweak = app_tweak_active(a);
+        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr(tweak ? "StudioTweakTrackDock" : "StudioLightDock"), ImGui::GetMainViewport());
+        if (!light_laid_out[tweak] || reset) {
+            light_laid_out[tweak] = true;
+            if (reset || dock_is_empty(dock)) light_layout(dock, tweak);
         }
         if (a->original_dir[0] != '\0') {   // before any photo of this frame starts: they show the PNGs these two leave
             app_track_masks_load(a);   // the masks of an original track: scanned and made from the PSDs once per open
@@ -1107,6 +1075,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         }
         if (a->confirm == APP_ACT_NONE) light_shortcuts(a);
         if (panel_open(PANEL_LIGHT)) light_panel(a);
+        if (tweak && panel_open(PANEL_TWEAK)) tweak_panel(a);
         if (panel_open(PANEL_LIGHT_PHOTO)) light_photo_panel(a, light_texture(ren, a));
         ImTextureID compare[LIGHT_COMPARE_SLOTS];
         light_compare_textures(ren, a, compare);
@@ -1130,8 +1099,8 @@ void ui_frame(SDL_Renderer *ren, App *a)
     new_car_popup(a);
     export_track_popup(a);
     physics_popup(a);
-    original_popup(a);
     copy_popup(a);
+    settings_popup(a);
     open_error_popup(a);
     if (ImGui::GetCurrentContext()->DebugDrawIdConflictsId != 0) imgui_error(nullptr, nullptr, "two items share an ID (ImGui's red box): a row of a list needs its own PushID");   // only for the item under the mouse: the scan step moves it over the window
     ImGui::Render();

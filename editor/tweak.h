@@ -14,6 +14,7 @@ typedef struct {
     int masks, dash, light, track_masks;   /* the files written into data/ */
     int colors;                            /* 1 when the car's row of core/formats/car_paint.c was rewritten */
     int colors_skipped;                    /* the card lists more colors than the table holds: how many (not compared) */
+    int skipped;                           /* the files the repo has changes of its own in, left as they are (tweak_apply_skipping) */
 } TweakApplied;
 
 /* the folder name of a tweak of `object` ("CY1", "Wagon", "LDiabl"): lower case, "-tweak" after it ("cy1-tweak") */
@@ -29,5 +30,35 @@ int tweak_make_track(const char *dir, const char *stem, const char *light_file, 
 /* Applies the tweak folder `dir` to the game repo whose data/ is `repo_data` (core/formats/car_paint.c is read beside it): the changed and new files are written, a file the repo already has the same
  * stays. 1 with `out` filled, or 0 with `why` (what was written before the failure stays written, as Copy's does). */
 int tweak_apply(const char *dir, const char *repo_data, TweakApplied *out, char *why, size_t cap);
+
+/* What a tweak holds against the game: each file of the tweak folder that Apply would write, as the game's data/ `base_data` has it (same, changed with its size, new). The colors are one row. */
+typedef enum { TWEAK_SAME = 0, TWEAK_CHANGED, TWEAK_NEW } TweakState;
+enum { TWEAK_FILES = 160, TWEAK_NAME = 96, TWEAK_NOTE = 96 };
+typedef struct {
+    char file[TWEAK_NAME];   /* the path in the tweak folder ("track_light/CY1.txt", "car_masks/Wagon/side_mask.png", "colors") */
+    TweakState state;
+    char note[TWEAK_NOTE];   /* "12 lines", "140 texels", "" */
+    int own;                 /* the repo's file is neither the game's it was made from nor the tweak's: it has changes of its own (studio/base.txt knows the first) */
+} TweakFile;
+typedef struct {
+    TweakFile item[TWEAK_FILES];
+    int count, changed, same, own;
+    char target[16];         /* "car" or "track" */
+    char object[64];         /* the car's masks folder or the track's stem */
+    char summary[160];       /* one line: "changed 3 masks, colors", "same as the game" */
+} TweakStatus;
+
+/* The status of the tweak folder `dir` against `base_data`. 1, or 0 with `why` (not a tweak of Studio, or the game's folder is not there to compare with). */
+int tweak_status(const char *dir, const char *base_data, TweakStatus *out, char *why, size_t cap);
+
+/* The fingerprints of the game's files the tweak carries a file for, as `base_data` has them now, in studio/base.txt ("-" for a file it has not): what lets Apply tell a repo's own changes from
+ * the game's. Kept as it is when it is there (the first state is the one that counts). 1, or 0 with `why`. */
+int tweak_base_write(const char *dir, const char *base_data, char *why, size_t cap);
+
+/* Apply that leaves alone the files whose repo copy has changes of its own (TweakStatus.own): `skipped` counts them. With none it is tweak_apply. */
+int tweak_apply_skipping(const char *dir, const char *repo_data, TweakApplied *out, char *why, size_t cap);
+
+/* The checks that need no game: mod.ini is a type=tweak, studio/target.txt names an object, every mask and light file is for that object and reads. 1 with `report` "ok", or 0 with the first problem. */
+int tweak_check(const char *dir, char *report, size_t cap);
 
 #endif
