@@ -67,11 +67,15 @@ instead of the original track's.) What the window has, top to bottom:
   are the photo's camera. **Photo at node**: the slider, **-10 -1 +1 +10** and a typed node.
 * **Test drive** (and **Stop test drive**) with the weather (Clear, Fog, Rain, Storm): the game in a window of its own on this track, moment and node, following every edit without Save. It is always Restomod 16:9 at
   render scale 3 (a 2562x1440 window) with every effect on (lamp halos, soft shine, reflectors, headlight beams, sun_shadow, light effects), whatever the person's own settings say.
-* **Sun** (**Moon** at night): the compass and three sliders, **Direction**, **Height** and **Shadow strength** (100 = no shadow). The box to the left of each slider turns it on; unticked it is "auto" (the
-  generator's own), and a sun with all three unticked is no `sun` line.
+* **Sun** (**Moon** at night): the compass and three sliders, **Direction**, **Height** and **Shadow strength** (100 = no shadow). The box to the left of each slider turns it on; unticked it shows
+  "auto: N deg" (or "auto: 55 %"): the generator's own value for this moment, which is where the slider starts when you tick the box. Without a `sun` line the generator's sun stands at 90 (Dawn), 180 (Day),
+  270 (Dusk) and 0 (Night) degrees, 15 / 50 / 12 / 12 degrees high, with a shadow strength of 55 % (100 at night: no shadow); the shadow only falls where `sun_shadow` is on (the default in Restomod).
+  A sun with all three unticked is no `sun` line.
 * **Tunnels**: one row for each `tunnel` fact: **Remove**, **From**, **To**, **Kind** (tunnel / hall; a fact of every moment) and, for this moment, **Light %**, **Colour**, **Lamps %** and **Reach** (the
   `tunnel_look` line; an empty cell is inherited from the **default** row, and the row's cell, from the code). **Add tunnel** adds one from the photo's node to 50 nodes on. **Lamps % = 0** is an unlit tunnel:
   the car there does not blink (see What decides what).
+  Hover the **Lamps %** header for what the number means (100 = the code's lamps, 0 = none). **Lamps % to all moments** (next to **Add tunnel**) copies the **Lamps %** of this moment's looks to the same
+  tunnels (and the default row) at the other three moments, adding the lines that are missing; it refuses, and leaves the file as it was, if a copy would not be valid.
 * **Lamps (N)**: **Add lamp** at the photo's node; per lamp **Remove**, **Node**, **Light %**, **Colour**, **Radius** and **Strip** (none, all, left, right, road: where across the road it stands).
 * **Retouches**: **Brightness (N)** and **Tone (N)** with **Add brightness** / **Add tone** (from the photo's node to 50 nodes on), the lines' numbers and the strip bar (drag over the points C, 1..10, or **All /
   Left / Right / Road**); **Remove** takes a line away.
