@@ -40,4 +40,29 @@ sleep 1
 out=$(run --frames 6 "$dir" --steps masks-print 2>&1) || fail "masks-print after the change: $out"
 [ "$(cksum < "$dir/art-generated/track_masks/slot_00.png")" != "$before" ] || fail "a PSD saved again did not make its PNG again: $out"
 
+# Create PSD on a texture with no PSD: the PSD is made in art-source/masks (in C: no python, no tools folder), it is a PSD (the file's magic and the reader's own words), the row goes to "not painted yet",
+# a second Create PSD never goes over it, and the same through the clicked button
+out=$(run --frames 6 "$dir" --steps masks-print 2>&1)
+i=$(echo "$out" | grep '^mask ' | grep -n ': no mask,' | head -1 | cut -d: -f1)
+name=$(echo "$out" | grep '^mask ' | sed -n "${i}p" | sed 's/^mask \([^:]*\):.*/\1/')
+i=$((i - 1))
+[ -n "$name" ] && [ ! -e "$dir/art-source/masks/$name.psd" ] || fail "no texture without a PSD to try Create PSD on: $out"
+out=$(run --frames 6 "$dir" --steps mask-psd:$i,status,masks-print 2>&1) || fail "Create PSD: $out"
+[ -s "$dir/art-source/masks/$name.psd" ] && [ "$(head -c 4 "$dir/art-source/masks/$name.psd")" = 8BPS ] || fail "Create PSD did not make $name.psd: $out"
+echo "$out" | grep -q "$name.psd made in art-source/masks" || fail "Create PSD says nothing: $out"
+echo "$out" | grep "^mask $name:" | grep -q 'no mask painted' || fail "the new PSD's row is not the not-painted state: $(echo "$out" | grep "^mask $name:")"
+[ "$(ls -A "$dir/art-source/masks" | grep -c '^\.')" = 0 ] || fail "Create PSD left a scratch file: $(ls -A "$dir/art-source/masks")"
+made=$(cksum < "$dir/art-source/masks/$name.psd")
+run --frames 6 "$dir" --steps mask-psd:$i >/dev/null 2>&1 && fail "Create PSD went over a PSD that is there"
+[ "$(cksum < "$dir/art-source/masks/$name.psd")" = "$made" ] || fail "the PSD changed under a second Create PSD"
+
+# the same through the clicked button: the panel's detail under its table is on screen in a tall window (1280x1600), where the button is drawn and the click reaches it
+j=$(echo "$out" | grep '^mask ' | grep -n ': no mask,' | head -1 | cut -d: -f1)
+name2=$(echo "$out" | grep '^mask ' | sed -n "${j}p" | sed 's/^mask \([^:]*\):.*/\1/')
+j=$((j - 1))
+[ -n "$name2" ] && [ ! -e "$dir/art-source/masks/$name2.psd" ] || fail "no second texture without a PSD: $out"
+out=$(run --frames 20 --window 1280x1600 "$dir" --steps "mask-select:$j,ui-focus:Track masks,ui-click:tmask_create_psd,status" 2>&1) || fail "the clicked Create PSD: $out"
+[ "$(head -c 4 "$dir/art-source/masks/$name2.psd" 2>/dev/null)" = 8BPS ] || fail "the clicked Create PSD did not make $name2.psd: $out"
+echo "$out" | grep -q "$name2.psd made in art-source/masks" || fail "the clicked Create PSD says nothing: $out"
+
 [ "$failures" = 0 ] || exit 1

@@ -197,6 +197,12 @@ void track_masks_panel(App *a, ImTextureID picture)
     if (sel >= 0 && sel < m.count) {
         const TrackMaskRow &r = m.row[sel];
         ImGui::Text("%s", r.name);
+        if (!r.has_psd) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Create PSD")) app_track_mask_create_psd(a);
+            ui_probe("tmask_create_psd");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Makes the layered PSD of this texture in art-source/masks: the texture on a locked layer and an empty mask layer over it, to paint what is reflective.\nA PSD that is already there is never replaced.");
+        }
         if (r.has_psd && r.state != TM_EMPTY && r.state != TM_BAD) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Update this mask from its PSD")) {
