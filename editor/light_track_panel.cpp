@@ -473,6 +473,94 @@ bool lamp_strip_combo(LightTrackLamp *l)
 }
 
 // a night file has hundreds of lamps: the list is folded, with its count, and scrolls inside its own box
+// ---- Copy to... ----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// whether line `index` of the open time is one the last Copy to... made or changed (until the file is edited again)
+bool copy_marked(const App *a, int kind, int index)
+{
+    const LightUi &ui = a->light;
+    if (ui.copy_mark_kind != kind || ui.copy_mark_edits != ui.file_edits || !((ui.copy_mark_times >> time_of(a)) & 1u)) return false;
+    unsigned key[3];
+    return light_track_copy_key(&ui.session.file, kind, time_of(a), index, key) && memcmp(key, ui.copy_mark_key, sizeof key) == 0;
+}
+
+// a tint over the row just drawn (from `top` to the cursor) when it is a copied line
+void copy_tint(const App *a, int kind, int index, ImVec2 top)
+{
+    if (!copy_marked(a, kind, index)) return;
+    const ImVec2 end(top.x + ImGui::GetContentRegionAvail().x, ImGui::GetCursorScreenPos().y);
+    ImGui::GetWindowDrawList()->AddRectFilled(top, end, IM_COL32(255, 190, 60, 40));
+}
+
+// the "Copy to..." button of a row and its menu: the other times, each with a mark (nothing: the line would be added; "has it": the same line is there; "differs": the same key with another value), then
+// All others. The marks are worked out while the menu is open, in memory.
+void copy_menu(App *a, int kind, int index)
+{
+    if (ImGui::SmallButton("Copy to...")) ImGui::OpenPopup("##copyto");
+    ui_probe("copy");
+    if (!ImGui::BeginPopup("##copyto")) return;
+    LightTrackCopyPlan plan;
+    char why[LT_WHY];
+    const int here = time_of(a);
+    const bool planned = light_track_copy_plan(&file_of(a), kind, here, index, 0xfu, &plan, why, sizeof why) != 0;
+    for (int t = 0; t < LT_TIMES; ++t) {
+        if (t == here) continue;
+        const char *name = light_ui_time_name(t);
+        if (ImGui::Selectable(name, false, ImGuiSelectableFlags_None, ImVec2(120, 0)) && planned) {
+            app_light_copy(a, kind, index, 1u << t, 0);
+            ImGui::CloseCurrentPopup();
+        }
+        char probe[24];
+        snprintf(probe, sizeof probe, "copy_%s", name);
+        ui_probe(probe);
+        if (!planned) continue;
+        ImGui::SameLine();
+        if (plan.to[t].action == LT_COPY_SAME) ImGui::TextDisabled("has it");
+        else if (plan.to[t].action == LT_COPY_CLASH) ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.2f, 1.0f), "differs");
+    }
+    ImGui::Separator();
+    if (ImGui::Selectable("All others") && planned) {
+        app_light_copy(a, kind, index, 0xfu & ~(1u << here), 0);
+        ImGui::CloseCurrentPopup();
+    }
+    ui_probe("copy_all");
+    ImGui::EndPopup();
+}
+
+const char *kind_word(int kind) { return kind == LT_BRIGHTNESS ? "brightness" : kind == LT_TONE ? "tone" : "lamp"; }
+
+// the window that asks only when a copy would change a line that is there: Replace changes those and adds the rest, Skip only adds, Cancel touches nothing
+void copy_modal(App *a)
+{
+    LightUi &ui = a->light;
+    static const char TITLE[] = "Copy to other moments";
+    if (!ui.copy_pending) return;
+    if (!ImGui::IsPopupOpen(TITLE)) ImGui::OpenPopup(TITLE);
+    if (!ImGui::BeginPopupModal(TITLE, nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) return;
+    char key[64];
+    light_track_copy_key_text(&file_of(a), ui.copy_plan.kind, ui.copy_plan.from_time, ui.copy_plan.index, key, sizeof key);
+    ImGui::Text("Copy %s %s", kind_word(ui.copy_plan.kind), key);
+    char mine[64];
+    light_track_copy_value_text(&file_of(a), ui.copy_plan.kind, ui.copy_plan.from_time, ui.copy_plan.index, mine, sizeof mine);
+    for (int t = 0; t < LT_TIMES; ++t) {
+        const LightTrackCopyTime &to = ui.copy_plan.to[t];
+        char theirs[64];
+        if (to.action == LT_COPY_CLASH && light_track_copy_value_text(&file_of(a), ui.copy_plan.kind, t, to.clash, theirs, sizeof theirs))
+            ImGui::Text("  %s: %s  ->  %s", light_ui_time_name(t), theirs, mine);
+        else if (to.action == LT_COPY_ADD) ImGui::Text("  %s: will be added", light_ui_time_name(t));
+        else if (to.action == LT_COPY_SAME) ImGui::TextDisabled("  %s: has it", light_ui_time_name(t));
+    }
+    if (ImGui::Button("Replace")) app_light_copy_answer(a, 1), ImGui::CloseCurrentPopup();
+    ui_probe("copy_replace");
+    ImGui::SameLine();
+    if (ImGui::Button("Skip")) app_light_copy_answer(a, 2), ImGui::CloseCurrentPopup();
+    ui_probe("copy_skip");
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel")) app_light_copy_answer(a, 3), ImGui::CloseCurrentPopup();
+    ui_probe("copy_cancel");
+    ImGui::EndPopup();
+}
+
 void lamp_rows(App *a)
 {
     LightTrack &f = file_of(a);
@@ -488,13 +576,14 @@ void lamp_rows(App *a)
     if (!open) return;
     int remove = -1;
     if (count > 0 && ImGui::BeginChild("##lamplist", ImVec2(0, 220), ImGuiChildFlags_Borders)) {
-        if (ImGui::BeginTable("##lamps", 6, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX)) {
+        if (ImGui::BeginTable("##lamps", 7, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX)) {
             ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 58.0f);   // Remove first, and the widths what fits the panel at 1280 px: the last columns (Strip, Remove) were past its edge
             ImGui::TableSetupColumn("Node", ImGuiTableColumnFlags_WidthFixed, 54.0f);
             ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 54.0f);
             ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 40.0f);
             ImGui::TableSetupColumn("Radius", ImGuiTableColumnFlags_WidthFixed, 54.0f);
             ImGui::TableSetupColumn("Strip", ImGuiTableColumnFlags_WidthFixed, 84.0f);
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 74.0f);   // Copy to...
             ImGui::TableHeadersRow();
             // a night file has hundreds of lamps and each row is found by its number in the file: only the rows in view are drawn
             ImGuiListClipper clipper;
@@ -507,6 +596,7 @@ void lamp_rows(App *a)
                 ImGui::PushID(i);
                 { char scope[16]; snprintf(scope, sizeof scope, "lamp%d", i); ui_probe_scope(scope); }
                 ImGui::TableNextRow();
+                if (copy_marked(a, LT_LAMP, i)) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(255, 190, 60, 60));
                 ImGui::TableSetColumnIndex(1);
                 changed = node_box("##node", &l.node, -FLT_MIN) || changed;
                 ui_probe("node");
@@ -531,6 +621,8 @@ void lamp_rows(App *a)
                 }
                 ImGui::TableSetColumnIndex(5);
                 changed = lamp_strip_combo(&l) || changed;
+                ImGui::TableSetColumnIndex(6);
+                copy_menu(a, LT_LAMP, i);
                 ImGui::TableSetColumnIndex(0);
                 if (ImGui::Button("Remove")) remove = i;
                 ui_probe("remove");
@@ -585,6 +677,7 @@ void brightness_rows(App *a)
         int v[3] = { static_cast<int>(b.from), static_cast<int>(b.to), static_cast<int>(b.percent) };
         bool changed = false;
         ImGui::PushID(i);
+        const ImVec2 row_top = ImGui::GetCursorScreenPos();
         { char scope[24]; snprintf(scope, sizeof scope, "%s%d", "brightness", i); ui_probe_scope(scope); }
         ImGui::SetNextItemWidth(70.0f);
         changed = ImGui::InputInt("##from", &v[0], 0, 0) || changed;
@@ -597,8 +690,11 @@ void brightness_rows(App *a)
         ImGui::SameLine();
         if (ImGui::Button("Remove")) remove = i;
         ui_probe("remove");
+        ImGui::SameLine();
+        copy_menu(a, LT_BRIGHTNESS, i);
         changed = light_strip_bar("##strip", &b.mask) || changed;
         ui_probe_scope("");
+        copy_tint(a, LT_BRIGHTNESS, i, row_top);
         ImGui::Separator();
         ImGui::PopID();
         if (changed) {
@@ -639,6 +735,7 @@ void tone_rows(App *a)
         int v[3] = { static_cast<int>(t.from), static_cast<int>(t.to), static_cast<int>(t.percent) };
         bool changed = false;
         ImGui::PushID(i);
+        const ImVec2 row_top = ImGui::GetCursorScreenPos();
         { char scope[24]; snprintf(scope, sizeof scope, "%s%d", "tone", i); ui_probe_scope(scope); }
         ImGui::SetNextItemWidth(70.0f);
         changed = ImGui::InputInt("##from", &v[0], 0, 0) || changed;
@@ -653,8 +750,11 @@ void tone_rows(App *a)
         ImGui::SameLine();
         if (ImGui::Button("Remove")) remove = i;
         ui_probe("remove");
+        ImGui::SameLine();
+        copy_menu(a, LT_TONE, i);
         changed = light_strip_bar("##strip", &t.mask) || changed;
         ui_probe_scope("");
+        copy_tint(a, LT_TONE, i, row_top);
         ImGui::Separator();
         ImGui::PopID();
         if (changed) {
@@ -725,4 +825,5 @@ void light_track_rows(App *a)
     tone_rows(a);
     ImGui::PopID();
     put_in_order(a);
+    copy_modal(a);
 }

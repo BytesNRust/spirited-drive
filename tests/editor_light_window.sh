@@ -127,6 +127,30 @@ ys=$(sed -n 's/^ui rect: tunnels_header [0-9]* \([0-9]*\) .*/\1/p' "$work/fold" 
 ys=$(sed -n 's/^ui rect: add_brightness [0-9]* \([0-9]*\) .*/\1/p' "$work/fold" | tr '\n' ' '); set -- $ys
 [ $# = 3 ] && [ "$2" -lt "$1" ] && [ "$3" = "$1" ] || fail "folding Tunnels did not move Add brightness up and back (y: $ys)"
 grep '^light:' "$work/fold" | tail -1 | grep -q "sun 120 30 70$" || fail "the folded sections lost the sun: $(grep '^light:' "$work/fold")"
+# Copy to...: a brightness line at Day copied to Dawn, where the same nodes have another percent: the menu (clicked) leads to the clash window; Replace changes Dawn's line, Skip leaves it, Cancel
+# touches nothing; the line says what was done
+for answer in replace skip cancel; do
+    rm -rf "$work/copyl"; mkdir -p "$work/copyl/track_light"
+    printf '# tnfs track light 2\ntrack AL1\n\ntime A\n  brightness 5 9 40\ntime B\n  brightness 5 9 60\n' > "$work/copyl/track_light/AL1.txt"
+    "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/copyl" --ask light --window 1280x800 --frames 40 \
+        --steps ui-click:brightness0_copy,ui-click:brightness0_copy_Dawn,light-note,ui-click:copy_$answer,light-note,light-print,ui-click:save > "$work/copy_$answer" 2>&1 || fail "the Copy to flow ($answer): $(tail -3 "$work/copy_$answer")"
+    grep -q "^light note:  | pending 1 " "$work/copy_$answer" || fail "a clashing copy did not wait for the window ($answer): $(grep '^light note' "$work/copy_$answer")"
+    grep '^light note' "$work/copy_$answer" | tail -1 | grep -q "pending 0 " || fail "the window's $answer left the copy waiting: $(grep '^light note' "$work/copy_$answer")"
+    case $answer in
+    replace) want="  brightness 5 9 60"; times=2; note="Replaced at Dawn" ;;   # both lines now say 60
+    skip) want="  brightness 5 9 40"; times=1; note="Dawn kept its own" ;;
+    cancel) want="  brightness 5 9 40"; times=1; note="" ;;
+    esac
+    [ "$(grep -c "^$want$" "$work/copyl/track_light/AL1.txt")" = "$times" ] && [ "$(grep -c '^  brightness 5 9 ' "$work/copyl/track_light/AL1.txt")" = 2 ] || fail "$answer: the file's Dawn line is not as it should be: $(cat "$work/copyl/track_light/AL1.txt")"
+    [ -z "$note" ] || grep '^light note' "$work/copy_$answer" | tail -1 | grep -q "$note" || fail "$answer: the note does not say '$note': $(grep '^light note' "$work/copy_$answer")"
+done
+# a copy that adds only (no clash) goes straight through: to Dusk, the menu's All others, then the file has the line at Dawn, Dusk and Night
+rm -rf "$work/copyl"; mkdir -p "$work/copyl/track_light"
+printf '# tnfs track light 2\ntrack AL1\n\ntime B\n  brightness 5 9 60\n' > "$work/copyl/track_light/AL1.txt"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/copyl" --ask light --window 1280x800 --frames 40 \
+    --steps ui-click:brightness0_copy,ui-click:brightness0_copy_all,light-note,ui-click:save > "$work/copy_all" 2>&1 || fail "the Copy to All others flow: $(tail -3 "$work/copy_all")"
+grep '^light note' "$work/copy_all" | tail -1 | grep -q "Copied to Dawn, Dusk, Night" || fail "All others did not copy to the three: $(grep '^light note' "$work/copy_all")"
+[ "$(grep -c '^  brightness 5 9 60$' "$work/copyl/track_light/AL1.txt")" = 4 ] || fail "the file does not have the line at the four times: $(cat "$work/copyl/track_light/AL1.txt")"
 # the window's other widgets, clicked: the node buttons move the photo's node, Add tunnel adds a tunnel, a moment's button keeps the one file's edits, Revert puts the file back as it was opened.
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 \
     --steps light-node,ui-click:node_p10,ui-click:node_p10,ui-click:node_p1,light-node,ui-click:node_m10,ui-click:node_m1,light-node,ui-at:node_slider,0.9,light-node,ui-click:add_tunnel,light-print,ui-click:time_C,light-print,ui-click:revert,light-print,ui-click:tunnel0_remove,light-print,ui-click:time_B,light-print > "$work/ui4" 2>&1 ||

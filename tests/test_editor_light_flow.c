@@ -190,6 +190,71 @@ static void test_flow(void)
 }
 
 
+/* Copy to...: a Brightness line of Night copied to Dusk, saved and read back; a copy over a line with another value asks (Skip leaves it, Replace changes it, Cancel touches nothing) */
+static void test_copy_flow(void)
+{
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, fake, "", NULL);
+    app_set_light_dir(a, light);
+    snprintf(a->export_src.cd, sizeof a->export_src.cd, "%s", root);
+    CHECK(app_open_light(a) && a->kind == APP_KIND_LIGHT);
+    const int cy1 = track_index("CY1"), night = 3, dusk = 2;
+    CHECK(app_light_select(a, cy1, night));
+    LightTrack *f = &a->light.session.file;
+    char why[LT_WHY];
+    const int n_dusk = light_track_count(f, LT_TIME_C, LT_BRIGHTNESS);
+    const LightTrackBrightness b = { 100, 110, 70, LT_STRIP_RIGHT };
+    CHECK(light_track_set_brightness(f, LT_TIME_N, -1, &b, why, sizeof why));
+    app_light_touch(a);
+    int at = -1;
+    for (int i = 0; i < light_track_count(f, LT_TIME_N, LT_BRIGHTNESS); i++) {
+        LightTrackBrightness g;
+        if (light_track_get_brightness(f, LT_TIME_N, i, &g) && g.from == 100 && g.to == 110 && g.mask == LT_STRIP_RIGHT) at = i;
+    }
+    CHECK(at >= 0);
+    // to Dusk: added, the note says so, the line is marked, a Save writes it and a window opened again reads it
+    CHECK(app_light_copy(a, LT_BRIGHTNESS, at, 1u << dusk, 0) && !a->light.copy_pending);
+    CHECK(strstr(a->light.copy_note, "Copied to Dusk") != NULL && a->light.copy_detail[0] != '\0');
+    CHECK_EQ_INT(light_track_count(f, LT_TIME_C, LT_BRIGHTNESS), n_dusk + 1);
+    CHECK(app_modified(a) && app_light_save(a) && !app_modified(a));
+    CHECK(app_light_select(a, cy1, dusk));
+    f = &a->light.session.file;
+    int found = -1;
+    for (int i = 0; i < light_track_count(f, LT_TIME_C, LT_BRIGHTNESS); i++) {
+        LightTrackBrightness g;
+        if (light_track_get_brightness(f, LT_TIME_C, i, &g) && g.from == 100 && g.to == 110 && g.mask == LT_STRIP_RIGHT && g.percent == 70) found = i;
+    }
+    CHECK(found >= 0);
+    // the same again: nothing to do, and no edit
+    CHECK(app_light_select(a, cy1, night));
+    f = &a->light.session.file;
+    CHECK(app_light_copy(a, LT_BRIGHTNESS, at, 1u << dusk, 0) && strstr(a->light.copy_note, "already has it") != NULL && !app_modified(a));
+    // another value at Dusk: the copy waits for the window; Cancel touches nothing, Skip keeps the value, Replace changes it
+    CHECK(app_light_select(a, cy1, dusk));
+    f = &a->light.session.file;
+    LightTrackBrightness other = { 100, 110, 50, LT_STRIP_RIGHT };
+    CHECK(light_track_set_brightness(f, LT_TIME_C, found, &other, why, sizeof why));
+    app_light_touch(a);
+    CHECK(app_light_save(a));
+    CHECK(app_light_select(a, cy1, night));
+    f = &a->light.session.file;
+    CHECK(app_light_copy(a, LT_BRIGHTNESS, at, 1u << dusk, 0) && a->light.copy_pending && !app_modified(a));
+    CHECK(app_light_copy_answer(a, 3) && !a->light.copy_pending && !app_modified(a));
+    CHECK(app_light_copy(a, LT_BRIGHTNESS, at, 1u << dusk, 0) && a->light.copy_pending);
+    CHECK(app_light_copy_answer(a, 2) && !app_modified(a) && strstr(a->light.copy_note, "kept its own") != NULL);
+    CHECK(app_light_copy(a, LT_BRIGHTNESS, at, 1u << dusk, 0) && a->light.copy_pending);
+    CHECK(app_light_copy_answer(a, 1) && app_modified(a) && strstr(a->light.copy_note, "Replaced at Dusk") != NULL);
+    LightTrackBrightness g;
+    CHECK(light_track_get_brightness(f, LT_TIME_C, found, &g) && g.percent == 70);
+    // a mode asked up front does not open the window
+    CHECK(app_light_copy(a, LT_BRIGHTNESS, at, 1u << dusk, 1) && !a->light.copy_pending);
+    CHECK(!app_light_copy(a, LT_SUN, 0, 1u << dusk, 0) && a->light.error[0] != '\0');
+    app_free(a);
+    free(a);
+}
+
 /* the mean of a photo's R, G and B over its whole frame */
 static double mean_of(const uint8_t *rgba, int w, int h)
 {
@@ -462,6 +527,7 @@ int main(int argc, char **argv)
     snprintf(record, sizeof record, "%s/record", root);
     test_flow();
     test_drive_flow();
+    test_copy_flow();
     test_not_a_light_folder();
     test_choose_folder();
     car_race_temp_remove(root);

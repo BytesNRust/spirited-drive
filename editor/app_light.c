@@ -226,6 +226,7 @@ void app_light_set_hud(App *a, int hud)
 
 void app_light_touch(App *a)
 {
+    a->light.file_edits++;
     light_track_session_changed(&a->light.session);
     a->light.error[0] = '\0';
     changed(a);
@@ -409,4 +410,79 @@ void app_light_free(App *a)
     light_compare_free(&a->light.compare);
     if (a->light.open) light_track_session_close(&a->light.session);
     memset(&a->light, 0, sizeof a->light);
+}
+
+// ---- Copy to... ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// the words for what the plan did at each time (the (?) beside the status) and the short note
+static void copy_words(App *a, const LightTrackCopyPlan *plan, const LightTrackCopyResult *r, int replace)
+{
+    LightUi *ui = &a->light;
+    char *d = ui->copy_detail;
+    size_t used = 0;
+    char done[40] = "", same[48] = "", kept[48] = "", replaced[48] = "";
+    d[0] = '\0';
+    for (int t = 0; t < LT_TIMES; t++) {
+        const LightTrackCopyTime *to = &plan->to[t];
+        const char *name = light_ui_time_name(t);
+        char one[88] = "";
+        if (to->action == LT_COPY_ADD) snprintf(one, sizeof one, "%s: added%s", name, to->overlaps > 0 ? " (overlaps a line: the file's order matters)" : "");
+        else if (to->action == LT_COPY_SAME) snprintf(one, sizeof one, "%s: already has it", name);
+        else if (to->action == LT_COPY_CLASH) snprintf(one, sizeof one, "%s: %s", name, replace ? "replaced" : "kept its own value");
+        if (one[0] != '\0') used += (size_t)snprintf(d + used, sizeof ui->copy_detail - used, "%s%s", used > 0 ? "\n" : "", one);
+        if (used >= sizeof ui->copy_detail) used = sizeof ui->copy_detail - 1;
+        if (to->action == LT_COPY_ADD) snprintf(done + strlen(done), sizeof done - strlen(done), "%s%s", done[0] ? ", " : "", name);
+        else if (to->action == LT_COPY_SAME) snprintf(same + strlen(same), sizeof same - strlen(same), "%s%s", same[0] ? ", " : "", name);
+        else if (to->action == LT_COPY_CLASH && replace) snprintf(replaced + strlen(replaced), sizeof replaced - strlen(replaced), "%s%s", replaced[0] ? ", " : "", name);
+        else if (to->action == LT_COPY_CLASH) snprintf(kept + strlen(kept), sizeof kept - strlen(kept), "%s%s", kept[0] ? ", " : "", name);
+    }
+    char *n = ui->copy_note;
+    n[0] = '\0';
+    if (done[0]) snprintf(n + strlen(n), sizeof ui->copy_note - strlen(n), "Copied to %s", done);
+    if (replaced[0]) snprintf(n + strlen(n), sizeof ui->copy_note - strlen(n), "%sReplaced at %s", n[0] ? " \xc2\xb7 " : "", replaced);
+    if (same[0]) snprintf(n + strlen(n), sizeof ui->copy_note - strlen(n), "%s%s already has it", n[0] ? " \xc2\xb7 " : "", same);
+    if (kept[0]) snprintf(n + strlen(n), sizeof ui->copy_note - strlen(n), "%s%s kept its own", n[0] ? " \xc2\xb7 " : "", kept);
+    if (n[0] == '\0') snprintf(n, sizeof ui->copy_note, "Nothing to copy");
+    (void)r;
+}
+
+static int copy_do(App *a, const LightTrackCopyPlan *plan, int replace)
+{
+    LightUi *ui = &a->light;
+    LightTrack *f = &ui->session.file;
+    char why[LT_WHY];
+    LightTrackCopyResult r;
+    unsigned key[3] = { 0, 0, 0 };
+    unsigned times = 0;
+    for (int t = 0; t < LT_TIMES; t++)
+        if (plan->to[t].action != LT_COPY_NONE) times |= 1u << t;
+    light_track_copy_key(f, plan->kind, plan->from_time, plan->index, key);
+    if (!light_track_copy_apply(f, plan, replace, &r, why, sizeof why)) return set_error(a, why), 0;
+    ui->error[0] = '\0';
+    copy_words(a, plan, &r, replace);
+    if (r.added + r.replaced > 0) app_light_touch(a);
+    ui->copy_mark_kind = plan->kind, ui->copy_mark_times = times, memcpy(ui->copy_mark_key, key, sizeof key), ui->copy_mark_edits = ui->file_edits;
+    return 1;
+}
+
+int app_light_copy(App *a, int kind, int index, unsigned times, int mode)
+{
+    LightUi *ui = &a->light;
+    LightTrackCopyPlan plan;
+    char why[LT_WHY];
+    if (a->kind != APP_KIND_LIGHT || !ui->session.has_file) return set_error(a, "there is no light file open"), 0;
+    if (!light_track_copy_plan(&ui->session.file, kind, ui->time, index, times, &plan, why, sizeof why)) return set_error(a, why), 0;
+    int clash = 0;
+    for (int t = 0; t < LT_TIMES; t++) clash += plan.to[t].action == LT_COPY_CLASH;
+    if (clash > 0 && mode == 0) return ui->copy_plan = plan, ui->copy_pending = 1, 1;
+    return copy_do(a, &plan, mode == 1);
+}
+
+int app_light_copy_answer(App *a, int answer)
+{
+    LightUi *ui = &a->light;
+    if (!ui->copy_pending) return 0;
+    ui->copy_pending = 0;
+    if (answer == 3) return 1;
+    return copy_do(a, &ui->copy_plan, answer == 1);
 }

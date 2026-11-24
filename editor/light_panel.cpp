@@ -158,6 +158,12 @@ void file_buttons(App *a)
     ImGui::SameLine();
     if (dirty) ImGui::TextDisabled("unsaved changes");
     else if (ui.session.has_file) ImGui::TextDisabled("%s.txt", ui.session.track);
+    if (ui.copy_note[0] != '\0') {   // what the last Copy to... did, the detail hour by hour in its (?)
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", ui.copy_note);
+        ui_probe("copy_note");
+        if (ui.copy_detail[0] != '\0' && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", ui.copy_detail);
+    }
     ImGui::SameLine();
     help_marker("Save writes only this track's light file in the light folder (the one in the Window's caption), and never a folder under original/. The file's other lines "
                 "stay exactly as they are; a new line goes after the last. Revert goes back to the file as it was read or saved.");

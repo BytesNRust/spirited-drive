@@ -414,6 +414,12 @@ void app_light_set_view(App *a, int view);
 void app_light_set_hud(App *a, int hud);
 /* The window edited a->light.session.file (light_file_set_*): the photo is due. */
 void app_light_touch(App *a);
+/* Copy to... (light_track_copy.h): the `index`-th line of `kind` (LT_BRIGHTNESS, LT_TONE, LT_LAMP) at the open time, to the times in `times` (bit t). `mode` 0: a clash waits for the window's Replace /
+ * Skip / Cancel (light.copy_pending); 1 replaces the lines that clash, 2 leaves them. The result is in light.copy_note (and copy_detail); the game's limits refuse the whole copy with light.error. 1 when
+ * it did what was asked or is waiting, 0 when refused. */
+int app_light_copy(App *a, int kind, int index, unsigned times, int mode);
+/* The window's answer to a waiting clash: 1 Replace, 2 Skip, 3 Cancel. */
+int app_light_copy_answer(App *a, int answer);
 /* Revert and Save of the file (light_session.h); Save says why it refused in light.error and the status. */
 void app_light_revert(App *a);
 int app_light_save(App *a);

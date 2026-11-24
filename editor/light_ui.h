@@ -7,6 +7,7 @@
 #include "light_drive.h"
 #include "light_photo.h"
 #include "light_track_session.h"
+#include "light_track_copy.h"
 
 enum {
     LIGHT_UI_TRACKS = 16,        /* the combo's entries: the 15 CD tracks that have light files and TR5, whose light is made in code */
@@ -40,6 +41,14 @@ typedef struct {
     unsigned drive_serial;       /* the edit_serial the running drive's copy was written for */
     double drive_wrote;          /* the clock of that write: a slider dragged for a second is ten writes, not sixty */
     char error[LIGHT_UI_MSG];    /* why the last Save, select or photo was refused, until the next try; "" for none */
+    LightTrackCopyPlan copy_plan; /* Copy to...: a plan with a clash, waiting in the window for Replace / Skip / Cancel (copy_pending) */
+    int copy_pending;
+    unsigned file_edits;         /* counts the edits of the file (app_light_touch): a copied line stays marked until the next one */
+    unsigned copy_mark_edits;    /* the file_edits the mark is for; the mark is the lines of copy_mark_kind at the times of copy_mark_times with the key copy_mark_key (the line's from, to, strip mask / node) */
+    int copy_mark_kind;
+    unsigned copy_mark_times, copy_mark_key[3];
+    char copy_note[72];          /* the line beside Save: what the last Copy to... did ("Copied to Dusk", ...) and, for its (?), copy_detail hour by hour */
+    char copy_detail[320];
     int resort;                  /* a line of the lists was edited: they are put in order when no field is being edited (light_track_sort), not while it is typed in */
     LightCompare compare;        /* part D: the Before picture or the four times of day beside the photo (light_compare.h) */
 } LightUi;
