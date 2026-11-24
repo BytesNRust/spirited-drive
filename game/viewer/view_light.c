@@ -4,6 +4,7 @@
 #include "game/race/lamp_emissive.h"
 #include "game/race/light_tint.h"
 #include "game/race/police_lights.h"
+#include "game/race/weather.h"
 #include "game/race/light_synth.h"
 #include "game/sys/port_settings.h"
 #include "viewer/drive_lamps.h"
@@ -163,10 +164,11 @@ static void reflect_low_light(void)
     float tint[3];
     drive_light_tint(tint);
     const int tunnel = light_effects->nodes > 0 && track_node_light_tunnel(light_effects, light_tint_ring_node(car->node, light_effects->nodes));
-    if (!reflect_by_day_ok(drive_light_night(), tint, tunnel)) return;   /* port (day_shade): lamps lit by day in rain or fog shine nothing; only a tunnel does */
+    const int fog = weather == WEATHER_FOG;   /* port (day_shade): lamps lit by day shine on the marks in fog and in a tunnel; in rain, clear sun or shade they shine nothing */
+    if (!reflect_by_day_ok(drive_light_night(), tint, tunnel, fog)) return;
     double hx, hz;
     cone_heading(car, &hx, &hz);
-    reflect_lamps_on = 1, reflect_dark = 1, reflect_x = car->x / 65536.0, reflect_z = car->z / 65536.0, reflect_hx = hx, reflect_hz = hz;
+    reflect_lamps_on = 1, reflect_dark = 1, reflect_x = car->x / 65536.0, reflect_z = car->z / 65536.0, reflect_hx = hx, reflect_hz = hz;   /* no pool of light on the road from this: only the marks shine (the pool is the night's and the dark tunnel's) */
 }
 
 static int tunnel_pool_was;   /* the tunnel pool had a car last frame: the road is lit once more when it has none */

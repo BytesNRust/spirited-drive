@@ -202,11 +202,12 @@ static void test_day_shade_lights_nothing(void)
     CHECK(lamp_ratio_counts(night, 0));
     LampLight l = { 0, 0 };
     const float *seen = lamp_ratio_counts(day, 0) ? forest : day;   /* what the car's lamps are given in the shade by day */
-    CHECK(!reflect_by_day_ok(0, day, 0));   /* the reflectors: day (shade, rain or fog lit the lamps) nothing, day in a tunnel yes, dawn, dusk and night yes */
-    CHECK(reflect_by_day_ok(0, day, 1));
-    CHECK(reflect_by_day_ok(0, dawn, 0));
-    CHECK(reflect_by_day_ok(0, dusk, 0));
-    CHECK(reflect_by_day_ok(1, night, 0));
+    CHECK(!reflect_by_day_ok(0, day, 0, 0));   /* the reflectors: day (clear sun, shade, rain lit the lamps) nothing, day in fog yes, day in a tunnel yes, dawn, dusk and night yes */
+    CHECK(reflect_by_day_ok(0, day, 0, 1));
+    CHECK(reflect_by_day_ok(0, day, 1, 0));
+    CHECK(reflect_by_day_ok(0, dawn, 0, 0));
+    CHECK(reflect_by_day_ok(0, dusk, 0, 0));
+    CHECK(reflect_by_day_ok(1, night, 0, 0));
     CHECK(!lamp_light_step(&l, day, seen));
     seen = lamp_ratio_counts(day, 1) ? forest : day;
     CHECK(lamp_light_step(&l, day, seen));
