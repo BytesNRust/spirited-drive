@@ -82,7 +82,8 @@ struct Model {
     double preset_yaw = 0, preset_pitch = 0;
     int32_t preset_dist = 0;
     int box[4] = { 0, 0, 0, 0 };  // the pixels the car is drawn in the last picture (x0, y0, x1, y1; empty when x1 <= x0): the picture is shown moved so that this box is in the middle of the panel
-    int frame_aspect = 0;         // the picture's width / height (times 1000) the car was framed in
+    int box_w = 0, box_h = 0;     // the size of the picture `box` is of
+    int last_aspect = 0;          // the picture's width / height (times 1000) of the frame before
     bool fit = false;             // the car is to be framed (made to fill FRAME_PERCENT of the picture) when the picture's size is known: on open, on another car, on Home
     int key_wheel = -1;           // the wheel frame the picture was drawn with
     NightSettings key_night = {};   // the Preview's Day / Night and lamps the picture was drawn in, and the police flash's phase
@@ -262,7 +263,7 @@ void draw_picture(const App *a, int phase, int w, int h, int scale)
                     y1 = y + 1;
                 }
         }
-        g.box[0] = x0, g.box[1] = y0, g.box[2] = x1, g.box[3] = y1;
+        g.box[0] = x0, g.box[1] = y0, g.box[2] = x1, g.box[3] = y1, g.box_w = w, g.box_h = h;
     }
     if (made) SDL_UpdateTexture(g.tex, nullptr, g.rgba, w * 4);
     g.key_night = a->night, g.key_phase = phase;
@@ -735,10 +736,14 @@ void model_panel(App *a, SDL_Renderer *ren)
             const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : (area_w >= 64 && area_h >= 64 && model_view_frame_size(moving ? 1 : g.render_scale, area_w, area_h, MAX_W, &rw, &rh) && (w = rw, h = rh, true));   // the Model view's picture has the panel's own shape (height 480 times the scale)
             if (moving != g.drawn_low) g.dirty = true;
             if (sized && make_target(ren, w, h)) {
-                const int aspect = w * 1000 / h;   // the panel's shape changed (docked another way, the window resized): the car is framed again, a wide frame holds it larger than a tall one
-                if (!g.card_view && g.frame_aspect != 0 && (aspect < g.frame_aspect * 9 / 10 || aspect > g.frame_aspect * 11 / 10)) g.fit = true;
+                const int aspect = w * 1000 / h;
+                // the panel's shape changed (docked another way, the window resized) and the car the picture shows is cut by its edge: framed again, once for that shape. A car not cut keeps its camera (the same car read again, the
+                // layout settling in the first frames): only a car that is changed, Home, Front, Side... or a cut one is framed
+                const bool reshaped = g.last_aspect != 0 && (aspect < g.last_aspect * 9 / 10 || aspect > g.last_aspect * 11 / 10);
+                if (!g.card_view && reshaped && !g.fit && g.box[2] > g.box[0] && (g.box[0] <= 0 || g.box[1] <= 0 || g.box[2] >= g.box_w || g.box[3] >= g.box_h)) g.fit = true;
+                g.last_aspect = aspect;
                 if (g.fit && !g.card_view) {
-                    g.frame_aspect = aspect;   // the car as large as the picture lets it be, whatever the window's shape
+                    // the car as large as the picture lets it be, whatever the window's shape
                     const int fh = h < FIT_SIDE ? h : FIT_SIDE, fw = fh * w / h;   // the framing is the same at any size (the field of view is across the smaller side): a small picture finds it, not a dozen of the game's frame
                     model_scene_frame(g.scene, &g.orbit, fw, fh, FRAME_PERCENT);
                     g.fit = false, g.dirty = true;
