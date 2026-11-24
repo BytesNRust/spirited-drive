@@ -44,6 +44,12 @@ int recent_save(const Recent *r, const char *file);
 /* 1 when `dir` still holds a track project (a project.ini in it). */
 int recent_is_project(const char *dir);
 
+/* 1 when `dir` is a mod installed in the player's folder (owner 2026-11-24): a folder with a mod.ini directly in a folder called mods or mods_backup, outside `workspace` (a workspace's own folders are never one; "" for none). Studio opens projects, not installed
+ * mods; the name of the mod's folder goes to `id`. Nothing is written or changed. */
+int installed_mod_of(const char *dir, const char *workspace, char *id, size_t id_cap);
+/* the refusal's words for the mod `id` */
+#define INSTALLED_MOD_REFUSAL "installed mods are not edited here: %s is installed in the player's mods folder; Studio opens projects, not installed mods (ask its author for the project)"
+
 /* 1 when a recent folder of `kind` is still there: a track's project.ini, a car's kit (a mod.ini and a model/ in it). The cheap question the lists ask every frame. */
 int recent_present(const char *dir, int kind);
 

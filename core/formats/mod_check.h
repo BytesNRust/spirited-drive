@@ -60,6 +60,13 @@ typedef enum {
  * files (car_piece_paths) and car_masks/<STEM>/, dash_masks/<STEM>/. A track: its card, preview and README / LICENSE and the files track_piece_owns names. */
 ModFileRule mod_file_rule(int type, const char *stem, const char *rel);
 
+/* 1 when `rel` is a file named by the stem of a piece of `type` (MOD_TYPE_CAR or MOD_TYPE_TRACK) with that `stem`: its three car files, masks and skins, a track's stage files, light, track and mask files (track_piece_owns); never a
+ * file the pieces share (mod.ini, README, preview.png, car_envmap.png, sounds). An installed tweak acts on the original game only: what it carries for such a file of another mod's piece is left out. */
+int mod_file_of_piece(int type, const char *stem, const char *rel);
+/* 1 when the text of a track light file (track_light/<TRACK>.txt) holds a line whose first word is `tunnel`, `snow` or `snow_map`: those facts change the race (the dry zones and the snow's grip), which an installed tweak may not;
+ * its light (brightness, tone, lamps, tunnel_lamp, tunnel_tone, tunnel_look, sun, time, rows) is no such fact */
+int mod_track_light_changes_race(const char *text, size_t n);
+
 /* One entry to install: the zip entry's index and the path below the mod's folder ('/' between parts, no "." or ".."). */
 typedef struct {
     size_t index;

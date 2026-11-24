@@ -97,6 +97,24 @@ int recent_is_project(const char *dir)
     return stat(ini, &st) == 0 && S_ISREG(st.st_mode) && !car_project_is_masks(dir);   /* a masks project has a project.ini too: it is a car's */
 }
 
+int installed_mod_of(const char *dir, const char *workspace, char *id, size_t id_cap)
+{
+    char real[SESSION_PATH + 16], ws[SESSION_PATH + 16], card[SESSION_PATH + 32];
+    struct stat st;
+    if (dir == NULL || dir[0] == '\0' || realpath(dir, real) == NULL) return 0;
+    if (workspace != NULL && workspace[0] != '\0' && realpath(workspace, ws) != NULL && recent_inside(real, ws)) return 0;
+    if (snprintf(card, sizeof card, "%s/mod.ini", real) >= (int)sizeof card || stat(card, &st) != 0 || !S_ISREG(st.st_mode)) return 0;
+    const char *name = strrchr(real, '/');
+    if (name == NULL || name == real) return 0;
+    const char *parent = name;
+    while (parent > real && parent[-1] != '/') parent--;
+    if (parent == name) return 0;
+    const size_t n = (size_t)(name - parent);
+    if (!((n == 4 && strncmp(parent, "mods", 4) == 0) || (n == 11 && strncmp(parent, "mods_backup", 11) == 0))) return 0;
+    if (id != NULL && id_cap > 0) snprintf(id, id_cap, "%s", name + 1);
+    return 1;
+}
+
 int recent_present(const char *dir, int kind)
 {
     return kind == RECENT_CAR ? car_project_present(dir) : recent_is_project(dir);

@@ -1543,6 +1543,65 @@ static void check_kit_builds_on_open(void)
     if (system(cmd) != 0) fprintf(stderr, "could not clean up\n");
 }
 
+/* owner 2026-11-24: Studio opens projects, not installed mods: a folder with a mod.ini directly in mods/ or mods_backup/ of the player is refused by Open, Open car and the command line's folder, with the words, and
+ * nothing is written in it (no project.ini, trace.json); the same folder anywhere else, or one inside the workspace, is no installed mod */
+static void mod_put(const char *dir, const char *name, const char *text)
+{
+    char path[900];
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL);
+    if (f != NULL) fputs(text, f), fclose(f);
+}
+
+static int mod_has(const char *dir, const char *name)
+{
+    char path[900];
+    struct stat st;
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    return stat(path, &st) == 0;
+}
+
+static void check_installed_mod(void)
+{
+    char user[600], mods[600], car[700], track[700], ws[600], inws[700], elsewhere[700], backup[700], id[64];
+    path_in(user, sizeof user, "player"), path_in(ws, sizeof ws, "wsmod");
+    snprintf(mods, sizeof mods, "%s/mods", user), snprintf(car, sizeof car, "%s/zzcar", mods), snprintf(track, sizeof track, "%s/zztrk", mods);
+    snprintf(backup, sizeof backup, "%s/mods_backup/old", user), snprintf(inws, sizeof inws, "%s/mods/kit", ws), snprintf(elsewhere, sizeof elsewhere, "%s/elsewhere", user);
+    const char *const dirs[] = { user, mods, car, track, ws, user, backup, inws, elsewhere };
+    char path[700];
+    mkdir(user, 0777), mkdir(mods, 0777), mkdir(car, 0777), mkdir(track, 0777), mkdir(ws, 0777), snprintf(path, sizeof path, "%s/mods_backup", user), mkdir(path, 0777), mkdir(backup, 0777);
+    snprintf(path, sizeof path, "%s/mods", ws), mkdir(path, 0777), mkdir(inws, 0777), mkdir(elsewhere, 0777);
+    (void)dirs;
+    snprintf(path, sizeof path, "%s/SIMDATA", car), mkdir(path, 0777), snprintf(path, sizeof path, "%s/SIMDATA/CARFAMS", car), mkdir(path, 0777);
+    mod_put(car, "mod.ini", "id=zzcar\nname=Z\nversion=1\ntype=car\nstem=ZZCAR\nsound_from=viper\n");
+    mod_put(path, "ZZCAR.CFM", "x");
+    mod_put(track, "mod.ini", "id=zztrk\nname=T\nversion=1\ntype=track\nstem=XTRK\n");
+    mod_put(backup, "mod.ini", "id=old\nname=O\nversion=1\n");
+    mod_put(inws, "mod.ini", "id=kit\nname=K\nversion=1\ntype=car\nstem=KIT\n");
+    mod_put(elsewhere, "mod.ini", "id=else\nname=E\nversion=1\n");
+    CHECK(installed_mod_of(car, "", id, sizeof id) && strcmp(id, "zzcar") == 0);
+    CHECK(installed_mod_of(track, ws, id, sizeof id) && strcmp(id, "zztrk") == 0);
+    CHECK(installed_mod_of(backup, "", id, sizeof id) && strcmp(id, "old") == 0);   /* mods_backup/ too */
+    CHECK(!installed_mod_of(inws, ws, id, sizeof id));        /* inside the workspace: the player's own */
+    CHECK(!installed_mod_of(elsewhere, "", id, sizeof id));   /* not directly in a mods folder */
+    CHECK(!installed_mod_of(mods, "", id, sizeof id));        /* the mods folder itself has no card */
+    CHECK(!installed_mod_of("/no/such/folder", "", id, sizeof id) && !installed_mod_of(NULL, "", id, sizeof id));
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "", user, NULL);
+    CHECK(!app_open_car(a, car) && strstr(a->status, "installed mods are not edited here") != NULL && strstr(a->open_error, "zzcar") != NULL);
+    CHECK(!app_open_project(a, track) && strstr(a->status, "installed mods are not edited here") != NULL);
+    CHECK(!app_open_any(a, track, "", user, NULL) && strstr(a->status, "installed mods are not edited here") != NULL);   /* the command line's folder: no project.ini, no trace.json */
+    app_free(a);
+    CHECK(!app_open_any(a, car, "", user, NULL) && strstr(a->status, "installed mods are not edited here") != NULL);
+    app_free(a);
+    free(a);
+    CHECK(!mod_has(track, "project.ini") && !mod_has(track, "trace.json") && !mod_has(car, "project.ini") && !mod_has(car, "trace.json"));
+    CHECK(mod_has(track, "mod.ini") && mod_has(car, "mod.ini"));
+}
+
 int main(int argc, char **argv)
 {
     const char *tmp = getenv("TMPDIR");
@@ -1572,6 +1631,7 @@ int main(int argc, char **argv)
     check_track_undo_title();
     check_car_history();
     check_free_keeps_stdin();
+    check_installed_mod();
     rmdir(root);
     return TEST_REPORT();
 }

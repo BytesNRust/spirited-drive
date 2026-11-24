@@ -171,6 +171,36 @@ ModFileRule mod_file_rule(int type, const char *stem, const char *rel)
     return changes_the_race(rel, &p) ? MOD_FILE_RACE : MOD_FILE_OK;
 }
 
+int mod_file_of_piece(int type, const char *stem, const char *rel)
+{
+    const Parts p = parts_of(rel);
+    if (stem == NULL || stem[0] == '\0') return 0;
+    if (type == MOD_TYPE_TRACK) return track_piece_owns(stem, rel);
+    if (type == MOD_TYPE_CAR) {
+        if (!car_piece_stem_ok(stem)) return 0;
+        char paths[CAR_PIECE_FILES][CAR_PIECE_PATH];
+        car_piece_paths(stem, paths);
+        for (int i = 0; i < CAR_PIECE_FILES; i++)
+            if (is(rel, paths[i])) return 1;
+        return in_stem_folder(rel, &p, "car_masks", stem) || in_stem_folder(rel, &p, "dash_masks", stem) || in_stem_folder(rel, &p, "skins", stem);
+    }
+    return 0;
+}
+
+int mod_track_light_changes_race(const char *text, size_t n)
+{
+    for (size_t i = 0; i < n;) {
+        while (i < n && (text[i] == ' ' || text[i] == '\t' || text[i] == '\r')) i++;   /* the line's first word */
+        size_t w = i;
+        while (w < n && text[w] != ' ' && text[w] != '\t' && text[w] != '\r' && text[w] != '\n' && text[w] != '#') w++;
+        const size_t len = w - i;
+        if ((len == 6 && strncmp(text + i, "tunnel", 6) == 0) || (len == 4 && strncmp(text + i, "snow", 4) == 0) || (len == 8 && strncmp(text + i, "snow_map", 8) == 0)) return 1;
+        while (w < n && text[w] != '\n') w++;
+        i = w + 1;
+    }
+    return 0;
+}
+
 /* the folder that is the mod's root: "" when the card is at the zip's root, else the one top folder that holds the card and everything
  * else (the litter apart); 0 when there is neither */
 static int find_root(const ZipArchive *z, char root[ZIP_NAME_MAX + 1])

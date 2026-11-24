@@ -259,6 +259,22 @@ static void test_a_file_and_a_folder_of_one_name(void)
 }
 
 
+/* an installed tweak acts on the original game only: the files named by a piece's stem, and the track light facts that change the race */
+static void test_piece_files_and_race_facts(void)
+{
+    CHECK(mod_file_of_piece(MOD_TYPE_CAR, "F40", "SIMDATA/CARFAMS/F40.CFM") && mod_file_of_piece(MOD_TYPE_CAR, "F40", "simdata/carspecs/f40.pbs"));
+    CHECK(mod_file_of_piece(MOD_TYPE_CAR, "F40", "car_masks/F40/body.png") && mod_file_of_piece(MOD_TYPE_CAR, "F40", "dash_masks/F40/dash.png"));
+    CHECK(!mod_file_of_piece(MOD_TYPE_CAR, "F40", "SIMDATA/CARFAMS/DVIPER.CFM") && !mod_file_of_piece(MOD_TYPE_CAR, "F40", "car_envmap.png"));   /* another car's, a shared one */
+    CHECK(!mod_file_of_piece(MOD_TYPE_CAR, "F40", "mod.ini") && !mod_file_of_piece(MOD_TYPE_CAR, "", "SIMDATA/CARFAMS/.CFM") && !mod_file_of_piece(MOD_TYPE_TWEAK, "F40", "SIMDATA/CARFAMS/F40.CFM"));
+    CHECK(mod_file_of_piece(MOD_TYPE_TRACK, "XTRK", "track_light/XTRK1.txt") && mod_file_of_piece(MOD_TYPE_TRACK, "XTRK", "SIMDATA/MISC/XTRK1.TRI"));
+    CHECK(!mod_file_of_piece(MOD_TYPE_TRACK, "XTRK", "track_light/TR1B.txt") && !mod_file_of_piece(MOD_TYPE_TRACK, "XTRK", "preview.png"));
+    CHECK(!mod_track_light_changes_race("", 0));
+    CHECK(mod_track_light_changes_race("tunnel 1 2\n", 11) && mod_track_light_changes_race("track TR1 B\n  \tsnow 1\n", 22));
+    CHECK(mod_track_light_changes_race("snow_map 1 2", 12) && mod_track_light_changes_race("a\r\ntunnel 5 6 lit", 17));
+    CHECK(!mod_track_light_changes_race("# tunnel 1 2\n", 13) && !mod_track_light_changes_race("tunnel_look 100\ntunnel_lamp 50\ntunnel_tone 80\nsnowy\n", 49));
+    CHECK(!mod_track_light_changes_race("track TR1 B\nbrightness 1 5 80\nsun 90\nlamp 10 50\nrows 1\n", 53));
+}
+
 /* dep59 step 2: what each kind of piece may carry (mod_file_rule) */
 static void test_rules(void)
 {
@@ -407,6 +423,7 @@ static void test_rules_in_the_zip(void)
 int main(void)
 {
     test_rules();
+    test_piece_files_and_race_facts();
     test_rules_in_the_zip();
     test_kinds();
     test_a_good_mod();

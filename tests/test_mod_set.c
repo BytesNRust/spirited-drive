@@ -285,6 +285,45 @@ static void test_what_a_folder_may_serve(void)
     mod_set_stop();
 }
 
+/* owner 2026-11-24: an installed tweak acts on the original game only. What it carries for a piece of another mod (an added car or track) is left out with a line in the log; a track light file of its
+ * own with a tunnel, snow or snow_map line (they change the grip) is left out; its light (every other line) and the files of the original game are served as before */
+static void test_a_tweak_acts_on_the_original_game_only(void)
+{
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+    char dir[400];
+    mod_car("carx");   /* stem CARX */
+    snprintf(dir, sizeof dir, "%s/mods/trkx", pref);   /* an added track, stem XTRK */
+    write_file(dir, "mod.ini", "id=trkx\nname=Track\nversion=1\ntype=track\nstem=XTRK\n");
+    snprintf(dir, sizeof dir, "%s/SIMDATA/CARFAMS", cd);
+    write_file(dir, "CARX.CFM", "from the cd");
+    snprintf(dir, sizeof dir, "%s/mods/tw2/SIMDATA/CARFAMS", pref);
+    write_file(dir, "CARX.CFM", "from tw2");   /* the added car's model, in a tweak */
+    snprintf(dir, sizeof dir, "%s/mods/tw2/track_light", pref);
+    write_file(dir, "TR1B.txt", "track TR1 B\n  brightness 1 5 80\n  tunnel_look 100\n");                 /* the original's light: served */
+    write_file(dir, "XTRK1.txt", "track XTRK1 B\n");                                                          /* the added track's: left out */
+    write_file(dir, "TR1C.txt", "track TR1 B\ntunnel 1 62\n");                                              /* a tunnel fact: left out */
+    write_file(dir, "TR1D.txt", "# a comment\n  \tsnow 1\n");                                                 /* snow: left out */
+    write_file(dir, "TR1E.txt", "snow_map 3 4\n");                                                           /* snow_map: left out */
+    write_file(dir, "TR1F.txt", "track TR1 B\n# tunnel 1 2 is only a comment\n  tunnel_lamp 100\n");         /* words that only start like them: served */
+    CHECK(mod_set_start(cd, NULL));
+    edition_tracks = "city,trkx";
+    use_edition("tw2ed", "tw2", "carx");
+    edition_tracks = "city";
+    port_log_watch("tw2: SIMDATA/CARFAMS/CARX.CFM is left out: it is a file of the car CARX of the mod carx: a tweak acts on the original game only");
+    CHECK(game_file_is("SIMDATA/CARFAMS/CARX.CFM", "from the cd"));
+    CHECK(port_log_watch_hit());
+    CHECK(data_from("track_light/TR1B.txt", "/mods/tw2/"));
+    CHECK(data_from("track_light/TR1F.txt", "/mods/tw2/"));
+    CHECK(!data_from("track_light/XTRK1.txt", "/mods/tw2/"));
+    port_log_watch("tw2: track_light/TR1C.txt is left out: its tunnel or snow lines change the race, which an installed tweak may not");
+    CHECK(!data_from("track_light/TR1C.txt", "/mods/tw2/"));
+    CHECK(port_log_watch_hit());
+    CHECK(!data_from("track_light/TR1D.txt", "/mods/tw2/"));
+    CHECK(!data_from("track_light/TR1E.txt", "/mods/tw2/"));
+    use_edition("", "", "");
+    mod_set_stop();
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/tnfs_mod_set_test_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
@@ -301,6 +340,7 @@ int main(void)
     test_stock_and_restored_read_no_edition();
     test_the_command_line_folder_comes_first();
     test_what_a_folder_may_serve();
+    test_a_tweak_acts_on_the_original_game_only();
     mod_set_stop();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);

@@ -132,7 +132,7 @@ static Piece piece_of(const char *dir, bool cli)
 }
 
 /* an installed folder's file left out, said once in each generation */
-static void say_left_out(const Piece *p, const char *rel, ModFileRule rule)
+static void say_left_out(const Piece *p, const char *rel, ModFileRule rule, const char *why)
 {
     char key[SAID_LEN];
     snprintf(key, sizeof key, "%s/%s", p->id, rel);
@@ -140,10 +140,24 @@ static void say_left_out(const Piece *p, const char *rel, ModFileRule rule)
         if (strcasecmp(serving.said[i], key) == 0) return;
     if (serving.said_count < SAID_MAX) snprintf(serving.said[serving.said_count++], SAID_LEN, "%s", key);
     port_log("mods: %s: %s is left out: %s\n", p->id, rel,
-             rule != MOD_FILE_RACE ? "it is not one of this piece's files"
+             why != NULL ? why
+             : rule != MOD_FILE_RACE ? "it is not one of this piece's files"
              : p->cli ? (strncasecmp(rel, "SIMDATA/CAR", 11) == 0 ? "a changed car is a car piece now: tnfs-studio car new"
                                                                     : "a changed track is a track piece now: tnfs-studio track new --piece")
                       : "it changes the race, which an installed tweak may not");
+}
+
+/* whether the track light file `rel` in the folder `dir` holds a fact that changes the race (mod_track_light_changes_race); a file that cannot be read is no such file */
+static bool track_light_text_races(const char *dir, const char *rel)
+{
+    char path[DIR_MAX + 128];
+    snprintf(path, sizeof path, "%s/%s", dir, rel);
+    FILE *file = fopen(path, "rb");
+    if (file == NULL) return false;
+    static char text[1 << 16];
+    const size_t n = fread(text, 1, sizeof text, file);
+    fclose(file);
+    return mod_track_light_changes_race(text, n) != 0;
 }
 
 static bool serve(int index, const char *rel)
@@ -159,9 +173,25 @@ static bool serve(int index, const char *rel)
         }
         return true;
     }
-    if (rule == MOD_FILE_OK) return true;
+    if (rule == MOD_FILE_OK && !(p->type == MOD_TYPE_TWEAK && !p->cli)) return true;
+    if (rule == MOD_FILE_OK) {   /* an installed tweak acts on the original game only (owner 2026-11-24) */
+        for (int i = 0; i < set.now.count && i < MOD_SET_MAX; i++) {
+            const Piece *q = &serving.pieces[i];
+            if (i != index && (q->type == MOD_TYPE_CAR || q->type == MOD_TYPE_TRACK) && mod_file_of_piece(q->type, q->stem, rel)) {
+                char why[160];
+                snprintf(why, sizeof why, "it is a file of the %s %s of the mod %s: a tweak acts on the original game only", q->type == MOD_TYPE_CAR ? "car" : "track", q->stem, q->id);
+                say_left_out(p, rel, rule, why);
+                return false;
+            }
+        }
+        if (strncasecmp(rel, "track_light/", 12) == 0 && track_light_text_races(set.now.dirs[index], rel)) {   /* its tunnel and snow facts change the grip */
+            say_left_out(p, rel, rule, "its tunnel or snow lines change the race, which an installed tweak may not");
+            return false;
+        }
+        return true;
+    }
     if (p->cli && rule != MOD_FILE_RACE) return true;   /* --mods serves what does not change the race */
-    say_left_out(p, rel, rule);
+    say_left_out(p, rel, rule, NULL);
     return false;
 }
 

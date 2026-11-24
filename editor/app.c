@@ -141,6 +141,13 @@ static int car_into(App *a, const char *dir)
 
 int app_open_any(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
 {
+    char mod[MOD_INI_ID_MAX + 1];
+    if (installed_mod_of(dir, "", mod, sizeof mod)) {   /* an installed mod is no project: nothing is opened and nothing is written in it (no project.ini, trace.json, mod.ini) */
+        app_begin(a, game, user, generic_art);
+        snprintf(a->status, sizeof a->status, INSTALLED_MOD_REFUSAL, mod);
+        snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
+        return 0;
+    }
     if (!recent_is_project(dir) && car_project_present(dir)) {
         app_begin(a, game, user, generic_art);
         const int opened = car_into(a, dir);
@@ -507,6 +514,12 @@ int app_car_build_poll(App *a)
 
 static int open_in(App *a, const char *dir, AppKind kind)
 {
+    char mod[MOD_INI_ID_MAX + 1];
+    if (installed_mod_of(dir, a->workspace, mod, sizeof mod)) {
+        snprintf(a->status, sizeof a->status, INSTALLED_MOD_REFUSAL, mod);
+        snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
+        return 0;
+    }
     App *next = calloc(1, sizeof *next);
     if (next == NULL) {
         set_status(a, "out of memory");
@@ -559,6 +572,12 @@ int app_close_project(App *a)
 
 int app_open_project(App *a, const char *dir)
 {
+    char mod[MOD_INI_ID_MAX + 1];
+    if (installed_mod_of(dir, a->workspace, mod, sizeof mod)) {   /* not "use New to start one there": New would write a project inside the mod */
+        snprintf(a->status, sizeof a->status, INSTALLED_MOD_REFUSAL, mod);
+        snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
+        return 0;
+    }
     if (original_track_present(dir)) return app_open_original(a, dir);
     if (!recent_is_project(dir)) {
         set_status(a, "that folder holds no project (no project.ini): use New to start one there");
