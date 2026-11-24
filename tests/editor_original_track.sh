@@ -174,7 +174,7 @@ run --frames 4 --steps open-original:0,masks-print > /dev/null 2>&1
 # the window open: a PSD saved while the editor runs (no new run) is seen by the panel's poll: its status says so, the PNG is made again and so is the photo
 png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
 before_png=$(cksum < "$png")
-run_bg --frames 100000 --steps open-original:0,poll-wait:90 > "$work/poll.out" 2>&1 &
+run_bg --frames 7000 --steps open-original:0,poll-wait:90 > "$work/poll.out" 2>&1 &
 poll_pid=$!
 for _ in $(seq 1 120); do grep -q '^poll: watching' "$work/poll.out" && break; sleep 0.5; done
 grep -q '^poll: watching' "$work/poll.out" || { kill -9 "$poll_pid" 2>/dev/null; fail "the window did not start watching: $(cat "$work/poll.out")"; }
