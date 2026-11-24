@@ -1833,6 +1833,8 @@ if(NOT EMSCRIPTEN)
         # Stock and Restored show the original's screens: the front end's pictures against goldens (tests/golden/screens/<profile>), one game session per profile
         add_test(NAME stock_screens_golden COMMAND sh ${CMAKE_SOURCE_DIR}/tests/stock_screens_golden.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(stock_screens_golden PROPERTIES TIMEOUT 600)
+        add_test(NAME tweak_race_facts COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tweak_race_facts.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)   # a tweak's tunnel fact is left out: the race is the same, tick for tick
+        set_tests_properties(tweak_race_facts PROPERTIES TIMEOUT 900)
         # dep59 step 4 (T11): editions in the menus, one test per game session (each part one boot)
         foreach(part menus modes race)
             add_test(NAME edition_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
