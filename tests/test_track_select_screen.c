@@ -52,12 +52,10 @@ static void blit_masked(void *ctx, const uint8_t *s)
 static void blit_word(void *ctx, int32_t s) { (void)ctx, (void)s; }
 static void style(void *ctx, int32_t s) { (void)ctx, (void)s; }
 static int night_words;   /* the times the word Night was written */
-static int variant_words;   /* the times the variant's name (Mirror, Rally) was written */
 static void text(void *ctx, const char *t, int32_t x, int32_t y)
 {
     (void)ctx, (void)x, (void)y;
     if (strcmp(t, "Night") == 0) night_words++;
-    if (strcmp(t, "Mirror") == 0 || strcmp(t, "Rally") == 0) variant_words++;
 }
 static void mark(void *ctx, DialogPointer *p) { (void)ctx, (void)p; }
 static int32_t zero(void *ctx) { (void)ctx; return 0; }
