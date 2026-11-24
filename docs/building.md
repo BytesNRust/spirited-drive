@@ -68,6 +68,13 @@ The unit tests need nothing but the build. The tests that read the CD's data (th
 tree and skip themselves without it, so a checkout with no game data runs fewer tests: compare `ctest -N`'s count before trusting a pass. Some
 tests read the docs themselves (`docs/settings.md`'s tables are checked against the code).
 
+Every test carries two labels, a layer and a product, so a run can pick a set: `ctest --test-dir build/native -L unit -j N` runs the unit tests only
+(a few minutes: the `test_*`/`fuzz_*` binaries and the static checks), `-L integration` the short scripts that start the game, the editor or a tool,
+`-L e2e` the long walks of menus, races and editor flows (20 s or more each). The product is `core`, `game`, `editor` or `both` (a test that links
+or starts the two); repeat `-L` to combine (`-L unit -L editor`). The labels are set at the end of `CMakeLists.txt` from what each test is: a binary
+is unit, a script integration, and the slow scripts are named in `TNFS_E2E_TESTS` there (add a new long script to that list). `cmake` prints
+`ctest labels: no layer for: …` if a test has none.
+
 A sanitizer build is a separate build directory configured with the flags in `CMAKE_C_FLAGS`, for example
 `cmake -S . -B build/asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"`; the tests that
 run the real game get a longer timeout there.

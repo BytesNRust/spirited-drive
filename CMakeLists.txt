@@ -38,6 +38,21 @@ configure_file(${CMAKE_SOURCE_DIR}/game/tnfs_version.h.in ${CMAKE_BINARY_DIR}/ge
 # The text with the commit's hash is in this one file (tnfs_game): a new commit recompiles it, not the dozens of files that include the header.
 configure_file(${CMAKE_SOURCE_DIR}/game/tnfs_version.c.in ${CMAKE_BINARY_DIR}/generated/tnfs_version.c @ONLY)
 
+# ctest labels (the end of this file) need each test's command, which CMake does not let a script read back: this wrapper keeps it
+# beside the test and registers the test exactly as before.
+function(add_test)
+    cmake_parse_arguments(PARSE_ARGV 0 T "" "NAME;WORKING_DIRECTORY" "COMMAND;CONFIGURATIONS")
+    if(T_NAME)
+        set_property(GLOBAL PROPERTY "TNFS_TESTCMD_${T_NAME}" "${T_COMMAND}")
+    endif()
+    set(args "")   # every argument as it came, an empty one too (migration_acceptance passes "")
+    math(EXPR last "${ARGC} - 1")
+    foreach(i RANGE ${last})
+        string(APPEND args " [==[${ARGV${i}}]==]")
+    endforeach()
+    cmake_language(EVAL CODE "_add_test(${args})")
+endfunction()
+
 # Release builds (the packaged app) never look in the source tree for data.
 option(TNFS_RELEASE "Build for distribution: no source-tree data fallbacks" OFF)
 option(TNFS_PROBES "Build the exe-comparison probes (their sources are not in this repository)" OFF)
@@ -2538,4 +2553,137 @@ endforeach()
 # track_new runs the game 20 times on a built track: 143 s on a loaded Mac, over the two minutes meant for a hang
 if(TEST track_new)
     set_tests_properties(track_new PROPERTIES TIMEOUT 300)
+endif()
+
+# ---- ctest labels: every test gets a layer and a product, so `ctest -L unit` (or -L editor, -L "e2e;game" with -L twice) picks a set.
+#   layer:   unit = a test_*/fuzz_* binary, in process, or a static check (a script that starts no program);
+#            e2e = walks menus, races or editor flows, 20 s or more in release (the list below; measured, not guessed);
+#            integration = every other script: starts the game, the editor or a tool for one short check.
+#   product: core / game / editor / both, from what the test links (a binary) or the program the command starts (a script).
+# A new test needs no edit here: a binary is unit, a script integration; add a slow script's name to TNFS_E2E_TESTS.
+set(TNFS_STATIC_CHECKS
+    text_binarized_lint car_mask_class_table car_mask_psd masks_status track_mask_psd dash_mask_psd dash_psd_update
+    frame_pick free_udp_ports spirited_logo spirited_icon profile_tables profile_tables_sabotage editor_ui_words
+    editor_loose_text)
+set(TNFS_E2E_TESTS
+    editor_headless_track_a
+    editor_headless_track_b
+    editor_headless_car_a
+    editor_headless_car_b
+    editor_car_panel_clicks
+    editor_new_car
+    editor_model_flow
+    editor_light_window
+    editor_original_track_flow_a
+    editor_original_track_flow_b
+    studio_cli
+    car_piece_race_giveup
+    car_piece_race_finish
+    car_piece_race_replay
+    car_piece_race_stock
+    car_card_menus_cards
+    car_card_menus_modes
+    car_card_menus_steps
+    car_card_menus_replays
+    showcase_setup_tile
+    stock_screens_golden
+    tweak_race_facts
+    edition_menus_menus
+    edition_menus_race
+    track_light_fingerprint
+    car_lit_all_game
+    light_drive_results_game
+    vegas_lamps_game
+    edition_menus_trackrace
+    track_menus_race
+    track_piece_run
+    content_menus_own
+    editor_e2e_track
+    editor_copy_originals
+    editor_tweak_parity
+    editor_traffic_car_panel
+    editor_real_workspace
+    net_port_taken
+    net_track_guard_9
+    net_track_guard_0xffff
+    mod_install_game_before
+    mod_install_game_tri
+    car_import_game
+    stats_mods_isolation
+    menu_music_kept
+    variant_choice_kept
+    live_mode_switch_race
+    mods_live_switch_race
+    boot_skip_chain)
+get_directory_property(tnfs_all_tests TESTS)
+set(tnfs_unlabeled "")
+foreach(t IN LISTS tnfs_all_tests)
+    get_property(tnfs_cmd GLOBAL PROPERTY "TNFS_TESTCMD_${t}")
+    list(GET tnfs_cmd 0 tnfs_head)
+    set(tnfs_text "${tnfs_cmd}")
+    set(tnfs_layer "")
+    set(tnfs_product core)
+    if(TARGET "${tnfs_head}")      # add_test(NAME x COMMAND some_target): a binary of ours
+        set(tnfs_layer unit)
+        get_target_property(tnfs_libs "${tnfs_head}" LINK_LIBRARIES)
+        get_target_property(tnfs_srcs "${tnfs_head}" SOURCES)
+        if(NOT tnfs_libs)
+            set(tnfs_libs "")
+        endif()
+        set(tnfs_game OFF)
+        set(tnfs_editor OFF)
+        if("tnfs_game" IN_LIST tnfs_libs)
+            set(tnfs_game ON)
+        endif()
+        foreach(l IN LISTS tnfs_libs)
+            if(l MATCHES "^(imgui|tnfs_tools)")
+                set(tnfs_editor ON)
+            endif()
+        endforeach()
+        foreach(s IN LISTS tnfs_srcs)
+            if(s MATCHES "^(editor|studio)/")
+                set(tnfs_editor ON)
+            endif()
+        endforeach()
+        if(tnfs_game AND tnfs_editor)
+            set(tnfs_product both)
+        elseif(tnfs_game)
+            set(tnfs_product game)
+        elseif(tnfs_editor)
+            set(tnfs_product editor)
+        endif()
+    elseif(t IN_LIST TNFS_STATIC_CHECKS)
+        set(tnfs_layer unit)
+    elseif(t IN_LIST TNFS_E2E_TESTS)
+        set(tnfs_layer e2e)
+    elseif(tnfs_head MATCHES "(^|/)(sh|bash|env|cmake|python[0-9.]*)$" OR tnfs_head MATCHES "\\.sh$")
+        set(tnfs_layer integration)
+    endif()
+    if(tnfs_layer STREQUAL "")
+        list(APPEND tnfs_unlabeled ${t})
+        continue()
+    endif()
+    if(NOT tnfs_layer STREQUAL "unit" OR t IN_LIST TNFS_STATIC_CHECKS)
+        # a script: the program it starts (the build's own path or the target generator expression in its command)
+        set(tnfs_game OFF)
+        set(tnfs_editor OFF)
+        if(tnfs_text MATCHES "tnfs-track-editor|tnfs-studio")
+            set(tnfs_editor ON)
+        endif()
+        if(tnfs_text MATCHES "[:/$<]tnfs[>;/]|[:;]tnfs[;>]|/tnfs$|tnfs;")
+            set(tnfs_game ON)
+        endif()
+        if(tnfs_game AND tnfs_editor)
+            set(tnfs_product both)
+        elseif(tnfs_game)
+            set(tnfs_product game)
+        elseif(tnfs_editor)
+            set(tnfs_product editor)
+        endif()
+    endif()
+    set_property(TEST ${t} APPEND PROPERTY LABELS "${tnfs_layer}" "${tnfs_product}")
+endforeach()
+if(tnfs_unlabeled)
+    list(JOIN tnfs_unlabeled " " tnfs_unlabeled_text)
+    message(STATUS "ctest labels: no layer for: ${tnfs_unlabeled_text}")
 endif()
