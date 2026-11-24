@@ -1,13 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Every push to any branch and every pull request: build and run the tests on macOS (Apple Silicon and Intel),
-# once in Release and once with AddressSanitizer + UndefinedBehaviorSanitizer. A compiler warning fails the build.
+# Every push to any branch and every pull request: build and run the tests on macOS, once in Release and once with
+# AddressSanitizer + UndefinedBehaviorSanitizer. A compiler warning fails the build.
+# Apple Silicon runs on every push; Intel (macos-15-intel) only on main, the gate-* branches and pull requests, so a work
+# branch costs two jobs, not four. Pushes that touch only docs or notes (*.md, docs/, notes/) run nothing.
+# ccache keeps the objects between runs: main saves the cache, every branch restores it.
 # Tests that need the CD's data skip themselves (there is no game data in CI).
 name: CI
 
 on:
   push:
     branches: ['**']
+    paths-ignore: ['**/*.md', 'docs/**', 'notes/**']
   pull_request:
+    paths-ignore: ['**/*.md', 'docs/**', 'notes/**']
 
 permissions:
   contents: read
@@ -21,7 +26,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-15-intel]     # Apple Silicon and Intel
+        # Apple Silicon always; Intel too on main, gate-* and pull requests
+        runner: ${{ fromJSON((github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/gate-')) && '["macos-15","macos-15-intel"]' || '["macos-15"]') }}
         build: [release, sanitizers]
         include:
           - build: release
@@ -34,6 +40,9 @@ jobs:
     env:
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
       ASAN_OPTIONS: detect_leaks=0
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
       SDL_VIDEO_DRIVER: dummy
       SDL_AUDIO_DRIVER: dummy
       SDL_AUDIODRIVER: dummy
@@ -42,13 +51,29 @@ jobs:
         with:
           persist-credentials: false
       - name: Install tools
-        run: brew install ninja sdl3
+        run: brew install ninja sdl3 ccache
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.runner }}-${{ matrix.build }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.runner }}-${{ matrix.build }}-
       - name: Configure
-        run: cmake -S . -B build -G Ninja ${{ matrix.cmake }}
+        run: |
+          ccache -z
+          cmake -S . -B build -G Ninja ${{ matrix.cmake }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           set -o pipefail
           cmake --build build 2>&1 | tee build.log
+      - name: ccache statistics
+        run: ccache -s
+      - name: Save the ccache (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.runner }}-${{ matrix.build }}-${{ github.sha }}
       - name: No compiler warnings
         run: |
           if grep 'warning:' build.log | grep -v '^ld: warning' | sort -u | grep .; then
