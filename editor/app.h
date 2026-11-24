@@ -127,6 +127,8 @@ typedef struct {
     double tmask_psd_seen;       /* the newest mask PSD time the scan saw; a PSD newer than this was saved again (app_track_masks_poll) */
     double tmask_check_at;       /* the clock of the last look at the PSDs */
     double tmask_now;            /* the window's clock in seconds, set each frame by the track editor (the light window has its own: light.now) */
+    OriginalPublish tmask_changes;   /* the PNGs against the game repo's data/track_masks, read when the folder is scanned (never per frame) */
+    int tmask_changes_have;      /* tmask_changes is valid (the repo's data/ is set) */
     char tmask_note[200];        /* why there is no picture, or what Regenerate did */
     int original_dialog;         /* the Open original track window is up */
     int publish_dialog;          /* the Publish to the game window is up, with its preview in publish_text */
@@ -402,6 +404,15 @@ int app_tweak_apply(App *a, const char *id);   /* id: the folder name in <worksp
 int app_original_check_all(App *a, char *out, size_t cap);
 int app_track_masks_load(App *a);
 int app_track_masks_refresh(App *a);
+/* The Masks window's buttons. reveal: asks the window to show the PSD folder (art-source/masks, psd 1) or the PNG folder (art-generated/track_masks) in the Finder; 1, or 0 with the reason in tmask_note
+ * when the folder is not there. update: makes the PNGs of the PSDs newer than them (the ones the poll would make), and, with replace_edited, those edited by hand too; 1, or 0 with the reason in tmask_note.
+ * edited_names: the names of the PNGs edited by hand ("a, b"), how many. rescan: scans the folder again (also the light photos) after an editor wrote a file. changes_text: the changes against the game repo
+ * as the dialog's lines; 0 when the repo's data/ is not set. */
+int app_track_masks_reveal(App *a, int psd);
+int app_track_masks_update(App *a, int replace_edited);
+int app_track_masks_edited_names(const App *a, char *out, size_t cap);
+int app_track_masks_rescan(App *a);
+int app_track_masks_changes_text(const App *a, char *out, size_t cap);
 /* Once a second, with the window's clock: a PSD saved again makes the PNGs again, the rows refresh and the photos are taken again with the new masks. 1 when it did. */
 int app_track_masks_poll(App *a);
 int app_track_mask_select(App *a, int i);

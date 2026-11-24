@@ -69,6 +69,75 @@ void mask_row(App *a, int i)
         ImGui::SetTooltip("This texture has no mask. To give it one, save a PSD named %s.psd in the track's art-source/masks folder, with a layer named mask where the shiny parts are painted;\nStudio makes the PNG from it by itself.", r.name);
 }
 
+// the buttons above the table, as the car's Masks tab has them: the two folders in the Finder, the PNGs made again from the PSDs (asking before replacing what was edited by hand), and a new scan
+void actions(App *a)
+{
+    char edited[200];
+    const int n_edited = app_track_masks_edited_names(a, edited, sizeof edited);
+    if (ImGui::Button("Show PSD folder")) app_track_masks_reveal(a, 1);
+    ui_probe("tmask_show_psd");
+    ImGui::SetItemTooltip("Shows the folder with the track's mask PSDs (art-source/masks) in the Finder. The PSDs are never written.");
+    ImGui::SameLine();
+    if (ImGui::Button("Show masks folder")) app_track_masks_reveal(a, 0);
+    ui_probe("tmask_show_png");
+    ImGui::SetItemTooltip("Shows the folder with the PNGs the game reads (art-generated/track_masks) in the Finder.");
+    ImGui::SameLine();
+    const bool pending = a->tmasks.to_make > 0 || n_edited > 0;
+    ImGui::BeginDisabled(!pending);
+    if (ImGui::Button("Update masks from PSD")) {
+        if (n_edited > 0) ImGui::OpenPopup("Replace edited masks?");   // asks before replacing what was edited by hand
+        else app_track_masks_update(a, 0);
+    }
+    ui_probe("tmask_update");
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("%s", pending ? "Makes the PNGs again from the PSDs that are newer than them. The PSDs are never written.\nA PNG edited by hand is not replaced without asking first."
+                                        : "Every PNG is up to date with its PSD.");
+    ImGui::SameLine();
+    if (ImGui::Button("Re-scan")) app_track_masks_rescan(a);
+    ui_probe("tmask_rescan");
+    ImGui::SetItemTooltip("Reads the folders again (after your picture editor wrote a file) and compares the masks with the game repo's.");
+    if (ImGui::BeginPopupModal("Replace edited masks?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        if (n_edited == 0) ImGui::CloseCurrentPopup();   // nothing left to ask about
+        ImGui::TextWrapped("%s edited by hand: %s.", n_edited == 1 ? "This mask is" : "These masks are", edited);
+        ImGui::TextWrapped("Replace %s with what the PSD makes (the changes made by hand are lost), or keep %s as %s.", n_edited == 1 ? "it" : "them", n_edited == 1 ? "it" : "them", n_edited == 1 ? "it is" : "they are");
+        if (ImGui::Button("Replace")) app_track_masks_update(a, 1), ImGui::CloseCurrentPopup();
+        ui_probe("tmask_all_replace");
+        ImGui::SameLine();
+        if (ImGui::Button("Keep")) app_track_masks_update(a, 0), ImGui::CloseCurrentPopup();   // the other PSDs are converted, the edited PNGs stay
+        ui_probe("tmask_all_keep");
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();   // nothing is converted
+        ui_probe("tmask_all_cancel");
+        ImGui::EndPopup();
+    }
+}
+
+// the PNGs against the game repo's: a line for each that changed or is new (read when the folder was scanned, not now)
+void changes(App *a)
+{
+    if (!a->tmask_changes_have) return;
+    const OriginalPublish &p = a->tmask_changes;
+    ImGui::Spacing();
+    if (!ImGui::CollapsingHeader("Changes from the game's masks", ImGuiTreeNodeFlags_DefaultOpen)) return;
+    if (ImGui::Button("Copy list of changed files to clipboard")) {
+        char text[4096];
+        app_track_masks_changes_text(a, text, sizeof text);
+        ImGui::SetClipboardText(text);
+        snprintf(a->status, sizeof a->status, "copied the list of changed masks (%d changed, %d new)", p.changed, p.added);
+    }
+    ui_probe("tmask_copy_list");
+    ImGui::Text("track_masks against the game's: %d changed, %d new, %d unchanged", p.changed, p.added, p.same);
+    for (int i = 0; i < p.count; ++i) {
+        const OriginalPublishItem &it = p.item[i];
+        if (it.state == OT_SAME) continue;
+        if (it.state == OT_NEW) ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.45f, 1.0f), "new      %s", it.file);
+        else if (it.lines_added < 0) ImGui::TextColored(state_colour(TM_EDITED), "changed  %s", it.file);
+        else ImGui::TextColored(state_colour(TM_EDITED), "changed  %s  +%d -%d texels", it.file, it.lines_added, it.lines_removed);
+    }
+    if (p.changed + p.added == 0) ImGui::TextDisabled("Every mask is the game's own.");
+}
+
 }   // namespace
 
 void track_masks_panel(App *a, ImTextureID picture)
@@ -82,6 +151,7 @@ void track_masks_panel(App *a, ImTextureID picture)
     ImGui::SameLine();
     help_marker("The owner's PSDs (art-source/masks) make the PNGs the game reads (art-generated/track_masks), on their own when a PSD changes. A texture with a PNG and no PSD uses the PNG. "
                 "A PSD with nothing painted in its mask layer is not used. A PNG edited by hand is kept until you press Update this mask from its PSD. Click a row to see its mask over the texture.");
+    actions(a);
     bool only = a->tmask_masked_only != 0;
     if (ImGui::Checkbox("With mask only", &only)) a->tmask_masked_only = only;
     ui_probe("tmask_only");
@@ -122,6 +192,7 @@ void track_masks_panel(App *a, ImTextureID picture)
         }
         ImGui::EndTable();
     }
+    changes(a);
     const int sel = a->tmask_sel;
     if (sel >= 0 && sel < m.count) {
         const TrackMaskRow &r = m.row[sel];

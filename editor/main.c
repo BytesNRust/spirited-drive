@@ -772,6 +772,7 @@ static int run(App *a, const Options *o)
         }
         if (a->reveal[0] != '\0') {   /* a folder or file to show in the Finder (the Masks window's and the Mask panel's buttons) */
             if (!headless) reveal(a);
+            else fprintf(stdout, "reveal: %s\n", a->reveal);   /* what the button asked for, for the tests */
             a->reveal[0] = '\0';
         }
         if (a->go != APP_ACT_NONE) {

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "formats/psd_mask.h"
 #include "track_tex.h"
@@ -65,6 +66,26 @@ static const char *root_of(const App *a)
     return art_source(a, &src) ? src.root : "";
 }
 
+/* the light window's photos are taken again with the masks as they are now */
+static void photos_again(App *a)
+{
+    if (a->kind != APP_KIND_LIGHT) return;
+    ++a->light.edit_serial;
+    a->light.edit_at = a->light.now;
+    memset(a->light.compare.shown, 0, sizeof a->light.compare.shown);
+}
+
+/* the PNGs of the track against the game repo's data/track_masks (read once per scan, never per frame): the list the panel shows. Nothing when the repo's data/ is not set. */
+static void changes_scan(App *a, const char *stem)
+{
+    char why[OT_WHY] = "";
+    memset(&a->tmask_changes, 0, sizeof a->tmask_changes);
+    a->tmask_changes_have = 0;
+    if (app_repo_data(a)[0] == '\0') return;
+    a->tmask_changes_have = track_masks_publish_plan(root_of(a), app_repo_data(a), stem, &a->tmask_changes, why, sizeof why);
+    if (!a->tmask_changes_have) memset(&a->tmask_changes, 0, sizeof a->tmask_changes);
+}
+
 int app_track_masks_refresh(App *a)
 {
     char stem[16], why[APP_MSG] = "";
@@ -78,10 +99,13 @@ int app_track_masks_refresh(App *a)
     a->tmask_note[0] = '\0';
     if (!track_masks_scan(root_of(a), info, n, &a->tmasks, why, sizeof why)) {
         memset(&a->tmasks, 0, sizeof a->tmasks);
+        memset(&a->tmask_changes, 0, sizeof a->tmask_changes);
+        a->tmask_changes_have = 0;
         snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why);
         return a->tmasks_loaded = 1, 0;
     }
     a->tmask_psd_seen = track_masks_newest_psd(root_of(a));
+    changes_scan(a, stem);
     return a->tmasks_loaded = 1;
 }
 
@@ -166,6 +190,70 @@ int app_track_mask_regenerate(App *a)
     return 1;
 }
 
+int app_track_masks_reveal(App *a, int psd)
+{
+    char dir[APP_PATH];
+    struct stat st;
+    const char *root = root_of(a);
+    if (root[0] == '\0') return 0;
+    snprintf(dir, sizeof dir, psd ? "%s/art-source/masks" : "%s/art-generated/track_masks", root);
+    if (stat(dir, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        snprintf(a->tmask_note, sizeof a->tmask_note, psd ? "There is no PSD folder yet: save a PSD named like the texture in art-source/masks of the track" : "There is no masks folder yet: it appears when a PNG is made");
+        return 0;
+    }
+    snprintf(a->reveal, sizeof a->reveal, "%s", dir);
+    return 1;
+}
+
+int app_track_masks_edited_names(const App *a, char *out, size_t cap)
+{
+    int n = 0, len = 0;
+    if (cap > 0) out[0] = '\0';
+    for (int i = 0; i < a->tmasks.count; ++i) {
+        if (a->tmasks.row[i].state != TM_EDITED) continue;
+        if (len < (int)cap - 24) len += snprintf(out + len, cap - (size_t)len, "%s%s", n > 0 ? ", " : "", a->tmasks.row[i].name);
+        else if (len < (int)cap - 4) len += snprintf(out + len, cap - (size_t)len, "...");
+        ++n;
+    }
+    return n;
+}
+
+int app_track_masks_update(App *a, int replace_edited)
+{
+    char why[APP_MSG] = "", names[TM_MAX][TRACK_TEX_NAME];
+    int written = 0, replaced = 0, edited = 0, ok = 1;
+    if (!a->tmasks_loaded && !app_track_masks_refresh(a)) return 0;
+    for (int i = 0; i < a->tmasks.count; ++i)
+        if (a->tmasks.row[i].state == TM_EDITED && a->tmasks.row[i].has_psd) snprintf(names[edited++], TRACK_TEX_NAME, "%s", a->tmasks.row[i].name);
+    if (a->tmasks.to_make > 0) ok = track_masks_generate(root_of(a), &a->tmasks, &written, why, sizeof why);
+    for (int i = 0; ok && replace_edited && i < edited; ++i) {
+        ok = track_masks_regenerate(root_of(a), names[i], why, sizeof why);
+        replaced += ok ? 1 : 0;
+    }
+    app_track_masks_refresh(a);
+    if (!ok) return snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why), 0;
+    if (written + replaced > 0) photos_again(a);
+    snprintf(a->status, sizeof a->status, "masks: %d PNG%s made from the PSDs%s", written + replaced, written + replaced == 1 ? "" : "s", a->tmasks.edited > 0 ? " (the ones edited by hand are kept)" : "");
+    return 1;
+}
+
+int app_track_masks_rescan(App *a)
+{
+    if (!app_track_masks_refresh(a)) return 0;
+    photos_again(a);
+    snprintf(a->status, sizeof a->status, "masks: scanned again (%d texture%s)", a->tmasks.count, a->tmasks.count == 1 ? "" : "s");
+    return 1;
+}
+
+int app_track_masks_changes_text(const App *a, char *out, size_t cap)
+{
+    char stem[16];
+    if (cap > 0) out[0] = '\0';
+    if (!a->tmask_changes_have || !stem_of(a, stem, sizeof stem)) return 0;
+    original_track_publish_text(&a->tmask_changes, stem, out, cap);
+    return 1;
+}
+
 /* Copy to game repo (app.h): the preview is the light files and the masks' PNGs of the open original track against data/; the copy writes the changed and new ones */
 int app_original_copy_ask(App *a)
 {
@@ -233,11 +321,7 @@ int app_track_masks_poll(App *a)
     if (track_masks_newest_psd(root) <= a->tmask_psd_seen) return 0;
     a->tmasks_loaded = 0;   // a PSD was saved again: scan, make the PNGs, and show the photos again with them
     app_track_masks_load(a);
-    if (a->kind == APP_KIND_LIGHT) {
-        ++a->light.edit_serial;
-        a->light.edit_at = a->light.now;
-        memset(a->light.compare.shown, 0, sizeof a->light.compare.shown);
-    }
+    photos_again(a);
     snprintf(a->status, sizeof a->status, a->kind == APP_KIND_LIGHT ? "masks: a PSD was saved again: the PNGs and the photo are made again" : "masks: a PSD was saved again: the PNGs are made again");
     return 1;
 }

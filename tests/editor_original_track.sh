@@ -221,6 +221,32 @@ echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "the PSD
 out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,masks-print" 2>&1) || fail "regenerate an unedited mask: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "an unedited mask is made again with no question: $out"
 
+# the window's own buttons (as a car's Masks tab has them): the two folders shown in the Finder, Update masks from PSD for all of them (asking first about the PNGs edited by hand), Re-scan,
+# and the list of changes against the game repo (--port-data); the PNG edited by hand is scenery_00 again
+python3 - "$edited_png" <<'PY'
+import struct, sys, zlib
+def chunk(kind, data): return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
+row = b"\x00" + bytes([255, 255, 255, 255])
+open(sys.argv[1], "wb").write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 1, 8, 0, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(row)) + chunk(b"IEND", b""))
+PY
+cp "$edited_png" "$work/edited_scenery.png"
+out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_show_psd,ui-click:tmask_show_png" 2>&1) || fail "show folders: $out"
+echo "$out" | grep -qxF "reveal: $work/ws/tracks/AL1/art-source/masks" || fail "Show PSD folder asks for the track's art-source/masks: $out"
+echo "$out" | grep -qxF "reveal: $work/ws/tracks/AL1/art-generated/track_masks" || fail "Show masks folder asks for the track's art-generated/track_masks: $out"
+for answer in tmask_all_cancel tmask_all_keep; do
+    out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:$answer,masks-print" 2>&1) || fail "update, $answer: $out"
+    cmp -s "$edited_png" "$work/edited_scenery.png" || fail "update, $answer: the PNG edited by hand was replaced: $out"
+    echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "update, $answer: the PNG is still edited by hand: $out"
+done
+out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_rescan,status" 2>&1) || fail "re-scan: $out"
+echo "$out" | grep -q '^status: masks: scanned again (3 textures)$' || fail "Re-scan says it scanned the folder again: $out"
+out=$(run --frames 60 --steps "open-original:0,masks-changes" 2>&1) || fail "changes: $out"
+echo "$out" | grep -q '^changes: ' && echo "$out" | grep -q 'track_masks/AL1/scenery_00.png' || fail "the list of changes against the game repo names the mask: $out"
+out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:tmask_all_replace,masks-print" 2>&1) || fail "update, replace: $out"
+cmp -s "$edited_png" "$work/edited_scenery.png" && fail "update, Replace did not replace the PNG edited by hand: $out"
+echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "update, Replace makes every PNG from its PSD: $out"
+echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "update, Replace: the PSD's mask is back: $out"
+
 # the copy action is hidden unless the game repo's data/ is given (--port-data): without it the room's File menu has no Copy item and print-repo says none
 out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --window 1280x800 --frames 20 --steps open-original:3,print-menu,print-repo 2>&1) || fail "no repo: $out"
 echo "$out" | grep -qF 'Export original track... | Open recent | Copy to game repo (off: set the game repo folder first) | Game repo folder... | Save' || fail "Copy is shown off, with Game repo folder..., without the repo's data/: $out"
