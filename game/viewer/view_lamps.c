@@ -33,9 +33,9 @@ static int flare_on;   /* port (lamp_flares): a soft halo round a lit brake ligh
  * the road's asphalt and paint that share its colours are 46 %, and a small far lamp (4..20 px) shows a bright texel in one frame and none in the next. A halo climbs to its target and falls from it
  * by steps, and is the same halo as the last frame's when it is within lamp_fade_match_px of it, so no lamp blinks. */
 enum { TUNNEL_FLARES_MAX = 128 };
-typedef struct { int lamp, x, y, level, miss; } ShownFlare;
+typedef struct { int lamp, x, y, level, miss, vx, vy, id; } ShownFlare;   /* vx, vy: the pixels it moved in the frame it was matched: a lamp near the edge moves several a frame */
 static ShownFlare shown_prev[TUNNEL_FLARES_MAX];   /* the halos drawn in the frame before, with their strength */
-static int shown_prev_count;
+static int shown_prev_count, halo_ids;
 typedef struct { int lamp, x, y, size; } TunnelFlare;
 static TunnelFlare tunnel_flares[TUNNEL_FLARES_MAX];
 static int tunnel_flare_count;
@@ -165,7 +165,8 @@ static void match_flares(int match[TUNNEL_FLARES_MAX])
         match[i] = -1;
         for (int k = 0; k < shown_prev_count && count < PAIRS_MAX; k++) {
             const TunnelFlare *f = &tunnel_flares[i];
-            const int dx = abs(shown_prev[k].x - f->x), dy = abs(shown_prev[k].y - f->y), d = dx > dy ? dx : dy;
+            const int dx = abs(shown_prev[k].x - f->x), dy = abs(shown_prev[k].y - f->y), px = abs(shown_prev[k].x + shown_prev[k].vx - f->x), py = abs(shown_prev[k].y + shown_prev[k].vy - f->y);
+            const int still = dx > dy ? dx : dy, moved = px > py ? px : py, d = still < moved ? still : moved;   /* where it was, or where it was going */
             if (shown_prev[k].lamp == f->lamp && d <= lamp_fade_match_px(f->size)) pairs[count++] = (Pair){ d, i, k };
         }
     }
@@ -211,11 +212,18 @@ void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
                 if (percent > best) best = percent;
             }
         int level = 0, miss = 0;
-        if (match[i] >= 0) level = shown_prev[match[i]].level, miss = shown_prev[match[i]].miss;
+        int vx = 0, vy = 0, id = ++halo_ids;   /* id: a halo's number while it lasts (the trace tells them apart) */
+        if (match[i] >= 0) {
+            const ShownFlare *const was = &shown_prev[match[i]];
+            level = was->level, miss = was->miss, id = was->id, --halo_ids;
+            vx = f->x - was->x, vy = f->y - was->y;
+            vx = vx > LAMP_FADE_SPEED_MAX_PX ? LAMP_FADE_SPEED_MAX_PX : vx < -LAMP_FADE_SPEED_MAX_PX ? -LAMP_FADE_SPEED_MAX_PX : vx;
+            vy = vy > LAMP_FADE_SPEED_MAX_PX ? LAMP_FADE_SPEED_MAX_PX : vy < -LAMP_FADE_SPEED_MAX_PX ? -LAMP_FADE_SPEED_MAX_PX : vy;
+        }
         level = lamp_fade_step(level, lamp_fade_target(best, level > 0), &miss);
         if (level < LAMP_FADE_MIN_LEVEL) continue;
-        if (shown_next_count < TUNNEL_FLARES_MAX) shown_next[shown_next_count++] = (ShownFlare){ f->lamp, f->x, f->y, level, miss };
-        if (trace) port_log("flare_trace: %d %d %d %d\n", trace_frame, f->x, f->y, level);   /* port (dev, env only): TNFS_LAMP_FLARE_TRACE=1 logs each halo drawn with the frame's number and strength, for the flicker test */
+        if (shown_next_count < TUNNEL_FLARES_MAX) shown_next[shown_next_count++] = (ShownFlare){ f->lamp, f->x, f->y, level, miss, vx, vy, id };
+        if (trace) port_log("flare_trace: %d %d %d %d %d\n", trace_frame, f->x, f->y, level, id);   /* port (dev, env only): TNFS_LAMP_FLARE_TRACE=1 logs each halo drawn with the frame's number and strength, for the flicker test */
         if (!made[f->lamp]) {
             for (int l = 0; l < LAMP_FLARE_LEVELS; l++)
                 for (int d = 0; d < 256; d++) {
