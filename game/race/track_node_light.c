@@ -134,7 +134,8 @@ int track_node_light_zone_look_blend(const TrackNodeLight *light, uint32_t at, f
     if (id <= 0 || id > light->tone_count || light->tone[id - 1].look != 2) return 1;
     const float f = (float)light->tone[id - 1].blend / 100.0f, open = mean > 0.0f ? mean * 100.0f : 100.0f;
     *percent = (double)(open + ((float)*percent - open) * f);
-    for (int k = 0; k < 3; k++) cast[k] = 1.0f + (cast[k] - 1.0f) * f;
+    if (!light->tone[id - 1].own)   /* the time's colour fades with the light; a tunnel's own colour stays whole on every step */
+        for (int k = 0; k < 3; k++) cast[k] = 1.0f + (cast[k] - 1.0f) * f;
     return 1;
 }
 
@@ -224,8 +225,15 @@ static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, u
     const int foot = point >= 3 && point <= 5 ? row[2] : point >= 8 ? row[7] : 0;
     if (tunnel && row[point] == 0 && foot >= TRACK_NODE_LIGHT_WALL_FOOT) return TRACK_NODE_LIGHT_WALL;
     /* the road inside a tunnel (a lit foot with 0s from point 4 on, either side) is dark on the console version although its bytes say 255 */
-    if (road_clamps && (point == 0 || point == 1 || point == 6) && row[point] > TRACK_NODE_LIGHT_TUNNEL_ROAD) return TRACK_NODE_LIGHT_TUNNEL_ROAD;
-    if (road_clamps && (point == 2 || point == 7) && row[point] > TRACK_NODE_LIGHT_WALL) return TRACK_NODE_LIGHT_WALL;   /* the shoulder's far edge: half light too */
+    /* a tunnel mouth's gradient: over its steps the clamp comes in by the step's blend squared (25, 50, 75 % come in as 6, 25, 56 % of the way from the row's own byte: the darkening is steep at the bright end, so a straight share
+     * still made a cliff at the first step), so the road darkens node by node instead of all at the first tunnel node */
+    int step = 100;
+    if (road_clamps && light->tone_id != NULL && light->tone_mask != NULL) {
+        const int id = light->tone_id[node];
+        if (id > 0 && id <= light->tone_count && light->tone[id - 1].look == 2) step = light->tone[id - 1].blend * light->tone[id - 1].blend / 100;
+    }
+    if (road_clamps && (point == 0 || point == 1 || point == 6) && row[point] > TRACK_NODE_LIGHT_TUNNEL_ROAD) return (uint8_t)(row[point] - (row[point] - TRACK_NODE_LIGHT_TUNNEL_ROAD) * step / 100);
+    if (road_clamps && (point == 2 || point == 7) && row[point] > TRACK_NODE_LIGHT_WALL) return (uint8_t)(row[point] - (row[point] - TRACK_NODE_LIGHT_WALL) * step / 100);   /* the shoulder's far edge: half light too */
     return row[point];
 }
 

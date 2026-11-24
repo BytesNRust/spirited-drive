@@ -196,15 +196,16 @@ static int zone_slots(TrackLightTweaks *tweaks, int *bad_line)
 }
 
 /* the look of the tunnel at `node` this time: the last zone over it that has a look of its own, else the time's (the dark default: 10 % of full light, no colour) */
-static void tunnel_look_at(const TrackLightTweaks *tweaks, uint32_t node, double *light, float cast[3])
+static void tunnel_look_at(const TrackLightTweaks *tweaks, uint32_t node, double *light, float cast[3], int *own)
 {
+    *own = 0;
     *light = tweaks->look_has_light ? tweaks->look_light : 10.0;
     for (int k = 0; k < 3; k++) cast[k] = tweaks->look_has_colour ? tweaks->look_cast[k] : 1.0f;
     for (int i = 0; i < tweaks->zone_count; i++) {
         const TrackLightZone *const z = &tweaks->zones[i];
         if (z->lit || node < z->from || node > z->to || (!z->has_light && !z->has_colour)) continue;
         if (z->has_light) *light = z->light;
-        if (z->has_colour) memcpy(cast, z->cast, 3 * sizeof(float));
+        if (z->has_colour) memcpy(cast, z->cast, 3 * sizeof(float)), *own = 1;   /* the tunnel's own colour, not the time's */
     }
 }
 
@@ -224,7 +225,7 @@ static int gradient_steps(TrackLightTweaks *tweaks, int *bad_line)
             if (tweaks->step_count >= TRACK_LIGHT_MAX_STEPS) goto cut;
             TrackLightZone *const s = &tweaks->steps[tweaks->step_count++];
             *s = (TrackLightZone){ .from = n, .to = n, .has_light = 1, .has_colour = 1, .tone = -1, .blend = (int)((d + 1) * 100 / ((uint32_t)gr->nodes + 1)) };
-            tunnel_look_at(tweaks, n, &s->light, s->cast);
+            tunnel_look_at(tweaks, n, &s->light, s->cast, &s->own);
         }
     }
     for (int blend = 1; blend < 100; blend++)
@@ -233,7 +234,7 @@ static int gradient_steps(TrackLightTweaks *tweaks, int *bad_line)
             if (s->blend != blend) continue;
             TrackNodeLightTone slot;
             memset(&slot, 0, sizeof slot);
-            slot.rgb[0] = slot.rgb[1] = slot.rgb[2] = 255, slot.look = 2, slot.blend = (uint8_t)blend, slot.light = (float)s->light;
+            slot.rgb[0] = slot.rgb[1] = slot.rgb[2] = 255, slot.look = 2, slot.own = (uint8_t)s->own, slot.blend = (uint8_t)blend, slot.light = (float)s->light;
             memcpy(slot.cast, s->cast, sizeof slot.cast);
             int id = -1;
             for (int t = 0; t < tweaks->tone_count; t++)

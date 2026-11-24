@@ -27,8 +27,8 @@ typedef struct { uint32_t node; float x, z, reach; float rgb[3]; int tunnel; flo
 enum { TRACK_NODE_LIGHT_LAMP_RADIUS = 5 };   /* the nodes a lamp with no radius of its own reaches */
 /* A slot is a scene tone (look 0: `rgb` and `percent`, the colour the stretch's polygons are seen through) or, shared with them, a tunnel zone's own look (look 1: `light`, percent of full light, and
  * `cast`, 0..1 a channel, as the time's tunnel_tone: a tunnel zone whose look is not the track's). No padding: slots are compared and copied as bytes. */
-typedef struct { uint8_t rgb[3]; uint8_t percent; uint8_t look; uint8_t blend; uint8_t pad[2]; float light; float cast[3]; } TrackNodeLightTone;
-/* look 2 is a tunnel mouth's gradient step (`tunnel A B gradient N`): `light` and `cast` are the tunnel's, and `blend` (1..99) the percent of the way from the open road's light (the time's own tint) to them */
+typedef struct { uint8_t rgb[3]; uint8_t percent; uint8_t look; uint8_t blend; uint8_t own; uint8_t pad; float light; float cast[3]; } TrackNodeLightTone;
+/* look 2 is a tunnel mouth's gradient step (`tunnel A B gradient N`): `light` and `cast` are the tunnel's, and `blend` (1..99) the percent of the way from the open road's light (the time's own tint) to them; `own` 1: the tunnel's colour is its own (a `tunnel_look A B` colour), kept whole on every step, else the time's, faded by the blend with the light */
 
 typedef struct {
     uint8_t *data;      /* nodes * TRACK_NODE_LIGHT_POINTS bytes (owned), NULL when none is loaded */
