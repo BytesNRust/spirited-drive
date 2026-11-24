@@ -243,8 +243,11 @@ static void test_the_mode_holds_its_rows(void)
         CHECK(memcmp(&r.fake.saved, &was.e, sizeof was.e) != 0);
     }
     Rig restored;
-    change_then_done(&restored, ROW_STATS, PROFILE_RESTORED);   /* the one Restored adds here */
-    CHECK_EQ_INT(restored.fake.saved.stats_overlay, 1);
+    change_then_done(&restored, ROW_STATS, PROFILE_RESTORED);   /* the F12 stats overlay is Restomod's: Restored holds it too (owner 2026-11-24) */
+    CHECK_EQ_INT(restored.fake.saved.stats_overlay, 0);
+    Rig restored_was;
+    setup(&restored_was);
+    CHECK(memcmp(&restored.fake.saved, &restored_was.e, sizeof restored_was.e) == 0);
     for (size_t i = 0; i < sizeof HELD_IN_STOCK / sizeof HELD_IN_STOCK[0]; i++) {
         Rig r;
         change_then_done(&r, HELD_IN_STOCK[i], PROFILE_RESTOMOD);

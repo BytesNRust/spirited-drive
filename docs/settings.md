@@ -12,7 +12,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 ## How the pieces fit
 
 - **`TNFS_*` variable.** Where a key has one, the variable wins over the file when it is set (`0`/`1` unless noted). Most are for A/B comparisons.
-- **Modes** (`profile=stock|restored|restomod`). A mode starts from its `TABLES` row for the keys in the table below. Its file's value counts only for a key that is free in the mode. Free in all three: `fullscreen`, `explode`, `nitro`, `turbo`, `warrior`, `mirror`, `rally`, `vegas`, `units`, `update_check`, `scale`. Restored adds `format`, `refresh_hz`, `render_bands`, `stats_overlay`. Restomod leaves every key free but `profile` and `psx_dir`.
+- **Modes** (`profile=stock|restored|restomod`). A mode starts from its `TABLES` row for the keys in the table below. Its file's value counts only for a key that is free in the mode. Free in all three: `fullscreen`, `explode`, `nitro`, `turbo`, `warrior`, `mirror`, `rally`, `vegas`, `units`, `update_check`, `scale`. Restored adds `format`, `refresh_hz`, `render_bands` (the F12 stats overlay, `stats_overlay`, is Restomod's). Restomod leaves every key free but `profile` and `psx_dir`.
 - **"Exe"** is the value that gives the original game's behaviour (the `Stock` profile, where the key is in it). Where the default is not the exe's, the column says so.
 - Many look keys do nothing without another: the ones marked "needs" are inert unless that key is on.
 
@@ -150,7 +150,7 @@ Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as
 | `bumper_radar` | 0 | 0 | page 2: Bumper view police radar ("Police radar" with `radar_all_views`) | radar detector; F2 in a race; `TNFS_BUMPER_RADAR` | 0 / 0 / 1 |
 | `replay_cameras` | 0 | 0 | page 2: Replay cameras in race mode | | not set |
 | `car_markers` | 1 | 1 | page 2: Rival car markers | F6 in a race writes it back | not set |
-| `stats_overlay` | 0 | 0 | page 2: 3D render stats | F12 in a race writes it back | not set |
+| `stats_overlay` | 0 | 0 | page 2: 3D render stats | F12 in a race writes it back; only Restomod keeps it (not free in Stock and Restored) | not set |
 | `dash_box` | `map` | `map` | page 2: Dash box | `map`, `lever`, `hidden` | not set |
 | `follow_camera` | 0 | 0 | page 2: 360 Camera | every camera follows the car's heading, the road behind drawn | 0 / 0 / 1 |
 | `difficulty` | 1 | 1 | page 2: Difficulty | 0 Easy, 1 Original, 2 Hard (rivals, police and traffic together) | not set |
@@ -165,14 +165,14 @@ Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as
 | `reverse` | 0 | 0 | Track Select: Reverse (offered when this is on, at Unlock Level 2); `TNFS_REVERSE=0\|1` overrides | circuits run the other way round; the tunnel/LOD byte and the models are handled in `tri_reverse` | not set |
 | `unlock_level` | 0 | config.dat's word | Customize Game: Unlock Level, in Restomod only | Restomod's own unlock level, 0..2; Stock and Restored use config.dat's (as the exe) and never read this key | 0 / 0 / 2 |
 | `rally_gravel` | 0 | 0 | none | gravel noise all along the rally and dust from the desert's tyres | 0 / 0 / 1 |
-| `movies_wide` | 1 | 0 (the 4:3 frame in the middle) | none | on a wide screen a movie fills the width, top and bottom cropped | 0 / 1 / 1 |
+| `movies_wide` | 1 | 0 (the 4:3 frame in the middle) | none | on a wide screen a movie fills the width, top and bottom cropped | 0 / 0 / 1 |
 | `car_paint` | all 0 | all 0 | the car showcase's SETUP panel (Color row) | one hex digit a car (cars 0..11): 0 own, 1 console livery, 2+ the catalogue's paints | not set |
 | `car`, `opponent` | none | none | Control Central's car and head to head rival arrows | the added car picked, by its mod's id (`car=test-car`); an original's is config.dat's and takes the line out. One whose mod is gone opens Control Central with car 0, and the line stays until another car is picked. Restomod's file only | not set |
 | `look.<id>` | none | none | an added car's gallery: Skin and Color | `<skin>,<paint>` by name, `-` for the skin as it comes or the car's own colour (`look.test-car=stripes,Blue`); kept when the car's mod is gone. Restomod's file only | not set |
 
 ## Stock and Restored keep the original's screens
 
-In Stock and Restored the front end shows the original's screens: nothing of the port is drawn on them (no SETUP tile, no RECORDS face of the Video tile, no variant switches, no added cars, tracks or content). `tests/stock_screens_golden.sh` (ctest `stock_screens_golden`) holds that: it walks Game Mode, Control Central, the showcase of the player's car and of a rival's, and the track screen in each profile and compares every picture with its golden in `tests/golden/screens/<profile>/`. The goldens are the pictures of `main` (no capture of the original exe exists), looked at one by one; `UPDATE=1` makes them again.
+In Stock and Restored the front end shows the original's screens: nothing of the port is drawn on them (no SETUP tile, no RECORDS face of the Video tile, no variant switches, no Mirror/Rally text on the track screen, no added cars, tracks or content; the movies keep the 4:3 frame in the middle of a wide screen, `movies_wide` 0). The menus that make the game run on a modern machine (Graphics, Controls, Online...) are in every mode. `tests/stock_screens_golden.sh` (ctest `stock_screens_golden`) holds that: it walks Game Mode, Control Central, the showcase of the player's car and of a rival's, and the track screen in each profile and compares every picture with its golden in `tests/golden/screens/<profile>/`. The goldens are the pictures of `main` (no capture of the original exe exists), looked at one by one; `UPDATE=1` makes them again.
 
 Three screens are exceptions (owner, 2026-11-23): they carry the port's own elements in Stock and Restored too.
 - **Game Mode**: the mode selector (Stock '96 / Restored '96 / Restomod), the Manage content row and the version text.
@@ -202,7 +202,7 @@ All 62 columns of the table. A column that is not here is not touched by any pro
 | `car_colours` | settings | 0 | 0 | 1 |
 | `fog_sample` | settings | 0 | 0 | 1 |
 | `sky_fill` | settings | 0 | 0 | 1 |
-| `movies_wide` | switches | 0 | 1 | 1 |
+| `movies_wide` | switches | 0 | 0 | 1 |
 | `extra_liveries` | switches | 0 | 0 | 1 |
 | `rally_gravel` | switches | 0 | 0 | 1 |
 | `bumper_mirror` | switches | 0 | 0 | 1 |

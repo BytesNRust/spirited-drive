@@ -5,6 +5,7 @@
 #include "game/race/track_fam.h"
 #include "game/race/psx_lgs.h"
 #include "game/race/weather.h"
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/track_registry.h"
 
@@ -401,7 +402,7 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
         ops->text_shadowed(ops->ctx, lengths[4 * track + segment], 0xc8, 0x153);
         ops->text_shadowed(ops->ctx, lengths[4 * track], 0xaf, 0x16a);
     }
-    if (st->plus && variant_of(st) != 0 && !switches_on(st))   /* port: the variant's name, with the game's text routine */
+    if (st->plus && port_settings_profile() == PROFILE_RESTOMOD && variant_of(st) != 0 && !switches_on(st))   /* port (Restomod only: owner 2026-11-24): the variant's name, with the game's text routine */
         ops->text_shadowed(ops->ctx, variant_of(st) == 1 ? "Mirror" : "Rally", VARIANT_X, VARIANT_Y);
     if (weather_on(st)) {   /* port: the weather row, in the game's text like the laps */
         ops->text_select(ops->ctx, item == TRACK_SELECT_WEATHER ? 1 : 0);

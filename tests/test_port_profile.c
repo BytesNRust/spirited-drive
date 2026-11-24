@@ -201,6 +201,11 @@ static void test_tables(void)
     CHECK_EQ_INT(s.sign_glow, 1);   /* the owner OKs the lit matrix sign */
     PortExtras e = port_profile_extras(PROFILE_STOCK, port_extras_defaults());
     CHECK_EQ_INT(e.movies_wide, 0);
+    CHECK_EQ_INT(port_profile_extras(PROFILE_RESTORED, port_extras_defaults()).movies_wide, 0);   /* Restored's movies keep the 4:3 frame, as Stock's (owner 2026-11-24) */
+    CHECK_EQ_INT(port_profile_extras(PROFILE_RESTOMOD, port_extras_defaults()).movies_wide, 1);
+    CHECK(!port_profile_key_free(PROFILE_RESTORED, "stats_overlay"));   /* the F12 stats overlay is Restomod's */
+    CHECK(port_profile_key_free(PROFILE_RESTORED, "format"));
+    CHECK(port_profile_key_free(PROFILE_RESTOMOD, "stats_overlay"));
     e = port_profile_extras(PROFILE_RESTOMOD, e);
     CHECK_EQ_INT(e.extra_liveries, 1);
     CHECK_EQ_INT(e.rally_gravel, 1);
@@ -214,10 +219,10 @@ static void test_tables(void)
 static void test_free_keys(void)
 {
     static const char *const ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "units", "update_check", "scale" };
-    static const char *const RESTORED[] = { "format", "refresh_hz", "render_bands", "stats_overlay" };
+    static const char *const RESTORED[] = { "format", "refresh_hz", "render_bands" };
     static const char *const RESTOMOD[] = { "perspective", "texture_filter", "fog", "light_effects", "fov_adjust", "render_scale", "view_ultra", "weather", "light_time", "laps", "reverse", "car_paint", "extra_liveries",
                                             "lunar_springs", "lunar_gravity", "warrior_rival", "no_assists", "bumper_mirror", "bumper_radar", "replay_cameras", "car_markers", "dash_box", "follow_camera",
-                                            "difficulty", "start", "no_movies", "body_shine", "unlock_level" };
+                                            "difficulty", "start", "no_movies", "body_shine", "unlock_level", "stats_overlay" };
     for (size_t i = 0; i < sizeof ALL / sizeof ALL[0]; i++)
         for (int p = 0; p < PROFILE_COUNT; p++) CHECK(port_profile_key_free((Profile)p, ALL[i]));
     for (size_t i = 0; i < sizeof RESTORED / sizeof RESTORED[0]; i++) {
@@ -272,7 +277,7 @@ static void test_reading(void)
     CHECK_EQ_INT(port_settings_load().refresh_hz, 60);
     CHECK_EQ_INT(port_settings_load().scale_integer, 0);
     CHECK_EQ_INT(port_settings_load().fog, 0);
-    CHECK_EQ_INT(port_extras_load().stats_overlay, 1);
+    CHECK_EQ_INT(port_extras_load().stats_overlay, 0);   /* the F12 stats overlay is Restomod's: a Restored file is not believed (owner 2026-11-24) */
     CHECK_EQ_INT(port_extras_load().lunar_gravity, 0);
     /* in Restomod the file rules, also what has no menu */
     put_file("port.cfg", "profile=restomod\npsx_dir=/second\n");

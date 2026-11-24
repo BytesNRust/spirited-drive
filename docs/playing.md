@@ -56,7 +56,7 @@ What you change is kept for that mode alone. The additions:
   mouse, the arrows step a field either way and a click on its word steps it on. The first Restomod run imports what `config.dat`,
   `records.dat` and `free_records.dat` hold and leaves those files as they were.
 - **Keys in a race**: F1 / F2 the bumper view's mirror and radar, F3 view distance, F5 sound, F6 rival car markers,
-  F7 / F8 HUD, F9 replay, F12 the 3D render stats overlay. With the Nitro cheat, hold N (or the pad's Nitro button)
+  F7 / F8 HUD, F9 replay, F12 the 3D render stats overlay (Restomod only). With the Nitro cheat, hold N (or the pad's Nitro button)
   at the start for the launch.
 
 Every setting, its range and what each mode sets is in [settings.md](settings.md). Network races are in
