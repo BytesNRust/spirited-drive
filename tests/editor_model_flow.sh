@@ -40,16 +40,17 @@ printf 'render_scale=3\n' > "$work/u4/restomod.cfg"
 out=$(run u4 --frames 40 "$kit" --steps psd-wait:3,camera:3 2>&1) || fail "player scale: $out"
 [ "$(state 1 | cut -d' ' -f6-7)" = "scale 3" ] || fail "the Model did not start at the player's render_scale 3: $(state 1)"
 
-# the picture is the game's frame at the render scale whatever the panel's size (read from the buffer, not the screen's copy: the software renderer cannot show it), and the soft edges are in it
+# the picture is as high as the game's frame at the render scale (480 times it) and as wide as the panel's shape says (read from the buffer, not the screen's copy: the software renderer cannot show it), and the soft edges are in it
 # from scale 2 and not at 1
 for sc in 1 2; do
     for sw in on off; do
         out=$(run u5 --render-scale $sc --soft $sw --shine on --paint 1 --frames 40 "$kit" --steps psd-wait:3 --model-shot "$work/pic_${sc}_$sw.png" 2>&1) || fail "model shot scale $sc soft $sw: $out"
     done
 done
-echo "$out" | grep -q '^model picture: 1280 x 960, [1-9][0-9]* drawn$' || fail "the scale 2 picture is not the game's 1280 x 960 frame with a car in it: $out"
+high() { echo "$1" | sed -n 's/^model picture: [0-9]* x \([0-9]*\), [1-9][0-9]* drawn.*/\1/p' | tail -1; }   # the picture's height: 480 times the scale, less when the panel is so wide that its width is held at its most (3072)
+[ "$(high "$out")" -gt 480 ] 2>/dev/null || fail "the scale 2 picture is not higher than the scale 1 frame's 480, with a car in it: $out"
 out1=$(run u5 --render-scale 1 --soft on --shine on --paint 1 --frames 40 "$kit" --steps psd-wait:3 --model-shot "$work/pic_1_on2.png" 2>&1)
-echo "$out1" | grep -q '^model picture: 640 x 480, [1-9][0-9]* drawn$' || fail "the scale 1 picture is not the game's 640 x 480 frame with a car in it: $out1"
+echo "$out1" | grep -q '^model picture: [0-9]* x 480, [1-9][0-9]* drawn$' || fail "the scale 1 picture is not 480 high with a car in it: $out1"
 cmp -s "$work/pic_1_on.png" "$work/pic_1_off.png" || fail "at render scale 1 the soft edges changed the picture"
 cmp -s "$work/pic_2_on.png" "$work/pic_2_off.png" && fail "at render scale 2 the soft edges did not change the picture"
 
@@ -74,9 +75,9 @@ out=$(run u8 --render-scale 1 --soft off --frames 60 "$kit" --steps psd-wait:3,c
 
 # what moves is drawn on the scale 1 frame (Auto-rotate here), and the full frame when it stops
 out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_on.png" 2>&1) || fail "auto-rotate shot: $out"
-echo "$out" | grep -q '^model picture: 640 x 480, ' || fail "with Auto-rotate on the picture is not the scale 1 frame: $out"
+echo "$out" | grep -q '^model picture: [0-9]* x 480, ' || fail "with Auto-rotate on the picture is not the scale 1 frame: $out"
 out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_off.png" 2>&1) || fail "auto-rotate off shot: $out"
-echo "$out" | grep -q '^model picture: 1280 x 960, ' || fail "with Auto-rotate off again the picture is not the full frame: $out"
+echo "$out" | grep -q '^model picture: [0-9]* x \([5-9][0-9][0-9]\), ' || fail "with Auto-rotate off again the picture is not the full frame (higher than 480): $out"
 
 # the car whole inside the drawing frame from a side (Side is wider than the first view: the framing is made again for it): no row or column at the frame's edge has a car pixel, at render scale 1, 2 and 3
 cat > "$work/whole.py" <<'PY'

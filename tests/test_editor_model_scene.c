@@ -689,6 +689,33 @@ static void check_framed(ModelScene *m, const char *what)
     CHECK(!model_scene_frame(m, &o, 640, 200, 0) && !model_scene_frame(m, &o, 640, 200, 101) && !model_scene_frame(m, &o, 1, 200, 80));
 }
 
+/* the Model view's picture has the panel's shape (model_view_frame_size): the car framed in a small picture of that shape is whole, away from every edge, in the larger one the panel draws, at the home camera,
+ * Front and Side, in a wide panel and in a tall one */
+static void check_edges_clear(ModelScene *m, const char *what)
+{
+    static const int SHAPES[][2] = { { 320, 100 }, { 150, 240 }, { 240, 180 } };   /* wide, tall, the game's 4:3 */
+    static const OrbitView VIEWS[] = { ORBIT_FRONT, ORBIT_SIDE };
+    for (size_t i = 0; i < sizeof SHAPES / sizeof SHAPES[0]; i++)
+        for (size_t v = 0; v < 3; v++) {
+            const int fw = SHAPES[i][0], fh = SHAPES[i][1], w = 2 * fw, h = 2 * fh;
+            Orbit o;
+            orbit_init(&o, model_scene_radius(m));
+            if (v > 0) orbit_view(&o, VIEWS[v - 1]);
+            CHECK(model_scene_frame(m, &o, fw, fh, 80));
+            static uint8_t pic[FRAME_W_MAX * FRAME_H_MAX * 4];
+            CHECK(model_scene_render(m, &o, w, h, NULL, pic));
+            int drawn = 0, edge = 0;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++) {
+                    if (pic[4 * ((size_t)y * w + x) + 3] == 0) continue;
+                    drawn++;
+                    if (x == 0 || y == 0 || x == w - 1 || y == h - 1) edge++;
+                }
+            if (drawn == 0 || edge != 0) fprintf(stderr, "edges %s %dx%d view %zu: %d drawn, %d on the edge\n", what, w, h, v, drawn, edge);
+            CHECK(drawn > 0 && edge == 0);
+        }
+}
+
 static void test_the_car_is_framed(void)
 {
     char masks[400];
@@ -697,6 +724,7 @@ static void test_the_car_is_framed(void)
     CHECK(m != NULL);
     if (m == NULL) return;
     check_framed(m, "the synthetic car");
+    check_edges_clear(m, "the synthetic car");
     model_scene_close(m);
 }
 

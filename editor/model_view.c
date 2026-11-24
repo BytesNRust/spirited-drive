@@ -21,6 +21,23 @@ int model_view_render_size(int scale, int *w, int *h)
     return s;
 }
 
+int model_view_frame_size(int scale, int area_w, int area_h, int max_w, int *w, int *h)
+{
+    model_view_render_size(scale, w, h);
+    if (area_w < 1 || area_h < 1 || max_w < 1) return 0;
+    long fw = ((long)*h * area_w + area_h / 2) / area_h, fh = *h;
+    if (fw > max_w) fh = ((long)max_w * area_h + area_w / 2) / area_w, fw = max_w;   /* too wide: the same shape, smaller */
+    *w = fw < 1 ? 1 : (int)fw, *h = fh < 1 ? 1 : (int)fh;
+    return 1;
+}
+
+void model_view_centre_shift(int w, int h, const int box[4], int *sx, int *sy)
+{
+    *sx = *sy = 0;
+    if (box[2] <= box[0] || box[3] <= box[1]) return;
+    *sx = (w - (box[0] + box[2])) / 2, *sy = (h - (box[1] + box[3])) / 2;
+}
+
 void model_view_fit(int area_w, int area_h, int w, int h, int *x, int *y, int *fw, int *fh)
 {
     if (area_w < 1 || area_h < 1 || w < 1 || h < 1) {

@@ -37,7 +37,7 @@ const char *const PANEL_MODEL = "Model";
 
 namespace {
 
-enum { MAX_W = 2048, FIT_SIDE = 240, FRAME_PERCENT = 80, AUTO_DEG_PER_SECOND = 24, GAME_TICKS_PER_SECOND = 30 /* the race calls its wheels 30 times a second (game/race/race_sim.h; the Studio links only the core) */ };
+enum { MAX_W = 3072,  /* the Model picture's width at most (a very wide panel gets the same shape made smaller; the software renderer used by the headless tests draws a texture wider than 2048 wrong on screen, the buffer is right) */ FIT_SIDE = 240, FRAME_PERCENT = 80, AUTO_DEG_PER_SECOND = 24, GAME_TICKS_PER_SECOND = 30 /* the race calls its wheels 30 times a second (game/race/race_sim.h; the Studio links only the core) */ };
 
 struct Model {
     char loaded[APP_PATH] = "";   // the CFM the scene holds (or tried to)
@@ -81,6 +81,8 @@ struct Model {
     int preset = 0;               // an orbit asked for on the command line, waiting for the car
     double preset_yaw = 0, preset_pitch = 0;
     int32_t preset_dist = 0;
+    int box[4] = { 0, 0, 0, 0 };  // the pixels the car is drawn in the last picture (x0, y0, x1, y1; empty when x1 <= x0): the picture is shown moved so that this box is in the middle of the panel
+    int frame_aspect = 0;         // the picture's width / height (times 1000) the car was framed in
     bool fit = false;             // the car is to be framed (made to fill FRAME_PERCENT of the picture) when the picture's size is known: on open, on another car, on Home
     int key_wheel = -1;           // the wheel frame the picture was drawn with
     NightSettings key_night = {};   // the Preview's Day / Night and lamps the picture was drawn in, and the police flash's phase
@@ -248,6 +250,20 @@ void draw_picture(const App *a, int phase, int w, int h, int scale)
         }
     }
     shine_draw_set_soft(studio_soft), shine_draw_set_render_scale(studio_scale);
+    if (made && !g.card_view) {
+        int x0 = w, y0 = h, x1 = 0, y1 = 0;
+        for (int y = 0; y < h; y++) {
+            const uint8_t *row = g.rgba + 4 * static_cast<size_t>(y) * static_cast<size_t>(w);
+            for (int x = 0; x < w; x++)
+                if (row[4 * x + 3] != 0) {
+                    if (x < x0) x0 = x;
+                    if (x >= x1) x1 = x + 1;
+                    if (y < y0) y0 = y;
+                    y1 = y + 1;
+                }
+        }
+        g.box[0] = x0, g.box[1] = y0, g.box[2] = x1, g.box[3] = y1;
+    }
     if (made) SDL_UpdateTexture(g.tex, nullptr, g.rgba, w * 4);
     g.key_night = a->night, g.key_phase = phase;
     g.dirty = false;
@@ -716,11 +732,13 @@ void model_panel(App *a, SDL_Renderer *ren)
             const bool moving = (g.moving || animating || colouring) && g.render_scale > 1 && !g.card_view;
             g.moving = false;
             int rw = 0, rh = 0;
-            model_view_render_size(moving ? 1 : g.render_scale, &rw, &rh);
-            const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : (area_w >= 64 && area_h >= 64 && (w = rw, h = rh, true));
+            const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : (area_w >= 64 && area_h >= 64 && model_view_frame_size(moving ? 1 : g.render_scale, area_w, area_h, MAX_W, &rw, &rh) && (w = rw, h = rh, true));   // the Model view's picture has the panel's own shape (height 480 times the scale)
             if (moving != g.drawn_low) g.dirty = true;
             if (sized && make_target(ren, w, h)) {
-                if (g.fit && !g.card_view) {   // the car as large as the picture lets it be, whatever the window's shape
+                const int aspect = w * 1000 / h;   // the panel's shape changed (docked another way, the window resized): the car is framed again, a wide frame holds it larger than a tall one
+                if (!g.card_view && g.frame_aspect != 0 && (aspect < g.frame_aspect * 9 / 10 || aspect > g.frame_aspect * 11 / 10)) g.fit = true;
+                if (g.fit && !g.card_view) {
+                    g.frame_aspect = aspect;   // the car as large as the picture lets it be, whatever the window's shape
                     const int fh = h < FIT_SIDE ? h : FIT_SIDE, fw = fh * w / h;   // the framing is the same at any size (the field of view is across the smaller side): a small picture finds it, not a dozen of the game's frame
                     model_scene_frame(g.scene, &g.orbit, fw, fh, FRAME_PERCENT);
                     g.fit = false, g.dirty = true;
@@ -736,10 +754,13 @@ void model_panel(App *a, SDL_Renderer *ren)
                 ImGui::InvisibleButton("##orbit", area);
                 turn_and_zoom();
                 ImVec2 from = at, to(at.x + area.x, at.y + area.y);
-                if (!g.card_view) {   // the frame fitted into the panel, in the middle
-                    int fx, fy, fw, fh;
-                    model_view_fit(area_w, area_h, w, h, &fx, &fy, &fw, &fh);
-                    from = ImVec2(at.x + static_cast<float>(fx), at.y + static_cast<float>(fy)), to = ImVec2(from.x + static_cast<float>(fw), from.y + static_cast<float>(fh));
+                // the Model view: the picture has the panel's shape and covers the whole area (from, to above); the car is shown in the middle of it: the picture moved by what the car's box is off the centre
+                // (the car is whole in it, so the move only brings transparent pixels in), clipped to the area
+                if (!g.card_view) {
+                    int sx, sy;
+                    model_view_centre_shift(w, h, g.box, &sx, &sy);
+                    const float dx = static_cast<float>(sx) * area.x / static_cast<float>(w), dy = static_cast<float>(sy) * area.y / static_cast<float>(h);
+                    from = ImVec2(from.x + dx, from.y + dy), to = ImVec2(to.x + dx, to.y + dy);
                 }
                 if (g.card_view) {   // the card's proportions, as large as the area lets them be, in the middle (nearest texels: the picture is 309 x 166)
                     const float k = fminf(area.x / CARD_PHOTO_W, area.y / CARD_PHOTO_H);
@@ -748,7 +769,13 @@ void model_panel(App *a, SDL_Renderer *ren)
                 }
                 ImDrawList *draw = ImGui::GetWindowDrawList();
                 if (!g.card_view) SDL_SetTextureScaleMode(g.tex, to.x - from.x < static_cast<float>(w) ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);   // a frame larger than the panel is averaged down; at 1:1 or enlarged its pixels stay as they are
-                draw->AddImage(reinterpret_cast<ImTextureID>(g.tex), from, to);
+                ImVec2 uv0(0, 0), uv1(1, 1);
+                if (!g.card_view) {   // the part of the moved picture inside the area, with the matching part of the texture (a quad drawn partly outside the window is not drawn right by every renderer)
+                    const ImVec2 lo(fmaxf(from.x, at.x), fmaxf(from.y, at.y)), hi(fminf(to.x, at.x + area.x), fminf(to.y, at.y + area.y));
+                    uv0 = ImVec2((lo.x - from.x) / (to.x - from.x), (lo.y - from.y) / (to.y - from.y)), uv1 = ImVec2((hi.x - from.x) / (to.x - from.x), (hi.y - from.y) / (to.y - from.y));
+                    from = lo, to = hi;
+                }
+                draw->AddImage(reinterpret_cast<ImTextureID>(g.tex), from, to, uv0, uv1);
                 if (g.card_view) {   // where Control Central writes the name (measured on the game's own card, bottom left)
                     const float k = (to.x - from.x) / CARD_PHOTO_W;
                     draw->AddRectFilled(ImVec2(from.x, from.y + 142 * k), ImVec2(from.x + 112 * k, to.y), IM_COL32(0, 0, 0, 70));

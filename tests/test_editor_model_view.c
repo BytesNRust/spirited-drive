@@ -3,6 +3,7 @@
 #include "model_view.h"
 #include "test.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static void test_view_flags(void)
@@ -59,6 +60,30 @@ static void test_render_size(void)
 static void test_fit(void)
 {
     int x, y, w, h;
+    /* the Model view's picture has the panel's shape: height 480 times the scale, the width of the panel's shape (a wide panel gets a wide picture, no bars); too wide for max_w: smaller, the same shape */
+    CHECK_EQ_INT(model_view_frame_size(2, 1500, 440, 4096, &w, &h), 1);
+    CHECK_EQ_INT(h, 960);
+    CHECK(abs(w * 440 - 1500 * h) <= 440);
+    CHECK_EQ_INT(model_view_frame_size(2, 1500, 440, 2048, &w, &h), 1);
+    CHECK_EQ_INT(w, 2048);
+    CHECK(abs(w * 440 - 1500 * h) <= 1500);
+    CHECK_EQ_INT(model_view_frame_size(1, 400, 800, 2048, &w, &h), 1);   /* a tall panel: narrower than the game's frame */
+    CHECK_EQ_INT(h, 480);
+    CHECK_EQ_INT(w, 240);
+    CHECK_EQ_INT(model_view_frame_size(3, 640, 480, 2048, &w, &h), 1);   /* the game's own shape: its frame */
+    CHECK_EQ_INT(w, 1920);
+    CHECK_EQ_INT(h, 1440);
+    CHECK_EQ_INT(model_view_frame_size(2, 0, 440, 2048, &w, &h), 0);
+    {   /* the car's box brought to the middle of the picture: a car whole in it stays whole */
+        const int off[4] = { 100, 50, 500, 250 }, none[4] = { 0, 0, 0, 0 };
+        int sx = 7, sy = 7;
+        model_view_centre_shift(1000, 400, off, &sx, &sy);
+        CHECK_EQ_INT(sx, 200);   /* centre 300 of 1000: 200 to the right */
+        CHECK_EQ_INT(sy, 50);
+        CHECK(off[0] + sx >= 0 && off[2] + sx <= 1000 && off[1] + sy >= 0 && off[3] + sy <= 400);
+        model_view_centre_shift(1000, 400, none, &sx, &sy);
+        CHECK(sx == 0 && sy == 0);
+    }
     model_view_fit(1400, 850, 1280, 960, &x, &y, &w, &h);   /* a wide panel: as tall as it, in the middle */
     CHECK(h == 850 && w == 1133 && y == 0 && x == 133);
     model_view_fit(740, 240, 1280, 960, &x, &y, &w, &h);   /* the docked strip */
