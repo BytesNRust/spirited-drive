@@ -432,6 +432,74 @@ int car_race_player_options(const char *user, char *why, size_t why_cap)
     return 1;
 }
 
+/* 1 when `text` (size bytes) has a line `key=...` for the key of `line` (len bytes, no newline) */
+static int text_has_key(const char *text, size_t size, const char *line, size_t len)
+{
+    const char *eq = memchr(line, '=', len);
+    if (eq == NULL) return 0;
+    const size_t key = (size_t)(eq - line);
+    for (size_t pos = 0; pos < size;) {
+        const char *at = text + pos, *end = memchr(at, '\n', size - pos);
+        const size_t n = end != NULL ? (size_t)(end - at) : size - pos;
+        pos += n + 1;
+        if (n > key && memcmp(at, line, key) == 0 && at[key] == '=') return 1;
+    }
+    return 0;
+}
+
+/* a copy of the player's `name` file into `user`, as it is (not there: nothing) */
+static int copy_player_file(const char *user, const char *name, char *why, size_t why_cap)
+{
+    char path[EXPORT_PATH + 32];
+    size_t size = 0;
+    if (player_dir[0] == '\0' || snprintf(path, sizeof path, "%s/%s", player_dir, name) >= (int)sizeof path) return 1;
+    char *text = slurp(path, &size);
+    if (text == NULL) return 1;
+    int ok = snprintf(path, sizeof path, "%s/%s", user, name) < (int)sizeof path;
+    FILE *f = ok ? fopen(path, "wb") : NULL;
+    ok = f != NULL && fwrite(text, 1, size, f) == size;
+    if (f != NULL && fclose(f) != 0) ok = 0;
+    free(text);
+    return ok ? 1 : refuse(why, why_cap, "cannot write %s/%s: %s", user, name, strerror(errno));
+}
+
+int car_race_player_whole(const char *user, char *why, size_t why_cap)
+{
+    char path[EXPORT_PATH + 32];
+    size_t psize = 0, ssize = 0;
+    if (player_dir[0] == '\0') return 1;
+    if (!copy_player_file(user, "controls.cfg", why, why_cap)) return 0;
+    if (snprintf(path, sizeof path, "%s/restomod.cfg", player_dir) >= (int)sizeof path) return 1;
+    char *mine = slurp(path, &psize);
+    if (mine == NULL) return 1;
+    if (snprintf(path, sizeof path, "%s/restomod.cfg", user) >= (int)sizeof path) {
+        free(mine);
+        return refuse(why, why_cap, "the path is too long: %s", user);
+    }
+    char *scratch = slurp(path, &ssize);
+    char *out = malloc(psize + ssize + 2);
+    int ok = out != NULL;
+    if (ok) {   /* the scratch's own lines first (the look, the day, the window), then every line of the player's whose key they do not set */
+        size_t at = 0;
+        if (scratch != NULL) memcpy(out, scratch, ssize), at = ssize;
+        if (at > 0 && out[at - 1] != '\n') out[at++] = '\n';
+        for (size_t pos = 0; pos < psize;) {
+            const char *line = mine + pos, *end = memchr(line, '\n', psize - pos);
+            size_t len = end != NULL ? (size_t)(end - line) : psize - pos;
+            pos += len + 1;
+            if (len > 0 && line[len - 1] == '\r') len--;
+            if (len == 0 || text_has_key(out, at, line, len) || memchr(line, '=', len) == NULL) continue;
+            memcpy(out + at, line, len), at += len;
+            out[at++] = '\n';
+        }
+        FILE *f = fopen(path, "wb");
+        ok = f != NULL && fwrite(out, 1, at, f) == at;
+        if (f != NULL && fclose(f) != 0) ok = 0;
+    }
+    free(out), free(scratch), free(mine);
+    return ok ? 1 : refuse(why, why_cap, "cannot write %s: %s", path, strerror(errno));
+}
+
 /* the keys the Track light drive fixes, each at the value it is shown at */
 static const char MAX_LOOK[] = "format=16:9\nrender_scale=3\nfullscreen=0\nlamp_halos=1\nshine_soft=1\nreflectors=1\nheadlight_beams=1\nsun_shadow=1\n"
                                "body_shine=4\ncar_colours=1\ncar_soft_shadow=1\ntexture_filter=1\nlight_effects=1\nlamp_flares=1\nperspective=1\nfog=1\nfog_sample=1\n"

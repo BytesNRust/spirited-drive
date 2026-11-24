@@ -135,8 +135,12 @@ static void test_job(void)
     char player_cfg[560];
     snprintf(player_cfg, sizeof player_cfg, "%s/restomod.cfg", player);
     FILE *pf = fopen(player_cfg, "wb");
-    CHECK(pf != NULL && fputs("fov_adjust=10\nfullscreen=1\nformat=4:3\nrender_scale=1\nlamp_flares=0\nbody_shine=0\nsun_shadow=0\n", pf) >= 0);
+    CHECK(pf != NULL && fputs("fov_adjust=10\nfullscreen=1\nformat=4:3\nrender_scale=1\nlamp_flares=0\nbody_shine=0\nsun_shadow=0\nwipers=0\nanalog_pad=1\nunits=kmh\n", pf) >= 0);
     if (pf != NULL) fclose(pf);
+    char player_controls[560];   /* the gamepad's map is the person's own */
+    snprintf(player_controls, sizeof player_controls, "%s/controls.cfg", player);
+    const char controls[] = "steer_left=axis0-\nsteer_right=axis0+\nthrottle=axis5\nbrake=axis4\n";
+    write_text(player_controls, controls, 0);
     car_race_set_player(player);
     CHECK(light_drive_start(&job, fake, "/cd", "CY1", 'B', 77, 1, light, strlen(light), why, sizeof why));
     CHECK_EQ_INT(job.state, LIGHT_DRIVE_RUNNING);
@@ -161,8 +165,18 @@ static void test_job(void)
     char port[EXPORT_PATH + 64];
     snprintf(port, sizeof port, "%s/user/port.cfg", scratch);
     CHECK(strstr(read_all(port), "profile=restomod\n") != NULL && strstr(read_all(port), "format=4:3") == NULL && strstr(read_all(port), "render_scale=1") == NULL);
+    /* the person's whole mode file is what the drive reads (not only the graphics keys), and their controls: every key they set but the ones the drive fixes */
+    const char *const whole = read_all(cfg);
+    CHECK(strstr(whole, "wipers=0\n") != NULL && strstr(whole, "analog_pad=1\n") != NULL && strstr(whole, "units=kmh\n") != NULL && strstr(whole, "fov_adjust=10\n") != NULL);
+    char scratch_controls[EXPORT_PATH + 64];
+    snprintf(scratch_controls, sizeof scratch_controls, "%s/user/controls.cfg", scratch);
+    CHECK(strcmp(read_all(scratch_controls), controls) == 0);
+    /* nothing of what is fixed reaches the person's own files, which are read and never written */
+    CHECK(strstr(read_all(player_cfg), "format=4:3\n") != NULL && strstr(read_all(player_cfg), "render_scale=1\n") != NULL && strstr(read_all(player_cfg), "sun_shadow=0\n") != NULL);
+    CHECK(strcmp(read_all(player_controls), controls) == 0);
     car_race_set_player(NULL);
     unlink(player_cfg);
+    unlink(player_controls);
     rmdir(player);
     /* an edit: the copy is rewritten whole, the game sees it, nothing half written is left beside it */
     const char light2[] = "# tnfs track light 2\ntrack CY1\ntunnel 5 6\ntime B\n  brightness 1 2 50\n";
@@ -201,8 +215,19 @@ static void test_ends(void)
     light_drive_free(&job);
 }
 
-int main(void)
+/* tests/light_drive_results_game.sh: the scratch folder the drive makes for the player's folder `player` (read only), as the Studio makes it: the helper the game test runs the real game on */
+static int make_scratch(const char *player, const char *user)
 {
+    char why[LIGHT_DRIVE_WHY] = "";
+    car_race_set_player(player);
+    const int ok = car_race_user_files(user, 0, NULL, why, sizeof why) && car_race_player_whole(user, why, sizeof why) && car_race_force_max_look(user, why, sizeof why);
+    if (!ok) fprintf(stderr, "%s\n", why);
+    return ok ? 0 : 1;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc == 4 && strcmp(argv[1], "--scratch") == 0) return make_scratch(argv[2], argv[3]);
     snprintf(dir, sizeof dir, "%s/tnfs_light_drive_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
     if (mkdtemp(dir) == NULL) return perror("mkdtemp"), 2;
     snprintf(fake, sizeof fake, "%s/fake_game", dir);

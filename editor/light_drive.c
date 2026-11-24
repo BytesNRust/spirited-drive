@@ -163,7 +163,7 @@ int light_drive_start(LightDriveJob *job, const char *game, const char *cd, cons
                     ok = light_photo_copy_masks(job->masks, masks, track, why, why_cap);
                     s.masks = masks;
                 }
-                ok = ok && car_race_user_files(user, letter == 'N', NULL, why, why_cap) && car_race_player_options(user, why, why_cap) && car_race_force_max_look(user, why, why_cap) && light_drive_command(&s, environ, &job->command, why, why_cap) &&
+                ok = ok && car_race_user_files(user, letter == 'N', NULL, why, why_cap) && car_race_player_whole(user, why, why_cap) && car_race_force_max_look(user, why, why_cap) && light_drive_command(&s, environ, &job->command, why, why_cap) &&
                      proc_start(&job->run, job->command.argv, job->command.envp, NULL, why, why_cap);
             }
         }
