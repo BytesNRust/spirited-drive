@@ -593,7 +593,7 @@ static int copy_one(const char *from, const char *to)
     return ok;
 }
 
-int tweak_apply_skipping(const char *dir, const char *repo_data, TweakApplied *out, char *why, size_t cap)
+static int apply_inner(const char *dir, const char *repo_data, TweakApplied *out, char *why, size_t cap)
 {
     static TweakStatus status;
     if (!tweak_status(dir, repo_data, &status, why, cap)) return 0;
@@ -628,5 +628,52 @@ int tweak_apply_skipping(const char *dir, const char *repo_data, TweakApplied *o
     else ok = tweak_apply(tmp, repo_data, out, why, cap);
     nftw(tmp, remove_entry, 16, FTW_DEPTH | FTW_PHYS);
     if (ok) out->skipped = status.own;
+    return ok;
+}
+
+/* ---- all or nothing ---- */
+
+typedef struct {
+    char path[PATH];
+    uint8_t *data;   /* the file as the repo had it; NULL when it was not there */
+    size_t size;
+} Backup;
+
+int tweak_apply_skipping(const char *dir, const char *repo_data, TweakApplied *out, char *why, size_t cap)
+{
+    static TweakStatus status;
+    if (!tweak_status(dir, repo_data, &status, why, cap)) return 0;
+    /* what Apply may write, kept as it is now: a failure anywhere puts every one of them back */
+    Backup *kept = calloc((size_t)status.count + 1, sizeof *kept);
+    if (kept == NULL) return say(why, cap, "out of memory%s%s", "", "");
+    int n = 0;
+    for (int i = 0; i < status.count; ++i) {
+        if (status.item[i].state == TWEAK_SAME || status.item[i].own) continue;
+        if (strcmp(status.item[i].file, "colors") == 0) table_path(repo_data, kept[n].path, sizeof kept[n].path);
+        else snprintf(kept[n].path, sizeof kept[n].path, "%s/%s", repo_data, status.item[i].file);
+        ExchangeError err;
+        kept[n].data = fsio_read_file(kept[n].path, &kept[n].size, &err);
+        ++n;
+    }
+    const int ok = apply_inner(dir, repo_data, out, why, cap);
+    if (!ok) {
+        int bad = 0;
+        for (int i = 0; i < n; ++i) {
+            ExchangeError err;
+            size_t now_size = 0;
+            uint8_t *now = fsio_read_file(kept[i].path, &now_size, &err);
+            const int untouched = kept[i].data != NULL ? now != NULL && now_size == kept[i].size && memcmp(now, kept[i].data, now_size) == 0 : now == NULL;
+            free(now);
+            if (untouched) continue;   /* the write that failed never changed it */
+            if (kept[i].data != NULL) bad += !fsio_write_file(kept[i].path, kept[i].data, kept[i].size, 1, &err);
+            else remove(kept[i].path);
+        }
+        if (why != NULL && cap > 0) {
+            const size_t used = strlen(why);
+            snprintf(why + used, cap - used, bad == 0 ? " (nothing was written: the repo is as it was)" : " (%d files could not be put back: check the repo)", bad);
+        }
+    }
+    for (int i = 0; i < n; ++i) free(kept[i].data);
+    free(kept);
     return ok;
 }

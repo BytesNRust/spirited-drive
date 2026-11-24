@@ -73,6 +73,18 @@ grep -q "^status: choose the game repo's folder, then Apply again" "$work/log" |
 studio $opts --frames 90 --steps ui-click:door_tweak,ui-click:tweak_row_Lamborghini\ Diablo\ VT,ui-click:tweak_open,paint-rgb:0,9,9,9,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm || fail "Diablo by the doors: $(tail -3 "$work/log")"
 grep -q '{ 9, 9, 9 }' "$work/r/core/formats/car_paint.c" || fail "the Diablo's color is not in the repo's table: $(diff "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c" | head -4)"
 
+# all or nothing: a mask that cannot be written (its folder in the repo is read-only) after the colors, and the repo is as it was, the table included
+dia=$(ls -d "$work"/ws/cars/* | grep -i diabl | head -n 1)
+m=$(ls -S "$dia/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
+[ -n "$m" ] && python3 -I "$here/mask_poke.py" "$m" 40 40 20 20 200
+cp "$work/r/core/formats/car_paint.c" "$work/table.before" && rm -rf "$work/masks.before" && cp -R "$work/r/data/car_masks/LDiabl" "$work/masks.before"
+chmod 444 "$work/r/data/car_masks/LDiabl"/* && chmod 555 "$work/r/data/car_masks/LDiabl"
+studio $opts --frames 90 --steps tweak-open-row:LDiabl,paint-rgb:0,7,7,7,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm,status
+chmod 755 "$work/r/data/car_masks/LDiabl" && chmod 644 "$work/r/data/car_masks/LDiabl"/*
+grep -q 'nothing was written' "$work/log" || fail "a failed Apply does not say the repo is as it was: $(grep '^status' "$work/log")"
+cmp -s "$work/r/core/formats/car_paint.c" "$work/table.before" || fail "a failed Apply left the colors in the repo's table"
+diff -r "$work/r/data/car_masks/LDiabl" "$work/masks.before" >/dev/null 2>&1 || fail "a failed Apply left a mask changed in the repo"
+
 # an old workspace: a car exported the old way, no tweaks/: the list says so; Open makes the tweak and leaves the old folder as it was
 rm -rf "$work/old" && mkdir -p "$work/old/cars" "$work/old/ws" || exit 1
 "$editor" --export-car JETTA --into "$work/old/cars" --cd "$orig" --port-data "$repo/data" --frames 1 --user "$work/u" >"$work/log" 2>&1 || fail "old export: $(tail -3 "$work/log")"
