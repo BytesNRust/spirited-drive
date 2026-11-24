@@ -288,12 +288,12 @@ void tunnel_rows(App *a)
     const bool tunnel_table = ImGui::BeginTable("##tunnels", 9, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX, ImVec2(0.0f, table_height));
     if (!tunnel_table) ImGui::PopStyleVar();
     if (tunnel_table) {
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 50.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
-        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 40.0f);
-        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 40.0f);
-        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 56.0f);
-        for (int t = 0; t < LT_TIMES; ++t) ImGui::TableSetupColumn(light_ui_time_name(t), ImGuiTableColumnFlags_WidthFixed, 42.0f);
-        ImGui::TableSetupColumn("Gradient", ImGuiTableColumnFlags_WidthFixed, 52.0f);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 52.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
+        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 36.0f);
+        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 36.0f);
+        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 52.0f);
+        for (int t = 0; t < LT_TIMES; ++t) ImGui::TableSetupColumn(light_ui_time_name(t), ImGuiTableColumnFlags_WidthFixed, 36.0f);
+        ImGui::TableSetupColumn("Gradient", ImGuiTableColumnFlags_WidthFixed, 46.0f);
         ImGui::TableHeadersRow();
         // the default row: the look of every tunnel with no row of its own
         ImGui::PushID("default");
