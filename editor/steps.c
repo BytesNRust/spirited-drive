@@ -2,6 +2,7 @@
 #include "ui_probe.h"
 #include "formats/car_piece.h"
 #include "car_physics_from.h"
+#include "physics_popup.h"
 #include "app_slope.h"
 #include "key_ops.h"
 
@@ -315,9 +316,8 @@ static int at_once(App *a, const char *name, const double *arg)
         return app_export_original_track(a, stem, text, NULL);
     }
     if (strcmp(name, "physics-print") == 0) {   /* what the Physics from row shows: «not set» until a car is picked */
-        const char *words[CAR_PHYSICS_WORDS];
-        const int n = car_physics_words(words, CAR_PHYSICS_WORDS);
-        return fprintf(stdout, "physics row: %s\n", a->physics_chosen && a->physics_pick >= 0 && a->physics_pick < n ? words[a->physics_pick] : "not set"), 1;
+        char stem_word[32];
+        return fprintf(stdout, "physics row: %s\n", physics_row_text(a, stem_word, sizeof stem_word)), 1;
     }
     if (strncmp(name, "camera:", 7) == 0) {   /* camera:K, the Model's camera: 0 prints it, 1 moves it as a hand would, 2 reads the car again as Convert PSD ends (two frames drawn after) */
         int yaw, pitch, dist;

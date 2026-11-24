@@ -264,6 +264,7 @@ void word_row(App *a, int field, const char *none, const char *const *words, int
             if (ImGui::Selectable(words[i], strcmp(now, words[i]) == 0)) car_edit_set(&a->edit, field, words[i]);
         ImGui::EndCombo();
     }
+    if (field == CE_SOUND_FROM) ui_probe("sound_from_box");
     if (bad != nullptr) ImGui::PopStyleColor();
     ImGui::PopID();
     if (bad != nullptr) problem_text(bad->text);
@@ -547,9 +548,9 @@ void car_panel(App *a)
             const char *words[16];
             const int word_count = car_edit_sound_words(words, 16);
             word_row(a, CE_SOUND_FROM, nullptr, words, word_count, problems, count);
+            physics_row(a);
             ImGui::EndTable();
         }
-        physics_row(a);
         ImGui::EndDisabled();
         colors_section(a, problems, count);
         ImGui::BeginDisabled(own_card);

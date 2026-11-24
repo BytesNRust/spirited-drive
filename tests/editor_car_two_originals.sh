@@ -50,5 +50,16 @@ one_car() {
 one_car LDIABL "Rosso Diablo:8a0600,30th Anniversary Lavende:b57edc,Giallo Orion:eba628,Grigio Antares:494844,Blue Hera:091a30,Verde Hydra:081815,Celeste:48abb4,Bianco:e1e3db" 0 "Rosso Diablo #8a0600, 30th Anniversary Lavender #b57edc, Giallo Orion #eba628, Grigio Antares #494844, Blue Hera #091a30, Verde Hydra #081815, Celeste #48abb4, Bianco #e1e3db" "Rosso Diablo #010203, 30th Anniversary Lavender #b57edc, Giallo Orion #eba628, Grigio Antares #494844, Blue Hera #091a30, Verde Hydra #081815, Celeste #48abb4, Bianco #e1e3db"   # the table's row: the owner's 8 colours
 one_car ANSX "Berlina Black:0e0e10,Grand Prix White:f1f1ee,Formula Red:b3121e,Citrous Yellow Metallic:e6d94a" 2 "Berlina Black #0e0e10, Grand Prix White #f1f1ee, Formula Red #b3121e, Citrous Yellow Metallic #e6d94a" "Berlina Black #0e0e10, Grand Prix White #f1f1ee, Formula Red #010203, Citrous Yellow Metallic #e6d94a"
 
+# the card's Physics from row: a game car shows its own physics (the NSX: «nsx», as Sound from names its own sound), off, and its box starts where Sound from's does; a kit that is not a game car says «not set» until a car is picked
+studio "$work/kit-ANSX" --steps psd-wait:2,physics-print,ui-rect:sound_from_box,ui-rect:physics_box > "$work/log" 2>&1 || fail "the Physics from row of the NSX: $(cat "$work/log")"
+grep -qx 'physics row: nsx' "$work/log" || fail "an original car's Physics from row does not show its own physics (nsx): $(cat "$work/log")"
+sound_x=$(sed -n 's/^ui rect: sound_from_box \([0-9]*\) .*/\1/p' "$work/log")
+physics_x=$(sed -n 's/^ui rect: physics_box \([0-9]*\) .*/\1/p' "$work/log")
+[ -n "$sound_x" ] && [ "$sound_x" = "$physics_x" ] || fail "the Physics from box is not aligned with Sound from's: sound x '$sound_x', physics x '$physics_x'"
+mkdir -p "$work/kit-own/model/near/bank"
+printf 'id=own\nname=Own\nversion=1\ntype=car\nstem=MYCAR\nsound_from=911\n' > "$work/kit-own/mod.ini"
+studio "$work/kit-own" --steps psd-wait:2,physics-print > "$work/log" 2>&1 || fail "the Physics from row of an own car: $(cat "$work/log")"
+grep -qx 'physics row: not set' "$work/log" || fail "an own car with no pick does not say not set: $(cat "$work/log")"
+
 [ "$failures" = 0 ] && echo ok
 exit "$failures"
