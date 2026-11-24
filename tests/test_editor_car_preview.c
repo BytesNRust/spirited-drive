@@ -391,6 +391,20 @@ int main(void)
 
     /* a count of body colours: what is said when they are more than the car's entries */
     CHECK(PREVIEW_OWN_ENTRIES == 23 && PREVIEW_SHARED_ENTRIES == 72);
+    {   /* the line about the palette: none when all fit, grey for the game's own cars, amber for a person's */
+        CarPreview q;
+        char line[160], help[PREVIEW_NOTE + 160];
+        memset(&q, 0, sizeof q);
+        snprintf(q.note, sizeof q.note, "the note");
+        q.body_colours = PREVIEW_OWN_ENTRIES;
+        CHECK_EQ_INT(car_preview_palette_line(&q, 0, line, sizeof line, help, sizeof help), PREVIEW_LINE_NONE);
+        CHECK_EQ_INT(car_preview_palette_line(&q, 1, line, sizeof line, help, sizeof help), PREVIEW_LINE_NONE);
+        q.body_colours = 79;
+        CHECK_EQ_INT(car_preview_palette_line(&q, 0, line, sizeof line, help, sizeof help), PREVIEW_LINE_WARN);
+        CHECK(strstr(line, "56 of the body's 79 colours") != NULL && strstr(help, "Nothing to fix") == NULL);
+        CHECK_EQ_INT(car_preview_palette_line(&q, 1, line, sizeof line, help, sizeof help), PREVIEW_LINE_INFO);
+        CHECK(strstr(line, "56 of the body's 79 colours") != NULL && strstr(help, "the note") != NULL && strstr(help, "game's own cars") != NULL);
+    }
 
     /* an added car: the masks are a skin's folder, read through drive_livery_*_masks with the catalogue's usual black: the same as the game's calls with that folder */
     {

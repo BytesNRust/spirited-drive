@@ -310,3 +310,14 @@ void car_preview_free(CarPreview *p)
     for (int i = 0; i < p->count; i++) free(p->tex[i].rgba), free(p->tex[i].index), free(p->tex[i].mask);
     memset(p, 0, sizeof *p);
 }
+
+int car_preview_palette_line(const CarPreview *p, int original, char *line, size_t line_cap, char *help, size_t help_cap)
+{
+    if (p->body_colours <= PREVIEW_OWN_ENTRIES) return PREVIEW_LINE_NONE;
+    snprintf(line, line_cap, "palette: %d of the body's %d colours will look like their nearest in the race", p->body_colours - PREVIEW_OWN_ENTRIES, p->body_colours);
+    if (original)
+        snprintf(help, help_cap, "%s\n\nThis is one of the game's own cars: the game shows it like this too. Nothing to fix here.", p->note);
+    else
+        snprintf(help, help_cap, "%s", p->note);
+    return original ? PREVIEW_LINE_INFO : PREVIEW_LINE_WARN;
+}

@@ -286,11 +286,14 @@ void preview_panel(App *a, SDL_Renderer *ren)
             if (shown.why[0] != '\0') ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", shown.why);
         } else {
             const CarPreview &p = shown.preview;
-            if (p.body_colours > PREVIEW_OWN_ENTRIES) {   // a warning, one line in sight: the whole of it on hover
-                help_marker(p.note);   // first: a narrow panel wraps the line after it, the (?) stays in sight
+            char line[160], help[PREVIEW_NOTE + 160];
+            const int kind = car_preview_palette_line(&p, car_race_original_of(&a->car) != nullptr, line, sizeof line, help, sizeof help);
+            if (kind != PREVIEW_LINE_NONE) {   // one line in sight: the whole of it on hover; the game's own cars say it in grey (it is how the game looks), a car of the person's in amber
+                help_marker(help);   // first: a narrow panel wraps the line after it, the (?) stays in sight
                 ImGui::SameLine();
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
-                ImGui::TextWrapped("palette: %d of the body's %d colours will look like their nearest in the race", p.body_colours - PREVIEW_OWN_ENTRIES, p.body_colours);
+                if (kind == PREVIEW_LINE_WARN) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
+                else ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                ImGui::TextWrapped("%s", line);
                 ImGui::PopStyleColor();
             }
             ImGui::Separator();

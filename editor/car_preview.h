@@ -37,6 +37,11 @@ typedef struct {
     int lamp_row;       /* the brake lamp's colours (formats/car_brake_lamp.h): the original's own row, the standard one for an added car; entry 0xfe of `palette` is its unlit colour */
 } CarPreview;
 
+/* The line under the Preview's tabs about the palette: 0 for none (the body's colours all fit), PREVIEW_LINE_INFO for one of the game's own cars (it looks so in the game: said in grey, not as a warning),
+ * PREVIEW_LINE_WARN for a car of the person's (colours that will look like their nearest: amber). `line` is the text, `help` what the (?) says. */
+enum { PREVIEW_LINE_NONE = 0, PREVIEW_LINE_INFO, PREVIEW_LINE_WARN };
+int car_preview_palette_line(const CarPreview *p, int original, char *line, size_t line_cap, char *help, size_t help_cap);
+
 typedef struct {
     const char *cfm;        /* the car's file */
     const char *stem;       /* the stem the game looks the car's masks and black up by ("P911", "Wagon": the masks folder's name) */
