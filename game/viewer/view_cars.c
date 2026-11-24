@@ -199,6 +199,8 @@ static void lamp_state(const Car *car)
     drive_light_tint(tint);
     const int in_tunnel = light_effects != NULL && light_effects->nodes > 0 && track_node_light_tunnel(light_effects, light_tint_ring_node(car->node, light_effects->nodes));
     if (!lamp_ratio_counts(tint, in_tunnel)) ratio[0] = ratio[1] = ratio[2] = 1.0f;   /* port (day_shade): by day only a tunnel lights the lamps, not a forest's shade */
+    const int unlit = in_tunnel && light_effects->lamps_off != NULL && light_effects->lamps_off[light_tint_ring_node(car->node, light_effects->nodes) % light_effects->nodes];
+    if (unlit) ratio[0] = ratio[1] = ratio[2] = 0.4f;   /* port (tunnel_pool): a tunnel with no lamps is dark: the car's lamps are lit in it at any hour (its own ratio is the same light on every node) */
     if (view_lamps_flares() && weather == WEATHER_FOG)   /* port (lamp_flares): the lamps glow in fog too */
         drive_lamps_frame(car->index, 1, brake_lamp(car), car->gear == LAMP_REVERSE_GEAR);
     else   /* port (rain_lamps): and in rain, day included: by day or dusk only the texels (force 2), no halo; at night as the light says */

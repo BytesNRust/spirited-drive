@@ -9,6 +9,7 @@
 extern int light_changed;   /* the light editor's reload put new rows in the same light: the built track is built again */
 extern HeadlightPool *pool_fed;   /* the pool headlights_update last fed */
 void road_tunnels_forget(void);
+int headlights_relight_wanted(void);   /* 1 when the road is lit again this frame (the night's pool, or a car's beam in an unlit tunnel by day) */
 void headlights_update(void);   /* the cars with their lights on, each frame */
 
 #endif

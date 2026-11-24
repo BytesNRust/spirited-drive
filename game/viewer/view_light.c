@@ -169,10 +169,44 @@ static void reflect_low_light(void)
     reflect_lamps_on = 1, reflect_dark = 1, reflect_x = car->x / 65536.0, reflect_z = car->z / 65536.0, reflect_hx = hx, reflect_hz = hz;
 }
 
+static int tunnel_pool_was;   /* the tunnel pool had a car last frame: the road is lit once more when it has none */
+
+/* port (tunnel_pool): by day, dawn and dusk the player's lit lamps are the one pool, lighting only a tunnel whose lamps are at 0 % (track_node_light.c reads it for those nodes only) */
+static void feed_tunnel_pool(void)
+{
+    HeadlightPool *const pool = light_effects->tunnel_pool;
+    if (pool == NULL) return;
+    tunnel_pool_was = pool->count > 0;
+    pool->count = 0;
+    pool->ring = light_effects->nodes;
+    if (shadow_race == NULL) return;
+    const Car *const car = shadow_race->cars[race_slot(shadow_race->player)];
+    if (car == NULL || !drive_lamps_low(car->index)) return;
+    pool->tunnel = road_tunnels(shadow_race, light_effects->nodes);
+    pool->cone = port_headlight_cone();
+    pool->node_xz = pool->cone ? cone_node_xz(shadow_race, light_effects->nodes) : NULL;
+    if (pool->cone) {
+        pool->cone_x[0] = car->x / 65536.0, pool->cone_z[0] = car->z / 65536.0;
+        cone_heading(car, &pool->cone_hx[0], &pool->cone_hz[0]);
+    }
+    pool->cone_car[0] = (int8_t)race_slot(shadow_race->player);
+    pool->sub[0] = headlight_frac(shadow_race, car);
+    pool->dir[0] = car->gear == LAMP_REVERSE_GEAR ? -1 : 1;
+    pool->node[0] = car->node;
+    pool->count = 1;
+}
+
+int headlights_relight_wanted(void)
+{
+    if (light_effects == NULL) return 0;
+    if (light_effects->pool != NULL) return 1;
+    return light_effects->tunnel_pool != NULL && (light_effects->tunnel_pool->count > 0 || tunnel_pool_was);
+}
+
 /* port (headlight_beams): the cars with their lights on, each frame - the active cars of the race, the player first - are the pools the road is lit in */
 void headlights_update(void)
 {
-    if (light_effects != NULL && light_effects->pool == NULL) reflect_low_light();
+    if (light_effects != NULL && light_effects->pool == NULL) reflect_low_light(), feed_tunnel_pool();
     if (light_effects == NULL || light_effects->pool == NULL) return;
     HeadlightPool *pool = light_effects->pool;
     pool_fed = pool;

@@ -49,7 +49,7 @@ void cars_stream_style(const Tri *tri, const TrackArt *art, const PortedCamera *
 void cars_transform(TrackCamera *cam, DrawContext *ctx, View *view)
 {
     headlights_update();   /* port (headlight_beams): the pools of the cars with their lights on, before the rows are built */
-    if (light_effects != NULL && light_effects->pool != NULL) track_render_relight(&render);   /* port (headlight_beams): the road's light with the pools of this frame */
+    if (headlights_relight_wanted()) track_render_relight(&render);   /* port (headlight_beams): the road's light with the pools of this frame */
     track_render_transform(&render, cam, ctx);
     memcpy(last_near_dir, ctx->near_dir, sizeof last_near_dir);
     last_near = ctx->near;

@@ -113,11 +113,12 @@ void track_render_set_light(TrackRender *r, const TrackNodeLight *light)
 
 void track_render_relight(TrackRender *r)
 {
-    if (r->node_light == NULL || r->node_light->pool == NULL) return;
+    const HeadlightPool *const pool = r->node_light != NULL ? (r->node_light->pool != NULL ? r->node_light->pool : r->node_light->tunnel_pool) : NULL;   /* port (tunnel_pool) */
+    if (pool == NULL) return;
     int32_t count = r->build.world_next;
     if (count > TRACK_MAX_VERTICES) count = TRACK_MAX_VERTICES;
     for (int32_t i = 0; i < count; i++) {
-        if (r->node_light->pool->cone) {   /* port (headlight_cone): each vertex lit by the cones at its own place */
+        if (pool->cone) {   /* port (headlight_cone): each vertex lit by the cones at its own place */
             const double at[2] = { r->build.world[i][0] / 65536.0, r->build.world[i][2] / 65536.0 };
             r->light_vertex[i] = track_node_light_at_xz(r->node_light, r->vertex_node[i], r->vertex_point[i], at);
         } else {

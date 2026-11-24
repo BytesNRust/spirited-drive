@@ -53,6 +53,7 @@ SkyArtDraw sky_draw;
 int lamp_pool_count;
 const TunnelLampTexture *night_lamp_spec;   /* the tunnel lamps of the track when the race is at night (drive_light_night_lamps), else none */
 int night_lamp_count;
+static HeadlightPool tunnel_day_pool;   /* port (tunnel_pool): the beam in an unlit tunnel by day, dawn and dusk */
 static HeadlightPool headlight_pool;   /* port (headlight_beams): the pools of light the cars lift the night's dark nodes by (ported_view keeps its nodes) */
 int headlights_on;               /* the race is at night with the pools: the ambient is the pooled night's, the nodes' light carries the dark */
 /* with the pools the palette is the dusk's with the night's hue (light_tint_night over HEADLIGHT_FLOOR, 1 at most per channel) and the nodes carry the rest of the
@@ -725,6 +726,7 @@ static void install_made(TrackNodeLight *made, const char *track, int tunnel_tra
     city_fields(&light, track);   /* port (city_lift): the made light has the City's fields as the CD's has (lamp_pool_bright included) */
     light.object_floor = is_lost_vegas(track) && port_light_effects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects): the made light's buildings and objects keep their light as the CD's do */
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (headlight_beams): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
+    light.tunnel_pool = !headlights_on && port_light_effects() && light.lamps_off != NULL ? &tunnel_day_pool : NULL;   /* port (tunnel_pool) */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
     ported_view_set_light(&light, NULL);

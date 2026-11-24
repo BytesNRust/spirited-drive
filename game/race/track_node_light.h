@@ -34,6 +34,7 @@ typedef struct {
     uint32_t nodes;
     PsxLgs script;      /* the track's light script (track_node_light_set_script), read when `scripted` */
     int scripted;
+    HeadlightPool *tunnel_pool; /* port (tunnel_pool): by day, dawn and dusk (pool NULL) the player's beam in a tunnel whose lamps are at 0 %: the pool used for those nodes only (not owned; NULL none) */
     HeadlightPool *pool; /* port (headlight_beams): the cars' pools of light the night's nodes are lifted by (headlight_pool.h); NULL none (not owned: the one who set it
                          * keeps the nodes up to date; the light reads it through a const TrackNodeLight) */
     uint8_t *hall;      /* port (made light): per node (owned), 1 where the node is a lit hall's (light_synth.h: the car takes the lamps' alternation there); NULL none */
