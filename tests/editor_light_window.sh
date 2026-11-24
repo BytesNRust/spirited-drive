@@ -118,6 +118,15 @@ grep -q "^  tone [0-9]* [0-9]* left ffe080:50$" "$work/light/track_light/AL1.txt
 grep '^light:' "$work/ui2" | tail -1 | grep -q 'brightness 1 tones 0 ' || fail "the Remove button did not take the tone away: $(grep '^light:' "$work/ui2")"
 grep -q "^  tone " "$work/light/track_light/AL1.txt" && fail "the removed tone is still in the file"
 cksum < "$work/light/track_light/AL1.txt" > "$work/ui_cksum"
+# Sun and Tunnels fold like Lamps, Brightness and Tone: folded they give their height back (what is below moves up), unfolded they are as they were, and the values are not lost
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 \
+    --steps sun:120,30,70,ui-rect:tunnels_header,ui-click:sun_header,ui-rect:tunnels_header,ui-click:sun_header,ui-rect:tunnels_header,ui-rect:add_brightness,ui-click:tunnels_header,ui-rect:add_brightness,ui-click:tunnels_header,ui-rect:add_brightness,light-print > "$work/fold" 2>&1 ||
+    fail "the folding flow: $(tail -3 "$work/fold")"
+ys=$(sed -n 's/^ui rect: tunnels_header [0-9]* \([0-9]*\) .*/\1/p' "$work/fold" | tr '\n' ' '); set -- $ys
+[ $# = 3 ] && [ "$2" -lt "$1" ] && [ "$3" = "$1" ] || fail "folding Sun did not move the Tunnels header up and back (y: $ys)"
+ys=$(sed -n 's/^ui rect: add_brightness [0-9]* \([0-9]*\) .*/\1/p' "$work/fold" | tr '\n' ' '); set -- $ys
+[ $# = 3 ] && [ "$2" -lt "$1" ] && [ "$3" = "$1" ] || fail "folding Tunnels did not move Add brightness up and back (y: $ys)"
+grep '^light:' "$work/fold" | tail -1 | grep -q "sun 120 30 70$" || fail "the folded sections lost the sun: $(grep '^light:' "$work/fold")"
 # the window's other widgets, clicked: the node buttons move the photo's node, Add tunnel adds a tunnel, a moment's button keeps the one file's edits, Revert puts the file back as it was opened.
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 \
     --steps light-node,ui-click:node_p10,ui-click:node_p10,ui-click:node_p1,light-node,ui-click:node_m10,ui-click:node_m1,light-node,ui-at:node_slider,0.9,light-node,ui-click:add_tunnel,light-print,ui-click:time_C,light-print,ui-click:revert,light-print,ui-click:tunnel0_remove,light-print,ui-click:time_B,light-print > "$work/ui4" 2>&1 ||

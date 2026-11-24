@@ -167,11 +167,13 @@ void sun_rows(App *a)
     LightTrackSun s;
     memset(&s, 0, sizeof s);
     const int existing = light_track_get_sun(&f, time_of(a), &s);
-    ImGui::SeparatorText(time_of(a) == LT_TIME_N ? "Moon" : "Sun");
+    const bool open = ImGui::CollapsingHeader(time_of(a) == LT_TIME_N ? "Moon###lightsun" : "Sun###lightsun", ImGuiTreeNodeFlags_DefaultOpen);   // folded or not is kept by the window while Studio runs
+    ui_probe("sun_header");
     ImGui::SameLine();
     help_marker("The light's direction (compass: north up, the arrow points to where the light comes from), its height above the horizon, and the shadow strength: the light left in "
                 "full shadow, in percent (100 is no shadow). A part that is not ticked is the generator's own (the direction from the sky's glow). At night this is the moon, with no shadow "
                 "by default. Shadows fall only in a clear race, never in fog, rain, storm or snow. The photo follows every change.");
+    if (!open) return;
     bool changed = false;
     sun_dial(s);
     ImGui::SameLine();
@@ -254,11 +256,13 @@ void tunnel_rows(App *a)
     LightTrack &f = file_of(a);
     char why[LT_WHY];
     const int time = time_of(a);
-    ImGui::SeparatorText("Tunnels");
+    const bool open = ImGui::CollapsingHeader("Tunnels###lighttunnels", ImGuiTreeNodeFlags_DefaultOpen);
+    ui_probe("tunnels_header");
     ImGui::SameLine();
     help_marker("The track's tunnels: where each is (nodes) and what it is (a tunnel, or a hall: a roofed straight lit by its own lamps) are the same at every time. Light (percent of "
                 "full light inside), Colour, Lamps (the lamps' strength, percent) and Reach (the lamp pools' reach, in nodes) are this time's look of that tunnel; an empty cell takes the "
                 "default row's. A hall takes only Lamps and Reach.");
+    if (!open) return;
     const int tunnels = light_track_count(&f, LT_TIME_FACTS, LT_TUNNEL), looks = light_track_count(&f, time, LT_LOOK);
     TunnelRow rows[2 * LT_MAX_PER_TIME];
     int count = 0, default_look = -1;
