@@ -1408,6 +1408,7 @@ foreach(name first_profile car_livery_unlamp track_light_mirror port_old_files c
     # the update check's curl run without a shell or a window (Windows: CreateProcess), its output read; the test is its own child
     add_executable(test_process_pipe tests/test_process_pipe.c game/platform/sdl3/process_pipe.c)
     target_link_libraries(test_process_pipe PRIVATE tnfs_core)
+    target_include_directories(test_process_pipe PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests)
     target_compile_options(test_process_pipe PRIVATE ${TNFS_WARNINGS})
     add_test(NAME process_pipe COMMAND test_process_pipe)
     # the CD check of the clean configuration background runs when original/ is there
