@@ -8,11 +8,11 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
-/* <direct.h> and <io.h> are left out: <io.h> declares read, write, dup and tell, which the sources use as names of their own */
+/* <io.h> and <sys/stat.h> (which includes it) are left out: <io.h> declares read, write, dup and tell, which the sources use as names of their own.
+ * The macros below only need `stat` where they are used. */
 int _mkdir(const char *path);
-#define mkdir(path, mode) _mkdir(path)        /* the mode has no meaning here */
+#define mkdir(path, ...) _mkdir(path)         /* the mode has no meaning here; variadic so that <direct.h>'s own one-argument declaration still reads */
 #define lstat(path, st) stat(path, st)        /* no links to tell from their targets */
 #ifndef S_ISLNK
 #define S_ISLNK(m) 0

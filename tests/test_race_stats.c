@@ -5,6 +5,7 @@
 
 #include "game/platform/platform.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/port_extras.h"
 
 #include <stdlib.h>
 #include <string.h>

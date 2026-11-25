@@ -1,5 +1,6 @@
 /* The catalogue paints (car_paint.h): the table's shape, and the recolour of a body's palette entries on synthetic palettes. */
 #include "game/race/car_paint.h"
+#include "game/sys/port_extras.h"
 #include "test.h"
 
 #include <stdlib.h>
