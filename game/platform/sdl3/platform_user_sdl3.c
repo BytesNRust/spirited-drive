@@ -180,7 +180,12 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
         SDL_RemovePath(temp);
         return false;
     }
-    if (!SDL_RenamePath(temp, path)) {
+    bool renamed = SDL_RenamePath(temp, path);
+    for (int again = 0; !renamed && again < 50; again++) {   /* Windows: the target is open in a reader for an instant, and the rename is refused */
+        SDL_Delay(2);
+        renamed = SDL_RenamePath(temp, path);
+    }
+    if (!renamed) {
         port_log("platform: cannot rename %s: %s\n", temp, SDL_GetError());
         SDL_RemovePath(temp);
         return false;

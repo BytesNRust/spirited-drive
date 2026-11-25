@@ -12,6 +12,7 @@
 #include "game/sys/port_settings.h"
 #include "platform/platform.h"
 #include "test.h"
+#include "rmtree.h"
 #include "zip_build.h"
 
 #include <stdio.h>
@@ -119,9 +120,7 @@ static int backups_of(const char *mod_id)
 
 static void fresh(void)
 {
-    char cmd[400];
-    snprintf(cmd, sizeof cmd, "rm -rf '%s'", pref);
-    CHECK(system(cmd) == 0);
+    test_rmtree(pref);
     make_dirs(pref);
     port_settings_forget();
     CHECK(port_profile_select(PROFILE_RESTOMOD));
@@ -221,6 +220,7 @@ static void test_mods_not_a_folder(void)
     write_at("mods", "a file");
     CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     CHECK(file_is("mods", "a file"));
+#ifndef _WIN32   /* no links to make on Windows without a privilege */
     fresh();
     char elsewhere[400], link_path[400];
     snprintf(elsewhere, sizeof elsewhere, "%s/elsewhere", base);
@@ -234,6 +234,7 @@ static void test_mods_not_a_folder(void)
     CHECK(stat(inside, &st) != 0);   /* nothing written through the link */
     snprintf(inside, sizeof inside, "%s/.staging", elsewhere);
     CHECK(stat(inside, &st) != 0);
+#endif
 }
 
 static void test_uninstall_and_restore(void)
@@ -375,8 +376,6 @@ int main(void)
     test_a_track_named_in_tracks_is_on();
     test_the_tree_changes_only_mods();
     mod_set_stop();
-    char cmd[400];
-    snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
-    if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);
+    test_rmtree(base);
     return TEST_REPORT();
 }

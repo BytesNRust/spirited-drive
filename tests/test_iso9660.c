@@ -4,6 +4,7 @@
 #include "iso/iso9660.h"
 #include "iso_build.h"
 #include "test.h"
+#include "rmtree.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -237,8 +238,6 @@ int main(void)
     iso_rejects_truncated();
     iso_rejects_dir_loop();
     iso_rejects_damaged_records();
-    char cmd[300];
-    snprintf(cmd, sizeof cmd, "find %s -delete", dir);
-    CHECK_EQ_INT(system(cmd), 0);
+    CHECK_EQ_INT(test_rmtree(dir), 0);
     return TEST_REPORT();
 }

@@ -5,6 +5,7 @@
 #include "game/sys/sha256.h"
 #include "iso_build.h"
 #include "tests/test.h"
+#include "tests/rmtree.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,10 +102,10 @@ static void test_check_and_copy(void)
     CHECK(access(dest, F_OK) != 0);
     snprintf(part, sizeof part, "%s.part", dest);
     CHECK(access(part, F_OK) != 0);
-    snprintf(path, sizeof path, "find %s -delete", base);   /* the scratch tree */
-    CHECK_EQ_INT(system(path), 0);
+    CHECK_EQ_INT(test_rmtree(base), 0);   /* the scratch tree */
 }
 
+#ifndef _WIN32   /* no links to make on Windows without a privilege: the test is for the systems that have them */
 /* the copy never follows a link to a folder (the owner's source had original/original -> original, a loop), copies a link to a file as the file, copes with read-only
  * files (the CD's are r--------) and says what failed: the path and the reason, not a guess about the disk */
 static void test_copy_links_and_read_only(void)
@@ -159,9 +160,9 @@ static void test_copy_links_and_read_only(void)
     snprintf(path, sizeof path, "%s/sub/A.BIN", src);
     chmod(path, 0400);
     CHECK_EQ_INT(data_copy_tree(src, dest, NULL, NULL), 1);   /* and the retry works */
-    snprintf(path, sizeof path, "find %s -delete", base);
-    CHECK_EQ_INT(system(path), 0);
+    CHECK_EQ_INT(test_rmtree(base), 0);
 }
+#endif
 
 /* where the data is: --data as given, the player's copy, a development folder, else the wizard */
 /* "Use it anyway" (a folder whose NFS_WIN.EXE is another size): the copy is marked, the next start takes it with no wizard, and a new copy replaces it */
@@ -186,8 +187,7 @@ static void test_use_it_anyway_then_restart(void)
     CHECK_EQ_INT((int)data_root_resolve(NULL, dest, NULL, out, sizeof out), (int)DATA_ROOT_USER_COPY);
     CHECK_EQ_INT(data_copy_tree(src, dest, NULL, NULL), 1);   /* a new copy over the old one, no "File exists" */
     CHECK_EQ_INT(data_looks_installed(dest), 0);   /* the replacement is whole and unmarked until the wizard marks it */
-    snprintf(path, sizeof path, "find %s -delete", base);
-    CHECK_EQ_INT(system(path), 0);
+    CHECK_EQ_INT(test_rmtree(base), 0);
 }
 
 /* ---- port (ISO): the check and the copy from a synthetic image (never the CD's files) ---- */
@@ -288,8 +288,7 @@ static void test_iso_check_and_copy(void)
     CHECK_EQ_INT(data_copy_iso(other, "", fresh, NULL, NULL), 0);
     CHECK(strstr(data_copy_error(), "not a CD image") != NULL);
     CHECK(access(fresh, F_OK) != 0);
-    snprintf(path, sizeof path, "find %s -delete", base);
-    CHECK_EQ_INT(system(path), 0);
+    CHECK_EQ_INT(test_rmtree(base), 0);
 }
 
 static void test_the_root(void)
@@ -340,15 +339,16 @@ static void test_the_real_iso(void)
     CHECK_EQ_INT(data_copy_iso(iso, c.root, dest, NULL, NULL), 1);
     CHECK_EQ_INT(data_check(dest, &c), 1);
     CHECK_EQ_INT(data_looks_installed(dest), 1);
-    snprintf(cmd, sizeof cmd, "find %s -delete", base);
-    CHECK_EQ_INT(system(cmd), 0);
+    CHECK_EQ_INT(test_rmtree(base), 0);
 }
 
 int main(void)
 {
     test_digests();
     test_check_and_copy();
+#ifndef _WIN32
     test_copy_links_and_read_only();
+#endif
     test_use_it_anyway_then_restart();
     test_iso_check_and_copy();
     test_the_root();

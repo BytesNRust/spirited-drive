@@ -15,8 +15,15 @@ int port_log_open_file(const char *path)
     port_log_close_file();
     if (path == NULL || path[0] == '\0') return 0;
     char old[1100];
-    if (snprintf(old, sizeof old, "%s.1", path) < (int)sizeof old) rename(path, old);   /* the last run's, if there is one */
-    file = fopen(path, "w");
+    if (snprintf(old, sizeof old, "%s.1", path) < (int)sizeof old) {   /* the last run's, if there is one */
+        FILE *last = fopen(path, "rb");
+        if (last != NULL) {
+            fclose(last);
+            remove(old);   /* Windows' rename does not replace */
+            rename(path, old);
+        }
+    }
+    file = fopen(path, "wb");   /* binary: the same bytes, and the limit counts the same, on every system */
     if (file == NULL) return 0;
     setvbuf(file, NULL, _IOLBF, 0);   /* a crash keeps what was said */
     file_bytes = 0;

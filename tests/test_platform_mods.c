@@ -5,6 +5,7 @@
 #include "platform/platform.h"
 #include "sys/resource.h"
 #include "test.h"
+#include "rmtree.h"
 
 #include <dirent.h>
 #include <stdint.h>
@@ -134,7 +135,9 @@ int main(void)
     char secret[400];
     snprintf(secret, sizeof secret, "%s/secret.txt", outside);
     snprintf(path, sizeof path, "%s/ESCAPE.TXT", mod_misc);
+#ifndef _WIN32   /* no links to make on Windows without a privilege */
     CHECK(symlink(secret, path) == 0);                              /* the mod's file is a link out of the mods directory */
+#endif
     const uint32_t cd_before = tree_sum(cd);
     char pref[400];
     snprintf(pref, sizeof pref, "%s/pref", base);
@@ -319,8 +322,6 @@ int main(void)
     CHECK(same(d, size, "from the cd"));                                                       /* overlay off again */
     platform_free_file(d);
 
-    char cmd[700];
-    snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
-    if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);
+    test_rmtree(base);
     return TEST_REPORT();
 }
