@@ -2,6 +2,8 @@
 
 #include "formats/car_brake_lamp.h"
 #include "formats/car_mask_codec.h"
+#include "formats/chunk.h"
+#include "formats/mesh.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -109,6 +111,35 @@ int car_livery_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const
 {
     const ColourJob job = { rgb, car_livery_glass_floor(pass->upper) };
     return car_livery_walk(cfm, size, pass, run_paint, (void *)&job);
+}
+
+/* ----- flat polygons of the body (TEMPORARY, per car) ----- */
+
+/* the cars whose model draws a part of the body with a flat colour reference: stem in upper case, the reference's label. The owner will fix the model; this table is the exception until then. */
+static const struct { const char *stem, label[9]; } FLAT_BODY[] = {
+    { "F512TR", "red" },   /* the rear strip: polygons 15 and 44 use the flat reference 28 (label "red", RGB 200 20 20) */
+};
+
+int car_livery_flat_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const uint8_t rgb[3])
+{
+    Chunk file;
+    if (pass == NULL || pass->upper == NULL || rgb == NULL || chunk_open(&file, cfm, size) != CHUNK_OK) return 0;
+    const uint32_t word = ((uint32_t)rgb[0] << 16) | ((uint32_t)rgb[1] << 8) | rgb[2];
+    int changed = 0;
+    for (size_t k = 0; k < sizeof FLAT_BODY / sizeof *FLAT_BODY; k++) {
+        if (strcmp(FLAT_BODY[k].stem, pass->upper) != 0) continue;
+        for (int level = 0; level < 2; level++) {   /* the high and the low detail mesh: children 0 and 2 */
+            Chunk chunk;
+            Mesh mesh;
+            if (chunk_child(&file, 2 * level, &chunk) != CHUNK_OK || mesh_open(&mesh, &chunk) != MESH_OK) continue;
+            for (uint32_t t = 0; t < mesh.texture_count; t++) {
+                MeshTexture ref;
+                if (mesh_texture(&mesh, t, &ref) != MESH_OK || ref.name[0] != '\0' || strncmp(ref.label, FLAT_BODY[k].label, sizeof ref.label) != 0) continue;
+                if (mesh_texture_set_colour(&mesh, t, word) == MESH_OK) changed++;
+            }
+        }
+    }
+    return changed;
 }
 
 /* ----- lamps by the masks ----- */

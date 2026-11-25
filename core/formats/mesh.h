@@ -129,6 +129,8 @@ MeshResult mesh_vertex(const Mesh *mesh, uint32_t index, MeshVertex *out);
 MeshResult mesh_uv(const Mesh *mesh, uint32_t index, MeshUv *out);
 MeshResult mesh_polygon(const Mesh *mesh, uint32_t index, MeshPolygon *out);
 MeshResult mesh_texture(const Mesh *mesh, uint32_t index, MeshTexture *out);
+/* Writes the colour word (0x00RRGGBB, the one a flat polygon takes) of texture reference `index` into the chunk's own bytes: the caller owns them (the livery pass edits a CFM in place). */
+MeshResult mesh_texture_set_colour(const Mesh *mesh, uint32_t index, uint32_t word);
 MeshResult mesh_section_a(const Mesh *mesh, uint32_t index, MeshSectionA *out);
 MeshResult mesh_section_b(const Mesh *mesh, uint32_t index, MeshSectionB *out);
 MeshResult mesh_section_c(const Mesh *mesh, uint32_t index, MeshSectionC *out);

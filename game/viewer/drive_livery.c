@@ -237,6 +237,16 @@ int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_
     return drive_livery_paint_masks(stem, NULL, cfm, size, rgb);
 }
 
+int drive_livery_flat_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3])
+{
+    char upper[LIVERY_STEM];
+    size_t i = 0;
+    for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
+    upper[i] = '\0';
+    const CarLiveryPass pass = { upper, 0, 0, NULL, NULL };
+    return car_livery_flat_paint(cfm, size, &pass, rgb);
+}
+
 int drive_livery_paint_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, const uint8_t rgb[3])
 {
     char upper[LIVERY_STEM];

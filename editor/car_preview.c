@@ -230,6 +230,7 @@ static int paint_and_walk(const PreviewIn *in, uint8_t **out_cfm, size_t *out_le
     int nb = 0, np = 0, walked = 1;
     if (black != NULL || in->added) nb = car_livery_black(cfm, size, &pass, black != NULL ? black->rgb : added_black);   /* as the race does, before any paint */
     if (in->paint != NULL) np = car_livery_paint(cfm, size, &pass, in->paint);
+    if (in->paint != NULL) car_livery_flat_paint(cfm, size, &pass, in->paint);   /* TEMPORARY, per car (Restomod's): the flat body polygons with no texture follow the paint */
     car_livery_unlamp(cfm, size, &pass);   /* Restomod's rule, which the Studio shows: a texture with a mask lights only what the mask marks as a brake light, not every texel of palette entry 0xfe */
     if (out != NULL) {
         Collect *c = calloc(1, sizeof *c);

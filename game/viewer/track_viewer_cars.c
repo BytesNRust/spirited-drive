@@ -135,6 +135,10 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
         const int n = drive_livery_paint_masks(car_registry_stem(drive_cars.model[slot]), masks, drive_cars.file[slot], size, drive_cars.paint[slot]);
         port_log_detail("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
                  drive_cars.paint[slot][1], drive_cars.paint[slot][2], n);
+        if (port_settings_load().profile == PROFILE_RESTOMOD) {   /* TEMPORARY, per car: flat body polygons with no texture (the F512TR's rear strip) follow the paint; Stock and Restored keep the original's */
+            const int flat = drive_livery_flat_paint(car_registry_stem(drive_cars.model[slot]), drive_cars.file[slot], size, drive_cars.paint[slot]);
+            if (flat > 0) port_log_detail("car_paint: slot %d %s: %d flat colour references take the paint\n", slot, stem, flat);
+        }
     }
     if (drive_cars.file[slot] != NULL && port_settings_load().profile == PROFILE_RESTOMOD && port_emissive_lamps()) {   /* port (Restomod): a car with masks lights its brake lamps by the masks alone, not by palette entry 0xfe (Stock and Restored keep the exe's) */
         const int n = drive_livery_unlamp(stem, skin_masks(slot), drive_cars.file[slot], size);

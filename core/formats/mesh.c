@@ -155,6 +155,15 @@ MeshResult mesh_texture(const Mesh *mesh, uint32_t index, MeshTexture *out)
     return MESH_OK;
 }
 
+MeshResult mesh_texture_set_colour(const Mesh *mesh, uint32_t index, uint32_t word)
+{
+    const uint8_t *p = record(mesh, mesh->texture_offset, mesh->texture_count, TEXTURE_SIZE, index);
+    if (p == NULL) return MESH_ERR_INDEX;
+    uint8_t *w = (uint8_t *)(uintptr_t)p + 12;
+    w[0] = (uint8_t)word, w[1] = (uint8_t)(word >> 8), w[2] = (uint8_t)(word >> 16), w[3] = (uint8_t)(word >> 24);
+    return MESH_OK;
+}
+
 MeshResult mesh_section_a(const Mesh *mesh, uint32_t index, MeshSectionA *out)
 {
     const uint8_t *p = record(mesh, mesh->section_a_offset, mesh->section_a_count, SECTION_A_SIZE, index);

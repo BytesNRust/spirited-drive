@@ -34,6 +34,11 @@ int car_livery_glass_floor(const char *upper);
 int car_livery_black(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const uint8_t rgb[3]);
 int car_livery_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const uint8_t rgb[3]);
 
+/* TEMPORARY, per car (Restomod, after the paint): a car whose model has flat polygons that belong to the body but carry no texture (the F512TR's rear strip: the original model draws it in a
+ * fixed red) takes the paint's colour for them, so they follow the chosen paint. The model is the owner's to fix later; then this goes. The colour word of each such flat colour reference
+ * (no texture name, the table's label) of both detail levels is set to `rgb`. Returns the references changed (0 for a car that has none). */
+int car_livery_flat_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const uint8_t rgb[3]);
+
 /* A car with masks, lamps by its masks (Restomod): the texels of palette entry CAR_BRAKE_LAMP_ENTRY (0xfe: the exe lights that entry by index, wherever the texture has it) that the texture's mask does not
  * mark as a brake light (CAR_MASK_BRAKE..+3) are pointed at the palette entry nearest the model's unlit lamp colour (never 0xfe or a reserved entry), so they stay that colour and never light; the
  * texels the mask marks keep entry 0xfe and light as before. A texture with no mask is left as it is (the car's lamps are the exe's there), and so is every car when the pass has no masks. Returns the

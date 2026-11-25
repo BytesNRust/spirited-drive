@@ -29,6 +29,8 @@ int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_
 /* port (dep59 step 3): drive_livery_paint with the masks of `mask_dir` alone (car_mask_load_dir: an added car's skin's folder); NULL
  * searches as drive_livery_paint does */
 int drive_livery_paint_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
+/* TEMPORARY, per car (car_livery_flat_paint): the flat polygons of a car's body that carry no texture take the paint's colour, in the CFM the caller owns, after drive_livery_paint. Returns the references changed. */
+int drive_livery_flat_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
 
 /* The texels the car's masks mark as the fixed black (car_mask.h CAR_MASK_BLACK) repainted with the car's black `rgb` (car_paint_black_of, or CAR_PAINT_ADDED_BLACK for an added
  * car), in the CFM the caller owns, before the loader reads it and before any paint or livery of the car (car_repaint_fixed_black). `mask_dir` as in drive_livery_paint_masks:
