@@ -511,3 +511,7 @@ The masks are painted in PSDs and read back by scripts in `tools/`. The Python o
 Every key of `port.cfg` and the three mode files, its default, range, menu and `TNFS_*` variable is in [settings.md](settings.md); copy nothing from there into a mod, point to it. The development variables (`TNFS_START_NODE`, `TNFS_FRAMES`, `TNFS_SHOTS`, `TNFS_VIEW`...) drive headless runs, with `SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy`, `timeout -k` and a scratch `--user` folder so the player's files stay out.
 
 *Colour palettes (.aco files, as used for the paint colours) are not in the repository; only their use is described where a tool takes them.*
+
+## Where Studio keeps a game original's working copy
+
+Edit tweak keeps the working copy of a game car or track (model, textures, PSDs, masks, the track's light folder) in `<workspace>/tweaks/<id>/studio/project/`. Only Studio reads it: Apply, Check and Pack zip read the `data/` mirror beside it, and a zip never holds `studio/`. `cars/` and `tracks/` are for your own mods; Open car mod and Open track mod refuse a game original and say Edit tweak. An older workspace's `cars/<kit>` or `tracks/<TRACK>` is copied into its tweak the first time that tweak is opened (one at a time, the old folder left for you to delete by hand).

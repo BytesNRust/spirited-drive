@@ -15,7 +15,7 @@ nix develop -c sh -c 'cmake -S . -B build/native -G Ninja && cmake --build build
 ./build/native/tnfs-track-editor <workspace>/tracks/my-road
 ```
 
-A workspace is one folder with `cars/` and `tracks/` in it (File > Workspace, or `--workspace DIR`; the choice is kept between runs): Open and New start in its
+A workspace is one folder with `cars/` and `tracks/` (your own mods; the game's originals live in `tweaks/<id>/studio/project/`) in it (File > Workspace, or `--workspace DIR`; the choice is kept between runs): Open and New start in its
 `cars/` or `tracks/`, and the start screen lists what is in them. It is optional: with none, the folder dialogs start where the system puts them.
 
 The project folder is created with `project.ini` and `trace.json` when they are missing: a straight as long as the shortest stage the game races (1308 m, 54
@@ -208,7 +208,7 @@ use what is on screen, not the file, as before.
 ## Original tracks: light and reflective masks
 
 The game's 16 tracks are projects of the workspace, put there when their tweak is first opened (**Edit tweak...** > **Track** > **Open**, from the game's `data/`, found through File > Settings... or `--port-data DIR`, and `--art-dir DIR` for the owner's
-mask PSDs; headless, `--steps add-originals` or `tweak-open-row:<TRACK>`; an older workspace's folder is brought up to date by Open, what you edited is never touched). Each is `<workspace>/tracks/<TRACK>/`: `original.ini` (what marks it), `light/` (the track's light files, the layout the Track light window works on), `art-source/masks/` (the
+mask PSDs; headless, `--steps add-originals` or `tweak-open-row:<TRACK>`; an older workspace's `tracks/<TRACK>/` is copied into the tweak by Open, once, and left as it was; what you edited is never touched). Each is `<workspace>/tweaks/<track>-tweak/studio/project/` (never in a zip): `original.ini` (what marks it), `light/` (the track's light files, the layout the Track light window works on), `art-source/masks/` (the
 owner's mask PSDs, copied, never moved; backups with a second dot in the name are skipped) and `art-generated/track_masks/`. Nothing that is already there is overwritten. The **Track** tab of **Edit tweak** lists all 16.
 
 An original track opens in the Track light window on its own `light/` folder with the track fixed (its time of day still changes), and a **Track masks** panel beside the comparison: a row for each texture with a mask, its
