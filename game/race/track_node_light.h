@@ -160,6 +160,8 @@ int track_node_light_lamp_car(const TrackNodeLight *light, uint32_t node, double
 uint8_t track_node_light_object_lamp(const TrackNodeLight *light, uint32_t node, double x, double z, uint8_t level);
 
 /* port (lamp_pool_tint): what the light of the polygons at `node` is tabled by: 1 a tunnel (track_node_light_tunnel), 2..5 a street lamp's pool of class 1..4 (the road there takes a warm tint), 0 else. */
+/* 1 where the player's lamps are lit by day in a tunnel for its beam: its lamps are at 0 %, or written under 100 % (the beam fades as they go up) */
+int track_node_light_lamps_beam(const TrackNodeLight *light, uint32_t node);
 int track_node_light_tunnel_class(const TrackNodeLight *light, uint32_t node);
 
 /* port (lamp_car_shade): a car's light ratio (`out`, 0..1 a channel) times a warm lamp gain by the pool at `node` (car_pool, 2.6 / 2.4 / 1.8 at the strongest, fading with its class, at most 2, never darkened): 1 when it

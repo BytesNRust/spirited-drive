@@ -185,11 +185,13 @@ static int unlit_open_at(const TrackNodeLight *light, uint32_t file_node)
     return light != NULL && (light->pool != NULL || light->tunnel_pool != NULL) && light->lamps_off != NULL && light->nodes > 0 && light->lamps_off[file_node % light->nodes] != 0;
 }
 
+static int lit_pool_share(const TrackNodeLight *light, uint32_t node);
+
 int track_node_light_tunnel_class(const TrackNodeLight *light, uint32_t node)
 {
     const uint32_t file_node = light != NULL ? track_node_light_old_node(light, node) : 0;
     const int forest = light != NULL && light->forest_road && file_node >= light->forest_from && file_node <= light->forest_to;   /* port (forest_neutral): its shade is not a tunnel's */
-    if (unlit_open_at(light, file_node)) return TRACK_NODE_LIGHT_CLASS_UNLIT;   /* port (tunnel_pool) */
+    if (unlit_open_at(light, file_node) || lit_pool_share(light, node) > 0) return TRACK_NODE_LIGHT_CLASS_UNLIT;   /* port (tunnel_pool): and a lit tunnel's under 100 % lamps by day, so the pool's light and the dark are in the same tables from 1 % to 0 % */
     if (!forest && track_node_light_tunnel(light, node)) return 1;
     if (light == NULL || light->pool_class == NULL || light->nodes == 0) return 0;
     const uint8_t c = light->pool_class[node % light->nodes];
@@ -384,7 +386,6 @@ static uint8_t light_at_dark_as(const TrackNodeLight *light, uint32_t node, int 
     return lit > scaled ? (uint8_t)lit : scaled;
 }
 
-/* port (tunnel_pool): by day the player's beam also lights a LIT tunnel, by the share (of 256) the lamps leave: full at 0 % (the unlit path), about half at 50 %, none at 100 % */
 static int lit_pool_share(const TrackNodeLight *light, uint32_t node)
 {
     if (light == NULL || light->pool != NULL || light->tunnel_pool == NULL || light->lamp_pct == NULL || light->nodes == 0) return 0;
@@ -397,14 +398,20 @@ static int lit_pool_share(const TrackNodeLight *light, uint32_t node)
 /* xz: the point's place on the ground in metres, or NULL when only the node is known (the node's centre is used with headlight_cone) */
 static uint8_t light_at_dark(const TrackNodeLight *light, uint32_t node, int point, const double *xz)
 {
-    const uint8_t v = light_at_dark_as(light, node, point, xz, DARK_AS_IS);
     const int share = lit_pool_share(light, node);
-    if (share <= 0) return v;
+    if (share <= 0) return light_at_dark_as(light, node, point, xz, DARK_AS_IS);
+    /* a lit tunnel by day is drawn in the unlit tables (its class): the dark is its look in the polygons' light and the beam's light comes on top by the share the lamps leave */
     const int with = light_at_dark_as(light, node, point, xz, DARK_AS_UNLIT), without = light_at_dark_as(light, node, point, xz, DARK_AS_UNLIT_NO_BEAM);
-    int extra = with > without ? with - without : 0;
-    if (light->look_light > 0.0 && light->look_light < 100.0) extra = (int)(extra * 100.0 / light->look_light);   /* the lit tunnel's tables carry the look: the beam's light is made up for it, as the unlit path has it in the polygons */
-    const int out = v + extra * share / 256;
+    const int out = without + (with > without ? (with - without) * share / 256 : 0);
     return (uint8_t)(out > 255 ? 255 : out);
+}
+
+int track_node_light_lamps_beam(const TrackNodeLight *light, uint32_t node)
+{
+    if (light == NULL || light->nodes == 0) return 0;
+    const uint32_t at = node % light->nodes;
+    if (light->lamps_off != NULL && light->lamps_off[at]) return 1;
+    return light->lamp_pct != NULL && light->lamp_pct[at] >= 1 && light->lamp_pct[at] < 100;
 }
 
 int track_node_light_lamp_floor(const TrackNodeLight *light, uint32_t node)
