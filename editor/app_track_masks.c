@@ -54,7 +54,7 @@ static void drop_picture(App *a)
 }
 
 /* the textures of the track from the game's files, when they are there: for the sizes and the pictures. The set is kept (a click on a row must not read and decode the track's whole file
- * again, a slow volume made it a freeze): opened the first time and again when the scan reads the folders again (`fresh`) or the track is another, until the project is closed.
+ * again, a slow volume made it a freeze): opened the first time and again when the scan reads the folders again (`fresh`) or the track is another (the one set stays until then: one track's file, about 1 MB).
  * The caller never closes it. NULL when the files are not there (that too is kept). */
 static TrackTexSet *tex_set;
 static char tex_key[APP_PATH + 40];
@@ -73,14 +73,6 @@ static TrackTexSet *textures(const App *a, const char *stem, int fresh)
     snprintf(tex_key, sizeof tex_key, "%s", key);
     tex_have = 1;
     return tex_set;
-}
-
-void app_track_masks_tex_free(void)
-{
-    track_tex_close(tex_set);
-    tex_set = NULL;
-    tex_have = 0;
-    tex_key[0] = '\0';
 }
 
 int app_track_masks_reads(void)

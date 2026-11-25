@@ -31,7 +31,6 @@ static void folder_name(const char *dir, char *out, size_t cap)
 
 static void drop_road(App *a)
 {
-    app_track_masks_tex_free();   /* the kept texture set of the track the masks showed */
     free(a->tmask_rgba);
     free(a->nodes);
     free(a->flags);

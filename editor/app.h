@@ -440,10 +440,9 @@ int app_tweak_apply_answer(App *a, int replace);  /* the answer to that question
 int app_original_check_all(App *a, char *out, size_t cap);
 int app_track_masks_load(App *a);
 /* How many times the masks code has read the track's game file (the texture set: opened once and kept, again on Re-scan) and the mask PNGs a click shows: a click on a row reads at most
- * its one PNG and none of the game file (the test counts it). app_track_masks_tex_free drops the kept set (the project closes). */
+ * its one PNG and none of the game file (the test counts it).*/
 int app_track_masks_reads(void);
 int app_track_masks_fam_opens(void);
-void app_track_masks_tex_free(void);
 int app_track_masks_refresh(App *a);
 /* The Masks window's buttons. reveal: asks the window to show the PSD folder (art-source/masks, psd 1) or the PNG folder (art-generated/track_masks) in the Finder; 1, or 0 with the reason in tmask_note
  * when the folder is not there. update: makes the PNGs of the PSDs newer than them (the ones the poll would make), and, with replace_edited, those edited by hand too; 1, or 0 with the reason in tmask_note.
