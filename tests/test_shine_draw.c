@@ -183,7 +183,7 @@ static void test_a_shared_edge_between_polygons_leaves_no_gap(void)
 {
     for (int flip = 0; flip < 2; flip++) {
         const EnvShine env = env_plus_one();
-        const int32_t a[6] = { 8, 8, 40, 8, 8, 40 }, b[6] = { 40, 8, 40, 40, 8, 40 }, bf[6] = { 40, 8, 8, 40, 40, 40 };
+        const int32_t a[8] = { 8, 8, 40, 8, 8, 40 }, b[8] = { 40, 8, 40, 40, 8, 40 }, bf[8] = { 40, 8, 8, 40, 40, 40 };
         const int32_t uv[8] = { 0, 0, TEX, 0, 0, TEX };
         int32_t packed[4];
         centre(packed);
