@@ -1,15 +1,17 @@
 #include "game/frontend/game_mode.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "game/sys/port_log.h"
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000, LEFT = 0x4b00, RIGHT = 0x4d00, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 /* port (dep59 step 4, L2b; the owner's reorder of 2026-11-17): the rows, in the order Up / Down walk them: the selector of the modes and
  * editions on top, then Single Player, Multiplayer (the exe's Network) and Exit, three of one size (the owner's 2026-11-25: Manage content is hidden in
- * every mode, Exit takes its place; the CONTENT screen's op stays in GameModeOps for the version that brings the mods back);
+ * every mode and Exit takes its place). The tests' door, TNFS_CONTENT_DOOR=1 in the environment, brings the earlier screen back (Manage content the third row,
+ * Exit at the bottom right) so the CONTENT screen's tests and walks still reach it; no menu or setting does;
  * all drawn in the game's text over the art's words. The screen opens on Single Player */
-enum { CHOICE, SINGLE, NETWORK, EXIT, ROWS };
+enum { CHOICE, SINGLE, NETWORK, MANAGE, EXIT, ROWS };
 enum { RACE = 0, LEAVE = 1, TIMED_OUT = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x1194, REST = 0x19, TOLD = 0x12c, WIDE = 0x280, ALL = 0x100 };
 
@@ -24,16 +26,19 @@ static const Row ROW[ROWS] = {
     { 0, 0x280, 96, 190, 0x140, 140 },       /* the selector: its title (text top 108), its two lines (144, 162) */
     { 0, 0x280, 191, 240, 0x140, 215 },      /* Single Player */
     { 0, 0x280, 241, 290, 0x140, 265 },      /* Multiplayer */
-    { 0, 0x280, 291, 340, 0x140, 315 }       /* Exit */
+    { 0, 0x280, 291, 340, 0x140, 315 },      /* Manage content */
+    { 500, 0x280, 410, 0x1e0, 580, 449 }     /* Exit: the bottom right, clear of the foot line */
 };
 /* 0043213c: the art's four words, covered by the port's rows */
 static const int16_t ART_Y[4] = { 0x91, 0xda, 0x122, 0x16f };
 /* the selector's thirds for the pointer: left of CHOICE_LEFT the previous choice, from CHOICE_RIGHT on the next, between them its name */
 enum { CHOICE_LEFT = 0xd5, CHOICE_RIGHT = 0x1ab };
-enum { LABEL_X = 320, TEXT_HALF_HEIGHT = 21, SMALL_NUM = 3, SMALL_DEN = 5 };   /* LABEL_X: the screen's vertical centre, 640 / 2 (the art's words centred at 311; the owner's 2026-11-17: centred on the axis) */
+enum { LABEL_X = 320, TEXT_HALF_HEIGHT = 21, EXIT_RIGHT = 640 - 14, EXIT_TOP = 428, SMALL_NUM = 3, SMALL_DEN = 5 };   /* LABEL_X: the screen's vertical centre, 640 / 2 (the art's words centred at 311; the owner's 2026-11-17: centred on the axis) */
+static const char MANAGE_WORDS[] = "Manage content";
 /* the selector's gallery arrows at fixed places, the name centred between them; the arrow's top under the title's */
 enum { ARROW_L_X = 117, ARROW_R_X = 498,   /* the arrow's ink is 8 wide, 9 in from x: its centre x + 12.5, 190.5 either side of 320 */
         ARROW_DY = 8, TITLE_DY = -32, LINE1_DY = 4, LINE2_DY = 22 };
+static const char MANAGE_LATER[] = "Editions are managed in a later version";
 enum { TEXT_DIM_STYLE = 4 };   /* text.h's TEXT_DIM: what the mode does not let the player use */
 
 enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 14, FOOTER_Y = 448, FOOTER_HEIGHT = 20, FOOTER_NUM = 3, FOOTER_DEN = 5 };   /* the small subtitle size (3/5) of the profile's lines, 14 pixels in from the left and the bottom */
@@ -41,6 +46,7 @@ enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 14, FOOTER_Y = 448, FOOTER_
 static const char FOOTER_GAP[] = "  ";
 
 typedef struct Menu {
+    int door;          /* port: the tests' door is open (TNFS_CONTENT_DOOR=1): Manage content is a row */
     int32_t bank;
     int16_t selected;  /* esp + 0x384 */
     int16_t previous;  /* esp + 0x374 */
@@ -66,21 +72,37 @@ static void palette_load(Menu *m, const GameModeOps *o)
     o->palette_set(o->ctx, m->rgb, 0, ALL, pal + 0x10, (int16_t)pal[0]);
 }
 
-static void move_to(const Menu *m, const GameModeOps *o)
+/* without the door the rows are the selector, Single Player, Multiplayer and Exit (in Manage content's place); the door puts Manage content back */
+static const Row EXIT_UP = { 0, 0x280, 291, 340, 0x140, 315 };
+static int shown(const Menu *m, int16_t i) { return i != MANAGE || m->door; }
+static Row row_of(const Menu *m, int16_t i) { return i == EXIT && !m->door ? EXIT_UP : ROW[i]; }
+/* the row Up / Down reach from `from` stepping `dir` (1 or -1 round the shown ones) */
+static int16_t step_row(const Menu *m, int16_t from, int dir)
 {
-    o->pointer_move_to(o->ctx, ROW[m->selected].cx, ROW[m->selected].cy);
+    int16_t i = from;
+    do {
+        i = (int16_t)((i + dir + ROWS) % ROWS);
+    } while (!shown(m, i));
+    return i;
 }
 
-static int on_row(const GameModeOps *o, int16_t i)
+static void move_to(const Menu *m, const GameModeOps *o)
 {
-    return o->pointer_in_rect(o->ctx, ROW[i].x0, ROW[i].x1, ROW[i].y0, ROW[i].y1) != 0;
+    const Row r = row_of(m, m->selected);
+    o->pointer_move_to(o->ctx, r.cx, r.cy);
+}
+
+static int on_row(const Menu *m, const GameModeOps *o, int16_t i)
+{
+    const Row r = row_of(m, i);
+    return o->pointer_in_rect(o->ctx, r.x0, r.x1, r.y0, r.y1) != 0;
 }
 
 /* 1 when the pointer is on a row (a click elsewhere, the foot line or the art's margins, chooses nothing) */
-static int on_any_row(const GameModeOps *o)
+static int on_any_row(const Menu *m, const GameModeOps *o)
 {
     for (int16_t i = 0; i < ROWS; i++)
-        if (on_row(o, i)) return 1;
+        if (shown(m, i) && on_row(m, o, i)) return 1;
     return 0;
 }
 
@@ -88,7 +110,7 @@ static int on_any_row(const GameModeOps *o)
 static void follow(Menu *m, const GameModeOps *o)
 {
     for (int16_t i = 0; i < ROWS; i++) {
-        if (!on_row(o, i)) continue;
+        if (!shown(m, i) || !on_row(m, o, i)) continue;
         if (m->selected != i) {
             m->previous = m->selected;
             m->selected = i;
@@ -105,6 +127,9 @@ static void cover_art(const GameModeOps *o)
     if (o->extras_cover == NULL) return;
     for (int i = 0; i < 4; i++) o->extras_cover(o->ctx, COVER_X, ART_Y[i] - COVER_HALF, COVER_W, COVER_HALF * 2);
 }
+
+/* 1 when the mode in use is Restomod's (its standard edition, 2, or an edition after it): Manage content is open there */
+static int restomod_in_use(const Menu *m) { return m->in_use >= 2; }
 
 /* "<  name  >" (lit while it is the selection) and the lines about the choice it shows under it */
 static void choice_row(const Menu *m, const GameModeOps *o)
@@ -126,6 +151,14 @@ static void choice_row(const Menu *m, const GameModeOps *o)
     if (text[2][0] != 0) o->plus_text_scaled(o->ctx, 0, text[2], LABEL_X - o->plus_text_width_scaled(o->ctx, text[2], SMALL_NUM, SMALL_DEN) / 2, line2_y, SMALL_NUM, SMALL_DEN);
 }
 
+/* "Manage content", the size of the two options over it: lit while it is the selection, dimmed where the mode has no editions */
+static void manage_row(const Menu *m, const GameModeOps *o)
+{
+    if (o->choice == NULL) return;
+    const int32_t style = !restomod_in_use(m) ? TEXT_DIM_STYLE : m->selected == MANAGE;
+    o->plus_text(o->ctx, style, MANAGE_WORDS, LABEL_X - o->plus_text_width(o->ctx, MANAGE_WORDS) / 2, ROW[MANAGE].cy - TEXT_HALF_HEIGHT);
+}
+
 /* port (dep59 step 4): why Multiplayer is closed, NULL when open */
 static const char *network_closed(const GameModeOps *o) { return o->network_closed != NULL ? o->network_closed(o->ctx) : NULL; }
 
@@ -139,7 +172,9 @@ static void rows_draw(const Menu *m, const GameModeOps *o)
         o->plus_text(o->ctx, style, WORDS[i - SINGLE], LABEL_X - o->plus_text_width(o->ctx, WORDS[i - SINGLE]) / 2, ROW[i].cy - TEXT_HALF_HEIGHT);
     }
     choice_row(m, o);
-    o->plus_text(o->ctx, m->selected == EXIT, "Exit", LABEL_X - o->plus_text_width(o->ctx, "Exit") / 2, ROW[EXIT].cy - TEXT_HALF_HEIGHT);
+    if (m->door) manage_row(m, o);
+    if (m->door) o->plus_text(o->ctx, m->selected == EXIT, "Exit", EXIT_RIGHT - o->plus_text_width(o->ctx, "Exit"), EXIT_TOP);
+    else o->plus_text(o->ctx, m->selected == EXIT, "Exit", LABEL_X - o->plus_text_width(o->ctx, "Exit") / 2, EXIT_UP.cy - TEXT_HALF_HEIGHT);
 }
 
 static int32_t footer_width(const GameModeOps *o, const char *text)
@@ -269,6 +304,23 @@ static void came_back(Menu *m, GameModeState *st, int16_t r, const GameModeOps *
 
 static void choice_read(Menu *m, const GameModeOps *o);
 
+/* port (dep59 step 4b, T7): the CONTENT screen on the choice in use; the choices read again (editions made or deleted there), the one it
+ * closed on applied (the edition just edited is the one in use), and Game Mode drawn and faded in again as after the EXTRAS screen */
+static void manage(Menu *m, const GameModeOps *o)
+{
+    const int32_t next = o->manage(o->ctx, m->in_use);
+    choice_read(m, o);
+    if (next >= 0 && next < m->count && next != m->in_use) {
+        m->shown = next;
+        settle_choice(m, o, 1);
+    }
+    o->deadline_set(o->ctx, WAIT);
+    palette_load(m, o);
+    m->redraw = 1;
+    m->fade = 1;
+    move_to(m, o);
+}
+
 /* port (dep59 step 4): the selector's state from the choice op: how many, the one in use, shown */
 static void choice_read(Menu *m, const GameModeOps *o)
 {
@@ -353,6 +405,17 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         else if (st->buttons == LEFT_BUTTON && o->pointer_in_rect(o->ctx, CHOICE_RIGHT, WIDE, ROW[CHOICE].y0, ROW[CHOICE].y1)) cycle_choice(m, o, 1);
         else settle_choice(m, o, 0);
         break;
+    case MANAGE:   /* port (dep59 step 4b): the CONTENT screen (with no manage op, a later version's banner); in Stock and Restored, nothing */
+        if (!restomod_in_use(m)) break;
+        port_log("mark:game_mode=manage\n");
+        if (o->manage != NULL) {
+            manage(m, o);
+            break;
+        }
+        o->banner_wait(o->ctx, MANAGE_LATER, TOLD);
+        o->deadline_set(o->ctx, WAIT);   /* as Multiplayer's banner */
+        m->redraw = 1;
+        break;
     }
 }
 
@@ -367,8 +430,7 @@ static void step(Menu *m, int16_t k, int german, const GameModeOps *o)
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
         m->previous = m->selected;
-        m->selected = k == UP ? (int16_t)(m->selected - 1) : (int16_t)((m->selected + 1) % ROWS);
-        if (k == UP && m->selected < 0) m->selected = (int16_t)(ROWS - 1);
+        m->selected = step_row(m, m->selected, k == UP ? -1 : 1);
         move_to(m, o);
         m->changed = 1;
     }
@@ -385,6 +447,7 @@ int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
     Menu m = { 0 };
     m.redraw = m.fade = m.armed = m.released = 1;
     m.selected = SINGLE;
+    { const char *door = getenv("TNFS_CONTENT_DOOR"); m.door = door != NULL && door[0] == '1'; }   /* the tests' door (see the top) */
     choice_read(&m, ops);
     st->mode_menu = 1;
     st->intro_seen = 1;
@@ -414,7 +477,7 @@ int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
             if (m.armed && st->buttons == LEFT_BUTTON && on_notice(&m, ops)) {
                 ops->sound(ops->ctx, CHOSEN);
                 ops->open_notice(ops->ctx);
-            } else if (m.armed && (st->buttons != LEFT_BUTTON || on_any_row(ops))) {   /* port: a click off every row chooses nothing */
+            } else if (m.armed && (st->buttons != LEFT_BUTTON || on_any_row(&m, ops))) {   /* port: a click off every row chooses nothing */
                 ops->sound(ops->ctx, CHOSEN);
                 choose(&m, st, ops);
             }

@@ -6,6 +6,7 @@
 #include "test.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000 };
@@ -193,7 +194,8 @@ static void rig(Fake *f, int x, int y, int pinned)
 
 /* the rows' centres (the owner's reorder: the selector on top, the three options 50 apart under it, Exit at the foot; GAP is between
  * Manage content and Exit, on no row) */
-enum { ROW_CHOICE = 140, ROW_SINGLE = 215, ROW_MULTI = 265, ROW_EXIT = 315, EXIT_X = 320, GAP = 370 };
+enum { ROW_CHOICE = 140, ROW_SINGLE = 215, ROW_MULTI = 265, ROW_EXIT = 315, EXIT_X = 320, GAP = 370,
+       ROW_MANAGE = 315, DOOR_ROW_EXIT = 449, DOOR_EXIT_X = 580 };   /* the last three: with the tests' door open (TNFS_CONTENT_DOOR=1), the screen as before the hiding */
 
 /* Single Player first; Down runs Multiplayer, Exit, the selector and round (Manage content is hidden: the owner's 2026-11-25); Up from Single Player is the selector */
 static void test_the_order(void)
@@ -483,6 +485,104 @@ static void test_the_notice_lights_under_the_pointer(void)
     CHECK_EQ_INT(f.version_hot, 0);
 }
 
+/* the tests' door (TNFS_CONTENT_DOOR=1): Manage content is the third row again and Exit the bottom right, as before the owner's 2026-11-25 hiding, so the CONTENT screen's
+ * tests and walks still reach it; the same checks as then */
+/* Single Player first; Down runs Multiplayer, Manage, Exit, the selector and round; Up from Single Player is the selector */
+static void test_the_order_door(void)
+{
+    Fake f;
+    int keys[8], n = 0;
+    for (int i = 0; i < 5; i++) keys[n++] = DOWN;
+    rig(&f, 320, ROW_SINGLE, 0);
+    run(&f, keys, n);
+    CHECK_EQ_INT(f.moved_y[0], ROW_SINGLE);
+    CHECK_EQ_INT(f.moved_y[1], ROW_MULTI);
+    CHECK_EQ_INT(f.moved_y[2], ROW_MANAGE);
+    CHECK_EQ_INT(f.moved_y[3], DOOR_ROW_EXIT);
+    CHECK_EQ_INT(f.moved_y[4], ROW_CHOICE);
+    CHECK_EQ_INT(f.moved_y[5], ROW_SINGLE);
+    const int up[] = { UP };
+    rig(&f, 320, ROW_SINGLE, 0);
+    run(&f, up, 1);
+    CHECK_EQ_INT(f.moved_y[1], ROW_CHOICE);
+}
+
+/* the selector on top with its lines, then Single Player, Multiplayer and Manage content 50 apart, Exit at the bottom right clear of
+ * the foot line, the version at the bottom left */
+static void test_the_layout_door(void)
+{
+    Fake f;
+    const int none[] = { ESCAPE };
+    rig(&f, 320, ROW_SINGLE, 0);
+    run(&f, none, 1);
+    CHECK(f.single.set && f.multi.set && f.title.set && f.manage.set && f.exit.set && f.version.set && f.notice.set);
+    CHECK(f.title.y < f.single.y && f.single.y < f.multi.y && f.multi.y < f.manage.y);
+    CHECK(f.title.y > 88);   /* under the title band */
+    /* the three options are one size (a big word's centre is 21 pixels below where it is drawn), 50 apart: text centres 215, 265, 315 */
+    CHECK_EQ_INT(f.single.y + 21, 215);
+    CHECK_EQ_INT(f.multi.y + 21, 265);
+    CHECK_EQ_INT(f.manage.y + 21, 315);
+    CHECK(f.manage.y + 42 < f.exit.y);
+    CHECK(f.exit.x + f.exit.w <= 640 - 14);   /* the right margin the version keeps on the left */
+    CHECK(f.exit.y > 400);
+    CHECK(f.exit.x > f.notice.x + f.notice.w);   /* clear of the foot line's notice */
+    CHECK_EQ_INT(f.version.x, 14);
+    CHECK_EQ_INT(f.said_customize, 0);
+    CHECK(strcmp(f.last_title, "<  Restomod '26  >") == 0);
+}
+
+/* Manage content: in Restomod (the standard or an edition) its notice; in Stock and Restored dimmed, and nothing */
+static void test_manage_door(void)
+{
+    Fake f;
+    const int enter[] = { ENTER, ESCAPE };
+    rig(&f, 320, ROW_MANAGE, 1);
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manage_banner, 1);
+    CHECK(f.timer_after_banner);   /* the banner waited the deadline out: set again, the screen does not time out to the demo at once */
+    CHECK_EQ_INT(f.result, GAME_MODE_RESULT_LEAVE);
+    CHECK(f.manage_style != STYLE_DIM);
+    rig(&f, 320, ROW_MANAGE, 1);
+    f.in_use = 3;
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manage_banner, 1);
+    rig(&f, 320, ROW_MANAGE, 1);
+    f.in_use = 0;
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manage_banner, 0);
+    CHECK_EQ_INT(f.manage_style, STYLE_DIM);
+    CHECK_EQ_INT(f.names_asked, 0);
+}
+
+/* step 4b, T7: Manage content opens the CONTENT screen on the choice in use, and the choice it closes on is applied (the edition just
+ * edited is the one in use); in Stock and Restored it stays dim and opens nothing */
+static void test_manage_opens_content_door(void)
+{
+    Fake f;
+    const int enter[] = { ENTER, ESCAPE };
+    rig(&f, 320, ROW_MANAGE, 1);
+    f.manage_answer = 4;   /* closed on the second edition */
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manages, 1);
+    CHECK_EQ_INT(f.manage_shown, 2);   /* Restomod '26 in use */
+    CHECK_EQ_INT(f.manage_banner, 0);
+    CHECK_EQ_INT(f.last_apply, 4);
+    rig(&f, 320, ROW_MANAGE, 1);
+    f.manage_answer = 4, f.in_use = 0;   /* Stock: dim, nothing opened */
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manages, 0);
+}
+
+static void test_the_door(void)
+{
+    setenv("TNFS_CONTENT_DOOR", "1", 1);
+    test_the_order_door();
+    test_the_layout_door();
+    test_manage_door();
+    test_manage_opens_content_door();
+    unsetenv("TNFS_CONTENT_DOOR");
+}
+
 int main(void)
 {
     test_the_order();
@@ -495,6 +595,7 @@ int main(void)
     test_the_fade_only_when_the_picture_changes();
     test_clicks_show_and_the_name_applies();
     test_manage_is_hidden();
+    test_the_door();
     test_multiplayer_in_an_edition();
     test_the_pointer_rects();
     test_the_foot_line();

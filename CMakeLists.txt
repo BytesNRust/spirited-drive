@@ -1974,7 +1974,7 @@ if(NOT EMSCRIPTEN)
         foreach(part own standard)
             add_test(NAME content_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/content_menus.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>
                      ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data ${part})
-            set_tests_properties(content_menus_${part} PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)   # skipped while Game Mode hides Manage content (owner 2026-11-25)
+            set_tests_properties(content_menus_${part} PROPERTIES TIMEOUT 600)
         endforeach()
         add_test(NAME car_own_behaviour COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_own_behaviour.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(car_own_behaviour PROPERTIES TIMEOUT 600)
