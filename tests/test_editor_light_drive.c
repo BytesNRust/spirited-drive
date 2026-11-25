@@ -172,14 +172,15 @@ static void test_photo_and_drive_same_light(void)
             CHECK(strcmp(env_of(pc.envp, "TNFS_VIEW="), env_of(dc.envp, "TNFS_VIEW=")) == 0 && env_of(pc.envp, "TNFS_VIEW=")[0] != '\0');
             CHECK(has(pc.envp, "TNFS_TRACK_MASKS=/masks") && has(dc.envp, "TNFS_TRACK_MASKS=/masks"));
             car_race_command_free(&pc), car_race_command_free(&dc);
-            CHECK(car_race_user_files(pdir, LETTERS[l] == 'N', NULL, why, sizeof why) && car_race_force_lines(pdir, "sun_shadow=1\n", why, sizeof why));
+            CHECK(car_race_user_files(pdir, LETTERS[l] == 'N', NULL, why, sizeof why) && car_race_force_lines(pdir, RACE_LIGHT_FORCED, why, sizeof why));
             CHECK(car_race_user_files(ddir, LETTERS[l] == 'N', NULL, why, sizeof why) && car_race_force_max_look(ddir, why, sizeof why));
             char pf[700], df[700];
             snprintf(pf, sizeof pf, "%s/restomod.cfg", pdir), snprintf(df, sizeof df, "%s/restomod.cfg", ddir);
-            static const char *const SAME[] = { "light_time", "sun_shadow", "light_effects", "car_colours", "body_shine", "fog", "fog_sample", "sky_fill", "sky_fill_below", "perspective", "lamp_flares", "car_soft_shadow", "texture_filter", NULL };
+            static const char *const SAME[] = { "light_time", "sun_shadow", "lamp_halos", "shine_soft", "reflectors", "headlight_beams", "light_effects", "car_colours", "body_shine", "fog", "fog_sample", "sky_fill", "sky_fill_below", "perspective", "lamp_flares", "car_soft_shadow", "texture_filter", NULL };
             for (int k = 0; SAME[k] != NULL; ++k) CHECK(strcmp(key_in(pf, SAME[k], a, sizeof a), key_in(df, SAME[k], b, sizeof b)) == 0);
             CHECK(strcmp(key_in(pf, "light_time", a, sizeof a), l == 3 ? "night" : "day") == 0);
-            CHECK(strcmp(key_in(pf, "sun_shadow", a, sizeof a), "1") == 0);
+            static const char *const ON[] = { "sun_shadow", "lamp_halos", "shine_soft", "reflectors", "headlight_beams", NULL };   /* the light keys: on in the photo, whatever the profile says */
+            for (int k = 0; ON[k] != NULL; ++k) CHECK(strcmp(key_in(pf, ON[k], a, sizeof a), "1") == 0);
         }
 }
 

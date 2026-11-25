@@ -201,7 +201,7 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
                     ok = light_photo_copy_masks(job->masks, masks, track, why, why_cap);
                     s.masks = masks;
                 }
-                ok = ok && car_race_user_files(user, letter == 'N', NULL, why, why_cap) && car_race_force_lines(user, "sun_shadow=1\n", why, why_cap) && light_photo_command(&s, environ, &job->command, why, why_cap) &&
+                ok = ok && car_race_user_files(user, letter == 'N', NULL, why, why_cap) && car_race_force_lines(user, RACE_LIGHT_FORCED, why, why_cap) && light_photo_command(&s, environ, &job->command, why, why_cap) &&
                      proc_start(&job->run, job->command.argv, job->command.envp, NULL, why, why_cap);
             }
         }

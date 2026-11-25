@@ -227,6 +227,8 @@ int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, ch
     return refuse(why, why_cap, "the command is too long");
 }
 
+const char RACE_LIGHT_FORCED[] = "lamp_halos=1\nshine_soft=1\nreflectors=1\nheadlight_beams=1\nsun_shadow=1\n";
+
 const char RACE_LOOK_ON[] = "body_shine=4\ncar_colours=1\ncar_soft_shadow=1\ntexture_filter=1\nlight_effects=1\nlamp_flares=1\nperspective=1\nfog=1\nfog_sample=1\n"
                            "sky_fill=1\nsky_fill_below=1\npolice_glow=1\ntraffic_halo=1\n";
 

@@ -121,6 +121,8 @@ void car_race_look_off(const RaceLook *look, char *out, size_t cap);
 /* The look keys Studio writes with every switch on, "key=value\n" lines: the Restomod table's own values (tests/test_race_look_table.c checks them against the
  * game's table), so a run is Restomod whole even if the table changes under a key the file names. */
 extern const char RACE_LOOK_ON[];
+/* the keys that change the light of a Track light picture, which the photo forces on as the test drive does (MAX_LOOK holds them too), so a profile with one off changes neither */
+extern const char RACE_LIGHT_FORCED[];
 
 /* The game's car_paint digit for a colour of the car's card (Preview's): 2 + k when the catalogue's paint k of the car's model has exactly these channels, 0 (the project's own
  * colours) for NULL, a traffic car or a colour the catalogue does not have (the game can only paint with its own table). */
