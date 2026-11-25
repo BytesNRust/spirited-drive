@@ -74,11 +74,11 @@ out=$(run u7 --frames 90 "$kit" --steps psd-wait:3,ui-click:model_enlarge,psd-wa
 out=$(run u8 --render-scale 1 --soft off --frames 60 "$kit" --steps psd-wait:3,camera:1,psd-wait:3,camera:3 2>&1) || fail "studio state: $out"
 [ "$(state 1 | cut -d" " -f6-14)" = "scale 1 soft 0 studio scale 2 soft 1" ] || fail "the Model's own scale or Soft edges reached the rest of the Studio: $(state 1)"
 
-# what moves is drawn on the scale 1 frame (Auto-rotate here), and the full frame when it stops
+# what moves is drawn on the scale 1 frame (Auto-rotate here), and the full frame when it stops (Auto-rotate is off at a new start and its choice is kept with the layout: the first run turned it on and u9 kept that, so the second run has its own folder, u9b, and starts off too)
 out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_on.png" 2>&1) || fail "auto-rotate shot: $out"
 rot_on=$(high "$out")
 [ -n "$rot_on" ] || fail "with Auto-rotate on there is no picture: $out"
-out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_off.png" 2>&1) || fail "auto-rotate off shot: $out"
+out=$(run u9b --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_off.png" 2>&1) || fail "auto-rotate off shot: $out"
 [ "$(high "$out")" -gt "${rot_on:-0}" ] 2>/dev/null || fail "with Auto-rotate off again the picture is not the full one (higher than the moving one's $rot_on): $out"
 
 # the car whole inside the drawing frame from a side (Side is wider than the first view: the framing is made again for it): no row or column at the frame's edge has a car pixel, at render scale 1, 2 and 3
