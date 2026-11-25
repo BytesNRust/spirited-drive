@@ -8,17 +8,19 @@ bin=$1
 original=$2
 [ -d "$original" ] || { echo "skipped: no $original"; exit 77; }
 work=$(mktemp -d "${TMPDIR:-/tmp}/tnfs_gradient.XXXXXX")
-mkdir -p "$work/user" "$work/cut/track_light"
+fix=tests/fixtures/track_light/AL1_main_cd627f90.txt   # main as of cd627f90: the test checks the code, not the owner's tuning of AL1
+mkdir -p "$work/user" "$work/cut/track_light" "$work/own/track_light"
 printf 'profile=restomod\npsx_dir=\n' > "$work/user/port.cfg"
-grep -q '^tunnel 1596 1607$' data/track_light/AL1.txt || { echo "FAIL: AL1's first tunnel is not 1596 1607 in data/track_light"; exit 1; }
-sed 's/^tunnel 1596 1607$/tunnel 1596 1607 gradient 0/' data/track_light/AL1.txt > "$work/cut/track_light/AL1.txt"
+grep -q '^tunnel 1596 1607$' "$fix" || { echo "FAIL: AL1's first tunnel is not 1596 1607 in $fix"; exit 1; }
+sed 's/^tunnel 1596 1607$/tunnel 1596 1607 gradient 0/' "$fix" > "$work/cut/track_light/AL1.txt"
+cp "$fix" "$work/own/track_light/AL1.txt"
 shot() {   # node, out, [mods dir]
   if [ -n "${3:-}" ]; then m="--mods $3"; else m=""; fi
   TNFS_LIGHT_TIME=dawn TNFS_WEATHER=clear TNFS_AUTOPILOT=1 TNFS_VIEW=4 TNFS_NO_HUD=1 TNFS_START_NODE=$1 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PREF_DIR="$work/pref" \
     timeout -k 5 300 "$bin" --data "$original" --user "$work/user" $m --drive AL1 --car 3 --racers 1 --node 25 --screenshot "$2" > /dev/null 2>&1
 }
 for n in 1590 1599; do
-  shot $n "$work/g$n.ppm"
+  shot $n "$work/g$n.ppm" "$work/own"
   shot $n "$work/c$n.ppm" "$work/cut"
 done
 res=$(python3 -I - "$work" << 'PY'

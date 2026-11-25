@@ -1,0 +1,20 @@
+# tnfs track light 2
+track AL1
+tunnel 1596 1607
+tunnel 1836 1847
+
+time A
+  tunnel_look 67.333335 1/0.8/0.15
+  brightness 600 771 74 road
+
+time B
+  tunnel_look 100 1/0.8/0.15
+  brightness 600 771 74 road
+
+time C
+  tunnel_look 63.000005 1/0.8/0.15
+  brightness 600 771 74 road
+
+time N
+  tunnel_look 60 1/0.8/0.15
+  brightness 600 771 74 road

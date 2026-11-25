@@ -6,7 +6,7 @@
 set -u
 bin=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 original=$(cd "$2" 2> /dev/null && pwd) || original=$2
-src=$(pwd)/data/track_light/AL1.txt
+src=$(pwd)/tests/fixtures/track_light/AL1_main_cd627f90.txt   # main as of cd627f90: the test checks the code, not the owner's tuning of AL1
 [ -d "$original" ] || { echo "skipped: no $original"; exit 77; }
 [ -f "$src" ] || { echo "FAIL: no $src"; exit 1; }
 work=$(mktemp -d "${TMPDIR:-/tmp}/tnfs_lampsoff.XXXXXX")
