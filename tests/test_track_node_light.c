@@ -501,6 +501,8 @@ static void test_the_gradient_darkens_the_open_road_before_the_mouth(void)
 
 /* at night the outer ramp is there too (the open road before an unlit mouth is not a cliff), and the headlight pool lifts over it as it does on any open road: where the beam is the road is as it would be with
  * no steps; away from the beam the ramp darkens it as without a pool */
+/* Known case (owner rule, tnfs-35 2026-11-25): inside the beam at night the open road is as without the gradient (within 5 %), so the step into the tunnel there is the tunnel floor's darker texture and
+ * is accepted; the ramp's 40 % step is measured outside the beam (the dim pixels below) */
 static void test_the_pool_lifts_over_the_outer_ramp(void)
 {
     enum { N = 16 };
