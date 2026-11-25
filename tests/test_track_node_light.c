@@ -452,13 +452,13 @@ static void test_the_gradient_grades_the_tunnels_road_clamp(void)
     TrackNodeLight light = { .data = rows, .nodes = N, .tunnel = marks, .tone_id = ids, .tone_mask = mask, .tone_count = 3 };
     memcpy(light.tone, tones, sizeof tones);
     const int road[] = { track_node_light_at(&light, 2, 0), track_node_light_at(&light, 3, 0), track_node_light_at(&light, 4, 0), track_node_light_at(&light, 5, 0) };
-    CHECK_EQ_INT(road[0], 215 - (215 - TRACK_NODE_LIGHT_TUNNEL_ROAD) * 6 / 100);   /* the mouth's first node: a sixteenth of the way in */
-    CHECK_EQ_INT(road[1], 215 - (215 - TRACK_NODE_LIGHT_TUNNEL_ROAD) * 25 / 100);
-    CHECK_EQ_INT(road[2], 215 - (215 - TRACK_NODE_LIGHT_TUNNEL_ROAD) * 56 / 100);
+    CHECK_EQ_INT(road[0], 215 - (215 - TRACK_NODE_LIGHT_TUNNEL_ROAD) * 37 / 100);   /* the mouth's first node: the step's blend and a half of it of the way in (25 % comes in as 37 %) */
+    CHECK_EQ_INT(road[1], 215 - (215 - TRACK_NODE_LIGHT_TUNNEL_ROAD) * 75 / 100);
+    CHECK_EQ_INT(road[2], TRACK_NODE_LIGHT_TUNNEL_ROAD);                              /* 75 % comes in whole: the tunnel's road two nodes in */
     CHECK_EQ_INT(road[3], TRACK_NODE_LIGHT_TUNNEL_ROAD);                              /* past the steps: the clamp, whole */
-    CHECK(road[0] > road[1] && road[1] > road[2] && road[2] > road[3]);
+    CHECK(road[0] > road[1] && road[1] > road[2] && road[2] >= road[3]);
     for (int k = 0; k < 4; k++) CHECK_EQ_INT(track_node_light_at(&light, 9 - (uint32_t)k, 1), road[k]);   /* the other mouth: the same, mirrored; point 1 as point 0 */
-    CHECK_EQ_INT(track_node_light_at(&light, 2, 2), 196 - (196 - TRACK_NODE_LIGHT_WALL) * 6 / 100);   /* the shoulder's far edge too */
+    CHECK_EQ_INT(track_node_light_at(&light, 2, 2), 196 - (196 - TRACK_NODE_LIGHT_WALL) * 37 / 100);   /* the shoulder's far edge too */
     CHECK_EQ_INT(track_node_light_at(&light, 5, 2), TRACK_NODE_LIGHT_WALL);
     CHECK_EQ_INT(track_node_light_at(&light, 1, 0), 215);                              /* outside: the row's bytes */
     light.tone_id = NULL;                                                              /* no steps: the clamp whole from the first node, as before */
