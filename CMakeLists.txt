@@ -1926,8 +1926,17 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(sun_shadow_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME car_lit_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(car_lit_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
-        add_test(NAME car_lit_all_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_all_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-        set_tests_properties(car_lit_all_game PROPERTIES TIMEOUT 1200 SKIP_RETURN_CODE 77)
+        foreach(group AL CL CY TR1_3 TR4_7)   # the tracks by their first letters (Vertigo's seven in two halves), side by side (48 runs: 9 or 12 a group)
+            if(group STREQUAL "TR1_3")
+                set(lit_glob "TR[1-3]")
+            elseif(group STREQUAL "TR4_7")
+                set(lit_glob "TR[4-7]")
+            else()
+                set(lit_glob "${group}")
+            endif()
+            add_test(NAME car_lit_all_game_${group} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_all_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+            set_tests_properties(car_lit_all_game_${group} PROPERTIES TIMEOUT 1200 SKIP_RETURN_CODE 77 ENVIRONMENT "GROUP=${lit_glob}")
+        endforeach()
         add_test(NAME tunnel_mouth_road_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_mouth_road_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(tunnel_mouth_road_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME reflectors_dawn_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/reflectors_dawn_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
@@ -2693,7 +2702,7 @@ set(TNFS_E2E_TESTS
     edition_menus_menus
     edition_menus_race
     track_light_fingerprint_AL track_light_fingerprint_CL track_light_fingerprint_CY track_light_fingerprint_TR
-    car_lit_all_game
+    car_lit_all_game_AL car_lit_all_game_CL car_lit_all_game_CY car_lit_all_game_TR1_3 car_lit_all_game_TR4_7
     light_drive_results_game
     light_drive_setup_game
     vegas_lamps_game_night vegas_lamps_game_day
