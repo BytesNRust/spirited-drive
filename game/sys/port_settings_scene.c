@@ -77,7 +77,8 @@ int port_portal_both(int automatic)
 {
     const char *v = getenv("TNFS_PORTAL_BOTH");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return automatic != 0;
+    (void)automatic;   /* off whatever the track is seen from (a reversed circuit, the 360 camera, Mirror) until the portals' second faces are placed by hand (owner 2026-11-25): only TNFS_PORTAL_BOTH=1 turns it on */
+    return 0;
 }
 
 int port_close_boxes(int automatic)
