@@ -7,6 +7,7 @@
 #include "viewer/view_shared.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /* the point of a row (0..10) whose light is a at node na and b at node nb: the strip the polygon's long side runs along; -1 when none */
@@ -15,6 +16,24 @@ static int strip_point(const TrackNodeLight *light, uint32_t na, uint32_t nb, ui
     for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++)
         if (track_node_light_at(light, na, p) == a && track_node_light_at(light, nb, p) == b) return p;
     return -1;
+}
+
+/* the mean brightness (0..255) of a texture through the palette, kept for the last few textures asked */
+static float texture_lum(const FshEntry *t)
+{
+    static const FshEntry *seen[8];
+    static float lum[8];
+    static int next;
+    for (int i = 0; i < 8; i++)
+        if (seen[i] == t) return lum[i];
+    double sum = 0;
+    size_t n = 0;
+    for (size_t i = 0; t != NULL && t->payload != NULL && i < (size_t)t->width * (size_t)t->height; i++, n++) {
+        const uint8_t *const c = tone_palette + 3 * (size_t)t->payload[i];
+        sum += 0.30 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+    }
+    seen[next] = t, lum[next] = n > 0 ? (float)(sum / (double)n) : 255.0f, next = (next + 1) % 8;
+    return lum[(next + 7) % 8];
 }
 
 /* the gradient step (tone id) a node carries, 0 none */
@@ -63,9 +82,11 @@ int mouth_cells_draw(const QuadTarget *q, const View *view, const FshEntry *text
             const uint32_t at = S[along][k] ? to : from;
             const int point = T[along][k] ? pq : pp;
             int light_here = track_node_light_at(light, at, point);
-            /* a piece with an open end has the open road's surface, and a corner of it on the tunnel's first node must meet the tunnel's own darker surface there: the light at which they look alike, not the tunnel's */
+            /* a piece with an open end has the open road's surface unless its texture is already the tunnel's dark one, and a corner of it on the tunnel's first node must meet the tunnel's own surface there: the light at which the texture looks as bright as the tunnel's floor (TRACK_NODE_LIGHT_MOUTH_FLOOR over the texture's own brightness), not the tunnel's */
             if (!in_tunnel && track_node_light_tunnel(light, at)) {
-                const int cap = point == 0 || point == 1 || point == 6 ? TRACK_NODE_LIGHT_MOUTH_OPEN : point == 2 || point == 7 ? TRACK_NODE_LIGHT_WALL : 255;
+                const float lum = texture_lum(texture);
+                const int road_cap = lum > (float)TRACK_NODE_LIGHT_MOUTH_FLOOR ? (int)(255.0f * (float)TRACK_NODE_LIGHT_MOUTH_FLOOR / lum) : 255;
+                const int cap = point == 0 || point == 1 || point == 6 ? road_cap : point == 2 || point == 7 ? TRACK_NODE_LIGHT_WALL : 255;
                 if (light_here > cap) light_here = cap;
             }
             piece.dark[k] = (float)((255.0 - light_here) * (MODERN_FOG_LEVELS - 1) / 255.0);

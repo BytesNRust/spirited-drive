@@ -13,7 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { TRACK_NODE_LIGHT_POINTS = 11, TRACK_NODE_LIGHT_FULL = 255, TRACK_NODE_LIGHT_WALL = 128, TRACK_NODE_LIGHT_WALL_FOOT = 64, TRACK_NODE_LIGHT_TUNNEL_ROAD = 100, TRACK_NODE_LIGHT_MOUTH_OPEN = 30 };
+enum { TRACK_NODE_LIGHT_POINTS = 11, TRACK_NODE_LIGHT_FULL = 255, TRACK_NODE_LIGHT_WALL = 128, TRACK_NODE_LIGHT_WALL_FOOT = 64, TRACK_NODE_LIGHT_TUNNEL_ROAD = 100, TRACK_NODE_LIGHT_MOUTH_OPEN = 30, TRACK_NODE_LIGHT_MOUTH_FLOOR = 24 };   /* MOUTH_FLOOR: the mean brightness (0..255 through the palette) of the tunnel's own road texture, which a texture of the open road is lit down to at the tunnel's first node (mouth_cells.c) */
 
 enum { TRACK_NODE_LIGHT_CLASS_UNLIT = 7 };   /* port (tunnel_pool): the polygon class of a tunnel with no lamps while a beam can light it (track_node_light_tunnel_class; the low 3 bits above the lamp pools 2..5) */
 enum { TRACK_NODE_LIGHT_BEAM_TUNNEL = 180 };   /* port: the light out of 255 the console version headlight beam gives a tunnel's walls and road and a lit hall's, at night (the exe's TUNNEL_BEAM is 150) */
