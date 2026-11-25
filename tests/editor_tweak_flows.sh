@@ -19,8 +19,9 @@ opts="--port-data $work/r/data"
 poke() { python3 -I "$here/mask_poke.py" "$@" >/dev/null; }
 same() { cmp -s "$1" "$2"; }
 
-# ---- 1 and 2: a track tweak, made, listed, reopened, changed again (tweak-status after Save: the folder is made again by Check, Apply, Open or this step, not by Save itself)
-studio $opts --frames 45 --steps ui-click:door_tweak,ui-click:tweak_tab_track,ui-click:tweak_row_CY1,ui-click:tweak_open,sun:120,30,70,save,tweak-status || fail "CY1 first change: $(tail -3 "$work/log")"
+# ---- 1 and 2: a track tweak, made, listed, reopened, changed again (Save makes the tweak again: the panel and the list say so with no Check, Apply or reopening between)
+studio $opts --frames 45 --steps ui-click:door_tweak,ui-click:tweak_tab_track,ui-click:tweak_row_CY1,ui-click:tweak_open,sun:120,30,70,save,poll-wait:1,tweak-shown || fail "CY1 first change: $(tail -3 "$work/log")"
+grep -q '^tweak shown: changed' "$work/log" || fail "right after Save the panel does not say the tweak changed (no Check, Apply or reopening between): $(grep 'tweak shown' "$work/log")"
 t=$work/ws/tweaks/cy1-tweak
 [ -f "$t/track_light/CY1.txt" ] || fail "CY1: no tweak light file after the first change"
 cp "$t/track_light/CY1.txt" "$work/cy1.first"
@@ -32,7 +33,7 @@ studio $opts --frames 30 --steps tweak-open-row:CY1,tweak-status || fail "CY1 re
 same "$t/track_light/CY1.txt" "$work/cy1.first" || fail "reopening CY1 changed the tweak's light file"
 grep -q '^  track_light/CY1.txt: changed' "$work/log" || fail "the reopened tweak does not list its light file as changed: $(grep -A3 '^tweak cy1' "$work/log")"
 
-studio $opts --frames 30 --steps tweak-open-row:CY1,sun:140,50,85,save,tweak-status || fail "CY1 second change: $(tail -3 "$work/log")"
+studio $opts --frames 30 --steps tweak-open-row:CY1,sun:140,50,85,save,poll-wait:1,tweak-shown || fail "CY1 second change: $(tail -3 "$work/log")"
 same "$t/track_light/CY1.txt" "$work/cy1.first" && fail "a second change in a reopened tweak did not reach its light file"
 [ "$(ls "$t/track_light" | wc -l)" -eq 1 ] || fail "the reopened tweak has more than one light file: $(ls "$t/track_light")"
 cp "$t/track_light/CY1.txt" "$work/cy1.second"
@@ -102,7 +103,8 @@ dm=$(ls -S "$dia/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
 [ -n "$dm" ] || fail "the Diablo project has no mask"
 poke "$dm" 40 40 20 20 200
 df=car_masks/LDiabl/$(basename "$dm")
-studio $opts --frames 30 --steps tweak-open-row:LDiabl,paint-rgb:0,9,9,9,save,tweak-status || fail "Diablo changed: $(tail -3 "$work/log")"
+studio $opts --frames 30 --steps tweak-open-row:LDiabl,paint-rgb:0,9,9,9,save,poll-wait:1,tweak-shown,tweak-status || fail "Diablo changed: $(tail -3 "$work/log")"
+grep -q '^tweak shown: changed' "$work/log" || fail "right after Save of a color the Diablo's panel does not say the tweak changed: $(grep 'tweak shown' "$work/log")"
 grep -q "^  $df: changed" "$work/log" && grep -q '^  colors: changed' "$work/log" || fail "the Diablo tweak does not list its mask and its colors as changed: $(grep -A6 '^tweak ldiabl' "$work/log")"
 poke "$work/r/data/$df" 5 5 10 10 100
 cp "$work/r/data/$df" "$work/dia.own"
