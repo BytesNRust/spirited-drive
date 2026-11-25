@@ -398,9 +398,20 @@ void drive_audio_thunder(int delay_ticks, int volume_percent)
     unlock();
 }
 
+static int wanted;                          /* drive_audio_device_open was asked for and not closed: a device that appears later is opened */
+static void (*reopened_hook)(void *user);   /* what the owner of the sound does once the device is there after all (volumes, banks) */
+static void *reopened_user;
+
+void drive_audio_on_reopen(void (*hook)(void *user), void *user)
+{
+    reopened_hook = hook, reopened_user = user;
+}
+
+/* the one place the device is opened and the mixer started: at the start of a screen or a race, and again when a device appears after a start with none */
 int drive_audio_device_open(const char *data_root)
 {
     root = data_root;
+    wanted = 1;
     open_ = platform_audio_open(MIX_RATE, mix, NULL);
     lock();
     sound_channels_reset(&driver.channels);  /* 0049212c: 00497b34 first */
@@ -444,15 +455,20 @@ int32_t drive_audio_voice_stopped(int32_t voice)
     return open_ ? voice_stopped(NULL, voice) : 1;
 }
 
-int drive_audio_open(RaceState *race, const char *data_root)
+void drive_audio_refresh_race(RaceState *race)
 {
-    drive_audio_device_open(data_root);
     RaceEntry *followed = &race->entries[race_slot(race->player)];
     followed->sound_volume = open_ ? SOUND_VOLUME : 0;
     followed->music_volume = open_ ? MUSIC_VOLUME : 0;
     followed->sound_mode = 0;
     followed->sound_on = open_;
     race->unknown_52b30e = (int16_t)open_;
+}
+
+int drive_audio_open(RaceState *race, const char *data_root)
+{
+    drive_audio_device_open(data_root);
+    drive_audio_refresh_race(race);
     race->sounds.voice_start = voice_start;
     race->sounds.voice_volume = voice_volume;
     race->sounds.voice_pitch = voice_pitch;
@@ -530,7 +546,19 @@ const RaceSoundBankOps *drive_audio_bank_ops(void)
 }
 
 /* the mixing and the 100 Hz service run on the device's thread (mix): nothing is left for the game's loops to do */
-void drive_audio_pump(void) {}
+int drive_audio_retry(void)
+{
+    if (open_ || !wanted || !platform_audio_device_added()) return 0;   /* one try for each device that appears */
+    if (!drive_audio_device_open(root)) {
+        port_log("audio: a device appeared but could not be opened\n");
+        return 0;
+    }
+    port_log("audio: a device appeared: sound on\n");
+    if (reopened_hook != NULL) reopened_hook(reopened_user);
+    return 1;
+}
+
+void drive_audio_pump(void) { drive_audio_retry(); }
 
 /* port (dev, env only): TNFS_AUDIO_DUMP=out.wav, in the headless --drive. The driver with no device, the banks loaded as a race loads them, and every tick the mixer
  * renders its share of frames into a WAV, so the sound as the race commands it (race_sound.c) is heard as the mixer makes it, tick for tick, as fast as the sim runs. The
@@ -803,6 +831,8 @@ void drive_audio_close(void)
     music.open = 0, music.started = 0;
     mixing = 0;
     unlock();
-    if (open_) platform_audio_close();
+    platform_audio_close();   /* also the wait for a device that never came */
     open_ = 0;
+    wanted = 0;
+    reopened_hook = NULL;
 }

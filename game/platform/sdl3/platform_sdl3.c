@@ -232,7 +232,7 @@ void platform_shutdown(void)
 #endif
     if (sdl3_window != NULL) SDL_ShowCursor();
     sdl3_window_focused = false;
-    if (sdl3_audio != NULL) platform_audio_close();
+    platform_audio_close();   /* also the wait for a device that never came */
     free(sdl3_rgb_buffer);
     sdl3_rgb_buffer = NULL;
     if (sdl3_texture != NULL) SDL_DestroyTexture(sdl3_texture);

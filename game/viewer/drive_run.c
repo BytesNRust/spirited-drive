@@ -296,6 +296,24 @@ RaceSoundBanks drive_banks;
 
 static void run_sound_end(void *ctx) { (void)ctx, race_sound_end(&drive_sim.race, &drive_banks, drive_audio_bank_ops()); }
 static void run_sound_banks(void *ctx) { (void)ctx, race_sound_load_banks(&drive_sim.race, drive_audio_load, &drive_banks); }  /* 00443924 */
+/* 004275f8's words for the followed slot */
+static void run_followed_sound_words(void)
+{
+    if (!drive_menus_on) return;
+    RaceEntry *followed = &drive_sim.race.entries[race_slot(drive_sim.race.player)];
+    followed->sound_volume = drive_menus.sound_volume, followed->music_volume = drive_menus.music_volume;
+    followed->sound_mode = drive_menus.sound_mode;
+}
+
+/* the race began with no sound device and one has appeared (drive_audio_retry): the followed slot's sound is on as the start would have had it, the banks are read and the voices and the engine start */
+static void run_audio_reopened(void *ctx)
+{
+    (void)ctx;
+    drive_audio_refresh_race(&drive_sim.race);
+    run_followed_sound_words();
+    race_sound_load_banks(&drive_sim.race, drive_audio_load, &drive_banks);
+    race_sound_start_engine(&drive_sim.race);
+}
 static void run_start_voices(void *ctx) { (void)ctx, race_sound_start_voices(&drive_sim.race); }  /* 00443820 */
 static void run_engines_start(void *ctx) { (void)ctx, race_sound_start_engine(&drive_sim.race); }  /* 00444394 */
 /* 0043cbe0 / 0043cbf4 / 0043cbcc: the controls' forces (no force hooks in --drive) */
@@ -651,11 +669,8 @@ int drive_window(const Track *t, uint8_t *pixels)
             drive_wide_size(platform_w);
         }
     }
-    if (drive_audio_open(&drive_sim.race, drive_cars.data_root) && drive_menus_on) {  /* 004275f8's words for the followed slot */
-        RaceEntry *followed = &drive_sim.race.entries[race_slot(drive_sim.race.player)];
-        followed->sound_volume = drive_menus.sound_volume, followed->music_volume = drive_menus.music_volume;
-        followed->sound_mode = drive_menus.sound_mode;
-    }
+    if (drive_audio_open(&drive_sim.race, drive_cars.data_root)) run_followed_sound_words();
+    drive_audio_on_reopen(run_audio_reopened, NULL);   /* a device that appears during the race: its sound starts then */
     drive_menu = (DriveMenu){ &drive_sim.race, &drive_replay, &drive_hud, &drive_pause.keys, NULL, NULL, NULL, 0, 0,
                               drive_link_on ? &drive_link : NULL, 1 };
     if (drive_menu_open(&drive_menu, drive_cars.data_root))

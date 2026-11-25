@@ -221,6 +221,9 @@ uint64_t platform_frontend_period_ns(void);
 typedef void (*PlatformAudioFill)(void *user, int16_t *frames, uint32_t count);
 bool platform_audio_open(int rate, PlatformAudioFill fill, void *user);
 void platform_audio_close(void);
+/* True once for each playback device that has appeared (SDL_EVENT_AUDIO_DEVICE_ADDED) since the last call. A failed platform_audio_open keeps the audio subsystem up so that it can hear one: the caller then opens again
+ * (a Bluetooth headset switched on after the game started, a USB DAC that woke late, a remote session's device). platform_audio_close ends the wait. */
+bool platform_audio_device_added(void);
 void platform_audio_lock(void);
 void platform_audio_unlock(void);
 

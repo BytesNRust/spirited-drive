@@ -16,6 +16,8 @@
  * 0052b30e set; without one, all 0 (the race plays no sound). The voice
  * hooks go on race->sounds either way. */
 int drive_audio_open(RaceState *race, const char *data_root);
+/* the followed slot's sound words and the race's flag as the device state says (volumes on, sound_on 1; all 0 with no device): drive_audio_open's, and again by a late device's hook */
+void drive_audio_refresh_race(RaceState *race);
 
 /* The device part of drive_audio_open alone (the menus' sound): 1 with a device */
 int drive_audio_device_open(const char *data_root);
@@ -59,6 +61,12 @@ const RaceSoundBankOps *drive_audio_bank_ops(void);
  * no longer starves the sound. Kept for the places the original yielded to that thread (00475c14). Every call
  * here into the driver holds platform_audio_lock. */
 void drive_audio_pump(void);
+
+/* Opens the device again when none could be opened at the start and one has appeared since (the headset was switched on, a device woke up): called from drive_audio_pump, so by every loop that pumps. One try for each
+ * device that appears. 1 when it opened (the mixer is started as at the start, and the hook below was called), else 0. */
+int drive_audio_retry(void);
+/* what to do once the device opens late: the owner of the sound (a screen, a race) sets its volumes and loads its banks; cleared by drive_audio_close */
+void drive_audio_on_reopen(void (*hook)(void *user), void *user);
 
 /* port (dev, env only): TNFS_AUDIO_DUMP in the headless --drive: the driver with no device, every tick's mix written to a WAV (drive_audio.c). 1 when the file opened. */
 int drive_audio_offline_open(RaceState *race, const char *data_root, const char *wav_path);

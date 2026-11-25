@@ -34,9 +34,19 @@ static int16_t config_short(int at)
 /* the music's words from config.dat as they are now (Options changes them) */
 static void music_words(void) { drive_audio_music_set(config_short(MUSIC_SETTING), config_short(MUSIC_VOLUME), small); }
 
+/* a device appeared after the screen started with none (drive_audio_retry): the screens' sound is on, its bank is read and the music's words are given */
+static void reopened(void *user)
+{
+    (void)user;
+    sound.sound_on = 1;
+    menu_audio_bank_load();
+    music_words();
+}
+
 void menu_audio_open(void)
 {
     sound.sound_on = drive_audio_device_open(resource_root());
+    drive_audio_on_reopen(reopened, NULL);
     music_words();
 }
 

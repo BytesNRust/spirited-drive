@@ -49,20 +49,39 @@ static void SDLCALL audio_get(void *user, SDL_AudioStream *stream, int additiona
     }
 }
 
+static SDL_AtomicInt device_added;   /* set by the event watch for a playback device that appeared, taken by platform_audio_device_added */
+static bool audio_up;               /* SDL_INIT_AUDIO is ours: kept after a failed open, to hear a device appear */
+static bool watching;
+
+static bool SDLCALL device_event(void *userdata, SDL_Event *event)
+{
+    (void)userdata;
+    if (event->type == SDL_EVENT_AUDIO_DEVICE_ADDED && !event->adevice.recording) SDL_SetAtomicInt(&device_added, 1);
+    return true;
+}
+
 bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
 {
     if (sdl3_audio != NULL) return true;
     if (fill == NULL) return false;
-    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
-        port_log("platform: no audio: %s\n", SDL_GetError());
-        return false;
+    if (!audio_up) {
+        if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+            port_log("platform: no audio: %s\n", SDL_GetError());
+            return false;
+        }
+        audio_up = true;
     }
+    if (!watching) watching = SDL_AddEventWatch(device_event, NULL);
     audio_fill = fill, audio_user = user;
     const SDL_AudioSpec spec = { SDL_AUDIO_S16, 2, rate };
     sdl3_audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_get, NULL);
-    if (sdl3_audio == NULL || !SDL_ResumeAudioStreamDevice(sdl3_audio)) {
+    if (sdl3_audio != NULL && !SDL_ResumeAudioStreamDevice(sdl3_audio)) {
+        SDL_DestroyAudioStream(sdl3_audio);
+        sdl3_audio = NULL;
+    }
+    if (sdl3_audio == NULL) {   /* the subsystem stays up: a device that appears later is heard (platform_audio_device_added) */
         port_log("platform: no audio device: %s\n", SDL_GetError());
-        platform_audio_close();
+        SDL_SetAtomicInt(&device_added, 0);
         return false;
     }
     return true;
@@ -72,7 +91,15 @@ void platform_audio_close(void)
 {
     if (sdl3_audio != NULL) SDL_DestroyAudioStream(sdl3_audio);
     sdl3_audio = NULL;
-    SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    if (watching) SDL_RemoveEventWatch(device_event, NULL);
+    watching = false;
+    if (audio_up) SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    audio_up = false;
+}
+
+bool platform_audio_device_added(void)
+{
+    return SDL_CompareAndSwapAtomicInt(&device_added, 1, 0);
 }
 
 void platform_audio_lock(void)
