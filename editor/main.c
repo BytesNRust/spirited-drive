@@ -269,6 +269,13 @@ static int mdfind_game(char *app, size_t cap, void *ctx)
 }
 #endif
 
+static int path_has_dir(const char *dir, const char *sub)
+{
+    char probe[APP_PATH + 32];
+    struct stat st;
+    return dir[0] != '\0' && snprintf(probe, sizeof probe, "%s/%s", dir, sub) < (int)sizeof probe && stat(probe, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
 /* The game's program, when --game is not given: the one the user located, the app beside this one (the DMG's "Spirited Drive.app" next to
  * "Spirited Drive Studio.app", in the Applications folder or anywhere both were dragged), /Applications, ~/Applications, the app the system knows
  * by its bundle id, else ./tnfs as a build tree has it (game_find.h). `tried` gets every place; `memo` is the file the located game is kept in. */
@@ -740,11 +747,14 @@ static int run(App *a, const Options *o)
     }
     else if (o->ask == APP_ACT_EXPORT_PICK) a->export_dialog = 1;   /* the window itself, for a headless picture of it */
     else if (o->ask != APP_ACT_NONE) app_ask(a, o->ask, "");   /* ... and the action asked for */
-    if (o->user == NULL && o->frames == 0) {   /* a normal run keeps the recent projects in the editor's own folder */
-        const char *pref = SDL_GetPrefPath(NULL, "spirited-drive-studio");
+    const char *test_prefs = getenv("TNFS_STUDIO_PREFS");   /* a test's own settings folder (workspace.txt, recent.txt): the real one is never read or written by a test */
+    if ((o->user == NULL && o->frames == 0) || (test_prefs != NULL && test_prefs[0] != '\0')) {   /* a normal run keeps the recent projects in the editor's own folder */
+        char own_prefs[APP_PATH];
+        const char *pref = test_prefs != NULL && test_prefs[0] != '\0' && snprintf(own_prefs, sizeof own_prefs, "%s/", test_prefs) < (int)sizeof own_prefs ? own_prefs : SDL_GetPrefPath(NULL, "spirited-drive-studio");
         char file[APP_PATH];
         if (pref != NULL && snprintf(file, sizeof file, "%srecent.txt", pref) < (int)sizeof file) app_keep_recent(a, file);
         if (pref != NULL && snprintf(file, sizeof file, "%sworkspace.txt", pref) < (int)sizeof file) app_workspace_keep(a, file);
+        app_repo_data_apply(a);   /* the repo kept in workspace.txt feeds the data folder: it is read just above, after main() applied the arguments (it used to be applied before, with nothing read yet) */
         if (a->kind == APP_KIND_NONE && a->recent.count > 0 && recent_present(a->recent.dir[0], a->recent.kind[0])) {   /* nothing given: the project it had last */
             char last[APP_PATH];
             snprintf(last, sizeof last, "%s", a->recent.dir[0]);
@@ -890,6 +900,11 @@ int main(int argc, char **argv)
             snprintf(data, sizeof data, "%s", o.port_data != NULL ? o.port_data : o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);
             if (data[0] == '\0') app_light_default_dir(o.game, data, sizeof data);
             app_set_game_data(app, data, o.art_dir);
+            if (!app->data_dir_ok || !path_has_dir(data, "track_light")) {   // an installed app has no source tree (STUDIO_LIGHT_DIR is where it was built): the game's own data/, found as Export original car finds it, read only; the repo is for Apply
+                char probe[APP_PATH + 16];
+                struct stat st;
+                if (snprintf(probe, sizeof probe, "%s/track_light", sources.data) < (int)sizeof probe && stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) app_set_game_data(app, sources.data, o.art_dir);
+            }
             app_set_repo_arg(app, o.port_data);   // the copy to the game repo shows only with the repo's data/ given: --port-data, or the kept setting
         }
         app_set_light_dir(app, o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);   /* the folder the Track light window tunes: named, or the source tree's data/ it was built from */
