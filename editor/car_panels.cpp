@@ -133,7 +133,7 @@ void start_screen(App *a)
         ImGui::TextUnformatted("Spirited Drive Studio");
         ImGui::SetWindowFontScale(1.0f);
         muted_wrapped("Make cars and tracks for Spirited Drive.");
-        game_offer_row(a);   // the first start: where the game is, before the doors
+        if (a->tweak_list == 0 || !a->data_dir_ok) game_offer_row(a);   // the first start: where the game is, before the doors (not over the Edit tweak list once the game's data/ is found: it needs the files, not the program)
         workspace_row(a);
         ImGui::Dummy(ImVec2(0, 10));
         if (a->tweak_list != 0) {   // Edit tweak: the game's own cars and tracks, in place of the doors
