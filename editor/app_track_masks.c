@@ -53,12 +53,44 @@ static void drop_picture(App *a)
     ++a->tmask_serial;
 }
 
-/* the textures of the track from the game's files, when they are there: for the sizes and the pictures */
-static TrackTexSet *textures(const App *a, const char *stem)
+/* the textures of the track from the game's files, when they are there: for the sizes and the pictures. The set is kept (a click on a row must not read and decode the track's whole file
+ * again, a slow volume made it a freeze): opened the first time and again when the scan reads the folders again (`fresh`) or the track is another, until the project is closed.
+ * The caller never closes it. NULL when the files are not there (that too is kept). */
+static TrackTexSet *tex_set;
+static char tex_key[APP_PATH + 40];
+static int tex_have, tex_opens, file_reads;
+
+static TrackTexSet *textures(const App *a, const char *stem, int fresh)
 {
     ArtSource src;
-    if (art_source(a, &src) && src.fam[0] != '\0') return track_tex_open_fam(src.fam, NULL, 0);
-    return a->export_src.cd[0] != '\0' ? track_tex_open(a->export_src.cd, stem, NULL, 0) : NULL;
+    char key[APP_PATH + 40];
+    const int fam = art_source(a, &src) && src.fam[0] != '\0';
+    snprintf(key, sizeof key, "%s|%s", fam ? src.fam : a->export_src.cd, fam ? "" : stem);
+    if (tex_have && !fresh && strcmp(key, tex_key) == 0) return tex_set;
+    track_tex_close(tex_set);
+    ++tex_opens;
+    tex_set = fam ? track_tex_open_fam(src.fam, NULL, 0) : a->export_src.cd[0] != '\0' ? track_tex_open(a->export_src.cd, stem, NULL, 0) : NULL;
+    snprintf(tex_key, sizeof tex_key, "%s", key);
+    tex_have = 1;
+    return tex_set;
+}
+
+void app_track_masks_tex_free(void)
+{
+    track_tex_close(tex_set);
+    tex_set = NULL;
+    tex_have = 0;
+    tex_key[0] = '\0';
+}
+
+int app_track_masks_reads(void)
+{
+    return tex_opens + file_reads;
+}
+
+int app_track_masks_fam_opens(void)
+{
+    return tex_opens;
 }
 
 static const char *root_of(const App *a)
@@ -91,11 +123,10 @@ int app_track_masks_refresh(App *a)
 {
     char stem[16], why[APP_MSG] = "";
     if (!stem_of(a, stem, sizeof stem)) return 0;
-    TrackTexSet *set = textures(a, stem);
+    TrackTexSet *set = textures(a, stem, 1);   // the scan reads the game's file again
     TrackTexInfo info[TRACK_TEX_MAX];
     int n = 0;
     for (int i = 0; set != NULL && i < track_tex_count(set) && n < TRACK_TEX_MAX; ++i) info[n++] = *track_tex_info(set, i);
-    track_tex_close(set);
     drop_picture(a);
     a->tmask_note[0] = '\0';
     if (!track_masks_scan(root_of(a), info, n, &a->tmasks, why, sizeof why)) {
@@ -136,11 +167,10 @@ int app_track_mask_select(App *a, int i)
     unsigned char *marks = NULL;
     unsigned mw = 0, mh = 0;
     if (row->state == TM_NONE) {   // a texture with no mask: the texture as it is
-        TrackTexSet *set = textures(a, stem);
+        TrackTexSet *set = textures(a, stem, 0);
         int tw = 0, th = 0;
         uint8_t *tex = NULL;
         const int ok = set != NULL && track_tex_rgba(set, row->name, &tw, &th, &tex);
-        track_tex_close(set);
         a->tmask_sel = i;
         if (!ok) return snprintf(a->tmask_note, sizeof a->tmask_note, "the game's files were not found: there is no texture to show"), 0;
         a->tmask_rgba = tex, a->tmask_w = tw, a->tmask_h = th;
@@ -148,12 +178,13 @@ int app_track_mask_select(App *a, int i)
         snprintf(a->tmask_note, sizeof a->tmask_note, "this texture has no mask");
         return 1;
     }
+    if (row->has_png) ++file_reads;
     if (!row->has_png || !track_masks_load(root_of(a), row->name, &marks, &mw, &mh)) {
         snprintf(a->tmask_note, sizeof a->tmask_note, row->state == TM_EMPTY ? "nothing is painted in this PSD's mask layer, and there is no PNG" : "no PNG to show");
         a->tmask_sel = i;
         return 0;
     }
-    TrackTexSet *set = textures(a, stem);
+    TrackTexSet *set = textures(a, stem, 0);
     int tw = 0, th = 0;
     uint8_t *tex = NULL;
     if (set == NULL || !track_tex_rgba(set, row->name, &tw, &th, &tex)) {
@@ -162,7 +193,6 @@ int app_track_mask_select(App *a, int i)
         for (size_t k = 0; tex != NULL && k < (size_t)tw * (size_t)th; ++k) memcpy(tex + k * 4, "\x30\x30\x30\xff", 4);
         snprintf(a->tmask_note, sizeof a->tmask_note, "the game's files were not found: the mask is shown without its texture");
     }
-    track_tex_close(set);
     if (tex == NULL) return free(marks), 0;
     for (int y = 0; y < th; ++y)   // the mask scaled to the texture by nearest neighbour, as the game does
         for (int x = 0; x < tw; ++x) {
@@ -199,11 +229,10 @@ int app_track_mask_create_psd(App *a)
     if (sel < 0 || sel >= a->tmasks.count) return snprintf(a->tmask_note, sizeof a->tmask_note, "pick a texture first"), 0;
     if (a->tmasks.row[sel].has_psd) return snprintf(a->tmask_note, sizeof a->tmask_note, "this texture has a PSD already"), 0;
     snprintf(name, sizeof name, "%s", a->tmasks.row[sel].name);
-    TrackTexSet *set = textures(a, stem);
+    TrackTexSet *set = textures(a, stem, 0);
     int tw = 0, th = 0;
     uint8_t *tex = NULL;
     const int have = set != NULL && track_tex_rgba(set, name, &tw, &th, &tex);
-    track_tex_close(set);
     if (!have) return snprintf(a->tmask_note, sizeof a->tmask_note, "the game's files were not found: there is no texture to make a PSD from"), 0;
     const int ok = track_mask_make_psd(root_of(a), name, tex, tw, th, why, sizeof why);
     free(tex);

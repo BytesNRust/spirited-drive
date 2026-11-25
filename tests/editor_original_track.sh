@@ -136,6 +136,20 @@ echo "$out" | grep -q '^mask slot_00: ok, 4x1, 1 reflective, 1 lamps$' || fail "
 echo "$out" | grep -q '^mask slot_01: no mask painted in the PSD, 4x1, 0 reflective, 0 lamps$' || fail "an empty mask layer is not a source: $out"
 [ -f "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png" ] || fail "scenery_00.png was not made"
 [ -f "$work/ws/tracks/AL1/art-generated/track_masks/slot_01.png" ] && fail "a PNG was made from an empty mask layer"
+# a click on a row of the Texture table is quick on a slow volume: it reads at most its one PNG and never the game's whole track file again (a click once opened and decoded it, a freeze of seconds
+# on a network volume); only the scan (opening the track, Re-scan) reads the file
+out=$(run --frames 20 --steps open-original:0,masks-print,masks-reads,mask-select:0,mask-select:2,mask-select:0,mask-select:2,mask-select:0,masks-reads 2>&1) || fail "clicks: $out"
+opens_before=$(echo "$out" | sed -n 's/^masks reads: fam opens \([0-9]*\), files [0-9]*$/\1/p' | sed -n 1p)
+opens_after=$(echo "$out" | sed -n 's/^masks reads: fam opens \([0-9]*\), files [0-9]*$/\1/p' | sed -n 2p)
+files_before=$(echo "$out" | sed -n 's/^masks reads: fam opens [0-9]*, files \([0-9]*\)$/\1/p' | sed -n 1p)
+files_after=$(echo "$out" | sed -n 's/^masks reads: fam opens [0-9]*, files \([0-9]*\)$/\1/p' | sed -n 2p)
+[ -n "$opens_before" ] && [ -n "$opens_after" ] || fail "no reads line: $out"
+[ "$opens_after" = "$opens_before" ] || fail "five clicks read the game's track file again ($opens_before -> $opens_after fam opens): $out"
+[ $((files_after - files_before)) -le 5 ] || fail "five clicks read more than a PNG each ($files_before -> $files_after files): $out"
+out=$(run --frames 20 --steps "open-original:0,masks-print,masks-reads,ui-focus:Track masks,ui-click:tmask_rescan,masks-reads" 2>&1) || fail "re-scan: $out"
+a=$(echo "$out" | sed -n 's/^masks reads: fam opens \([0-9]*\), files [0-9]*$/\1/p' | sed -n 1p)
+b=$(echo "$out" | sed -n 's/^masks reads: fam opens \([0-9]*\), files [0-9]*$/\1/p' | sed -n 2p)
+[ "$b" -gt "$a" ] || fail "Re-scan did not read the track's file again ($a -> $b): $out"
 
 # copy to game repo lists the PNGs, the copy puts them in data/track_masks/<TRACK>/ and a second one finds nothing to do
 out=$(run --frames 20 --steps open-original:0,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish masks: $out"
