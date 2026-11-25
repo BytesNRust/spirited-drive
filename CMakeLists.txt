@@ -1041,6 +1041,10 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_light_drive PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_light_drive PRIVATE tnfs_core)
     target_compile_options(test_editor_light_drive PRIVATE ${TNFS_WARNINGS})
+    add_executable(light_command_print tests/light_command_print.c editor/light_drive.c editor/light_photo.c editor/car_race.c editor/install_job.c editor/proc_run.c editor/car_export.c)   # prints the commands the Studio gives the game for a photo or a test drive (editor_photo_drive_same_light)
+    target_include_directories(light_command_print PRIVATE editor tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(light_command_print PRIVATE tnfs_core)
+    target_compile_options(light_command_print PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_mask_edit tests/test_editor_mask_edit.c editor/mask_edit.c editor/edit_seq.c editor/mask_tex.c)   # the mask editor's model: pencil, fill, undo, Save, the repo's masks round trip
     target_include_directories(test_editor_mask_edit PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_mask_edit PRIVATE tnfs_core)
@@ -1889,6 +1893,8 @@ if(NOT EMSCRIPTEN)
         if(TARGET test_editor_light_drive)
         add_test(NAME light_drive_results_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/light_drive_results_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original $<TARGET_FILE:test_editor_light_drive> WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(light_drive_results_game PROPERTIES TIMEOUT 700 SKIP_RETURN_CODE 77)
+        add_test(NAME editor_photo_drive_same_light COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/editor_photo_drive_same_light.py $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original $<TARGET_FILE:light_command_print> WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # the real game, photo and drive commands on 16 tracks x 4 moments: same sun, same light (nightly: e2e)
+        set_tests_properties(editor_photo_drive_same_light PROPERTIES TIMEOUT 1500 SKIP_RETURN_CODE 77)
         endif()
         add_test(NAME dash_light_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/dash_light_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(dash_light_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
@@ -2588,6 +2594,7 @@ set(TNFS_STATIC_CHECKS
     frame_pick free_udp_ports spirited_logo spirited_icon profile_tables profile_tables_sabotage editor_ui_words
     editor_loose_text)
 set(TNFS_E2E_TESTS
+    editor_photo_drive_same_light
     editor_headless_track_a
     editor_headless_track_b
     editor_headless_car_a
