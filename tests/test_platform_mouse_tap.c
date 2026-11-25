@@ -46,6 +46,22 @@ int main(void)
     CHECK_EQ_INT((int)(read_buttons() & PLATFORM_MOUSE_RIGHT), PLATFORM_MOUSE_RIGHT);
     CHECK(platform_poll_events());
     CHECK_EQ_INT((int)read_buttons(), 0);
+    /* a tap nobody read for a quarter of a second (a fade, a movie) is not a click on the next screen */
+    button(true, SDL_BUTTON_LEFT);
+    button(false, SDL_BUTTON_LEFT);
+    CHECK(platform_poll_events());
+    SDL_Delay(300);
+    CHECK_EQ_INT((int)read_buttons(), 0);
+    /* a tap and then the window losing the focus: nothing is left to fire when it comes back */
+    button(true, SDL_BUTTON_LEFT);
+    button(false, SDL_BUTTON_LEFT);
+    {
+        SDL_Event lost = { 0 };
+        lost.type = SDL_EVENT_WINDOW_FOCUS_LOST;
+        CHECK(SDL_PushEvent(&lost));
+    }
+    CHECK(platform_poll_events());
+    CHECK_EQ_INT((int)read_buttons(), 0);
     /* a button held across polls reads down while held and up once let go */
     button(true, SDL_BUTTON_LEFT);
     CHECK(platform_poll_events());

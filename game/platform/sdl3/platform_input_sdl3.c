@@ -40,7 +40,9 @@ static int text_head, text_count;
 static float mouse_x, mouse_y;
 static int wheel_notches;   /* port (dep59 showcase): the wheel since platform_mouse_wheel last took it */
 static unsigned mouse_buttons;
+#define MOUSE_LATCH_MS 250
 static unsigned mouse_latch;      /* port: the buttons pressed since the last read, kept down until a read has seen them (a touchpad tap whose down and up come in one poll) */
+static Uint64 mouse_latch_at;       /* when the latch was set: a press nobody read for MOUSE_LATCH_MS (a fade, a movie, a load) is let go, not fired as a ghost click on the next screen */
 static bool mouse_latch_seen;     /* a read has seen the latch: the next poll of the events lets it go */
 static bool mouse_moved;
 
@@ -137,7 +139,7 @@ bool platform_poll_events(void)
         input_script_log_window_event(event.type);
         input_script_watch_key_event(&event);
         if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
-            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear(), input_script_watch_reset();
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear(), mouse_latch = 0, mouse_latch_seen = false, input_script_watch_reset();
             sdl3_window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;
             sdl3_cursor_apply();
             continue;
@@ -152,7 +154,7 @@ bool platform_poll_events(void)
             const unsigned bit = event.button.button == SDL_BUTTON_LEFT ? PLATFORM_MOUSE_LEFT
                 : event.button.button == SDL_BUTTON_RIGHT ? PLATFORM_MOUSE_RIGHT : 0;
             mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
-            if (event.button.down) mouse_latch |= bit;   /* port: a tap shorter than a poll still reads as a press (as the keys' latch does) */
+            if (event.button.down) mouse_latch |= bit, mouse_latch_at = SDL_GetTicks();   /* port: a tap shorter than a poll still reads as a press (as the keys' latch does) */
         }
         if (event.type == SDL_EVENT_MOUSE_WHEEL) wheel_notches += event.wheel.y > 0 ? 1 : event.wheel.y < 0 ? -1 : 0;
         if (event.type == SDL_EVENT_TEXT_INPUT) sdl3_text_push_utf8(event.text.text);
@@ -228,6 +230,7 @@ bool platform_mouse(int *x, int *y, unsigned *buttons)
     if (input_script_active()) input_script_apply_mouse();
     *x = (int)mouse_x;
     *y = (int)mouse_y;
+    if (mouse_latch != 0 && SDL_GetTicks() - mouse_latch_at > MOUSE_LATCH_MS) mouse_latch = 0, mouse_latch_seen = false;
     *buttons = mouse_buttons | mouse_latch;
     if (mouse_latch != 0) mouse_latch_seen = true;
     const bool moved = mouse_moved;
