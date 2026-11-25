@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <ftw.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -32,6 +33,17 @@ static void fail(char *why, size_t cap, const char *fmt, const char *a)
 }
 
 int original_track_dir(const char *workspace, const char *stem, char *out, size_t cap)
+{
+    if (workspace == NULL || !is_stem(stem)) return 0;
+    char low[16];
+    size_t n = 0;
+    for (; stem[n] != '\0' && n + 1 < sizeof low; ++n) low[n] = (char)tolower((unsigned char)stem[n]);
+    low[n] = '\0';
+    const int w = snprintf(out, cap, "%s/tweaks/%s-tweak/studio/project", workspace, low);
+    return w > 0 && (size_t)w < cap;
+}
+
+int original_track_old_dir(const char *workspace, const char *stem, char *out, size_t cap)
 {
     if (workspace == NULL || !is_stem(stem)) return 0;
     const int n = snprintf(out, cap, "%s/tracks/%s", workspace, stem);
@@ -129,6 +141,58 @@ static int copy_keep(const char *from, const char *to)
     return ok;
 }
 
+/* mkdir -p */
+static int make_dir_path(const char *path)
+{
+    char tmp[1100];
+    snprintf(tmp, sizeof tmp, "%s", path);
+    for (char *p = tmp + 1; *p != '\0'; ++p) {
+        if (*p != '/') continue;
+        *p = '\0';
+        if (!make_dir(tmp)) return 0;
+        *p = '/';
+    }
+    return make_dir(tmp);
+}
+
+static int copy_tree(const char *from, const char *to, int *files)
+{
+    DIR *d = opendir(from);
+    if (d == NULL) return 0;
+    int ok = make_dir(to);
+    for (struct dirent *e; ok && (e = readdir(d)) != NULL;) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+        char a[1100], b[1100];
+        struct stat st;
+        snprintf(a, sizeof a, "%s/%s", from, e->d_name);
+        snprintf(b, sizeof b, "%s/%s", to, e->d_name);
+        if (lstat(a, &st) != 0) continue;
+        if (S_ISDIR(st.st_mode)) ok = copy_tree(a, b, files);
+        else if (S_ISREG(st.st_mode)) {
+            const int r = copy_keep(a, b);
+            if (r == 1) ++*files;
+            else if (r == 0) ok = 0;
+        }
+    }
+    closedir(d);
+    return ok;
+}
+
+int original_convert(const char *old_dir, const char *home, int *files, char *why, size_t cap)
+{
+    int n = 0;
+    if (files != NULL) *files = 0;
+    if (old_dir == NULL || home == NULL || !is_dir(old_dir) || exists(home)) return 0;
+    char parent[1100];
+    snprintf(parent, sizeof parent, "%s", home);
+    char *slash = strrchr(parent, '/');
+    if (slash != NULL) *slash = '\0';
+    if (!make_dir_path(parent)) return fail(why, cap, "cannot make the folder %s", parent), -1;
+    if (!copy_tree(old_dir, home, &n)) return fail(why, cap, "cannot copy %s into the tweak", old_dir), -1;
+    if (files != NULL) *files = n;
+    return 1;
+}
+
 /* a workspace made before the one-file format holds the old light files (light/track/<STEM>.txt and light/track_light/<STEM>A..N.txt): nothing reads them now, so Add originals takes
  * those names away (only those, only once the track's one file is there) */
 static void drop_old_light(const char *dir, const char *stem)
@@ -189,9 +253,7 @@ int original_track_add(const char *workspace, const char *stem, const char *data
     char dir[1024], ini[1100];
     if (!original_track_dir(workspace, stem, dir, sizeof dir)) return fail(why, cap, "%s is not one of the game's tracks", stem != NULL ? stem : "(none)"), 0;
     static const char *const SUB[] = { "light", "light/track_light", "art-source", "art-source/masks", "art-generated", "art-generated/track_masks" };
-    char tracks[1100];
-    snprintf(tracks, sizeof tracks, "%s/tracks", workspace);
-    if (!make_dir(tracks) || !make_dirs(dir, SUB, sizeof SUB / sizeof *SUB)) return fail(why, cap, "cannot make the folder %s", dir), 0;
+    if (!make_dir_path(dir) || !make_dirs(dir, SUB, sizeof SUB / sizeof *SUB)) return fail(why, cap, "cannot make the folder %s", dir), 0;
     if (!add_light(dir, stem, data_dir, out, why, cap)) return 0;
     snprintf(ini, sizeof ini, "%s/original.ini", dir);
     if (!exists(ini)) {

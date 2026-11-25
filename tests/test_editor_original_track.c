@@ -73,7 +73,7 @@ int main(void)
     fixtures();
     char ws[300], data[300], art[300], why[OT_WHY] = "", dir[400], stem[16], text[512];
     path_of(ws, sizeof ws, "ws"), path_of(data, sizeof data, "data"), path_of(art, sizeof art, "art");
-    make("ws/tracks");
+    make("ws");
 
     {   /* a mask PNG that changed size says so: a count of texels would read "+0 -0" for a mask that is all different (retouch QA) */
         OriginalPublish p;
@@ -86,49 +86,49 @@ int main(void)
     }
     CHECK(strcmp(original_track_stem(0), "AL1") == 0 && strcmp(original_track_stem(15), "TR7") == 0 && original_track_stem(16) == NULL, "stems");
     CHECK(!original_track_dir(ws, "XX9", dir, sizeof dir), "a stem that is not one of the sixteen has no folder");
-    CHECK(original_track_dir(ws, "AL1", dir, sizeof dir) && strstr(dir, "/ws/tracks/AL1") != NULL, "the folder: %s", dir);
+    CHECK(original_track_dir(ws, "AL1", dir, sizeof dir) && strstr(dir, "/ws/tweaks/al1-tweak/studio/project") != NULL, "the folder: %s", dir);
     CHECK(!original_track_present(dir), "nothing there yet");
 
     OriginalAdd add = { 0 };
     CHECK(original_track_add_all(ws, data, art, &add, why, sizeof why), "add all: %s", why);
     CHECK(add.tracks == 16 && add.light_files == 16 && add.psds == 2 && add.skipped == 2 && add.kept == 0, "counts: %d tracks, %d light, %d psds, %d skipped, %d kept", add.tracks, add.light_files, add.psds, add.skipped, add.kept);
     CHECK(original_track_present(dir) && original_track_stem_of(dir, stem, sizeof stem) && strcmp(stem, "AL1") == 0, "AL1 is an original track");
-    CHECK(exists("ws/tracks/TR7/light/track_light/TR7.txt"), "the light file is in");
-    CHECK(exists("ws/tracks/AL1/art-source/masks/scenery_00.psd") && exists("ws/tracks/AL1/art-source/masks/slot_03.psd"), "the PSDs are copied");
-    CHECK(!exists("ws/tracks/AL1/art-source/masks/slot_03.before-paint.psd") && !exists("ws/tracks/AL1/art-source/masks/.DS_Store"), "backups and strays stay out");
+    CHECK(exists("ws/tweaks/tr7-tweak/studio/project/light/track_light/TR7.txt"), "the light file is in");
+    CHECK(exists("ws/tweaks/al1-tweak/studio/project/art-source/masks/scenery_00.psd") && exists("ws/tweaks/al1-tweak/studio/project/art-source/masks/slot_03.psd"), "the PSDs are copied");
+    CHECK(!exists("ws/tweaks/al1-tweak/studio/project/art-source/masks/slot_03.before-paint.psd") && !exists("ws/tweaks/al1-tweak/studio/project/art-source/masks/.DS_Store"), "backups and strays stay out");
     CHECK(exists("art/AL1/scenery_00.psd"), "the originals stay where they are (copied, not moved)");
-    CHECK(original_track_light_dir(dir, text, sizeof text) && strstr(text, "/AL1/light") != NULL, "light dir");
+    CHECK(original_track_light_dir(dir, text, sizeof text) && strstr(text, "/al1-tweak/studio/project/light") != NULL, "light dir");
 
     /* a second run touches nothing: the files that are there are kept, even edited ones */
-    put("ws/tracks/AL1/light/track_light/AL1.txt", "edited\n");
+    put("ws/tweaks/al1-tweak/studio/project/light/track_light/AL1.txt", "edited\n");
     OriginalAdd again = { 0 };
     CHECK(original_track_add_all(ws, data, art, &again, why, sizeof why) && again.light_files == 0 && again.psds == 0 && again.kept == 16 + 2, "again: %d copied, %d kept", again.light_files + again.psds, again.kept);
-    get("ws/tracks/AL1/light/track_light/AL1.txt", text, sizeof text);
+    get("ws/tweaks/al1-tweak/studio/project/light/track_light/AL1.txt", text, sizeof text);
     CHECK(strcmp(text, "edited\n") == 0, "the edited file is kept");
     /* the PSD he painted, the mask PNG made from it and the card he changed are the owner's: Add originals again (the art folder's PSD differs) does not touch them */
     char keep_psd[256], keep_mask[256], keep_card[256];
-    get("ws/tracks/AL1/art-source/masks/scenery_00.psd", keep_psd, sizeof keep_psd);
-    get("ws/tracks/AL1/art-generated/track_masks/scenery_00.png", keep_mask, sizeof keep_mask);
-    get("ws/tracks/AL1/original.ini", keep_card, sizeof keep_card);
-    put("ws/tracks/AL1/art-source/masks/scenery_00.psd", "my own psd\n");
-    put("ws/tracks/AL1/art-generated/track_masks/scenery_00.png", "my own mask\n");
-    put("ws/tracks/AL1/original.ini", "my own card\n");
+    get("ws/tweaks/al1-tweak/studio/project/art-source/masks/scenery_00.psd", keep_psd, sizeof keep_psd);
+    get("ws/tweaks/al1-tweak/studio/project/art-generated/track_masks/scenery_00.png", keep_mask, sizeof keep_mask);
+    get("ws/tweaks/al1-tweak/studio/project/original.ini", keep_card, sizeof keep_card);
+    put("ws/tweaks/al1-tweak/studio/project/art-source/masks/scenery_00.psd", "my own psd\n");
+    put("ws/tweaks/al1-tweak/studio/project/art-generated/track_masks/scenery_00.png", "my own mask\n");
+    put("ws/tweaks/al1-tweak/studio/project/original.ini", "my own card\n");
     CHECK(original_track_add_all(ws, data, art, &again, why, sizeof why) && again.light_files == 0 && again.psds == 0, "again, with edits");
-    get("ws/tracks/AL1/art-source/masks/scenery_00.psd", text, sizeof text);
+    get("ws/tweaks/al1-tweak/studio/project/art-source/masks/scenery_00.psd", text, sizeof text);
     CHECK(strcmp(text, "my own psd\n") == 0, "the edited PSD is kept: %s", text);
-    get("ws/tracks/AL1/art-generated/track_masks/scenery_00.png", text, sizeof text);
+    get("ws/tweaks/al1-tweak/studio/project/art-generated/track_masks/scenery_00.png", text, sizeof text);
     CHECK(strcmp(text, "my own mask\n") == 0, "the edited mask is kept: %s", text);
-    get("ws/tracks/AL1/original.ini", text, sizeof text);
+    get("ws/tweaks/al1-tweak/studio/project/original.ini", text, sizeof text);
     CHECK(strcmp(text, "my own card\n") == 0, "the edited card is kept: %s", text);
-    put("ws/tracks/AL1/art-source/masks/scenery_00.psd", keep_psd), put("ws/tracks/AL1/art-generated/track_masks/scenery_00.png", keep_mask), put("ws/tracks/AL1/original.ini", keep_card);   // as it was, for the rest
+    put("ws/tweaks/al1-tweak/studio/project/art-source/masks/scenery_00.psd", keep_psd), put("ws/tweaks/al1-tweak/studio/project/art-generated/track_masks/scenery_00.png", keep_mask), put("ws/tweaks/al1-tweak/studio/project/original.ini", keep_card);   // as it was, for the rest
 
     /* a workspace of the old light format: Add originals takes the old names away and keeps the one file */
-    put("ws/tracks/AL1/light/track/AL1.txt", "old places\n");
-    put("ws/tracks/AL1/light/track_light/AL1B.txt", "old time B\n");
+    put("ws/tweaks/al1-tweak/studio/project/light/track/AL1.txt", "old places\n");
+    put("ws/tweaks/al1-tweak/studio/project/light/track_light/AL1B.txt", "old time B\n");
     OriginalAdd old = { 0 };
     CHECK(original_track_add_all(ws, data, art, &old, why, sizeof why), "add over old files: %s", why);
-    CHECK(!exists("ws/tracks/AL1/light/track/AL1.txt") && !exists("ws/tracks/AL1/light/track_light/AL1B.txt"), "the old light files are gone");
-    get("ws/tracks/AL1/light/track_light/AL1.txt", text, sizeof text);
+    CHECK(!exists("ws/tweaks/al1-tweak/studio/project/light/track/AL1.txt") && !exists("ws/tweaks/al1-tweak/studio/project/light/track_light/AL1B.txt"), "the old light files are gone");
+    get("ws/tweaks/al1-tweak/studio/project/light/track_light/AL1.txt", text, sizeof text);
     CHECK(strcmp(text, "edited\n") == 0, "the one file is kept");
 
     /* a missing light file stops the add with a reason */
@@ -172,12 +172,45 @@ int main(void)
         original_track_dir(ws, "AL1", migrated, sizeof migrated);
         n = original_track_acceptance(migrated, "AL1", data, report, sizeof report, why, sizeof why);
         CHECK(n == 0, "AL1 has PSDs and its masks folders are not compared: %d %s", n, report);   // its light file was published back equal above
-        put("ws/tracks/AL1/light/track_light/AL1.txt", "retouched\n");
-        put("ws/tracks/AL1/notes.txt", "extra\n");
-        put("ws/tracks/AL1/art-source/masks/more.psd", "psd");   // in the mask folder: allowed
+        put("ws/tweaks/al1-tweak/studio/project/light/track_light/AL1.txt", "retouched\n");
+        put("ws/tweaks/al1-tweak/studio/project/notes.txt", "extra\n");
+        put("ws/tweaks/al1-tweak/studio/project/art-source/masks/more.psd", "psd");   // in the mask folder: allowed
         n = original_track_acceptance(migrated, "AL1", data, report, sizeof report, why, sizeof why);
         CHECK(n == 2 && strstr(report, "light/track_light/AL1.txt: differs") != NULL && strstr(report, "notes.txt: missing in the hand-made folder") != NULL, "two differences named: %d %s", n, report);
         CHECK(original_track_acceptance(migrated, "ZZ9", data, report, sizeof report, why, sizeof why) == -1 && why[0] != '\0', "a stem that is not a track: %s", why);
+    }
+
+    /* an old workspace keeps its working copy in tracks/<STEM>: opening the tweak copies it into the tweak's studio/project once, with the PSD he edited, and leaves the old folder alone */
+    {
+        char old[400], home[400], two[400];
+        make("ws3"), make("ws3/tracks"), make("ws3/tracks/AL1"), make("ws3/tracks/AL1/art-source"), make("ws3/tracks/AL1/art-source/masks"), make("ws3/tracks/AL1/light"), make("ws3/tracks/AL1/light/track_light");
+        put("ws3/tracks/AL1/original.ini", "kind=original-track\nstem=AL1\n");
+        put("ws3/tracks/AL1/light/track_light/AL1.txt", "my light\n");
+        put("ws3/tracks/AL1/art-source/masks/slot_03.psd", "my edited psd\n");
+        char ws3[300];
+        path_of(ws3, sizeof ws3, "ws3");
+        CHECK(original_track_old_dir(ws3, "AL1", old, sizeof old) && strstr(old, "/ws3/tracks/AL1") != NULL && !original_track_old_dir(ws3, "XX9", old, sizeof old), "the old folder: %s", old);
+        original_track_old_dir(ws3, "AL1", old, sizeof old);
+        original_track_dir(ws3, "AL1", home, sizeof home);
+        int files = -1;
+        CHECK(original_convert(old, home, &files, why, sizeof why) == 1 && files == 3, "converted %d files: %s", files, why);
+        CHECK(original_track_present(home) && original_track_stem_of(home, stem, sizeof stem) && strcmp(stem, "AL1") == 0, "the copy is an original track");
+        get("ws3/tweaks/al1-tweak/studio/project/art-source/masks/slot_03.psd", text, sizeof text);
+        CHECK(strcmp(text, "my edited psd\n") == 0, "the edited PSD came across: %s", text);
+        get("ws3/tweaks/al1-tweak/studio/project/light/track_light/AL1.txt", text, sizeof text);
+        CHECK(strcmp(text, "my light\n") == 0, "the light came across: %s", text);
+        CHECK(exists("ws3/tracks/AL1/art-source/masks/slot_03.psd") && exists("ws3/tracks/AL1/original.ini"), "the old folder is left alone");
+        /* once: what he edits in the copy is never overwritten by a second opening, and an edit in the old folder is not copied again */
+        put("ws3/tweaks/al1-tweak/studio/project/art-source/masks/slot_03.psd", "edited in the tweak\n");
+        put("ws3/tracks/AL1/art-source/masks/slot_03.psd", "edited in the old\n");
+        files = -1;
+        CHECK(original_convert(old, home, &files, why, sizeof why) == 0 && files == 0, "a second opening converts nothing: %d", files);
+        get("ws3/tweaks/al1-tweak/studio/project/art-source/masks/slot_03.psd", text, sizeof text);
+        CHECK(strcmp(text, "edited in the tweak\n") == 0, "the copy is kept: %s", text);
+        /* nothing old, nothing to do */
+        original_track_old_dir(ws3, "CL1", two, sizeof two);
+        original_track_dir(ws3, "CL1", home, sizeof home);
+        CHECK(original_convert(two, home, &files, why, sizeof why) == 0 && !original_track_present(home), "no old folder: nothing made");
     }
 
     {   // the words of the copy dialog: a changed mask counts pixels (not "texels"), a changed light file lines

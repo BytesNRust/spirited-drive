@@ -1,4 +1,4 @@
-/* An original track of the game as a project of the workspace (dep103): <workspace>/tracks/<STEM>/ with
+/* An original track of the game as a project of the workspace (dep103), in its tweak: <workspace>/tweaks/<stem>-tweak/studio/project/ with
  *   original.ini                   kind=original-track and stem=<STEM> (what marks the folder; an own track has project.ini)
  *   light/track_light/<STEM>.txt                                  the light folder the Track light panels edit
  *   art-source/masks/<name>.psd    the owner's mask PSDs, copied (never moved) from the art folder
@@ -15,8 +15,15 @@ enum { OT_STEMS = 16, OT_ITEMS = 16, OT_NAME = 64, OT_WHY = 200 };
 /* the 16 CD tracks' stems in the game's order: "AL1".."TR7"; NULL past OT_STEMS */
 const char *original_track_stem(int index);
 
-/* <workspace>/tracks/<stem> into `out`; 0 when it does not fit or the stem is not one of the 16 */
+/* <workspace>/tweaks/<stem lowercase>-tweak/studio/project into `out` (the working copy of the original track: it lives in its tweak); 0 when it does not fit or the stem is not one of the 16 */
 int original_track_dir(const char *workspace, const char *stem, char *out, size_t cap);
+
+/* <workspace>/tracks/<stem>: where an older workspace kept the working copy (before it moved into the tweak); 0 for a stem that is not one of the 16 */
+int original_track_old_dir(const char *workspace, const char *stem, char *out, size_t cap);
+
+/* An older workspace's working copy of an original (cars/<kit>, tracks/<STEM>) is copied into its tweak's studio/project the first time the tweak is opened: every file and folder of `old_dir` that `home`
+ * has not (symbolic links are not followed), `old_dir` left as it is. 1 when it copied (`files` gets how many), 0 when there was nothing to do (`home` already there, or no `old_dir`), -1 with `why`. */
+int original_convert(const char *old_dir, const char *home, int *files, char *why, size_t cap);
 
 /* whether `dir` is an original track's folder (its original.ini says so), and its stem */
 int original_track_present(const char *dir);
