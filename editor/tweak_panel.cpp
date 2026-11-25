@@ -189,6 +189,10 @@ void tweak_panel(App *a)
             ui_probe("tweak_check");
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make the tweak again from the project and look for what is wrong with it (no game needed)");
             ImGui::SameLine();
+            if (ImGui::Button("Pack zip")) app_tweak_pack(a);
+            ui_probe("tweak_pack");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Check, then zip what differs from the game into the tweak's build/ folder, to share. Body colors and a track's tunnel and snow facts go to the game repo only");
+            ImGui::SameLine();
             if (ImGui::Button("Apply to game repo...")) app_tweak_apply_open(a);
             ui_probe("tweak_apply");
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", app_repo_data(a)[0] == '\0' ? "Asks for the game repo's folder, once" : "Write the changed files into the game repo's data/ (and the colors into core/formats/car_paint.c); nothing is committed");

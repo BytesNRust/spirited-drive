@@ -61,4 +61,9 @@ int tweak_apply_skipping(const char *dir, const char *repo_data, TweakApplied *o
 /* The checks that need no game: mod.ini is a type=tweak, studio/target.txt names an object, every mask and light file is for that object and reads. 1 with `report` "ok", or 0 with the first problem. */
 int tweak_check(const char *dir, char *report, size_t cap);
 
+/* Pack zip: Check (tweak_check and tweak_check_masks), then the files that differ from `base_data` (not studio/, not the colors, not what equals the game) go
+ * through `mod pack` into `zip` (`force` replaces one). 0 with `report` saying why; 1 with the report saying what went in. A track light with a tunnel or snow fact is refused naming the line. */
+int tweak_check_masks(const char *dir, char *report, size_t cap);   /* the masks hold class values only and no PSD is there */
+int tweak_pack(const char *dir, const char *base_data, const char *zip, int force, char *report, size_t cap);
+
 #endif

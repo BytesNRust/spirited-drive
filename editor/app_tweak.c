@@ -166,7 +166,20 @@ int app_tweak_check(App *a)
     char dir[APP_PATH];
     if (!app_tweak_refresh(a)) return snprintf(a->tweak_report, sizeof a->tweak_report, "%s", a->tweak_why), 0;
     snprintf(dir, sizeof dir, "%s/tweaks/%s", a->workspace, a->tweak_id);
-    return tweak_check(dir, a->tweak_report, sizeof a->tweak_report);
+    return tweak_check(dir, a->tweak_report, sizeof a->tweak_report) && tweak_check_masks(dir, a->tweak_report, sizeof a->tweak_report) && snprintf(a->tweak_report, sizeof a->tweak_report, "ok");
+}
+
+int app_tweak_pack(App *a)
+{
+    char dir[APP_PATH], build[APP_PATH + 8], zip[APP_PATH + 64], report[APP_MSG];
+    if (!app_tweak_refresh(a)) return snprintf(a->status, sizeof a->status, "pack zip: %s", a->tweak_why), 0;
+    snprintf(dir, sizeof dir, "%s/tweaks/%s", a->workspace, a->tweak_id);
+    snprintf(build, sizeof build, "%s/build", dir);
+    snprintf(zip, sizeof zip, "%s/%s.zip", build, a->tweak_id);
+    mkdir(build, 0777);
+    const int ok = tweak_pack(dir, app_tweak_base(a), zip, 1, report, sizeof report);
+    snprintf(a->status, sizeof a->status, "%s%s", ok ? "pack zip: " : "pack zip: not made: ", report);
+    return ok;
 }
 
 int app_tweak_open_car(App *a, int index)

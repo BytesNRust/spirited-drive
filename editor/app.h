@@ -426,6 +426,7 @@ int app_tweak_open_car(App *a, int index);
 int app_tweak_open_track(App *a, int index);
 int app_tweak_active(const App *a);               /* what is open is one of the game's own cars or tracks: the Tweak panel is for it */
 int app_tweak_refresh(App *a);                    /* the tweak made again from the project, its fingerprints kept, its status read: 1 when a->tweak_st is it */
+int app_tweak_pack(App *a);                       /* the zip of what differs from the game, <tweak>/build/<id>.zip; the status says what went in or why not */
 int app_tweak_check(App *a);                      /* the same, then the checks that need no game: tweak_report says */
 int app_tweak_apply_open(App *a);                 /* Apply to game repo...: asks for the repo folder the first time, then the list of what it writes with Apply / Cancel (tweak_confirm_dialog) */
 int app_tweak_apply_confirmed(App *a);            /* that list's Apply: with the repo's own changes it asks Replace / Skip / Cancel; else writes. 1 when it applied */
