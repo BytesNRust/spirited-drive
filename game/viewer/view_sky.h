@@ -4,6 +4,7 @@
 
 #include "game/race/sky_ring.h"
 #include "viewer/ported_view.h"
+#include "viewer/sky_sun.h"
 #include "viewer/view_shared.h"
 
 #include <stdint.h>
@@ -25,6 +26,8 @@ typedef struct {
     const FshEntry *ring_horz; /* the ring's: the track's, or the alternative sky's */
     int32_t box_left, box_right, line;
     int ring, flat, banded;
+    const SkySunDisc *sun;      /* port (sky_sun_disc): where the sun is this frame, NULL when the sky shows none */
+    const uint8_t *sun_palette; /* and the palette it is drawn through (the frame's own, as shown) */
 } SkyStage;
 
 extern SkyRing sky_ring;

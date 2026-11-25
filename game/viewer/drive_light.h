@@ -64,6 +64,8 @@ int drive_light_palette_lit_colour(const uint8_t palette[768], const uint8_t rgb
 void drive_light_world_class(const uint8_t *layer, int width, int height, int scale);
 /* 1 when the race loaded is at night (the night's sky and dash). */
 int drive_light_night(void);
+/* port (sky_sun_disc): 1 and the sun's azimuth (radians from +x toward +z) and elevation, when the sky shows a sun: Restomod, sun_shadow on, a clear race, not at night. */
+int drive_light_sun(float *azimuth, float *elevation);
 /* 1 when the gauges are lit (gauge_light): the night, and with gauge_exterior the dusk and rain with rain_lamps */
 int drive_light_gauges_lit(void);
 int drive_light_active(void);

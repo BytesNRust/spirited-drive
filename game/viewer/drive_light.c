@@ -368,6 +368,14 @@ static void made_hall_canyon(TrackNodeLight *made, TrackNodeLight *tunnels, cons
 static TerrainLightSun made_sun;
 static int made_sun_on;
 
+/* port (sky_sun_disc): the sun the sky shows, the one the shadows are cast from; Restomod's, in a clear race by day, dawn and dusk (made_sun_on), else none */
+int drive_light_sun(float *azimuth, float *elevation)
+{
+    if (!made_sun_on || port_settings_profile() != PROFILE_RESTOMOD || azimuth == NULL || elevation == NULL) return 0;
+    *azimuth = made_sun.azimuth, *elevation = made_sun.elevation;
+    return 1;
+}
+
 static void made_sun_set(const TrackLightTweaks *tweaks, const TrackLightSun *file_sun)
 {
     made_sun_on = port_sun_shadow() && port_weather() == WEATHER_CLEAR && synth_time != LIGHT_SYNTH_NIGHT;

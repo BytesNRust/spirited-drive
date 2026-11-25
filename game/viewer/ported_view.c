@@ -261,7 +261,7 @@ static void draw_sky(const TrackArt *art, const TrackInfo *info, const PortedCam
     if (ring) sky_ring_build(&sky_ring, sky_info, ring_horz);
     SkyStage stage = { pixels, quad, target, view, horizon, &ctx->clip, art, sky_info, cam, pc,
                        own != NULL ? &own->smooth : sky_filter ? &smooth : NULL, own != NULL ? &own->horz : &art->horizon, ring_horz,
-                       box[0], box[2], 0, ring && sky_ring.enabled, own != NULL || (art->has_horizon && !ring), bands_threads() != 0 };
+                       box[0], box[2], 0, ring && sky_ring.enabled, own != NULL || (art->has_horizon && !ring), bands_threads() != 0, NULL, NULL };
     if (stage.flat) stage.line = horizon_line(view, WORLD_SHIFT, pc->yaw, cam->matrix);
     static SkyStretch stretch;   /* port (sky_fill): the art reaching the view's top, built once a frame for all the bands */
     /* port (night): the flat colour over the art would be the day's navy beside the night's sky; at night the art is carried up to the top of the view as the
@@ -273,6 +273,13 @@ static void draw_sky(const TrackArt *art, const TrackInfo *info, const PortedCam
                                  night_fill && port_light_effects() && own != NULL ? own->bitmap.palette : art->palette);   /* the sky's texels index its own palette */   /* port (night_stretch_clean): no star carried up as a stripe */
     static SkyStretch below;   /* port (sky_fill_below): and downward, to the view's bottom, in 16:9 and 21:9 */
     if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon->scale, stage.line, ctx->clip.y1);
+    SkySunDisc sun;   /* port (sky_sun_disc): the sun where the time's `sun AZ EL` is, over the sky; none in a mirrored track (its world is turned over) */
+    uint8_t sun_palette[768];
+    float sun_az, sun_el;
+    if (!view_mirrored() && drive_light_sun(&sun_az, &sun_el) && sky_sun_place(view, cam->matrix, sun_az, sun_el, &sun)) {
+        drive_light_palette(art->palette, sun_palette);
+        stage.sun = &sun, stage.sun_palette = sun_palette;
+    }
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < view_screen_h ? box[3] : view_screen_h, sky_stage_band, &stage);
 }
 

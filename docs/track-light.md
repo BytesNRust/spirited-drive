@@ -31,7 +31,7 @@ line. A time appears at most once; a time with no block is the made light with n
 
 | line | meaning |
 |---|---|
-| `sun AZ EL SHADOW [REACH]` | the time's sun (at night the moon). Read and kept; the generator uses it where the sun's shadows are on. Every number is finite (`nan` and `inf` are refused). |
+| `sun AZ EL SHADOW [REACH]` | the time's sun (at night the moon). Read and kept; the generator uses it where the sun's shadows are on, and the sky draws a soft disc with a halo at its azimuth and elevation (Restomod, clear weather, by day, dawn and dusk; none at night, in fog, rain or storm, nor in Stock and Restored). Every number is finite (`nan` and `inf` are refused). |
 | `tunnel_look [A B] [LIGHT] [COLOUR] [lamps S [COLOUR]] [reach R]` | how the tunnels look at this time. Without `A B`: the default look of every tunnel with no look of its own. With `A B`: those nodes, which must lie inside a `tunnel` fact. LIGHT = percent of full light inside, COLOUR = `RRGGBB[:strength]` or `r/g/b`, `lamps S` = the lamps' strength in percent (0..1000), `reach R` = the pools' reach in nodes (0.5..4). What a line leaves out comes from the default look, and then from the code's. A hall takes only `lamps` and `reach`. |
 | `lamp NODE PERCENT [COLOUR[:S]] [RADIUS] [STRIP]` | a street lamp or any light: its light in percent (1..1000), its colour (the warm street lamp's when none) and radius in nodes (1..64). STRIP (last word, as in `brightness`) is where across the road it stands: the mean place of those points of the row; with none it stands at a scenery post of its node, else at the road's centre. Allowed at every time. |
 | `brightness A B PERCENT [STRIP]` | the light of those nodes times PERCENT (0..1000) on the strip (the whole row when none). |

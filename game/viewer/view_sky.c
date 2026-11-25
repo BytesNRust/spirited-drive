@@ -102,4 +102,6 @@ void sky_stage_band(void *user, int top, int bottom)
             horizon_draw_flat(st->horizon, &ht, &clip, st->horz, st->pc->yaw, view_mirrored(), sky_off, st->line);
         }
     }
+    if (st->sun != NULL && !sky_off)   /* port (sky_sun_disc): over the sky, under everything the 3D draws; this band's rows of the box */
+        sky_sun_draw(st->sun, st->sun_palette, st->pixels, view_screen_w, quad.clip_left, quad.clip_top, quad.clip_right - 1, quad.clip_bottom - 1);
 }
