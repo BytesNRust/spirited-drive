@@ -39,14 +39,14 @@ same "$t/track_light/CY1.txt" "$work/cy1.first" && fail "a second change in a re
 cp "$t/track_light/CY1.txt" "$work/cy1.second"
 
 # ---- 3: a mask of the track changed from outside, then Apply by its buttons
-mkdir -p "$work/ws/tracks/CY1/art-generated/track_masks"
+mkdir -p "$work/ws/tweaks/cy1-tweak/studio/project/art-generated/track_masks"
 poked=""
 for p in "$repo/data/track_masks/CY1"/*.png; do
     [ -f "$p" ] || continue
     b=$(basename "$p")
-    cp "$p" "$work/ws/tracks/CY1/art-generated/track_masks/$b"
-    if poke "$work/ws/tracks/CY1/art-generated/track_masks/$b" 10 10 12 12 250 2>/dev/null; then poked=$b; break; fi
-    rm -f "$work/ws/tracks/CY1/art-generated/track_masks/$b"
+    cp "$p" "$work/ws/tweaks/cy1-tweak/studio/project/art-generated/track_masks/$b"
+    if poke "$work/ws/tweaks/cy1-tweak/studio/project/art-generated/track_masks/$b" 10 10 12 12 250 2>/dev/null; then poked=$b; break; fi
+    rm -f "$work/ws/tweaks/cy1-tweak/studio/project/art-generated/track_masks/$b"
 done
 if [ -z "$poked" ]; then
     fail "CY1: no 8-bit grey mask to change from outside"
@@ -69,7 +69,7 @@ grep -q '^status: applied to the game repo: 0 files written, 0 left as the repo 
 
 # ---- 4: a car with several changed masks (the traffic Wagon), the repo's own change in one of them
 studio $opts --frames 30 --steps tweak-open-row:Wagon || fail "Wagon open: $(tail -3 "$work/log")"
-kit=$(ls -d "$work"/ws/cars/* | head -n 1)
+kit=$work/ws/tweaks/wagon-tweak/studio/project
 set -- $(ls -S "$kit/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 2)
 [ $# -eq 2 ] || fail "the Wagon project has fewer than two masks"
 m1=$1 m2=$2
@@ -98,7 +98,7 @@ grep -q '^status: applied to the game repo: 1 file written, 0 left as the repo h
 
 # ---- 5: a car with colors (the Diablo): a color changed and a mask changed, the repo's own change in that mask
 studio $opts --frames 30 --steps tweak-open-row:LDiabl || fail "Diablo open: $(tail -3 "$work/log")"
-dia=$(ls -d "$work"/ws/cars/* | grep -i diabl | head -n 1)
+dia=$work/ws/tweaks/ldiabl-tweak/studio/project
 dm=$(ls -S "$dia/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
 [ -n "$dm" ] || fail "the Diablo project has no mask"
 poke "$dm" 40 40 20 20 200

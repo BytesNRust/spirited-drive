@@ -49,12 +49,12 @@ done
 i=-1
 for t in AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7; do
     i=$((i + 1))
-    echo "# tweak parity" >>"$work/ws/tracks/$t/light/track_light/$t.txt"
-    mkdir -p "$work/ws/tracks/$t/art-generated/track_masks"
+    echo "# tweak parity" >>"$work/ws/tweaks/$(echo "$t" | tr A-Z a-z)-tweak/studio/project/light/track_light/$t.txt"
+    mkdir -p "$work/ws/tweaks/$(echo "$t" | tr A-Z a-z)-tweak/studio/project/art-generated/track_masks"
     for p in "$repo/data/track_masks/$t"/*.png; do   # the first mask that is an 8-bit grey PNG, changed from outside
         [ -f "$p" ] || continue
-        cp "$p" "$work/ws/tracks/$t/art-generated/track_masks/" && python3 -I "$here/mask_poke.py" "$work/ws/tracks/$t/art-generated/track_masks/$(basename "$p")" 10 10 12 12 250 >/dev/null 2>&1 && break
-        rm -f "$work/ws/tracks/$t/art-generated/track_masks/$(basename "$p")"
+        cp "$p" "$work/ws/tweaks/$(echo "$t" | tr A-Z a-z)-tweak/studio/project/art-generated/track_masks/" && python3 -I "$here/mask_poke.py" "$work/ws/tweaks/$(echo "$t" | tr A-Z a-z)-tweak/studio/project/art-generated/track_masks/$(basename "$p")" 10 10 12 12 250 >/dev/null 2>&1 && break
+        rm -f "$work/ws/tweaks/$(echo "$t" | tr A-Z a-z)-tweak/studio/project/art-generated/track_masks/$(basename "$p")"
     done
     fresh copy; fresh tweak
     studio --workspace "$work/ws" --port-data "$work/copy/data" --cd "$orig" --art-dir "$work/art" --steps "open-original:$i,repo-ask,repo-copy" || { fail "Copy of $t: $(tail -3 "$work/log")"; continue; }

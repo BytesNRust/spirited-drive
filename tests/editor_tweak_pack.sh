@@ -31,7 +31,7 @@ grep -q '^status: pack zip: 1 file packed' "$work/log" || fail "Pack zip did not
 member "$zip" track_light/CY1.txt | grep -q '^  sun 120 30 70' || fail "the zip's light does not carry the new sun"
 member "$zip" track_light/CY1.txt | grep -q '^tunnel ' && fail "the zip's light carries the game's own tunnel fact"
 "$studio_bin" validate "$zip" >"$work/v" 2>&1 || fail "validate on the zip: $(cat "$work/v")"
-[ -f "$t/studio/base.txt" ] && [ ! -d "$t/build/studio" ] || fail "studio/ state wrong"
+[ -f "$t/studio/base.txt" ] && [ -d "$t/studio/project" ] && [ ! -d "$t/build/studio" ] || fail "studio/ state wrong (the working copy lives in studio/project, never in the zip)"
 
 # the game installs the zip and the race reads its light
 if [ -n "$tnfs" ] && [ -x "$tnfs" ]; then
@@ -47,7 +47,7 @@ fi
 
 # a tunnel fact changed: refused, naming the line; no zip
 rm -f "$zip"
-light=$work/ws/tracks/CY1/light/track_light/CY1.txt
+light=$work/ws/tweaks/cy1-tweak/studio/project/light/track_light/CY1.txt
 sed -i.bak 's/^tunnel 1064 1171$/tunnel 1000 1100/' "$light" && rm -f "$light.bak"
 studio --frames 90 --steps tweak-open-row:CY1,ui-click:tweak_check,ui-click:tweak_pack,status || fail "fact: $(tail -3 "$work/log")"
 grep -q '^status: pack zip: not made: .*tunnel 1000 1100' "$work/log" || fail "a changed tunnel fact was not refused by its line: $(grep status "$work/log")"
@@ -55,7 +55,7 @@ grep -q '^status: pack zip: not made: .*tunnel 1000 1100' "$work/log" || fail "a
 
 # a car mask with a texel that is no class: Check and Pack name it
 studio --frames 60 --steps tweak-open-row:Wagon,tweak-status || fail "Wagon open: $(tail -3 "$work/log")"
-kit=$(ls -d "$work"/ws/cars/* | head -n 1)
+kit=$work/ws/tweaks/wagon-tweak/studio/project
 m=$(ls -S "$kit/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
 python3 -I "$here/mask_poke.py" "$m" 30 30 20 20 200
 studio --frames 60 --steps tweak-open-row:Wagon,tweak-check   # the step fails: the run ends there

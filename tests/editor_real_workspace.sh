@@ -63,8 +63,8 @@ one_car ldiabl LDIABL LDiabl "frnt rear wing back_lo"
 
 # an original track as it is in the migrated workspace: the old light format
 tws=$work/ws-tracks trepo=$work/repo-tracks
-mkdir -p "$tws/tracks" "$trepo/data" "$work/art"
-cp -R "$backup/tracks/AL1" "$tws/tracks/AL1"
+mkdir -p "$tws/tweaks/al1-tweak/studio" "$trepo/data" "$work/art"
+cp -R "$backup/tracks/AL1" "$tws/tweaks/al1-tweak/studio/project"   # the working copy lives in its tweak now (an older workspace's tracks/AL1 is copied there when the tweak opens: editor_tweak_list)
 cp -R "$data/track_light" "$trepo/data/track_light"
 sums_repo() { (cd "$trepo/data/track_light" && cksum *.txt); }
 trun() { clicked --cd "$orig" --user "$work/u-tracks" --workspace "$tws" --port-data "$trepo/data" --art-dir "$work/art" --frames 40 "$@"; }
@@ -72,7 +72,7 @@ trun --steps open-original:0,light-print > "$work/t.old" 2>&1
 grep -q '^light: AL1 no file$' "$work/t.old" || echo "note: the old-format workspace opened AL1 with: $(grep '^light:' "$work/t.old")" >&2
 trun --steps add-originals,open-original:0,light-print > "$work/t.add" 2>&1 || fail "Add originals over the migrated workspace: $(tail -3 "$work/t.add")"
 grep '^light: AL1 nodes [0-9]* time B' "$work/t.add" | tail -1 | grep -q . || fail "after Add originals AL1 has no light file: $(grep '^light:' "$work/t.add")"
-lf=$tws/tracks/AL1/light/track_light/AL1.txt
+lf=$tws/tweaks/al1-tweak/studio/project/light/track_light/AL1.txt
 cp "$lf" "$work/AL1.before"
 sums_repo > "$work/repo.lights.before"
 trun --steps open-original:0,ui-click:azimuth_tick,ui-at:azimuth_slider,0.25,light-print,ui-click:save,light-print,repo-ask,print-original,repo-copy,status > "$work/t.sun" 2>&1 || fail "the sun, Save and Copy on AL1: $(tail -4 "$work/t.sun")"

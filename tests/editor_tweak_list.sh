@@ -52,7 +52,8 @@ cmp -s "$work/r/data/track_light/CY1.txt" "$t/track_light/CY1.txt" || fail "Repl
 
 # a traffic car: its masks reach car_masks/Wagon and no color goes anywhere
 studio $opts --frames 60 --steps tweak-open-row:Wagon,tweak-status || fail "Wagon open: $(tail -3 "$work/log")"
-kit=$(ls -d "$work"/ws/cars/* | head -n 1)
+kit=$work/ws/tweaks/wagon-tweak/studio/project
+[ -d "$kit" ] && [ -z "$(ls "$work"/ws/cars 2>/dev/null)" ] || fail "Wagon: the working copy is not in its tweak, or cars/ got one anyway: $(ls "$work"/ws/cars)"
 [ -d "$work/ws/tweaks/wagon-tweak/car_masks/Wagon" ] || fail "Wagon: no car_masks/Wagon in its tweak"
 [ ! -f "$work/ws/tweaks/wagon-tweak/studio/paints.txt" ] || fail "a traffic car's tweak has colors"
 m=$(ls -S "$kit/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
@@ -74,7 +75,8 @@ studio $opts --frames 90 --steps ui-click:door_tweak,ui-click:tweak_row_Lamborgh
 grep -q '{ 9, 9, 9 }' "$work/r/core/formats/car_paint.c" || fail "the Diablo's color is not in the repo's table: $(diff "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c" | head -4)"
 
 # all or nothing: a mask that cannot be written (its folder in the repo is read-only) after the colors, and the repo is as it was, the table included
-dia=$(ls -d "$work"/ws/cars/* | grep -i diabl | head -n 1)
+dia=$work/ws/tweaks/ldiabl-tweak/studio/project
+[ -d "$dia" ] || fail "the Diablo's working copy is not in its tweak"
 m=$(ls -S "$dia/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
 [ -n "$m" ] && python3 -I "$here/mask_poke.py" "$m" 40 40 20 20 200
 cp "$work/r/core/formats/car_paint.c" "$work/table.before" && rm -rf "$work/masks.before" && cp -R "$work/r/data/car_masks/LDiabl" "$work/masks.before"
@@ -95,6 +97,14 @@ grep -q '^tweak row: Jetta | traffic | - | from the old workspace' "$work/log" |
 "$editor" --workspace "$work/old/ws" --cd "$orig" --port-data "$work/r/data" --user "$work/u" --frames 30 --steps tweak-open-row:Jetta >"$work/log" 2>&1 || fail "old Jetta open: $(tail -3 "$work/log")"
 [ -f "$work/old/ws/tweaks/jetta-tweak/mod.ini" ] || fail "opening the old workspace's Jetta made no tweak"
 diff -r "$work/old/cars" "$work/old/cars.before" >/dev/null 2>&1 || fail "opening the old workspace's car changed its folder"
+# the working copy came into the tweak, with a mark made in the old folder (a PSD he edited), once; the status says so
+jk=$(ls -d "$work"/old/cars/*/ | head -n 1)
+home=$work/old/ws/tweaks/jetta-tweak/studio/project
+[ -d "$home" ] && diff -r "${jk%/}" "$home" >/dev/null 2>&1 || fail "the old Jetta kit was not copied whole into its tweak: $(ls "$home" 2>&1 | head -3)"
+grep -q '^status: tweak Jetta: .*; copied [0-9]* files from the old ' "$work/log" || "$editor" --workspace "$work/old/ws" --cd "$orig" --port-data "$work/r/data" --user "$work/u" --frames 30 --steps tweak-open-row:Jetta >/dev/null 2>&1
+echo mark > "${jk%/}/edited-by-hand.txt"
+"$editor" --workspace "$work/old/ws" --cd "$orig" --port-data "$work/r/data" --user "$work/u" --frames 30 --steps tweak-open-row:Jetta >"$work/log" 2>&1 || fail "old Jetta open again: $(tail -3 "$work/log")"
+[ ! -e "$home/edited-by-hand.txt" ] || fail "a second opening copied the old folder again"
 
 # the buttons the list replaces are gone from the menus
 studio $opts --frames 4 --steps print-menu
