@@ -17,10 +17,7 @@ work=$(mktemp -d)
 export KEEP_FAILED=1
 fail=0
 # Controls Setup and Customize Game (Extras), their middle pages, in the mode that draws both
-# an edition of the player's own, its name wide, for the selector's gaps (E2b)
-printf 'name=MMMMMMMMMMMM\ncars=rx7,nsx,supra\ntracks=city,coastal\n' > "$work/wide.ini"
-(DATA="$orig" PROFILE=restomod EDITION="$work/wide.ini" zsh "$repo/tools/menu_walk.sh" "$tnfs" "$work/content" content >"$work/content.log" 2>&1 ||
-    { echo "FAIL content: the walk did not reach the screen"; tail -40 "$work/content.log"; touch "$work/content.failed" "$work/keep"; }) &
+# (the CONTENT screen's walk, an edition of the player's own with its name wide, is out while Game Mode hides Manage content: owner 2026-11-25; the checks on content.png below wait for it)
 for target in controls-p2 extras-p2 records; do   # side by side: each walk is a game session of its own
     (DATA="$orig" PROFILE=restomod zsh "$repo/tools/menu_walk.sh" "$tnfs" "$work" "$target" >"$work/$target.log" 2>&1 ||
         { echo "FAIL $target: the walk did not reach the screen"; tail -40 "$work/$target.log"; touch "$work/$target.failed" "$work/keep"; }) &

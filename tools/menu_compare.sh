@@ -9,9 +9,9 @@
 #   or, for a target named in EXPECTED (a change meant, e.g. EXPECTED=game-mode for a new layout the owner approves):   <target>: differs <N> px (expected) ...
 # then a summary line. Exit 0 every target the same (or its difference expected), 1 some differ, 3 some walk failed (a failure outranks a difference),
 # 2 bad arguments or no magick.
-#   TARGETS (default: the nine below, content the last; game-mode, central, showcase and the others of menu_walk.sh only when named here, e.g. TARGETS="game-mode central"; added-track needs MODS and EDITION in the environment, menu_walk.sh's: Control Central on an added track's card)   JOBS (default 2: walks running at once; each is one headless game)
+#   TARGETS (default: the eight below; game-mode, central, showcase and the others of menu_walk.sh only when named here, e.g. TARGETS="game-mode central"; added-track needs MODS and EDITION in the environment, menu_walk.sh's: Control Central on an added track's card)   JOBS (default 2: walks running at once; each is one headless game)
 #   DATA, STEP_TIMEOUT, SETTLE, FORMAT: as menu_walk.sh (FORMAT=21:9 compares the menus as a 21:9 screen shows them)
-# pack_names (cd-setup-lit cd-setup-open added-setup cd-records-512 content-rows, after the nine, always run unless TARGETS names others): pictures of ONE game
+# pack_names (cd-setup-lit cd-setup-open added-setup cd-records-512, after the eight, always run unless TARGETS names others): pictures of ONE game
 # session each (menu_walk.sh's pack target), so the showcase's Diablo page with SETUP lit and its Car Setup modal, the added car's gallery with its modal
 # the 512TR's RECORDS and CONTENT with the edition's cars cost two walks (one a binary) and not eight. The added car is a piece made here with tnfs-studio (STUDIO, default the one beside
 # binB): without it added-setup is left out and the line says so. A picture a binary cannot make (cd-records-512 on a build from before RECORDS) is
@@ -28,8 +28,8 @@ for b in $bin_a $bin_b; do [[ -x $b ]] || { print -u2 -- "menu_compare.sh: no bi
 command -v magick >/dev/null 2>&1 || { print -u2 -- "menu_compare.sh: magick missing (ImageMagick 7; on nix: nix shell --inputs-from . nixpkgs#imagemagick)"; exit 2; }
 here=${0:A:h}
 bin_a=${bin_a:a} bin_b=${bin_b:a}
-pack_names=(cd-setup-lit cd-setup-open added-setup cd-records-512 content-rows)
-targets=(${=TARGETS:-options controls controls-p2 controls-p3 graphics extras extras-p2 extras-p3 content})
+pack_names=(cd-setup-lit cd-setup-open added-setup cd-records-512)
+targets=(${=TARGETS:-options controls controls-p2 controls-p3 graphics extras extras-p2 extras-p3})
 [[ -z ${TARGETS:-} ]] && targets=($pack_names $targets)   # the pack's walks first: they are the longest, and start while the others fill the slots
 jobs_max=${JOBS:-2}
 mkdir -p $out/A $out/B $out/diff || exit 2

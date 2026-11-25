@@ -145,7 +145,7 @@ pack)         # the Diablo's page (a fresh player is on the 512TR: car 6; the Di
               # peeks (0.7 s after the page opens, about a second): the 3 s before RIGHT is for it to be over, whatever the machine's load.
               # The marks waited on are the ones every build has (mark:car=, screen=showcase, screen=added_gallery); only RECORDS' own
               # (screen=car_records) is new, with a short wait, and its picture is "never" for a binary that does not log it.
-              pack=1; settle=${SETTLE:-1000}; PROFILE=${PROFILE:-restomod}; final=content; steps_after=1; tail=${TAIL:-0}
+              pack=1; settle=${SETTLE:-1000}; PROFILE=${PROFILE:-restomod}; final=car_records; steps_after=1; tail=${TAIL:-0}
               card="$(click 180 200)"   # the car's card opens its page (the settle before the click is what lets the card take it: 800 ms did not)
               car_next="$(click 319 197),0:WAIT:mark:car=:$step"; car_back="$(click 30 197),0:WAIT:mark:car=:$step"
               leave="500:ESC,500:ESC,0:WAIT:mark:car=:$step"
@@ -157,10 +157,8 @@ pack)         # the Diablo's page (a fresh player is on the 512TR: car 6; the Di
                   shots="$shots added-setup"
               else script="$script,$car_back"; fi
               script="$script,$card,$(wait_for showcase),300:MOUSE:$((380 + dx)):265,3000:RIGHT,1000:ENTER,0:WAIT:mark:screen=car_records:20,0:SHOT:cd-records-512"
-              # CONTENT last, from Game Mode (Control Central's Done is at (571, 453); Manage content is at y 315 in the reordered Game Mode; a build from before the reorder, where it is at 383, does not make this picture):
-              # with the edition and the piece it lists the edition's cars, which the plain content target does not
-              script="$script,$leave,$(click 571 453),$(wait_for game_mode),$(click 320 315),0:WAIT:mark:screen=content:20,0:SHOT:content-rows"
-              shots="$shots cd-records-512:screen=car_records content-rows:screen=content" ;;
+              # (the CONTENT picture, content-rows, ended this walk until Game Mode hid Manage content, owner 2026-11-25: Game Mode's third row is Exit now)
+              shots="$shots cd-records-512:screen=car_records" ;;
 *) echo "unknown target: $target" >&2; exit 2 ;;
 esac
 

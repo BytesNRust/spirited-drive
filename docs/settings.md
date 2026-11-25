@@ -24,7 +24,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 |---|---|---|---|---|---|---|
 | `format` | `4:3` | `4:3` | `4:3`, `16:9`, `21:9` | Graphics Detail: Screen Format | `TNFS_SCREEN` | 4:3 / the monitor's format / the monitor's format (the table's `widescreen`) |
 | `refresh_hz` | 60 | 30 (the exe's 30 steps a second, each drawn once) | 30, 60, 120, 144 | Graphics Detail: Refresh Rate | `TNFS_REFRESH_HZ` | 30 / 144 / 144 |
-| `scale` | `fill` | `fill` | `fill`, `integer` | Graphics Detail: Scaling (free in every mode; the window counts real pixels on a retina display, so Whole is 3x/4x there, and spirited-drive.log has its sizes) | none | integer / integer / fill (`scale_integer`) |
+| `scale` | `fill` | `fill` | `fill`, `integer` | Graphics Detail: Scaling (free in every mode; the window counts real pixels on a retina display, so Whole is 3x/4x there, and spirited-drive.log has its sizes) | none | fill / fill / fill (`scale_integer`) |
 | `fullscreen` | 0 | 0 | 0, 1 | Graphics Detail: Full Screen | none | not set |
 | `fov_adjust` | 0 | 0 | -10..+20 (degrees added to the vertical field) | Graphics Detail: Field Of View | none | not set |
 | `render_scale` | 1 | 1 | 1, 2, 3 (the 3D drawn at that many times the frame's size) | Graphics Detail: Render Scale | `TNFS_RENDER_SCALE` | 1 / 1 / 2 |
@@ -175,7 +175,7 @@ Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as
 In Stock and Restored the front end shows the original's screens: nothing of the port is drawn on them (no SETUP tile, no RECORDS face of the Video tile, no variant switches, no added cars, tracks or content; the movies keep the 4:3 frame in the middle of a wide screen, `movies_wide` 0). The menus that make the game run on a modern machine (Graphics, Controls, Online...) are in every mode. `tests/stock_screens_golden.sh` (ctest `stock_screens_golden`) holds that: it walks Game Mode, Control Central, the showcase of the player's car and of a rival's, and the track screen in each profile and compares every picture with its golden in `tests/golden/screens/<profile>/`. The goldens are the pictures of `main` (no capture of the original exe exists), looked at one by one; `UPDATE=1` makes them again.
 
 Three screens are exceptions (owner, 2026-11-23): they carry the port's own elements in Stock and Restored too.
-- **Game Mode**: the mode selector (Stock '96 / Restored '96 / Restomod), the Manage content row and the version text.
+- **Game Mode**: the mode selector (Stock '96 / Restored '96 / Restomod), the version text (the Manage content row is hidden in every mode, Exit is the third big row).
 - **Options**.
 - **Credits**.
 
@@ -208,7 +208,7 @@ All 62 columns of the table. A column that is not here is not touched by any pro
 | `bumper_mirror` | switches | 0 | 0 | 1 |
 | `bumper_radar` | switches | 0 | 0 | 1 |
 | `follow_camera` | switches | 0 | 0 | 1 |
-| `scale_integer` (`scale=integer`) | settings | 1 | 1 | 0 |
+| `scale_integer` (`scale=integer`) | settings | 0 | 0 | 0 |
 | `last_camera` | settings | 0 | 0 | 1 |
 | `replay_no_ffb` | settings | 0 | 0 | 1 |
 | `sky_fill_below` | settings | 0 | 0 | 1 |

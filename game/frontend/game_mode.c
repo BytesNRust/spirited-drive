@@ -6,9 +6,10 @@
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000, LEFT = 0x4b00, RIGHT = 0x4d00, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 /* port (dep59 step 4, L2b; the owner's reorder of 2026-11-17): the rows, in the order Up / Down walk them: the selector of the modes and
- * editions on top, then Single Player, Multiplayer (the exe's Network) and Manage content, three of one size, Exit at the bottom right;
+ * editions on top, then Single Player, Multiplayer (the exe's Network) and Exit, three of one size (the owner's 2026-11-25: Manage content is hidden in
+ * every mode, Exit takes its place; the CONTENT screen's op stays in GameModeOps for the version that brings the mods back);
  * all drawn in the game's text over the art's words. The screen opens on Single Player */
-enum { CHOICE, SINGLE, NETWORK, MANAGE, EXIT, ROWS };
+enum { CHOICE, SINGLE, NETWORK, EXIT, ROWS };
 enum { RACE = 0, LEAVE = 1, TIMED_OUT = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x1194, REST = 0x19, TOLD = 0x12c, WIDE = 0x280, ALL = 0x100 };
 
@@ -23,19 +24,16 @@ static const Row ROW[ROWS] = {
     { 0, 0x280, 96, 190, 0x140, 140 },       /* the selector: its title (text top 108), its two lines (144, 162) */
     { 0, 0x280, 191, 240, 0x140, 215 },      /* Single Player */
     { 0, 0x280, 241, 290, 0x140, 265 },      /* Multiplayer */
-    { 0, 0x280, 291, 340, 0x140, 315 },      /* Manage content */
-    { 500, 0x280, 410, 0x1e0, 580, 449 }     /* Exit: the bottom right, clear of the foot line */
+    { 0, 0x280, 291, 340, 0x140, 315 }       /* Exit */
 };
 /* 0043213c: the art's four words, covered by the port's rows */
 static const int16_t ART_Y[4] = { 0x91, 0xda, 0x122, 0x16f };
 /* the selector's thirds for the pointer: left of CHOICE_LEFT the previous choice, from CHOICE_RIGHT on the next, between them its name */
 enum { CHOICE_LEFT = 0xd5, CHOICE_RIGHT = 0x1ab };
-enum { LABEL_X = 320, TEXT_HALF_HEIGHT = 21, EXIT_RIGHT = 640 - 14, EXIT_TOP = 428, SMALL_NUM = 3, SMALL_DEN = 5 };   /* LABEL_X: the screen's vertical centre, 640 / 2 (the art's words centred at 311; the owner's 2026-11-17: centred on the axis) */
-static const char MANAGE_WORDS[] = "Manage content";
+enum { LABEL_X = 320, TEXT_HALF_HEIGHT = 21, SMALL_NUM = 3, SMALL_DEN = 5 };   /* LABEL_X: the screen's vertical centre, 640 / 2 (the art's words centred at 311; the owner's 2026-11-17: centred on the axis) */
 /* the selector's gallery arrows at fixed places, the name centred between them; the arrow's top under the title's */
 enum { ARROW_L_X = 117, ARROW_R_X = 498,   /* the arrow's ink is 8 wide, 9 in from x: its centre x + 12.5, 190.5 either side of 320 */
         ARROW_DY = 8, TITLE_DY = -32, LINE1_DY = 4, LINE2_DY = 22 };
-static const char MANAGE_LATER[] = "Editions are managed in a later version";
 enum { TEXT_DIM_STYLE = 4 };   /* text.h's TEXT_DIM: what the mode does not let the player use */
 
 enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 14, FOOTER_Y = 448, FOOTER_HEIGHT = 20, FOOTER_NUM = 3, FOOTER_DEN = 5 };   /* the small subtitle size (3/5) of the profile's lines, 14 pixels in from the left and the bottom */
@@ -108,9 +106,6 @@ static void cover_art(const GameModeOps *o)
     for (int i = 0; i < 4; i++) o->extras_cover(o->ctx, COVER_X, ART_Y[i] - COVER_HALF, COVER_W, COVER_HALF * 2);
 }
 
-/* 1 when the mode in use is Restomod's (its standard edition, 2, or an edition after it): Manage content is open there */
-static int restomod_in_use(const Menu *m) { return m->in_use >= 2; }
-
 /* "<  name  >" (lit while it is the selection) and the lines about the choice it shows under it */
 static void choice_row(const Menu *m, const GameModeOps *o)
 {
@@ -131,14 +126,6 @@ static void choice_row(const Menu *m, const GameModeOps *o)
     if (text[2][0] != 0) o->plus_text_scaled(o->ctx, 0, text[2], LABEL_X - o->plus_text_width_scaled(o->ctx, text[2], SMALL_NUM, SMALL_DEN) / 2, line2_y, SMALL_NUM, SMALL_DEN);
 }
 
-/* "Manage content", the size of the two options over it: lit while it is the selection, dimmed where the mode has no editions */
-static void manage_row(const Menu *m, const GameModeOps *o)
-{
-    if (o->choice == NULL) return;
-    const int32_t style = !restomod_in_use(m) ? TEXT_DIM_STYLE : m->selected == MANAGE;
-    o->plus_text(o->ctx, style, MANAGE_WORDS, LABEL_X - o->plus_text_width(o->ctx, MANAGE_WORDS) / 2, ROW[MANAGE].cy - TEXT_HALF_HEIGHT);
-}
-
 /* port (dep59 step 4): why Multiplayer is closed, NULL when open */
 static const char *network_closed(const GameModeOps *o) { return o->network_closed != NULL ? o->network_closed(o->ctx) : NULL; }
 
@@ -152,8 +139,7 @@ static void rows_draw(const Menu *m, const GameModeOps *o)
         o->plus_text(o->ctx, style, WORDS[i - SINGLE], LABEL_X - o->plus_text_width(o->ctx, WORDS[i - SINGLE]) / 2, ROW[i].cy - TEXT_HALF_HEIGHT);
     }
     choice_row(m, o);
-    manage_row(m, o);
-    o->plus_text(o->ctx, m->selected == EXIT, "Exit", EXIT_RIGHT - o->plus_text_width(o->ctx, "Exit"), EXIT_TOP);
+    o->plus_text(o->ctx, m->selected == EXIT, "Exit", LABEL_X - o->plus_text_width(o->ctx, "Exit") / 2, ROW[EXIT].cy - TEXT_HALF_HEIGHT);
 }
 
 static int32_t footer_width(const GameModeOps *o, const char *text)
@@ -283,23 +269,6 @@ static void came_back(Menu *m, GameModeState *st, int16_t r, const GameModeOps *
 
 static void choice_read(Menu *m, const GameModeOps *o);
 
-/* port (dep59 step 4b, T7): the CONTENT screen on the choice in use; the choices read again (editions made or deleted there), the one it
- * closed on applied (the edition just edited is the one in use), and Game Mode drawn and faded in again as after the EXTRAS screen */
-static void manage(Menu *m, const GameModeOps *o)
-{
-    const int32_t next = o->manage(o->ctx, m->in_use);
-    choice_read(m, o);
-    if (next >= 0 && next < m->count && next != m->in_use) {
-        m->shown = next;
-        settle_choice(m, o, 1);
-    }
-    o->deadline_set(o->ctx, WAIT);
-    palette_load(m, o);
-    m->redraw = 1;
-    m->fade = 1;
-    move_to(m, o);
-}
-
 /* port (dep59 step 4): the selector's state from the choice op: how many, the one in use, shown */
 static void choice_read(Menu *m, const GameModeOps *o)
 {
@@ -383,17 +352,6 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         if (st->buttons == LEFT_BUTTON && o->pointer_in_rect(o->ctx, 0, CHOICE_LEFT, ROW[CHOICE].y0, ROW[CHOICE].y1)) cycle_choice(m, o, -1);
         else if (st->buttons == LEFT_BUTTON && o->pointer_in_rect(o->ctx, CHOICE_RIGHT, WIDE, ROW[CHOICE].y0, ROW[CHOICE].y1)) cycle_choice(m, o, 1);
         else settle_choice(m, o, 0);
-        break;
-    case MANAGE:   /* port (dep59 step 4b): the CONTENT screen (with no manage op, a later version's banner); in Stock and Restored, nothing */
-        if (!restomod_in_use(m)) break;
-        port_log("mark:game_mode=manage\n");
-        if (o->manage != NULL) {
-            manage(m, o);
-            break;
-        }
-        o->banner_wait(o->ctx, MANAGE_LATER, TOLD);
-        o->deadline_set(o->ctx, WAIT);   /* as Multiplayer's banner */
-        m->redraw = 1;
         break;
     }
 }

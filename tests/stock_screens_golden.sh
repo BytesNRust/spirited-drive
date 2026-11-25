@@ -3,7 +3,7 @@
 # (SHOT) of each screen: Game Mode, Control Central, the showcase of the player's car and of a rival's, the track screen (Stock also the two results screens of a one-lap race); each is compared pixel by pixel with its golden picture in
 # tests/golden/screens/<profile>/<screen>.png (Restored at 16:9, format=16:9: <profile>-16x9). A difference fails the test: a port element that came into one of these screens, or a change of the art. When the change is meant (and looked at
 # against the original), the goldens are made again with UPDATE=1 and reviewed one by one before they are committed. Needs the CD in ORIGINAL_DIR: skipped without it.
-# EXCEPTIONS (owner 2026-11-23): three screens carry the port's own elements in Stock and Restored and are not held to the original: Game Mode (the mode selector, the Manage content row and
+# EXCEPTIONS (owner 2026-11-23): three screens carry the port's own elements in Stock and Restored and are not held to the original: Game Mode (the mode selector and
 # the version text: its goldens are taken as they are, and the footer's box is left out of the comparison), Options and Credits (not walked here). See docs/settings.md, "Stock and Restored keep the original's screens".
 # usage: [UPDATE=1] stock_screens_golden.sh TNFS REPO ORIGINAL_DIR
 set -u

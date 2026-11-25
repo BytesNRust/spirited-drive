@@ -100,7 +100,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.analog_pad, 1);   /* the owner: an axis-bound control is analog in all three, as the exe was with a joystick */
     CHECK_EQ_INT(s.format, SCREEN_4_3);
     CHECK_EQ_INT(s.refresh_hz, 30);   /* the exe's 30 steps a second, drawn once each */
-    CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
+    CHECK_EQ_INT(s.scale_integer, 0);   /* Fill: the default of all three modes (owner 2026-11-25) */
     CHECK_EQ_INT(s.last_camera + s.replay_no_ffb, 0);
     CHECK_EQ_INT(s.f3_ultra, 0);   /* the exe's three views */
     CHECK_EQ_INT(s.light_effects, 0);
@@ -130,7 +130,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.analog_pad, 1);
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
-    CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
+    CHECK_EQ_INT(s.scale_integer, 0);   /* Fill: the default of all three modes (owner 2026-11-25) */
     CHECK_EQ_INT(s.last_camera + s.replay_no_ffb, 0);
     CHECK_EQ_INT(s.render_scale, 1);
     CHECK_EQ_INT(s.light_effects, 0);
@@ -267,6 +267,10 @@ static void test_reading(void)
     CHECK_EQ_INT(port_settings_load().format, SCREEN_4_3);
     CHECK_EQ_INT(port_settings_load().fog, 0);
     CHECK_EQ_INT(port_settings_load().fullscreen, 0);
+    CHECK_EQ_INT(port_settings_load().scale_integer, 0);   /* Scaling defaults to Fill in Stock too (owner 2026-11-25) */
+    put_file("stock.cfg", "scale=integer\n");
+    CHECK_EQ_INT(port_settings_load().scale_integer, 1);   /* a player's saved Whole stays */
+    put_file("stock.cfg", "format=16:9\nfog=1\nfullscreen=0\nwarrior=1\ndifficulty=2\n");
     CHECK_EQ_INT(port_extras_load().warrior, 1);
     CHECK_EQ_INT(port_extras_load().difficulty, 1);
     /* the same in Restored: its own free ones count */

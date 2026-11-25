@@ -193,47 +193,45 @@ static void rig(Fake *f, int x, int y, int pinned)
 
 /* the rows' centres (the owner's reorder: the selector on top, the three options 50 apart under it, Exit at the foot; GAP is between
  * Manage content and Exit, on no row) */
-enum { ROW_CHOICE = 140, ROW_SINGLE = 215, ROW_MULTI = 265, ROW_MANAGE = 315, EXIT_X = 580, ROW_EXIT = 449, GAP = 370 };
+enum { ROW_CHOICE = 140, ROW_SINGLE = 215, ROW_MULTI = 265, ROW_EXIT = 315, EXIT_X = 320, GAP = 370 };
 
-/* Single Player first; Down runs Multiplayer, Manage, Exit, the selector and round; Up from Single Player is the selector */
+/* Single Player first; Down runs Multiplayer, Exit, the selector and round (Manage content is hidden: the owner's 2026-11-25); Up from Single Player is the selector */
 static void test_the_order(void)
 {
     Fake f;
     int keys[8], n = 0;
-    for (int i = 0; i < 5; i++) keys[n++] = DOWN;
+    for (int i = 0; i < 4; i++) keys[n++] = DOWN;
     rig(&f, 320, ROW_SINGLE, 0);
     run(&f, keys, n);
     CHECK_EQ_INT(f.moved_y[0], ROW_SINGLE);
     CHECK_EQ_INT(f.moved_y[1], ROW_MULTI);
-    CHECK_EQ_INT(f.moved_y[2], ROW_MANAGE);
-    CHECK_EQ_INT(f.moved_y[3], ROW_EXIT);
-    CHECK_EQ_INT(f.moved_y[4], ROW_CHOICE);
-    CHECK_EQ_INT(f.moved_y[5], ROW_SINGLE);
+    CHECK_EQ_INT(f.moved_y[2], ROW_EXIT);
+    CHECK_EQ_INT(f.moved_y[3], ROW_CHOICE);
+    CHECK_EQ_INT(f.moved_y[4], ROW_SINGLE);
     const int up[] = { UP };
     rig(&f, 320, ROW_SINGLE, 0);
     run(&f, up, 1);
     CHECK_EQ_INT(f.moved_y[1], ROW_CHOICE);
 }
 
-/* the selector on top with its lines, then Single Player, Multiplayer and Manage content 50 apart, Exit at the bottom right clear of
- * the foot line, the version at the bottom left */
+/* the selector on top with its lines, then Single Player, Multiplayer and Exit 50 apart, in one size and centred (no Manage content row), the version at
+ * the bottom left */
 static void test_the_layout(void)
 {
     Fake f;
     const int none[] = { ESCAPE };
     rig(&f, 320, ROW_SINGLE, 0);
     run(&f, none, 1);
-    CHECK(f.single.set && f.multi.set && f.title.set && f.manage.set && f.exit.set && f.version.set && f.notice.set);
-    CHECK(f.title.y < f.single.y && f.single.y < f.multi.y && f.multi.y < f.manage.y);
+    CHECK(f.single.set && f.multi.set && f.title.set && f.exit.set && f.version.set && f.notice.set);
+    CHECK(f.title.y < f.single.y && f.single.y < f.multi.y && f.multi.y < f.exit.y);
     CHECK(f.title.y > 88);   /* under the title band */
     /* the three options are one size (a big word's centre is 21 pixels below where it is drawn), 50 apart: text centres 215, 265, 315 */
     CHECK_EQ_INT(f.single.y + 21, 215);
     CHECK_EQ_INT(f.multi.y + 21, 265);
-    CHECK_EQ_INT(f.manage.y + 21, 315);
-    CHECK(f.manage.y + 42 < f.exit.y);
-    CHECK(f.exit.x + f.exit.w <= 640 - 14);   /* the right margin the version keeps on the left */
-    CHECK(f.exit.y > 400);
-    CHECK(f.exit.x > f.notice.x + f.notice.w);   /* clear of the foot line's notice */
+    CHECK_EQ_INT(f.exit.y + 21, 315);
+    CHECK_EQ_INT(f.exit.x + f.exit.w / 2, 320);   /* centred like the two over it */
+    CHECK_EQ_INT(f.manage.set, 0);   /* Manage content is not drawn in any mode */
+    CHECK(f.exit.y + 42 < f.version.y);
     CHECK_EQ_INT(f.version.x, 14);
     CHECK_EQ_INT(f.said_customize, 0);
     CHECK(strcmp(f.last_title, "<  Restomod '26  >") == 0);
@@ -355,46 +353,22 @@ static void test_clicks_show_and_the_name_applies(void)
     CHECK_EQ_INT(f.last_apply, 3);
 }
 
-/* Manage content: in Restomod (the standard or an edition) its notice; in Stock and Restored dimmed, and nothing */
-static void test_manage(void)
+/* owner 2026-11-25: Manage content is hidden in all three modes and an edition; Exit sits in its place, the third big row, and leaves; nothing opens the CONTENT screen */
+static void test_manage_is_hidden(void)
 {
     Fake f;
-    const int enter[] = { ENTER, ESCAPE };
-    rig(&f, 320, ROW_MANAGE, 1);
-    run(&f, enter, 2);
-    CHECK_EQ_INT(f.manage_banner, 1);
-    CHECK(f.timer_after_banner);   /* the banner waited the deadline out: set again, the screen does not time out to the demo at once */
-    CHECK_EQ_INT(f.result, GAME_MODE_RESULT_LEAVE);
-    CHECK(f.manage_style != STYLE_DIM);
-    rig(&f, 320, ROW_MANAGE, 1);
-    f.in_use = 3;
-    run(&f, enter, 2);
-    CHECK_EQ_INT(f.manage_banner, 1);
-    rig(&f, 320, ROW_MANAGE, 1);
-    f.in_use = 0;
-    run(&f, enter, 2);
-    CHECK_EQ_INT(f.manage_banner, 0);
-    CHECK_EQ_INT(f.manage_style, STYLE_DIM);
-    CHECK_EQ_INT(f.names_asked, 0);
-}
-
-/* step 4b, T7: Manage content opens the CONTENT screen on the choice in use, and the choice it closes on is applied (the edition just
- * edited is the one in use); in Stock and Restored it stays dim and opens nothing */
-static void test_manage_opens_content(void)
-{
-    Fake f;
-    const int enter[] = { ENTER, ESCAPE };
-    rig(&f, 320, ROW_MANAGE, 1);
-    f.manage_answer = 4;   /* closed on the second edition */
-    run(&f, enter, 2);
-    CHECK_EQ_INT(f.manages, 1);
-    CHECK_EQ_INT(f.manage_shown, 2);   /* Restomod '26 in use */
-    CHECK_EQ_INT(f.manage_banner, 0);
-    CHECK_EQ_INT(f.last_apply, 4);
-    rig(&f, 320, ROW_MANAGE, 1);
-    f.manage_answer = 4, f.in_use = 0;   /* Stock: dim, nothing opened */
-    run(&f, enter, 2);
-    CHECK_EQ_INT(f.manages, 0);
+    const int enter[] = { ENTER };
+    for (int in_use = 0; in_use <= 3; in_use++) {
+        rig(&f, 320, ROW_EXIT, 1);
+        f.manage_answer = 4;   /* a CONTENT screen exists in the rig */
+        f.in_use = in_use;
+        CHECK_EQ_INT(run(&f, enter, 1), 1);   /* Return on the third row is Exit */
+        CHECK_EQ_INT(f.manages, 0);
+        CHECK_EQ_INT(f.manage_banner, 0);
+        CHECK_EQ_INT(f.manage.set, 0);
+        CHECK_EQ_INT(f.exit.set, 1);
+        CHECK_EQ_INT(f.names_asked, 0);
+    }
 }
 
 /* dep59 step 4, T7: in an edition Multiplayer is dimmed; Return on it says why and opens nothing; in the standard edition it is as before */
@@ -440,7 +414,7 @@ static void test_the_pointer_rects(void)
     f.clicks = 1 << 3;
     run(&f, idle, 4);
     CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);
-    rig(&f, 320, GAP, 1);   /* the gap between Manage content and Exit: nothing */
+    rig(&f, 320, GAP, 1);   /* the gap under Exit: nothing */
     f.clicks = 1 << 3;
     run(&f, idle, 4);
     CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);
@@ -520,9 +494,8 @@ int main(void)
     test_leaving_the_row_applies();
     test_the_fade_only_when_the_picture_changes();
     test_clicks_show_and_the_name_applies();
-    test_manage();
+    test_manage_is_hidden();
     test_multiplayer_in_an_edition();
-    test_manage_opens_content();
     test_the_pointer_rects();
     test_the_foot_line();
     test_the_notice_is_its_own_text();

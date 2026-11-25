@@ -22,6 +22,10 @@
 #             to add it to, no file in editions/); the same zip dropped again is told as a reinstall, not an update; New left with
 #             Escape makes no edition; Install... with no window picks nothing (the log says so) and the screen goes on; Done.
 # usage: content_menus.sh TNFS STUDIO ORIGINAL_DIR PORT_DATA_DIR [PART] (no PART: all of them, in turn). KEEP=1 keeps the scratch folder.
+# owner 2026-11-25: Manage content is hidden in every mode (Game Mode's third row is Exit now) and nothing else reaches the CONTENT screen, so the walk
+# cannot start: skipped (77) until the screen has an entrance again; the steps below stay as they were for that version.
+echo "skip: Manage content is hidden in Game Mode"
+exit 77
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
 tnfs=$(abs "$1")
