@@ -5,7 +5,11 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+
+/* the line a run opens with when the one before it did not end cleanly (the size of the file it makes is what the first test counts) */
+#define UNCLEAN_LINE "previous run: did not end cleanly (kept as spirited-drive-unclean.log)\n"
 
 /* what `f` wrote to stderr / stdout, read back through a file */
 static long written(void (*f)(void), int fd)
@@ -45,7 +49,7 @@ static void test_log_file(void)
     CHECK(mkdtemp(dir) != NULL);
     char path[200], old[210];
     snprintf(path, sizeof path, "%s/spirited-drive.log", dir);
-    snprintf(old, sizeof old, "%s.1", path);
+    snprintf(old, sizeof old, "%s/spirited-drive-1.log", dir);
     port_log_set_verbose(0);
     CHECK_EQ_INT(port_log_open_file(path), 1);
     CHECK_EQ_INT((int)written(log_one, 2), 0);   /* the console is as quiet as it was */
@@ -56,7 +60,7 @@ static void test_log_file(void)
     CHECK_EQ_INT((int)size_of(old), -1);
     CHECK_EQ_INT(port_log_open_file(path), 1);   /* the next run */
     CHECK_EQ_INT((int)size_of(old), 26);          /* the last one kept */
-    CHECK_EQ_INT((int)size_of(path), 0);
+    CHECK_EQ_INT((int)size_of(path), (int)strlen(UNCLEAN_LINE));   /* its first line says it did not end cleanly (it was not closed) */
     for (long n = 0; n < PORT_LOG_FILE_MAX / 1000 + 50; n++)
         port_log("%0999d\n", 7);
     CHECK(size_of(path) < PORT_LOG_FILE_MAX + 2000);   /* the limit holds (at most a line over), with its own line */
@@ -69,6 +73,119 @@ static void test_log_file(void)
     rmdir(dir);
 }
 
+/* the whole text of `path`, "" when it is not there */
+static char *text_of(const char *path, char *buf, size_t cap)
+{
+    buf[0] = '\0';
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return buf;
+    const size_t n = fread(buf, 1, cap - 1, f);
+    buf[n] = '\0';
+    fclose(f);
+    return buf;
+}
+
+static void numbered(const char *dir, int n, char *out, size_t cap)
+{
+    if (n == 0) snprintf(out, cap, "%s/spirited-drive.log", dir);
+    else if (n > 0) snprintf(out, cap, "%s/spirited-drive-%d.log", dir, n);
+    else snprintf(out, cap, "%s/spirited-drive-unclean.log", dir);
+}
+
+/* five runs are kept: this one and the four before it, in files a bug report can attach (.log); a sixth run drops the oldest */
+static void test_five_runs(void)
+{
+    char dir[] = "/tmp/tnfs_port_log_five_XXXXXX";
+    CHECK(mkdtemp(dir) != NULL);
+    char path[220], other[220], text[256];
+    numbered(dir, 0, path, sizeof path);
+    port_log_set_verbose(0);
+    for (int run = 1; run <= 6; run++) {
+        CHECK_EQ_INT(port_log_open_file(path), 1);
+        port_log("run %d\n", run);
+        port_log_exit();
+    }
+    CHECK(strstr(text_of(path, text, sizeof text), "run 6\n") != NULL);
+    for (int n = 1; n <= 4; n++) {
+        numbered(dir, n, other, sizeof other);
+        char want[16];
+        snprintf(want, sizeof want, "run %d\n", 6 - n);
+        CHECK(strstr(text_of(other, text, sizeof text), want) != NULL);
+    }
+    snprintf(other, sizeof other, "%s/spirited-drive-5.log", dir);
+    CHECK_EQ_INT((int)size_of(other), -1);   /* only five: the first run is gone */
+    for (int n = -1; n <= 5; n++) {
+        numbered(dir, n, other, sizeof other);
+        unlink(other);
+    }
+    rmdir(dir);
+}
+
+/* the marker: a run that says "exit: clean" ended; one that does not (a crash, a kill, a power cut) is said to have not, in the next run's first line, and its log is kept apart */
+static void test_unclean_marker(void)
+{
+    char dir[] = "/tmp/tnfs_port_log_unclean_XXXXXX";
+    CHECK(mkdtemp(dir) != NULL);
+    char path[220], one[220], unclean[220], text[512];
+    numbered(dir, 0, path, sizeof path);
+    numbered(dir, 1, one, sizeof one);
+    numbered(dir, -1, unclean, sizeof unclean);
+    port_log_set_verbose(0);
+    CHECK_EQ_INT(port_log_open_file(path), 1);   /* the first run ever: nothing before it to be unclean */
+    CHECK_EQ_INT((int)size_of(path), 0);
+    port_log("run 1\n");
+    port_log_exit();
+    CHECK(strstr(text_of(path, text, sizeof text), "run 1\nexit: clean\n") != NULL);
+    CHECK_EQ_INT(port_log_open_file(path), 1);   /* after a clean end: no marker */
+    CHECK_EQ_INT((int)size_of(path), 0);
+    CHECK_EQ_INT((int)size_of(unclean), -1);
+    port_log("run 2\n");                        /* run 2 is never closed */
+    CHECK_EQ_INT(port_log_open_file(path), 1);
+    CHECK(strcmp(text_of(path, text, sizeof text), UNCLEAN_LINE) == 0);
+    CHECK(strstr(text_of(unclean, text, sizeof text), "run 2\n") != NULL);   /* its log is kept apart */
+    CHECK(strstr(text_of(one, text, sizeof text), "run 2\n") != NULL);       /* and in its place in the five */
+    port_log("run 3\n");
+    port_fatal("fatal\n");                       /* a fatal error ends the run on purpose: it says so, and that counts as an end */
+    port_log_exit();
+    CHECK(strstr(text_of(path, text, sizeof text), "exit: after a fatal error\n") != NULL);
+    CHECK_EQ_INT(port_log_open_file(path), 1);
+    CHECK_EQ_INT((int)size_of(path), 0);
+    CHECK(strstr(text_of(unclean, text, sizeof text), "run 2\n") != NULL);   /* the unclean one stays until another comes */
+    port_log("run 4\n");
+    CHECK_EQ_INT(port_log_open_file(path), 1);   /* run 4 was not closed */
+    CHECK(strstr(text_of(unclean, text, sizeof text), "run 4\n") != NULL);   /* the next unclean one replaced it */
+    CHECK(strstr(text_of(unclean, text, sizeof text), "run 2\n") == NULL);
+    for (int n = -1; n <= 4; n++) {
+        numbered(dir, n, one, sizeof one);
+        unlink(one);
+    }
+    rmdir(dir);
+}
+
+/* a log that stopped at the size limit still gets its end */
+static void test_exit_after_limit(void)
+{
+    char dir[] = "/tmp/tnfs_port_log_limit_XXXXXX";
+    CHECK(mkdtemp(dir) != NULL);
+    char path[220], text[8];
+    numbered(dir, 0, path, sizeof path);
+    port_log_set_verbose(0);
+    CHECK_EQ_INT(port_log_open_file(path), 1);
+    for (long n = 0; n < PORT_LOG_FILE_MAX / 1000 + 50; n++)
+        port_log("%0999d\n", 7);
+    port_log_exit();
+    FILE *f = fopen(path, "rb");
+    CHECK(f != NULL);
+    char tail[32] = "";
+    fseek(f, -12, SEEK_END);
+    CHECK(fread(tail, 1, 12, f) == 12);
+    fclose(f);
+    CHECK(strstr(tail, "exit: clean") != NULL);
+    (void)text;
+    unlink(path);
+    rmdir(dir);
+}
+
 /* the details (port_log_detail): a line for a developer, not for the player or a bug report: in the file only with TNFS_VERBOSE, and on the console then too */
 static void detail_one(void) { port_log_detail("detail %d\n", 1); }
 static void test_detail(void)
@@ -77,7 +194,7 @@ static void test_detail(void)
     CHECK(mkdtemp(dir) != NULL);
     char path[200], old[210];
     snprintf(path, sizeof path, "%s/spirited-drive.log", dir);
-    snprintf(old, sizeof old, "%s.1", path);
+    snprintf(old, sizeof old, "%s/spirited-drive-1.log", dir);
     port_log_set_verbose(0);
     CHECK_EQ_INT(port_log_open_file(path), 1);
     CHECK_EQ_INT((int)written(detail_one, 2), 0);   /* quiet on the console */
@@ -123,6 +240,9 @@ static void test_watch(void)
 int main(void)
 {
     test_detail();
+    test_five_runs();
+    test_unclean_marker();
+    test_exit_after_limit();
     test_watch();
     unsetenv("TNFS_VERBOSE");
     port_log_set_verbose(0);

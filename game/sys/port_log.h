@@ -19,6 +19,12 @@
 enum { PORT_LOG_FILE_MAX = 4 * 1024 * 1024 };
 int port_log_open_file(const char *path);
 void port_log_close_file(void);
+/* port_log_open_file keeps FIVE runs, this one and the four before it: `path` and, when it ends in ".log" (as the game's does), `path` with "-1.log" to "-4.log" in place of ".log" (the
+ * newest first; else `path` with ".1" to ".4" added), files a bug report can attach. A run ends with the line "exit: clean" (port_log_exit, which an atexit hook calls once a file is
+ * open; "exit: after a fatal error" when port_fatal was said), even after the size limit. A run whose log has no "exit:" line did not end (a crash, a kill, a power cut): the next run
+ * opens with the line "previous run: did not end cleanly (kept as ...-unclean.log)" and keeps that log in "-unclean.log" too, which no later rotation drops (the next unclean one
+ * replaces it). */
+void port_log_exit(void);
 
 /* port (test harness): the scripted input (TNFS_INPUT_SCRIPT's WAIT, platform_sdl3.c) waits for a line the game logs. port_log_watch arms a watch for `text` (at most 63 bytes);
  * port_log_watch_hit is 1 once a line containing it has gone through port_log, port_out or port_fatal since, whether or not the console shows it. Lines logged before the watch was

@@ -10,23 +10,107 @@ static int verbose = -1;   /* -1: not read yet */
 static FILE *file;
 static long file_bytes;
 
+enum { RUNS_KEPT = 5, COPY_CHUNK = 16384 };   /* this run and the four before it */
+static int fatal_said;                        /* port_fatal ran in this run: its end is on purpose */
+static int hook_set;                          /* the atexit hook is set (once) */
+static char log_path[1100];                   /* what this run opened */
+
+/* the file of the run `n` back (0 is `path` itself): "x.log" gives "x-1.log" ... ; a name without ".log" gets ".1" ... */
+static void numbered(const char *path, int n, char *out, size_t cap)
+{
+    const size_t len = strlen(path);
+    if (n == 0) snprintf(out, cap, "%s", path);
+    else if (len > 4 && strcmp(path + len - 4, ".log") == 0) snprintf(out, cap, "%.*s-%d.log", (int)(len - 4), path, n);
+    else snprintf(out, cap, "%s.%d", path, n);
+}
+
+/* the file kept for a run that did not end: "x-unclean.log" ("x.unclean" without the ".log") */
+static void unclean_name(const char *path, char *out, size_t cap)
+{
+    const size_t len = strlen(path);
+    if (len > 4 && strcmp(path + len - 4, ".log") == 0) snprintf(out, cap, "%.*s-unclean.log", (int)(len - 4), path);
+    else snprintf(out, cap, "%s.unclean", path);
+}
+
+/* 1 when the log at `path` has a line "exit: ..." (its last 4 KB are looked at: it is the last thing a run writes), 0 when it has none or is not there */
+static int log_has_end(const char *path, int *exists)
+{
+    FILE *f = fopen(path, "rb");
+    *exists = f != NULL;
+    if (f == NULL) return 0;
+    char tail[4096 + 1];
+    fseek(f, 0, SEEK_END);
+    const long size = ftell(f);
+    fseek(f, size > 4096 ? size - 4096 : 0, SEEK_SET);
+    const size_t n = fread(tail, 1, 4096, f);
+    fclose(f);
+    tail[n] = '\0';
+    for (const char *line = tail; line != NULL; line = strchr(line, '\n'), line = line != NULL ? line + 1 : NULL)
+        if (strncmp(line, "exit: ", 6) == 0) return 1;
+    return 0;
+}
+
+static void copy_file(const char *from, const char *to)
+{
+    FILE *in = fopen(from, "rb");
+    if (in == NULL) return;
+    FILE *out = fopen(to, "wb");
+    if (out != NULL) {
+        char chunk[COPY_CHUNK];
+        size_t n;
+        while ((n = fread(chunk, 1, sizeof chunk, in)) > 0 && fwrite(chunk, 1, n, out) == n) {}
+        fclose(out);
+    }
+    fclose(in);
+}
+
+static const char *base_name(const char *path)
+{
+    const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
+    if (back != NULL && (slash == NULL || back > slash)) slash = back;
+    return slash != NULL ? slash + 1 : path;
+}
+
+/* the runs move up one place (the oldest goes); returns 1 when the run that was `path` did not end */
+static int rotate(const char *path)
+{
+    int exists;
+    const int ended = log_has_end(path, &exists);
+    if (!exists) return 0;
+    char from[1100], to[1100];
+    if (!ended) {
+        unclean_name(path, to, sizeof to);
+        remove(to);
+        copy_file(path, to);   /* the log of the run that did not end stays beyond the five */
+    }
+    numbered(path, RUNS_KEPT - 1, to, sizeof to);
+    remove(to);   /* Windows' rename does not replace */
+    for (int n = RUNS_KEPT - 2; n >= 0; n--) {
+        numbered(path, n, from, sizeof from);
+        numbered(path, n + 1, to, sizeof to);
+        remove(to);
+        rename(from, to);
+    }
+    return !ended;
+}
+
 int port_log_open_file(const char *path)
 {
     port_log_close_file();
     if (path == NULL || path[0] == '\0') return 0;
-    char old[1100];
-    if (snprintf(old, sizeof old, "%s.1", path) < (int)sizeof old) {   /* the last run's, if there is one */
-        FILE *last = fopen(path, "rb");
-        if (last != NULL) {
-            fclose(last);
-            remove(old);   /* Windows' rename does not replace */
-            rename(path, old);
-        }
-    }
+    const int unclean = rotate(path);
     file = fopen(path, "wb");   /* binary: the same bytes, and the limit counts the same, on every system */
     if (file == NULL) return 0;
     setvbuf(file, NULL, _IOLBF, 0);   /* a crash keeps what was said */
     file_bytes = 0;
+    fatal_said = 0;
+    snprintf(log_path, sizeof log_path, "%s", path);
+    if (!hook_set) hook_set = atexit(port_log_exit) == 0;
+    if (unclean) {
+        char kept[1100];
+        unclean_name(path, kept, sizeof kept);
+        port_log("previous run: did not end cleanly (kept as %s)\n", base_name(kept));
+    }
     return 1;
 }
 
@@ -34,6 +118,13 @@ void port_log_close_file(void)
 {
     if (file != NULL) fclose(file);
     file = NULL;
+}
+
+void port_log_exit(void)
+{
+    if (file == NULL) return;
+    fputs(fatal_said ? "exit: after a fatal error\n" : "exit: clean\n", file);   /* past the size limit too: it is how the next run knows this one ended */
+    port_log_close_file();
 }
 
 static char watch_text[64];
@@ -116,6 +207,7 @@ void port_out(const char *format, ...)
 
 void port_fatal(const char *format, ...)
 {
+    fatal_said = 1;
     va_list args, copy;
     va_start(args, format);
     va_copy(copy, args);

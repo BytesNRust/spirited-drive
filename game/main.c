@@ -41,6 +41,7 @@
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/log_header.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_old_files.h"
 #include "game/sys/port_profile.h"
@@ -326,7 +327,7 @@ static int run_game(const Options *opt)
 
 /* port (the first-run wizard): --data as given, else the player's own copy of the CD (<user dir>/gamedata), else a development build's original/, else the wizard asks for the
  * CD's folder and makes the copy */
-static int resolve_data_root(const Options *opt, char *out, size_t out_size, int *data_copied)
+static int resolve_data_root(const Options *opt, char *out, size_t out_size, int *data_copied, const char **kind)
 {
     char copy[1024];
     const int has_copy = first_run_user_copy(copy, sizeof copy);
@@ -335,11 +336,14 @@ static int resolve_data_root(const Options *opt, char *out, size_t out_size, int
 #else
     const char *const dev = NULL;
 #endif
-    if (data_root_resolve(opt->data_explicit ? opt->data_root : NULL, has_copy ? copy : NULL, dev, out, out_size) != DATA_ROOT_NEEDS_SETUP) return 1;
+    const DataRootSource source = data_root_resolve(opt->data_explicit ? opt->data_root : NULL, has_copy ? copy : NULL, dev, out, out_size);
+    *kind = source == DATA_ROOT_EXPLICIT ? "the folder given with --data" : source == DATA_ROOT_USER_COPY ? "your copy of the CD" : "the development original/ folder";
+    if (source != DATA_ROOT_NEEDS_SETUP) return 1;
     if (!has_copy || !first_run_setup(copy)) {
         port_fatal("no game data: run it once without --data on a machine with a display and choose the CD's folder, or give --data DIR\n");
         return 0;
     }
+    *kind = "your copy of the CD, made on this start";
     *data_copied = 1;   /* port: counted as data_ready once the mods directory is in place (below) */
     snprintf(out, out_size, "%s", copy);
     return 1;
@@ -415,7 +419,8 @@ int main(int argc, char **argv)
     int ok;
     static char data_root[1024];
     int data_copied = 0;
-    if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
+    const char *data_kind = "unknown";
+    if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied, &data_kind)) return EXIT_FAILURE;
     opt.data_root = data_root;
     {   /* port: the tables of the original's exe, from the player's own copy */
         char tables_error[1200];
@@ -425,7 +430,8 @@ int main(int argc, char **argv)
         }
     }
     port_old_files_migrate();   /* before any setting is read, and before there are threads */
-    if (!mod_set_start(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, then the edition in use's; followed with the settings (mod_set.h) */
+    if (!mod_set_start(opt.data_root, opt.mods)) return EXIT_FAILURE;
+    log_header_write(opt.data_root, data_kind);   /* port: the mode and the data folder, at the head of the log (the settings are read by now) */   /* port: --mods DIR, then the edition in use's; followed with the settings (mod_set.h) */
     if (!resolve_car(&opt)) return EXIT_FAILURE;
     if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to the player's folder (--user DIR) */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);

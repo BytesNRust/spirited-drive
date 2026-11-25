@@ -3,6 +3,7 @@
 
 #include "formats/modpath.h"
 #include "formats/validate.h"
+#include "game/platform/os_info.h"
 #include "game/platform/window_fit.h"
 #include "game/sys/key_latch.h"
 #include "game/sys/data_path.h"
@@ -18,6 +19,7 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -62,8 +64,15 @@ void sdl3_open_log(void)
 #else
     port_log(GAME_NAME " (no version)\n");
 #endif
-    port_log("system: %s, SDL %d.%d.%d, %d logical cpus\n", SDL_GetPlatform(), SDL_VERSIONNUM_MAJOR(SDL_GetVersion()),
-             SDL_VERSIONNUM_MINOR(SDL_GetVersion()), SDL_VERSIONNUM_MICRO(SDL_GetVersion()), SDL_GetNumLogicalCPUCores());
+    char os[64];
+    os_info_version(os, sizeof os);
+    const time_t now = time(NULL);
+    const struct tm *const local = localtime(&now);
+    char when[32] = "unknown";
+    if (local != NULL) strftime(when, sizeof when, "%Y-%m-%d %H:%M:%S", local);
+    port_log("started: %s (local time)\n", when);
+    port_log("system: %s %s, %s build, SDL %d.%d.%d, %d logical cpus, %d MB of memory\n", SDL_GetPlatform(), os, os_info_build_arch(), SDL_VERSIONNUM_MAJOR(SDL_GetVersion()),
+             SDL_VERSIONNUM_MINOR(SDL_GetVersion()), SDL_VERSIONNUM_MICRO(SDL_GetVersion()), SDL_GetNumLogicalCPUCores(), SDL_GetSystemRAM());
     port_log("log: %s\n", path);
 }
 
