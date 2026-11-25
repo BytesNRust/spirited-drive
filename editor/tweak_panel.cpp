@@ -164,8 +164,9 @@ void tweak_panel(App *a)
             const unsigned stamp = a->kind == APP_KIND_CAR ? a->mask.generation : a->tmask_serial;
             static unsigned seen = 0;
             static char seen_dir[APP_PATH] = "";
-            if ((!a->tweak_st_ok && a->tweak_why[0] == '\0') || stamp != seen || strcmp(seen_dir, a->dir) != 0 || (a->kind == APP_KIND_LIGHT && a->tmask_serial != a->tweak_seen)) {
+            if (a->tweak_stale || (!a->tweak_st_ok && a->tweak_why[0] == '\0') || stamp != seen || strcmp(seen_dir, a->dir) != 0 || (a->kind == APP_KIND_LIGHT && a->tmask_serial != a->tweak_seen)) {
                 seen = stamp;
+                a->tweak_stale = 0;
                 snprintf(seen_dir, sizeof seen_dir, "%s", a->dir);
                 app_tweak_refresh(a);
             }

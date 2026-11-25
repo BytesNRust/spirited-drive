@@ -19,7 +19,7 @@ t=$work/ws/tweaks/cy1-tweak
 zip=$t/build/cy1-tweak.zip
 
 # Save makes the tweak again: the panel's status says changed right after Save, with no Check, Apply or reopening in between
-studio --frames 60 --steps tweak-open-row:CY1,tweak-shown,sun:110,25,65,save,tweak-shown || fail "Save refresh: $(tail -3 "$work/log")"
+studio --frames 60 --steps tweak-open-row:CY1,tweak-shown,sun:110,25,65,save,poll-wait:1,tweak-shown || fail "Save refresh: $(tail -3 "$work/log")"
 grep -q '^tweak shown: same as the game' "$work/log" || fail "a tweak not changed yet is not the game's: $(grep shown "$work/log")"
 [ "$(grep -c '^tweak shown: ' "$work/log")" -eq 2 ] && ! grep '^tweak shown: ' "$work/log" | tail -n 1 | grep -q 'same as the game' || fail "Save did not refresh the tweak: $(grep shown "$work/log")"
 

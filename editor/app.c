@@ -637,7 +637,7 @@ static int app_save_inner(App *a);
 int app_save(App *a)
 {
     const int ok = app_save_inner(a);
-    if (ok && app_tweak_active(a)) app_tweak_refresh(a);   /* the tweak is made again from what was just saved (once, here: nothing is read per frame) */
+    if (ok) a->tweak_stale = 1;   /* the Tweak panel makes the tweak again from what was just saved, once (app.c is linked by unit tests that have no tweak code) */
     return ok;
 }
 

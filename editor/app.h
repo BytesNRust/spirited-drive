@@ -163,6 +163,7 @@ typedef struct {
     int game_asked;              /* the first start's question about where the game is was answered (the game located, or Not now): never asked again */
     int tweak_list;              /* the Edit tweak list is on the main menu: 0 no, 1 the cars, 2 the tracks */
     TweakRow tweak_row[TWEAK_ROWS];   /* its rows, cars then tracks (app_tweak_list_refresh) */
+    int tweak_stale;             /* a Save happened: the Tweak panel makes the tweak again, once */
     int tweak_rows, tweak_pick;  /* how many, and the one chosen (an index of tweak_row; -1 for none) */
     TweakStatus tweak_st;        /* the Tweak panel's list: the open tweak against the game repo (app_tweak_refresh) */
     int tweak_st_ok;             /* tweak_st is of the open tweak; else tweak_why says why not */
