@@ -332,7 +332,7 @@ static void test_the_real_iso(void)
     DataCheck c;
     CHECK_EQ_INT(data_check_iso(iso, &c), 1);
     CHECK_EQ_INT(c.matched, DATA_MANIFEST_COUNT);
-    char base[] = "/tmp/tnfs_real_iso_XXXXXX", dest[700], cmd[800];
+    char base[] = "/tmp/tnfs_real_iso_XXXXXX", dest[700];
     CHECK(mkdtemp(base) != NULL);
     snprintf(dest, sizeof dest, "%s/gamedata", base);
     CHECK(data_copy_iso_size(iso, c.root) > 0);
