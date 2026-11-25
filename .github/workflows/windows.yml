@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Windows, to measure (plan W1): builds everything and runs every test with MSYS2's UCRT64 gcc, and reports what fails
+# instead of stopping at the first thing: the build keeps going past a broken target (ninja -k 0) and ctest runs all.
+# The job summary lists the failing build targets and the failing tests; the logs go up as an artifact.
+# Only on the ci/windows-build branch and by hand (Actions > Windows > Run workflow) until it is in the CI proper.
+# Tests that need the CD's data skip themselves (there is no game data in CI).
+name: Windows
+
+on:
+  push:
+    branches: ['ci/windows-**']
+    paths-ignore: ['**/*.md', 'docs/**', 'notes/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  msys2-ucrt64:
+    name: windows ucrt64 gcc
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          persist-credentials: false
+      - uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c   # v2.34.0
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-sdl3
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-ccache
+            git
+      - name: Configure
+        run: |
+          mkdir -p out
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee out/configure.log
+          test "${PIPESTATUS[0]}" -eq 0
+      - name: Build (keeps going)
+        id: build
+        continue-on-error: true
+        run: |
+          cmake --build build -- -k 0 2>&1 | tee out/build.log
+          test "${PIPESTATUS[0]}" -eq 0
+      - name: Test (all of them)
+        id: test
+        continue-on-error: true
+        run: |
+          ctest --test-dir build --output-on-failure --timeout 300 -j "$(nproc)" 2>&1 | tee out/ctest.log
+          test "${PIPESTATUS[0]}" -eq 0
+      - name: What fails
+        if: always()
+        run: |
+          {
+            echo "## Windows (UCRT64 gcc): build ${{ steps.build.outcome }}, tests ${{ steps.test.outcome }}"
+            echo
+            echo "### Build targets that failed"
+            grep -E '^FAILED: ' out/build.log | sed 's/^FAILED: //' | sort -u | sed 's/^/- `/; s/$/`/' || true
+            echo
+            echo "### First error of each failed target (cut)"
+            echo '```'
+            grep -E 'error:|undefined reference|fatal error' out/build.log | sort -u | head -80 | cut -c1-220 || true
+            echo '```'
+            echo
+            echo "### Tests that failed"
+            grep -E '^ *[0-9]+/[0-9]+ Test +#[0-9]+: .*\*\*\*|^\s+[0-9]+ - ' out/ctest.log | sed 's/^ *//' | sort -u | head -300 | sed 's/^/- /' || true
+            echo
+            echo "### ctest summary"
+            grep -E 'tests passed|tests failed|Total Test time' out/ctest.log || echo "(no ctest summary: the build did not leave a test run)"
+            echo
+            echo "Warnings in the build: $(grep -c 'warning:' out/build.log || true)"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        if: always()
+        with:
+          name: windows-ucrt64-logs
+          path: out/
+          if-no-files-found: warn
+      - name: Fail the job when anything failed
+        if: steps.build.outcome != 'success' || steps.test.outcome != 'success'
+        run: |
+          echo "build: ${{ steps.build.outcome }}, tests: ${{ steps.test.outcome }} (the list is in the summary)"
+          exit 1
