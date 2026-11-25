@@ -40,7 +40,7 @@ static void choose_profile(void)
 {
     static const Profile ORDER[3] = { PROFILE_RESTOMOD, PROFILE_RESTORED, PROFILE_STOCK };
     char text[1500];
-    int n = snprintf(text, sizeof text, "Choose how the game looks and plays. You can change it any time (Options).\n\n");
+    int n = snprintf(text, sizeof text, "Choose how the game looks and plays. You can change it any time on the top row of the Game Mode screen.\n\n");
     for (int i = 0; i < 3 && n > 0 && (size_t)n < sizeof text; i++)
         n += snprintf(text + n, sizeof text - (size_t)n, "%s\n%s\n%s\n\n", port_profile_title(ORDER[i]), port_profile_line1(ORDER[i]), port_profile_line2(ORDER[i]));
     SDL_MessageBoxButtonData buttons[3];
