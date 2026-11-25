@@ -81,11 +81,11 @@ static void filter_image(const uint8_t *pixels, uint32_t w, uint32_t h, int bpp,
     uint8_t *best = malloc(row), *cand = malloc(row);
     for (uint32_t y = 0; y < h; ++y) {
         const uint8_t *cur = pixels + (size_t)y * row, *prev = y > 0 ? cur - row : NULL;
-        long best_sum = -1;
+        int64_t best_sum = -1;   /* 64 bits: long is 32 on Windows, and a row's sum is 128 a byte */
         int best_f = 0;
         for (int f = 0; f < 5 && best != NULL && cand != NULL; ++f) {
             filter_row(cur, prev, row, bpp, f, cand);
-            long sum = 0;
+            int64_t sum = 0;
             for (size_t i = 0; i < row; ++i) sum += cand[i] < 128 ? cand[i] : 256 - cand[i];
             if (best_sum < 0 || sum < best_sum) best_sum = sum, best_f = f, memcpy(best, cand, row);
         }
