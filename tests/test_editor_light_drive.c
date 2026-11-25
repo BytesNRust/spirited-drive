@@ -91,6 +91,32 @@ static void test_playable_node(void)
     CHECK_EQ_INT(light_drive_node("AL1", 100, 50), 50);        /* a road too short for a stage's race (a test fixture): left as it is */
 }
 
+/* the drive's render scale is the player's own (1, 2 or 3; 2 with none set), and the window, 16:9 and the light effects stay forced */
+static void test_drive_render_scale(void)
+{
+    static const struct { const char *player_text; int want; } CASES[] = {
+        { "render_scale=2\nformat=4:3\n", 2 }, { "render_scale=1\nformat=4:3\n", 1 }, { "render_scale=3\n", 3 }, { "fov_adjust=10\n", 2 }, { NULL, 2 } };
+    for (int i = 0; i < 5; ++i) {
+        char player[600], user[600], path[700], why[LIGHT_DRIVE_WHY] = "";
+        snprintf(player, sizeof player, "%s/scale_player%d", dir, i), snprintf(user, sizeof user, "%s/scale_user%d", dir, i);
+        mkdir(player, 0700), mkdir(user, 0700);
+        if (CASES[i].player_text != NULL) {
+            snprintf(path, sizeof path, "%s/restomod.cfg", player);
+            write_text(path, CASES[i].player_text, 0);
+        }
+        car_race_set_player(player);
+        CHECK(car_race_user_files(user, 0, NULL, why, sizeof why) && car_race_player_whole(user, why, sizeof why) && car_race_force_max_look(user, why, sizeof why));
+        snprintf(path, sizeof path, "%s/restomod.cfg", user);
+        const char *text = read_all(path);
+        char want[32];
+        snprintf(want, sizeof want, "render_scale=%d\n", CASES[i].want);
+        const char *first = strstr(text, "render_scale=");
+        CHECK(first != NULL && strstr(first + 1, "render_scale=") == NULL && strncmp(first, want, strlen(want)) == 0);   /* one line, the player's */
+        CHECK(strstr(text, "format=16:9\n") != NULL && strstr(text, "fullscreen=0\n") != NULL && strstr(text, "lamp_halos=1\n") != NULL && strstr(text, "sun_shadow=1\n") != NULL);   /* the rest is still forced */
+    }
+    car_race_set_player(NULL);
+}
+
 static void test_command(void)
 {
     char *const base[] = { "PATH=/usr/bin", "TNFS_PERSON=1", "SDL_VIDEO_DRIVER=dummy", "KEEP_ME=yes", NULL };
@@ -182,14 +208,14 @@ static void test_job(void)
     char cfg[EXPORT_PATH + 64];
     snprintf(cfg, sizeof cfg, "%s/user/restomod.cfg", scratch);
     CHECK(strstr(read_all(cfg), "fov_adjust=10\n") != NULL && strstr(read_all(cfg), "fullscreen=1") == NULL);
-    /* whatever the person set, the drive is 16:9 at the top render scale with every effect of Restomod on (the profile's own, written out), and the profile is Restomod */
+    /* whatever the person set, the drive is 16:9 at the person's own render scale (here 1) with every effect of Restomod on (the profile's own, written out), and the profile is Restomod */
     char *const text = read_all(cfg);
-    CHECK(strstr(text, "format=16:9\n") != NULL && strstr(text, "render_scale=3\n") != NULL && strstr(text, "lamp_flares=1\n") != NULL && strstr(text, "body_shine=4\n") != NULL);
+    CHECK(strstr(text, "format=16:9\n") != NULL && strstr(text, "render_scale=1\n") != NULL && strstr(text, "lamp_flares=1\n") != NULL && strstr(text, "body_shine=4\n") != NULL);
     CHECK(strstr(text, "sun_shadow=1\n") != NULL && strstr(text, "lamp_halos=1\n") != NULL && strstr(text, "shine_soft=1\n") != NULL && strstr(text, "reflectors=1\n") != NULL);
-    CHECK(strstr(text, "format=4:3") == NULL && strstr(text, "render_scale=1") == NULL && strstr(text, "lamp_flares=0") == NULL && strstr(text, "body_shine=0") == NULL && strstr(text, "sun_shadow=0") == NULL);
+    CHECK(strstr(text, "format=4:3") == NULL && strstr(text, "render_scale=3") == NULL && strstr(text, "lamp_flares=0") == NULL && strstr(text, "body_shine=0") == NULL && strstr(text, "sun_shadow=0") == NULL);
     char port[EXPORT_PATH + 64];
     snprintf(port, sizeof port, "%s/user/port.cfg", scratch);
-    CHECK(strstr(read_all(port), "profile=restomod\n") != NULL && strstr(read_all(port), "format=4:3") == NULL && strstr(read_all(port), "render_scale=1") == NULL);
+    CHECK(strstr(read_all(port), "profile=restomod\n") != NULL && strstr(read_all(port), "format=4:3") == NULL && strstr(read_all(port), "render_scale") == NULL);
     /* the person's whole mode file is what the drive reads (not only the graphics keys), and their controls: every key they set but the ones the drive fixes */
     const char *const whole = read_all(cfg);
     CHECK(strstr(whole, "wipers=0\n") != NULL && strstr(whole, "analog_pad=1\n") != NULL && strstr(whole, "units=kmh\n") != NULL && strstr(whole, "fov_adjust=10\n") != NULL);
@@ -260,6 +286,7 @@ int main(int argc, char **argv)
     write_text(fake, FAKE, 1);
     test_weather_words();
     test_playable_node();
+    test_drive_render_scale();
     test_command();
     test_job();
     test_ends();

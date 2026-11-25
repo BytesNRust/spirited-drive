@@ -1,5 +1,5 @@
 #!/bin/sh
-# The Track light test drive takes the player's own game and fixes only what it must (window, 16:9, the top render scale, the light's effects), and none of that outlives the race:
+# The Track light test drive takes the player's own game and fixes only what it must (window, 16:9, the light's effects; the render scale is the player's), and none of that outlives the race:
 # the scratch folder is made as the Studio makes it (test_editor_light_drive --scratch <player> <scratch>) from a player folder that is 21:9, full screen, render scale 1, with a gamepad
 # map; the real game runs one lap to its results and the best totals and is left. Checks: the race window is 16:9, the menus after the results are 16:9 too (never another shape), the
 # gamepad's map the game reads is the player's, and the player's files are byte for byte as they were. Exit 77 (skipped) without the CD's data.
@@ -25,11 +25,11 @@ for race in 1 2; do   # the next race too: nothing fixed is left in the scratch 
     [ $? -eq 0 ] || fail "race $race ended with a status"
     log="$work/user/spirited-drive.log"
     grep -q "mark:results=best_totals" "$log" || fail "race $race did not reach the results"
-    # the windows: created at the scratch's 16:9, the race's frame 16:9 (render scale 3), the menus after it 16:9 again
+    # the windows: created at the scratch's 16:9, the race's frame 16:9 (the player's render scale 1), the menus after it 16:9 again
     sizes=$(grep -E "window (created|reconfigured)" "$log" | sed -n 's/.* for \([0-9]*\)x\([0-9]*\)$/\1 \2/p')
     [ -n "$sizes" ] || fail "race $race logged no window sizes"
     echo "$sizes" | while read -r w h; do
-        d=$((w * 9 - h * 16))   # 854 x 480 and 2562 x 1440 are 16:9 to a few pixels
+        d=$((w * 9 - h * 16))   # 854 x 480 is 16:9 to a few pixels
         [ "$d" -ge -32 ] && [ "$d" -le 32 ] || { echo "FAIL: race $race: a frame of $w x $h is not 16:9"; exit 1; }
     done || status=1
     cp "$log" "$work/log$race"; rm -f "$log"

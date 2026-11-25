@@ -520,8 +520,8 @@ int car_race_player_whole(const char *user, char *why, size_t why_cap)
     return 1;
 }
 
-/* the keys the Track light drive fixes, each at the value it is shown at */
-static const char MAX_LOOK[] = "format=16:9\nrender_scale=3\nfullscreen=0\nlamp_halos=1\nshine_soft=1\nreflectors=1\nheadlight_beams=1\nsun_shadow=1\n"
+/* the keys the Track light drive fixes, each at the value it is shown at; its render scale is the player's (car_race_player_render_scale), written in front of these */
+static const char MAX_LOOK[] = "format=16:9\nfullscreen=0\nlamp_halos=1\nshine_soft=1\nreflectors=1\nheadlight_beams=1\nsun_shadow=1\n"
                                "body_shine=4\ncar_colours=1\ncar_soft_shadow=1\ntexture_filter=1\nlight_effects=1\nlamp_flares=1\nperspective=1\nfog=1\nfog_sample=1\n"
                                "sky_fill=1\nsky_fill_below=1\npolice_glow=1\ntraffic_halo=1\n";
 
@@ -536,7 +536,12 @@ static int forced_key(const char *forced, const char *line, size_t len)
     return 0;
 }
 
-int car_race_force_max_look(const char *user, char *why, size_t why_cap) { return car_race_force_lines(user, MAX_LOOK, why, why_cap); }
+int car_race_force_max_look(const char *user, char *why, size_t why_cap)
+{
+    char lines[sizeof MAX_LOOK + 32];
+    snprintf(lines, sizeof lines, "render_scale=%d\n%s", car_race_player_render_scale(), MAX_LOOK);
+    return car_race_force_lines(user, lines, why, why_cap);
+}
 
 int car_race_force_lines(const char *user, const char *forced, char *why, size_t why_cap)
 {
