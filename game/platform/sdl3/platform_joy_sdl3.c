@@ -12,6 +12,7 @@
  * through which the pad and the wheels are read (game/sys/control_map.h). */
 #include "platform/platform.h"
 
+#include "game/platform/joy_slots.h"
 #include "game/sys/control_map.h"
 #include "game/sys/port_controls.h"
 
@@ -59,6 +60,55 @@ static void enumerate(void)
     }
 }
 
+/* A pad plugged in or out while the game runs: SDL's events say so (from whichever thread pushes them), and the next look at the devices lists them again. */
+static SDL_AtomicInt devices_changed;
+
+static bool SDLCALL watch_devices(void *unused, SDL_Event *event)
+{
+    (void)unused;
+    if (event->type == SDL_EVENT_JOYSTICK_ADDED || event->type == SDL_EVENT_JOYSTICK_REMOVED || event->type == SDL_EVENT_GAMEPAD_ADDED ||
+        event->type == SDL_EVENT_GAMEPAD_REMOVED)
+        SDL_SetAtomicInt(&devices_changed, 1);
+    return true;
+}
+
+/* the list made again after a change: the pads still there keep their slot's open device (their place may move up), the ones gone are closed (and the forces with them when they were on one) */
+static void refresh_devices(void)
+{
+    SDL_JoystickID old_ids[MAX_DEVICES];
+    SDL_Joystick *old_open[MAX_DEVICES];
+    SDL_Gamepad *old_pads[MAX_DEVICES];
+    const int old_n = devices;
+    memcpy(old_ids, ids, sizeof ids);
+    memcpy(old_open, opened, sizeof opened);
+    memcpy(old_pads, pads, sizeof pads);
+    enumerate();
+    uint32_t before[MAX_DEVICES], after[MAX_DEVICES];
+    int from_old[MAX_DEVICES], dropped[MAX_DEVICES];
+    for (int d = 0; d < old_n; d++) before[d] = (uint32_t)old_ids[d];
+    for (int d = 0; d < devices; d++) after[d] = (uint32_t)ids[d];
+    joy_slots_match(before, old_n, after, devices, from_old, dropped);
+    memset(opened, 0, sizeof opened);
+    memset(pads, 0, sizeof pads);
+    for (int n = 0; n < devices; n++) {
+        if (from_old[n] < 0) continue;
+        opened[n] = old_open[from_old[n]];
+        pads[n] = old_pads[from_old[n]];
+    }
+    for (int o = 0; o < old_n; o++) {
+        if (!dropped[o] || old_open[o] == NULL) continue;
+        if (old_open[o] == rumbler || haptic != NULL) platform_forces_close();   /* the forces were on a device: its handle goes with it */
+        if (old_pads[o] != NULL) SDL_CloseGamepad(old_pads[o]);
+        else SDL_CloseJoystick(old_open[o]);
+    }
+}
+
+/* the devices listed again when SDL said one came or went since the last look */
+static void follow_devices(void)
+{
+    if (started && !start_failed && SDL_CompareAndSwapAtomicInt(&devices_changed, 1, 0)) refresh_devices();
+}
+
 /* Some sticks (macOS's GameController pads: Xbox, PlayStation, MFi) are announced a moment after the subsystem
  * starts, through its events: the first look waits up to ENUMERATE_WAITS x ENUMERATE_STEP_MS for one */
 static bool start(void)
@@ -71,6 +121,7 @@ static bool start(void)
         return false;
     }
     enumerate();
+    SDL_AddEventWatch(watch_devices, NULL);
     for (int k = 0; devices == 0 && k < ENUMERATE_WAITS; k++) {
         SDL_Delay(ENUMERATE_STEP_MS);
         SDL_PumpEvents();
@@ -148,9 +199,13 @@ unsigned platform_joy_shoulders(int device)
 
 bool platform_joy_raw(int device, RawPad *out)
 {
+    follow_devices();
     SDL_Joystick *j = device_of(device);
     if (j == NULL) return false;
     SDL_UpdateJoysticks();
+    follow_devices();   /* the update is what brings a plug in or out */
+    j = device_of(device);
+    if (j == NULL) return false;
     if (pad_of(device) != NULL) raw_of_gamepad(pads[device], out);
     else raw_of_joystick(j, out);
     return true;
@@ -160,7 +215,9 @@ bool platform_joy_raw(int device, RawPad *out)
 int platform_joy_count(void)
 {
     if (!start()) return 0;
-    if (devices == 0) SDL_PumpEvents(), enumerate();
+    SDL_PumpEvents();
+    follow_devices();
+    if (devices == 0) enumerate();   /* a stick found with no event (the first ones announced late) */
     return devices;
 }
 

@@ -829,6 +829,7 @@ add_executable(tnfs
     game/platform/sdl3/platform_joy_sdl3.c
     game/platform/sdl3/update_sdl3.c
     game/platform/sdl3/process_pipe.c
+    game/platform/joy_slots.c
     game/platform/sdl3/win_console.c
 )
 if(NOT TNFS_RELEASE)
@@ -1418,6 +1419,11 @@ foreach(name first_profile car_livery_unlamp track_light_mirror port_old_files c
     target_include_directories(test_window_fit PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests)
     target_compile_options(test_window_fit PRIVATE ${TNFS_WARNINGS})
     add_test(NAME window_fit COMMAND test_window_fit)
+    # the pads' slots when a device comes or goes while the game runs
+    add_executable(test_joy_slots tests/test_joy_slots.c game/platform/joy_slots.c)
+    target_link_libraries(test_joy_slots PRIVATE tnfs_core)
+    target_compile_options(test_joy_slots PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME joy_slots COMMAND test_joy_slots)
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_gallery_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
