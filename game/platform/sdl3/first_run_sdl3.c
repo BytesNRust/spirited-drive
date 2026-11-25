@@ -4,6 +4,7 @@
 #include "game/platform/platform.h"
 #include "game/sys/data_check.h"
 #include "game/sys/data_copy.h"
+#include "game/sys/first_profile.h"
 #include "game/sys/game_name.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
@@ -35,21 +36,21 @@ static int ask(const char *title, const char *text, const char *const labels[], 
     return pressed;
 }
 
-/* port (profiles): the three profiles as buttons, Restomod '26 first (Return and Escape both take it), with what each is; the choice is kept in port.cfg */
+/* port (profiles): the three profiles as buttons, Stock, Restored, Restomod (the Game Mode selector's order), Restored '96 the one Return and Escape take, with what each
+ * changes (game/sys/first_profile.h); the choice is kept in port.cfg */
 static void choose_profile(void)
 {
-    static const Profile ORDER[3] = { PROFILE_RESTOMOD, PROFILE_RESTORED, PROFILE_STOCK };
-    char text[1500];
-    int n = snprintf(text, sizeof text, "Choose how the game looks and plays. You can change it any time (Options).\n\n");
-    for (int i = 0; i < 3 && n > 0 && (size_t)n < sizeof text; i++)
-        n += snprintf(text + n, sizeof text - (size_t)n, "%s\n%s\n%s\n\n", port_profile_title(ORDER[i]), port_profile_line1(ORDER[i]), port_profile_line2(ORDER[i]));
-    SDL_MessageBoxButtonData buttons[3];
-    for (int i = 0; i < 3; i++)
-        buttons[i] = (SDL_MessageBoxButtonData){ i == 0 ? SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT : 0, i, port_profile_title(ORDER[i]) };
-    const SDL_MessageBoxData box = { SDL_MESSAGEBOX_INFORMATION, NULL, "Pick your profile", text, 3, buttons, NULL };
-    int pressed = 0;
-    if (!SDL_ShowMessageBox(&box, &pressed) || pressed < 0 || pressed > 2) pressed = 0;
-    if (!port_profile_select(ORDER[pressed])) port_log("first_run: could not keep the profile %s\n", port_profile_key(ORDER[pressed]));
+    Profile order[FIRST_PROFILE_COUNT];
+    first_profile_order(order);
+    char text[2000];
+    first_profile_text(text, sizeof text);
+    SDL_MessageBoxButtonData buttons[FIRST_PROFILE_COUNT];
+    for (int i = 0; i < FIRST_PROFILE_COUNT; i++)
+        buttons[i] = (SDL_MessageBoxButtonData){ i == FIRST_PROFILE_DEFAULT ? SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT : 0, i, port_profile_title(order[i]) };
+    const SDL_MessageBoxData box = { SDL_MESSAGEBOX_INFORMATION, NULL, "Pick your profile", text, FIRST_PROFILE_COUNT, buttons, NULL };
+    int pressed = FIRST_PROFILE_DEFAULT;
+    if (!SDL_ShowMessageBox(&box, &pressed) || pressed < 0 || pressed >= FIRST_PROFILE_COUNT) pressed = FIRST_PROFILE_DEFAULT;
+    if (!port_profile_select(order[pressed])) port_log("first_run: could not keep the profile %s\n", port_profile_key(order[pressed]));
 }
 
 typedef struct {

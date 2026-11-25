@@ -7,12 +7,15 @@ first start, and you can change it any time on the top row of the Game Mode scre
 - **Restored '96**: the same look, widescreen and up to 144 Hz;
 - **Restomod '26**: the original game with modern running gear: the additions below, on by default, and everything yours to tune.
 
-What you change is kept for that mode alone. The additions:
+What you change is kept for that mode alone. All three play with keyboard, gamepad or wheel. Stock and Restored show the original's screens; Customize Game
+opens in every mode, but there only the cheats, the speed units, the mirror, rally and Lost Vegas switches, the update check and a few more rows are live,
+and the rest is greyed out. Each addition below says which modes have it:
 
-- **Graphics Detail** (Options → Graphics, one page):
-  - format 4:3, 16:9 or 21:9, with the same 640x480-style pixels, just wider;
+- **Graphics Detail** (Options → Graphics, one page). Full screen and scaling are in every mode; format and refresh are in Restored and Restomod;
+  the rest is Restomod's:
+  - format 4:3, 16:9 or 21:9, with the same 640x480-style pixels, just wider (Restored, Restomod);
   - scaling: fill, or whole multiples only;
-  - full screen and refresh 60 / 120 / 144 Hz (the race still steps at the original rate; the frames between steps are
+  - full screen (every mode) and refresh 60 / 120 / 144 Hz (Restored, Restomod; the race still steps at the original rate; the frames between steps are
     interpolated);
   - field of view;
   - view distance Close / Medium / Far / Ultra;
@@ -23,13 +26,13 @@ What you change is kept for that mode alone. The additions:
   - render scale: 1x by default, or 2x or 3x: the 3D world is drawn at that many times the frame's size and scaled
     down, so it is sharper (and slower) the higher it is.
   The pause menu's Graphics opens the same screen; the rows that need a new race say "(next race)".
-- **Controls** (Options → Controls setup): page 1 is the original's. Pages 2-3 bind any action (steering, gas, brake,
+- **Controls** (Options → Controls setup; gamepads and wheels work in every mode): page 1 is the original's. Pages 2-3 bind any action (steering, gas, brake,
   gears, camera, handbrake, horn, pause, view, Nitro) to keys, pad buttons, triggers or axes. They also set the dead
   zone, sensitivity and force feedback.
-- **Customize Game** (Game Mode, or Options), three pages:
-  - Page 1 — Cheats: Explode, Nitro, Turbo, Warrior player car, Lunar Gravity (Off, Lunar Springs only, or All
-    Tracks); Unlocks & mods: Warrior as a rival, Lunar Springs (the cut moon track, run as Rusty Springs' rally, from
-    unlock level 2), unlock level, car colours;
+- **Customize Game** (Game Mode, or Options), three pages (in Stock and Restored only the rows named above are live):
+  - Page 1 — Cheats: Explode, Nitro, Turbo, Warrior player car, Lunar Gravity (Restomod; Off, Lunar Springs only, or All
+    Tracks); Unlocks & mods: Warrior as a rival, Lunar Springs (Restomod only: the moon track of the PlayStation version, never released on PC and left hidden
+    in the PC game's code and art; run as Rusty Springs' rally, from unlock level 2), unlock level, car colours (Restomod);
   - Page 2 — In-race options: speed units, no driving assists, bumper-view mirror, police radar in the exterior views,
     replay cameras in races, rival car markers, 3D render stats, dash box (the map, the gear lever or neither), 360
     camera, difficulty (Easy, Original, Hard);
@@ -37,7 +40,7 @@ What you change is kept for that mode alone. The additions:
     stats, open the log folder, restore the mode's defaults.
   The typed cheat codes still work. In Restomod, with a cheat on, Control Central shows CHEATS ENABLED.
 - **Unlock level**: as in the original, level 1 opens the mirror tracks, the Warrior and Lost Vegas; level 2 adds the
-  rally tracks, the reverse way round (Restomod) and the Lunar Springs switch. Stock and Restored keep the level in
+  rally tracks, the reverse way round (Restomod) and, in Restomod, the Lunar Springs switch. Stock and Restored keep the level in
   `config.dat`; Restomod keeps its own, 2 until you change it on Customize Game.
 - **Track variants**: in Stock and Restored the mirror and rally versions are entries of their own on the track
   screen. In Restomod they are switches on the track screen (Mirror, Reverse, Rally, over the track length), Control
