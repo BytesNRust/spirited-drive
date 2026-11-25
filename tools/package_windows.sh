@@ -1,11 +1,11 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Packs a built tnfs.exe into a zip a player unpacks and runs: Spirited-Drive-<version>-windows-x64.zip.
+# Packs a built tnfs.exe into a zip a player unpacks and runs: Spirited-Drive-<version>-windows-x64.zip. The program in it is called "Spirited Drive.exe" (the build's own name stays tnfs.exe).
 #
 #   tools/package_windows.sh BUILD_DIR OUT_DIR
 #
 # Run it in MSYS2's UCRT64 shell (the Windows job does). BUILD_DIR holds tnfs.exe (configure it with -DTNFS_RELEASE=ON) and
-# generated/tnfs_version.c. The zip holds one folder "Spirited Drive" with: tnfs.exe, every DLL it needs from the UCRT64 tree
+# generated/tnfs_version.c. The zip holds one folder "Spirited Drive" with: Spirited Drive.exe, every DLL it needs from the UCRT64 tree
 # (SDL3.dll and the compiler runtime: found with ldd, nothing guessed), our own data/ (only what git tracks, beside the exe where the
 # game reads it: SDL_GetBasePath), the licences and a short README. No game data: players bring their own CD.
 set -eu
@@ -26,7 +26,10 @@ STAGE="$OUT_DIR/stage"
 DIR="$STAGE/Spirited Drive"
 rm -rf "$STAGE"
 mkdir -p "$DIR"
-cp "$EXE" "$DIR/tnfs.exe"
+cp "$EXE" "$DIR/Spirited Drive.exe"
+
+# the icon and the name are a resource (game/sys/spirited.rc.in): an exe built without it has the system's default icon, and a package of it is not shipped
+objdump -h "$EXE" | grep -q '\.rsrc' || { echo "$EXE has no resource section: the .rc was not compiled in (enable_language(RC)), so no Spirited Drive icon" >&2; exit 1; }
 
 # the DLLs the exe loads that are not Windows' own: ldd lists them with their path in the UCRT64 tree (/ucrt64/bin); the system's live under /c/Windows
 ldd "$EXE" | awk '/=>/ {print $3}' | grep -i '/ucrt64/' | sort -u > "$STAGE/dlls.txt" || true
@@ -49,7 +52,7 @@ cat > "$DIR/README.txt" <<EOF
 Spirited Drive $VERSION (Windows)
 
 1. Unpack this folder anywhere you can write to (not Program Files).
-2. Run tnfs.exe. Windows may warn that the program is unsigned: More info > Run anyway.
+2. Run Spirited Drive.exe. Windows may warn that the program is unsigned: More info > Run anyway.
 3. On the first start pick your copy of the original game (the CD, a folder with its files, or an ISO) and a profile.
 
 No game data is included: bring your own copy of the original game.

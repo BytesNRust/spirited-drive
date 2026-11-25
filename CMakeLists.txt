@@ -831,7 +831,8 @@ if(NOT TNFS_RELEASE)
     target_compile_definitions(tnfs PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # main.c: a development build run from the repository takes ./original when there is no --data
 endif()
 target_link_libraries(tnfs PRIVATE tnfs_game)
-if(WIN32)   # the program's icon (Explorer, the taskbar): data/icon/spirited.ico as a resource
+if(WIN32)   # the program's icon (Explorer, the taskbar) and its name (Task Manager, the file's properties): data/icon/spirited.ico and the version block as a resource. The project's languages are C only: without RC the .rc is not compiled and the exe has the system's default icon.
+    enable_language(RC)
     set(TNFS_ICON_ICO "${CMAKE_SOURCE_DIR}/data/icon/spirited.ico")
     configure_file(game/sys/spirited.rc.in "${CMAKE_BINARY_DIR}/generated/spirited.rc" @ONLY)
     target_sources(tnfs PRIVATE "${CMAKE_BINARY_DIR}/generated/spirited.rc")

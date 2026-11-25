@@ -1,3 +1,27 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Windows: Spirited Drive's icon as the program's own (Explorer, the taskbar's pinned button); the window's comes from port_icon.c. CMake fills in the path.
+// Windows: Spirited Drive's icon as the program's own (Explorer, the taskbar's pinned button; the window's comes from port_icon.c) and its name for the file's properties and Task Manager. CMake fills in the path and the version.
 1 ICON "@TNFS_ICON_ICO@"
+
+1 VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEOS 0x4
+FILETYPE 0x1
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "ProductName", "Spirited Drive"
+      VALUE "FileDescription", "Spirited Drive"
+      VALUE "InternalName", "Spirited Drive"
+      VALUE "OriginalFilename", "Spirited Drive.exe"
+      VALUE "ProductVersion", "@PROJECT_VERSION@"
+      VALUE "FileVersion", "@PROJECT_VERSION@"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

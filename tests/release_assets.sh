@@ -24,5 +24,12 @@ grep -q 'tnfs_version' "$win" && grep -q 'GITHUB_REF_NAME#v' "$win" || bad "the 
 grep -q 'Spirited-Drive-\$VERSION-windows-x64.zip' "$pack" || bad "the Windows zip is not named Spirited-Drive-<version>-windows-x64.zip"
 grep -q 'windows-x64.zip\|\*\.zip' "$win" || bad "the Windows workflow does not upload the zip"
 grep -qi 'prerelease\|pre-release' "$win" && bad "the Windows workflow marks a release pre-release: the notice would skip it"
+rc=game/sys/spirited.rc.in
+grep -q 'cp "\$EXE" "\$DIR/Spirited Drive.exe"' "$pack" || bad "the packer does not ship the program as Spirited Drive.exe"
+grep -q 'tnfs\.exe' "$win" && bad "the Windows workflow still looks for tnfs.exe in the zip"
+sed -n '/^cat > "\$DIR\/README.txt"/,/^EOF/p' "$pack" | grep -q 'tnfs\.exe' && bad "the zip's README sends the player to tnfs.exe"
+grep -q 'rsrc' "$pack" || bad "the packer does not check the exe carries the icon resource"
+grep -q 'enable_language(RC)' CMakeLists.txt || bad "CMake does not enable RC: the .rc (icon, name) is not compiled and the exe keeps the default icon"
+grep -q '^1 ICON' "$rc" && grep -q 'VALUE "FileDescription", "Spirited Drive"' "$rc" || bad "$rc has no icon or no Spirited Drive name"
 [ $fail -eq 0 ] && echo "release_assets: ok"
 exit $fail
