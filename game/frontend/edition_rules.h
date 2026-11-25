@@ -19,6 +19,10 @@ typedef struct {
 /* `e` NULL: all open */
 EditionGate edition_gate(const Edition *e);
 
+/* why Multiplayer is closed, NULL when open: a build with no UDP driver (`udp_present` 0: Windows and the web have none yet) says so on every
+ * edition; else the edition's own reason (edition_gate) */
+const char *edition_network_why(const Edition *e, int udp_present);
+
 /* 1 when `e` lists every stock car (rx7..diablo) and every stock track (city..transtropolis), in any order, and nothing but stock
  * ids (the Warrior, vegas and hidden may be there too) */
 int edition_is_stock(const Edition *e);

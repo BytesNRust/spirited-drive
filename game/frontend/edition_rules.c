@@ -41,6 +41,11 @@ EditionGate edition_gate(const Edition *e)
     return g;
 }
 
+const char *edition_network_why(const Edition *e, int udp_present)
+{
+    return udp_present ? edition_gate(e).network_why : "Multiplayer is not in this version yet";
+}
+
 Unlocks edition_unlocks(const Edition *e)
 {
     Unlocks u = { 1, 1, 1, 0, 0 };

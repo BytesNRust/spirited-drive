@@ -70,6 +70,18 @@ static void test_the_gates(void)
     CHECK(!s.network && s.network_why != NULL);
 }
 
+/* a build with no UDP driver (Windows and the web have none yet) closes Multiplayer with its own reason, on every edition; the edition's reason
+ * is the one the player of his own edition reads when the driver is there */
+static void test_network_without_a_driver(void)
+{
+    CHECK(edition_network_why(NULL, 1) == NULL);
+    const char *none = edition_network_why(NULL, 0);
+    CHECK(none != NULL && strcmp(none, "Multiplayer is not in this version yet") == 0);
+    const Edition two = edition("name=Two\ncars=rx7\ntracks=city,coastal\n");
+    CHECK(strcmp(edition_network_why(&two, 1), "Multiplayer needs the standard edition") == 0);
+    CHECK(strcmp(edition_network_why(&two, 0), "Multiplayer is not in this version yet") == 0);
+}
+
 /* the stock sets in any order; the Warrior, Lost Vegas and the hidden track may be there too; a car or track missing, or one added, is not */
 static void test_what_is_stock(void)
 {
@@ -228,6 +240,7 @@ int main(void)
     make_dirs(pref);
     setenv("TNFS_PREF_DIR", pref, 1);
     test_the_gates();
+    test_network_without_a_driver();
     test_what_is_stock();
     test_the_unlocks();
     test_lunar_springs_needs_lunar();

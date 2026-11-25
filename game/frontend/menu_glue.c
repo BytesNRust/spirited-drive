@@ -2,6 +2,7 @@
 #include "game/frontend/menu_glue_private.h"
 #include "game/frontend/edition_rules.h"
 #include "game/frontend/mode_choices.h"
+#include "game/net/net_udp.h"
 #include "game/sys/edition_file.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/text.h"
@@ -169,12 +170,13 @@ static void mode_open_notice(void *ctx)
     if (!platform_open_releases_page()) port_log("update: the releases page could not be opened\n");
 }
 
-/* port (dep59 step 4): Multiplayer closed by the edition in use (edition_rules.h), read at each ask: the selector may change it */
+/* port (dep59 step 4): Multiplayer closed by the edition in use (edition_rules.h), or by a build with no UDP driver (Windows and the web: the row is dim
+ * and says so, instead of ending in "No network services found."), read at each ask: the selector may change it */
 static const char *mode_network_closed(void *ctx)
 {
     (void)ctx;
     Edition e;
-    return edition_gate(edition_in_use(&e)).network_why;
+    return edition_network_why(edition_in_use(&e), net_udp_present());
 }
 
 /* port (dep59 step 4b, T7): Manage content's CONTENT screen (menu_glue_content.c). Game Mode's choices are the three modes, then the
