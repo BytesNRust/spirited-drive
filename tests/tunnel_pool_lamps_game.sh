@@ -7,6 +7,7 @@
 # (1) at night is printed as NOTE, not checked: with the pool on, a step inside the beam (AL1 nodes 0 -> 1, 42 % of the range even at lamps 100) is the tunnel floor's texture, accepted by the owner's rule (the pool wins);
 # the outside ramp is not drawn at night with the pool.
 #  (4) by day, going in with the lamps at 0, 1 and 50 %, the road does not rise by more than 2 (of 255) from node -1 to node +2 (the beam comes into the tunnel gradually).
+#  (5) by day, going out with the lamps at 0, 1 and 50 %, the road at the tunnel's last node is not a dip (over 2 under both its neighbours): the beam fades out at the exit.
 # usage: tests/tunnel_pool_lamps_game.sh <tnfs binary> <original/ dir> [contact sheet dir]      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
@@ -132,6 +133,13 @@ for track, f, t in cases:   # (4) going in by day with the lamps at 0, 1, 50 %: 
         for a, b in zip(path, path[1:]):
             if v[b] > v[a] + 2:
                 bad.append("(4) %s day in lamps %d: the road rises going in, node %d -> %d: %.1f -> %.1f" % (track, lamps, a, b, v[a], v[b]))
+for track, f, t in cases:   # (5) going out by day with the lamps at 0, 1, 50 %: the road at the last node in (the beam eased to none there) is no dip against its neighbours (more than 2 under both)
+    for lamps in (0, 1, 50):
+        seq = tab.get((track, "day", "out", lamps))
+        if seq is None: continue
+        v = {o: seq[i] for i, o in enumerate(offsets)}
+        if all(o in v for o in (-1, 0, 1)) and v[0] < v[-1] - 2 and v[0] < v[1] - 2:
+            bad.append("(5) %s day out lamps %d: a dip at the exit's last node: %.1f between %.1f and %.1f" % (track, lamps, v[0], v[-1], v[1]))
 for k in sorted(tab):
     print(" ".join(map(str, k)), " ".join("%.0f" % v for v in tab[k]))
 for b in notes:

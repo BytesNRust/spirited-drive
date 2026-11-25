@@ -354,8 +354,45 @@ static void test_day_beam_eases_in_at_the_mouth(void)
         CHECK_EQ_INT(gain[11], 0);                                 /* and from the other mouth */
         CHECK(gain[5] > 20);                                       /* the third on: the beam */
         CHECK(gain[4] > 0 && gain[4] * 2 >= gain[5] - 8 && gain[4] * 2 <= gain[5] + 8);   /* the second: half */
-        CHECK_EQ_INT(gain[10] * 2 >= gain[8] - 8 && gain[10] * 2 <= gain[8] + 8, 1);     /* the second from the other mouth: half */
+        CHECK(gain[10] * 2 >= gain[8] - 8 && gain[10] * 2 <= gain[8] + 8);     /* the second from the other mouth: half */
     }
+}
+
+/* the intent for short tunnels (the real ones are 12 nodes and more): the beam comes in over the first two nodes of each mouth and a tunnel too short for that never reaches the full beam:
+ * 2 nodes: none; 3: half at the middle one; 4: half at both middle ones; 5: half, full, half. A one-node gap between two tunnels has none and both tunnels ease in as ever */
+static void test_day_beam_edge_in_short_tunnels(void)
+{
+    enum { N = 16 };
+    uint8_t rows[N * TRACK_NODE_LIGHT_POINTS], off[N];
+    memset(rows, 0, sizeof rows);
+    for (int n = 0; n < N; n++) rows[n * TRACK_NODE_LIGHT_POINTS + 0] = rows[n * TRACK_NODE_LIGHT_POINTS + 1] = rows[n * TRACK_NODE_LIGHT_POINTS + 6] = 255;
+    const int len[4] = { 2, 3, 4, 5 };
+    const int want[4][5] = { { 0, 0, 0, 0, 0 }, { 0, 1, 0, 0, 0 }, { 0, 1, 1, 0, 0 }, { 0, 1, 2, 1, 0 } };   /* 0 none, 1 half, 2 full (the third node on) */
+    int full = 0;
+    for (int t = 0; t < 4; t++) {
+        uint8_t tunnel[N];
+        memset(tunnel, 0, sizeof tunnel);
+        for (int k = 0; k < len[t]; k++) tunnel[4 + k] = 1;
+        memcpy(off, tunnel, sizeof off);
+        int gain[N] = { 0 };
+        for (int node = 4; node < 4 + len[t]; node++) {
+            HeadlightPool pool;
+            memset(&pool, 0, sizeof pool);
+            pool.cone = 1, pool.count = 1;
+            pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;
+            const double car[2] = { 0.0, 0.0 };
+            TrackNodeLight l = { .data = rows, .nodes = N, .tunnel = tunnel, .lamps_off = off, .tunnel_pool = &pool, .look_set = 1, .look_light = 100.0 };
+            const int with = track_node_light_at_xz(&l, (uint32_t)node, 1, car);
+            pool.count = 0;
+            gain[node] = with - track_node_light_at_xz(&l, (uint32_t)node, 1, car);
+            if (gain[node] > full) full = gain[node];
+        }
+        for (int k = 0; k < len[t]; k++) {
+            if (want[t][k] == 0) CHECK_EQ_INT(gain[4 + k], 0);
+            else CHECK(gain[4 + k] > 0);
+        }
+    }
+    CHECK(full > 20);   /* the 5-node tunnel's middle node has the full beam */
 }
 
 /* the owner's second AL3 ask: by day the headlights' pool shows in a LIT tunnel too, fading as the lamps go up: full at 0 %, about half at 50 %, nothing at 100 %, and no jump between 1 % and 0 % */
@@ -664,6 +701,7 @@ int main(void)
     test_day_unlit_road_never_brighter_than_lit();
     test_day_pool_fades_with_the_lamps();
     test_day_beam_eases_in_at_the_mouth();
+    test_day_beam_edge_in_short_tunnels();
     test_night_pool_fades_with_the_lamps();
     test_radial_lamps();
     test_lamp_shaped_along_the_road();

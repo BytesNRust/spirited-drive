@@ -400,7 +400,7 @@ static int day_beam_edge(const TrackNodeLight *light, uint32_t node)
 {
     const uint32_t at = track_node_light_old_node(light, node) % light->nodes;
     for (uint32_t k = 1; k <= 2; k++)
-        if (!made_tunnel(light, (at + k) % light->nodes) || !made_tunnel(light, (at + light->nodes - k % light->nodes) % light->nodes)) return (int)(k - 1) * 128;
+        if (!made_tunnel(light, (at + k) % light->nodes) || !made_tunnel(light, (at + light->nodes - k) % light->nodes)) return (int)(k - 1) * 128;
     return 256;
 }
 
