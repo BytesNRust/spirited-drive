@@ -365,9 +365,22 @@ static void test_kept_keys_and_text_keys(void)
     CHECK(m.author[0] == '\0' && m.description[0] == '\0');
 }
 
+/* a card saved with a UTF-8 byte order mark keeps its first key; one saved as UTF-16 is refused with the way out */
+static void test_bom_and_utf16(void)
+{
+    ModInfo m;
+    char why[160] = "";
+    CHECK_EQ_INT(parse("\xEF\xBB\xBF" "id=bom-mod\nname=Bom\nversion=1\n", &m, why), 1);
+    CHECK_EQ_INT(strcmp(m.id, "bom-mod"), 0);
+    CHECK_EQ_INT(strcmp(m.name, "Bom"), 0);
+    CHECK_EQ_INT(mod_ini_parse((const uint8_t *)"\xFF\xFE" "i\0d\0", 6, &m, why, sizeof why), 0);
+    CHECK(strstr(why, "UTF-16") != NULL);
+}
+
 int main(void)
 {
     test_the_identity_keys();
+    test_bom_and_utf16();
     test_kept_keys_and_text_keys();
     test_a_full_card();
     test_refusals();

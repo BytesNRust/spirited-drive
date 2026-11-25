@@ -130,9 +130,21 @@ static void test_names_and_ids(void)
     CHECK_EQ_INT(edition_id_ok("con"), 0);
 }
 
+/* an edition file saved with a UTF-8 byte order mark keeps its first key; UTF-16 is refused with the way out */
+static void test_bom_and_utf16(void)
+{
+    Edition e;
+    char why[160] = "";
+    CHECK_EQ_INT(parse("\xEF\xBB\xBF" "name=Bom\n", &e, why, sizeof why), 1);
+    CHECK_EQ_INT(strcmp(e.name, "Bom"), 0);
+    CHECK_EQ_INT(edition_parse((const uint8_t *)"\xFE\xFF\0n\0a", 6, &e, why, sizeof why), 0);
+    CHECK(strstr(why, "UTF-16") != NULL);
+}
+
 int main(void)
 {
     test_reads_the_four_keys();
+    test_bom_and_utf16();
     test_round_trip();
     test_keeps_a_missing_piece();
     test_refuses_with_a_reason();

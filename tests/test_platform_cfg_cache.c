@@ -99,6 +99,24 @@ static void test_no_temp_left(const char *dir)
     rmdir(path);
 }
 
+/* a file saved with a UTF-8 byte order mark (Notepad, VS Code, PowerShell) reads without it, cached or not; a file that is not text is left as it is */
+static void test_bom(const char *dir)
+{
+    poke(dir, "bom.cfg", "\xEF\xBB\xBF" "a=1\n");
+    CHECK(reads_as("bom.cfg", "a=1\n"));
+    CHECK(reads_as("bom.cfg", "a=1\n"));   /* from the copy: without it as well */
+    poke(dir, "bom.ini", "\xEF\xBB\xBF" "id=x\n");
+    CHECK(reads_as("bom.ini", "id=x\n"));
+    poke(dir, "bom.txt", "\xEF\xBB\xBF");
+    CHECK(reads_as("bom.txt", ""));
+    poke(dir, "bom.dat", "\xEF\xBB\xBF" "z");
+    CHECK(reads_as("bom.dat", "\xEF\xBB\xBF" "z"));
+    poke(dir, "short.ini", "\xEF\xBB");
+    CHECK(reads_as("short.ini", "\xEF\xBB"));
+    CHECK(platform_remove_user_file("bom.cfg") && platform_remove_user_file("bom.ini") && platform_remove_user_file("bom.txt"));
+    CHECK(platform_remove_user_file("bom.dat") && platform_remove_user_file("short.ini"));
+}
+
 int main(void)
 {
     char dir[] = "/tmp/tnfs_cfgcache_XXXXXX";
@@ -129,6 +147,7 @@ int main(void)
     unlink(path);
     test_all_the_mode_files();
     test_no_temp_left(dir);
+    test_bom(dir);
     test_read_during_write();
     return TEST_REPORT();
 }

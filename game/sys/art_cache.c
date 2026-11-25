@@ -12,6 +12,7 @@
 #include <time.h>
 #ifdef _WIN32
 #include <direct.h>
+#include <windows.h>
 #endif
 
 enum { HEADER = 24, FORMAT = 1, PATH_MAX_LEN = 1024 };
@@ -96,6 +97,22 @@ static int make_folder(void)
     return made == 0 || errno == EEXIST;
 }
 
+/* `temp` renamed over `path` in one step. On Windows that is MoveFileEx with MOVEFILE_REPLACE_EXISTING (the C library's rename does not replace, and a remove first leaves a moment with no file for a reader), and
+ * again for up to half a second when it is refused: the target is open in a reader for an instant, a scanner (Defender) for longer. */
+static int replace_file(const char *temp, const char *path)
+{
+#ifdef _WIN32
+    enum { TRIES = 250, PAUSE_MS = 2 };
+    for (int tries = 0; tries < TRIES; tries++) {
+        if (MoveFileExA(temp, path, MOVEFILE_REPLACE_EXISTING)) return 1;
+        Sleep(PAUSE_MS);
+    }
+    return 0;
+#else
+    return rename(temp, path) == 0;
+#endif
+}
+
 int art_cache_write(const char *name, const ArtCacheKey *key, const void *data, size_t size)
 {
     char path[PATH_MAX_LEN + 64], temp[PATH_MAX_LEN + 96];
@@ -112,10 +129,7 @@ int art_cache_write(const char *name, const ArtCacheKey *key, const void *data, 
     FILE *f = fopen(temp, "wb");
     int ok = f != NULL && fwrite(head, 1, HEADER, f) == HEADER && fwrite(data, 1, size, f) == size;
     if (f != NULL && fclose(f) != 0) ok = 0;
-#ifdef _WIN32
-    if (ok) remove(path);   /* rename does not replace there */
-#endif
-    if (ok) ok = rename(temp, path) == 0;
+    if (ok) ok = replace_file(temp, path);
     if (!ok) {
         port_log("art cache: cannot write %s, it stays in memory\n", path);
         remove(temp);

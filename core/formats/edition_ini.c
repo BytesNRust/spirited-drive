@@ -1,5 +1,6 @@
 /* port (dep59 step 4): see edition_ini.h. */
 #include "formats/edition_ini.h"
+#include "formats/text_bom.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -123,6 +124,8 @@ int edition_parse(const uint8_t *text, size_t size, Edition *out, char *why, siz
 {
     memset(out, 0, sizeof *out);
     if (text == NULL) return refuse(why, why_cap, "edition: no file");
+    if (text_is_utf16(text, size)) return refuse(why, why_cap, "edition: the file is UTF-16: save it as UTF-8");
+    text = text_skip_bom(text, &size);
     if (size > EDITION_MAX_SIZE) return refuse(why, why_cap, "edition: the file is larger than %d bytes", EDITION_MAX_SIZE);
     if (memchr(text, '\0', size) != NULL) return refuse(why, why_cap, "edition: the file is not text");
     int seen[KEY_COUNT] = { 0 };

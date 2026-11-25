@@ -118,7 +118,14 @@ bool platform_user_rename(const char *from_rel, const char *to_rel)
 {
     char from[TREE_PATH], to[TREE_PATH];
     if (!tree_change_path(from_rel, from) || !tree_change_path(to_rel, to) || !path_exists(from) || path_exists(to)) return false;
-    if (SDL_RenamePath(from, to)) return true;
+    bool moved = SDL_RenamePath(from, to);
+#if defined(_WIN32)
+    for (int again = 0; !moved && again < 250; again++) {   /* a folder just unpacked: a scanner (Defender) or the indexer has a file in it open for a moment, and Windows refuses to move it: up to half a second, as platform_write_user_file */
+        SDL_Delay(2);
+        moved = SDL_RenamePath(from, to);
+    }
+#endif
+    if (moved) return true;
     port_log("platform: cannot move %s to %s: %s\n", from, to, SDL_GetError());
     return false;
 }

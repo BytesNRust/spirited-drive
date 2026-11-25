@@ -1,5 +1,6 @@
 /* See mod_ini.h. */
 #include "formats/mod_ini.h"
+#include "formats/text_bom.h"
 #include "formats/zip.h"
 
 #include <stdarg.h>
@@ -290,6 +291,8 @@ int mod_ini_parse(const uint8_t *text, size_t size, ModInfo *out, char *why, siz
 {
     memset(out, 0, sizeof *out);
     if (text == NULL) return refuse(why, why_cap, "mod.ini is missing");
+    if (text_is_utf16(text, size)) return refuse(why, why_cap, "mod.ini is UTF-16: save it as UTF-8");
+    text = text_skip_bom(text, &size);
     if (size > MOD_INI_MAX_SIZE) return refuse(why, why_cap, "mod.ini is larger than %d bytes", MOD_INI_MAX_SIZE);
     if (memchr(text, '\0', size) != NULL) return refuse(why, why_cap, "mod.ini is not text");
     int seen[FIELD_COUNT] = { 0 };

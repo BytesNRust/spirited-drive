@@ -115,11 +115,22 @@ static void cfg_cache_forget(const char *path)
     cfg_lock_give();
 }
 
+/* a text file the player edits (.cfg, .ini, .txt) without a UTF-8 byte order mark at its start (Notepad, VS Code and PowerShell put one): the first line would read as an unknown key */
+static uint8_t *without_bom(const char *name, uint8_t *data, size_t *size)
+{
+    const size_t n = strlen(name);
+    const bool text = n > 4 && (strcmp(name + n - 4, ".cfg") == 0 || strcmp(name + n - 4, ".ini") == 0 || strcmp(name + n - 4, ".txt") == 0);
+    if (!text || data == NULL || *size < 3 || data[0] != 0xEF || data[1] != 0xBB || data[2] != 0xBF) return data;
+    memmove(data, data + 3, *size - 3 + 1);   /* with the terminating zero SDL_LoadFile leaves past the size */
+    *size -= 3;
+    return data;
+}
+
 uint8_t *platform_read_user_file(const char *name, size_t *size)
 {
     char path[1024];
     if (sdl3_user_path(name, path, sizeof path) == NULL) return NULL;
-    if (!cfg_cacheable(name)) return SDL_LoadFile(path, size);
+    if (!cfg_cacheable(name)) return without_bom(name, SDL_LoadFile(path, size), size);
     const Uint64 now = SDL_GetTicks();
     cfg_lock_take();
     for (int i = 0; i < CFG_CACHE_SLOTS; i++) {
@@ -134,7 +145,7 @@ uint8_t *platform_read_user_file(const char *name, size_t *size)
     }
     const Uint64 writes_before = cfg_writes;
     cfg_lock_give();
-    uint8_t *data = SDL_LoadFile(path, size);
+    uint8_t *data = without_bom(name, SDL_LoadFile(path, size), size);
     cfg_lock_take();
     if (cfg_writes != writes_before) {
         cfg_lock_give();
