@@ -463,23 +463,22 @@ static int copy_player_file(const char *user, const char *name, char *why, size_
     return ok ? 1 : refuse(why, why_cap, "cannot write %s/%s: %s", user, name, strerror(errno));
 }
 
-int car_race_player_whole(const char *user, char *why, size_t why_cap)
+/* the player's `name` text merged into the scratch's file of the same name: the scratch's own lines first, then every key=value line of the player's whose key they do not set (not there: nothing) */
+static int merge_player_file(const char *user, const char *name, char *why, size_t why_cap)
 {
     char path[EXPORT_PATH + 32];
     size_t psize = 0, ssize = 0;
-    if (player_dir[0] == '\0') return 1;
-    if (!copy_player_file(user, "controls.cfg", why, why_cap)) return 0;
-    if (snprintf(path, sizeof path, "%s/restomod.cfg", player_dir) >= (int)sizeof path) return 1;
+    if (snprintf(path, sizeof path, "%s/%s", player_dir, name) >= (int)sizeof path) return 1;
     char *mine = slurp(path, &psize);
     if (mine == NULL) return 1;
-    if (snprintf(path, sizeof path, "%s/restomod.cfg", user) >= (int)sizeof path) {
+    if (snprintf(path, sizeof path, "%s/%s", user, name) >= (int)sizeof path) {
         free(mine);
         return refuse(why, why_cap, "the path is too long: %s", user);
     }
     char *scratch = slurp(path, &ssize);
     char *out = malloc(psize + ssize + 2);
     int ok = out != NULL;
-    if (ok) {   /* the scratch's own lines first (the look, the day, the window), then every line of the player's whose key they do not set */
+    if (ok) {
         size_t at = 0;
         if (scratch != NULL) memcpy(out, scratch, ssize), at = ssize;
         if (at > 0 && out[at - 1] != '\n') out[at++] = '\n';
@@ -498,6 +497,27 @@ int car_race_player_whole(const char *user, char *why, size_t why_cap)
     }
     free(out), free(scratch), free(mine);
     return ok ? 1 : refuse(why, why_cap, "cannot write %s: %s", path, strerror(errno));
+}
+
+int car_race_player_whole(const char *user, char *why, size_t why_cap)
+{
+    static const char *const COPIED[] = { "config.dat", "controls.cfg" };   /* as they are: the exe's transmission and units, the pad's and keyboard's map */
+    static const char *const MERGED[] = { "port.cfg", "restomod.cfg" };      /* the scratch's keys win (profile, window, the look); the player's other keys come along */
+    if (player_dir[0] == '\0') {
+        fprintf(stderr, "test drive: no player folder known, the drive runs with the game's defaults\n");
+        return 1;
+    }
+    for (size_t i = 0; i < sizeof COPIED / sizeof COPIED[0]; i++) {
+        char path[EXPORT_PATH + 32];
+        const int there = snprintf(path, sizeof path, "%s/%s", player_dir, COPIED[i]) < (int)sizeof path && access(path, R_OK) == 0;
+        if (!copy_player_file(user, COPIED[i], why, why_cap)) return 0;
+        fprintf(stderr, "test drive: player folder %s: %s %s\n", player_dir, COPIED[i], there ? "copied" : "not there");
+    }
+    for (size_t i = 0; i < sizeof MERGED / sizeof MERGED[0]; i++) {
+        if (!merge_player_file(user, MERGED[i], why, why_cap)) return 0;
+        fprintf(stderr, "test drive: player folder %s: %s merged\n", player_dir, MERGED[i]);
+    }
+    return 1;
 }
 
 /* the keys the Track light drive fixes, each at the value it is shown at */

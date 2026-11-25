@@ -2,6 +2,7 @@
  * edits it is kept, the state says «Changed on disk» (Reload or Keep mine) and Save asks first; the car file and the textures of model/near/bank changing
  * reach the lists, the Model and the Preview (car_serial, mask.generation). A kit made of plain files (no game data). */
 #include "app.h"
+#include "car_race.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -177,6 +178,68 @@ static void test_the_car_files(void)
     free(a);
 }
 
+/* The Track light test drive plays with the pad the player set in the game (Controls Setup, Game controller): the scratch gets the player's controls.cfg whole, also after
+ * the Studio opened, made or closed a project (app_begin runs again then and used to forget the player's folder). */
+static int slurp_file(const char *path, char *out, size_t cap)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return 0;
+    const size_t n = fread(out, 1, cap - 1, f);
+    fclose(f);
+    out[n] = '\0';
+    return 1;
+}
+
+static void test_the_pad_of_the_player(void)
+{
+    const char *pad =   /* the owner's Controls Setup, page 2/3: gear up X, gear down A, camera B, handbrake Y (not the defaults) */
+        "steer=\nsteer_left=axis0-\nsteer_right=axis0+\ngas=axis5+\nbrake=axis4+\ngear_up=button2\ngear_down=button0\ncamera=button1\n"
+        "handbrake=button3\nhorn=hat0.4\npause=button7\nnitro=button5\nlook_back=button4\ndeadzone=17\nsensitivity=73\nffb_strength=60\n";
+    dir_of("player");
+    dir_of("scratch");
+    CHECK(put("player/controls.cfg", pad));
+    const char config[] = "CFG\x01\x00manual-kmh\x02";   /* the exe's setup (transmission, units): bytes, with a zero inside */
+    char file[700];
+    path_of(file, sizeof file, "player/config.dat");
+    FILE *cf = fopen(file, "wb");
+    CHECK(cf != NULL);
+    if (cf != NULL) fwrite(config, 1, sizeof config - 1, cf), fclose(cf);
+    CHECK(put("player/port.cfg", "profile=stock\nanalog_pad=1\nbrake_over_gas=1\nmenu_pad_cancel=1\n"));
+    CHECK(put("scratch/port.cfg", "profile=restomod\nfullscreen=0\n"));
+    char player[500], scratch[500], path[700], got[1200];
+    path_of(player, sizeof player, "player");
+    path_of(scratch, sizeof scratch, "scratch");
+    car_race_set_player(player);
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "./tnfs", "", NULL);   /* a project opens, is made or is closed: the Studio begins again with the user folder it started with */
+    char why[200] = "";
+    CHECK(car_race_player_whole(scratch, why, sizeof why));
+    path_of(path, sizeof path, "scratch/controls.cfg");
+    CHECK(slurp_file(path, got, sizeof got) && strcmp(got, pad) == 0);
+    path_of(path, sizeof path, "scratch/config.dat");
+    FILE *g = fopen(path, "rb");
+    char bytes[64] = "";
+    const size_t nb = g != NULL ? fread(bytes, 1, sizeof bytes, g) : 0;
+    if (g != NULL) fclose(g);
+    CHECK(nb == sizeof config - 1 && memcmp(bytes, config, nb) == 0);   /* manual and km/h travel with it */
+    path_of(path, sizeof path, "scratch/port.cfg");
+    CHECK(slurp_file(path, got, sizeof got));
+    CHECK(strstr(got, "profile=restomod\n") != NULL && strstr(got, "profile=stock") == NULL && strstr(got, "analog_pad=1\n") != NULL && strstr(got, "brake_over_gas=1\n") != NULL && strstr(got, "menu_pad_cancel=1\n") != NULL);
+    free(a);
+    car_race_set_player(NULL);
+    path_of(path, sizeof path, "scratch/controls.cfg");
+    unlink(path);
+    const char *gone[] = { "player/controls.cfg", "player/config.dat", "player/port.cfg", "scratch/config.dat", "scratch/port.cfg" };
+    for (size_t i = 0; i < sizeof gone / sizeof gone[0]; i++) {
+        path_of(path, sizeof path, gone[i]);
+        unlink(path);
+    }
+    rmdir(scratch);
+    rmdir(player);
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -187,6 +250,7 @@ int main(void)
     }
     test_the_card();
     test_the_car_files();
+    test_the_pad_of_the_player();
     char cmd[600];
     const char *files[] = { "mod.ini", "mod.ini.tmp", "build/piece/SIMDATA/CARFAMS/C84.CFM", "model/near/bank/0010_rsid.png", "model/near/bank/0020_bonn.png" };
     for (size_t i = 0; i < sizeof files / sizeof files[0]; i++) {
