@@ -147,7 +147,7 @@ static void test_a_dark_sample_shades_the_paint_below_neutral(void)
 static void test_a_triangle_and_the_clip(void)
 {
     const EnvShine env = env_plus_one();
-    const int32_t screen[6] = { 8, 8, 56, 8, 8, 40 }, uv[6] = { 0, 0, TEX, 0, 0, TEX };
+    const int32_t screen[8] = { 8, 8, 56, 8, 8, 40 }, uv[8] = { 0, 0, TEX, 0, 0, TEX };
     int32_t packed[4];
     centre(packed);
     QuadTarget clipped = Q;
@@ -184,7 +184,7 @@ static void test_a_shared_edge_between_polygons_leaves_no_gap(void)
     for (int flip = 0; flip < 2; flip++) {
         const EnvShine env = env_plus_one();
         const int32_t a[6] = { 8, 8, 40, 8, 8, 40 }, b[6] = { 40, 8, 40, 40, 8, 40 }, bf[6] = { 40, 8, 8, 40, 40, 40 };
-        const int32_t uv[6] = { 0, 0, TEX, 0, 0, TEX };
+        const int32_t uv[8] = { 0, 0, TEX, 0, 0, TEX };
         int32_t packed[4];
         centre(packed);
         shine_draw_env_affine(&Q, &CLS, &env, a, uv, packed, 3, OBJ_TRIANGLE, &TEXE, MAP_OPAQUE);
