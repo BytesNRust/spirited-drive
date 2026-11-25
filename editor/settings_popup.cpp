@@ -21,6 +21,8 @@ void game_located(void *userdata, const char *const *list, int)
 
 void locate_game(App *a)
 {
+    const char *driver = SDL_GetCurrentVideoDriver();
+    if (driver != NULL && strcmp(driver, "dummy") == 0) return;   // a headless run has no one to answer the system's dialog: it would wait for ever
     SDL_ShowOpenFileDialog(game_located, a, NULL, NULL, 0, "/Applications", false);   // its .app, or its program
 }
 
