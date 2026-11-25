@@ -36,6 +36,9 @@ jobs:
           fetch-depth: 0             # the version comes from the tag
           persist-credentials: false
 
+      - name: Check the tag matches the project's version (before the long build)
+        run: tools/check_tag_version.sh "$GITHUB_REF_NAME"
+
       - name: Install tools
         run: brew install ninja
 

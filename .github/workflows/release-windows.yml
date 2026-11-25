@@ -45,6 +45,9 @@ jobs:
             mingw-w64-ucrt-x86_64-sdl3
             git
 
+      - name: Check the tag matches the project's version (before the long build)
+        run: tools/check_tag_version.sh "$GITHUB_REF_NAME"
+
       - name: Build the game (release)
         run: |
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF
