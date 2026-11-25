@@ -355,7 +355,7 @@ static int at_once(App *a, const char *name, const double *arg)
     if (strcmp(name, "tweak-list") == 0) {   /* the Edit tweak list's rows on stdout: name, kind, tweak, what changed */
         app_tweak_list_refresh(a);
         for (int i = 0; i < a->tweak_rows; ++i)
-            printf("tweak row: %s | %s | %s | %s\n", a->tweak_row[i].name, a->tweak_row[i].kind, a->tweak_row[i].has ? a->tweak_row[i].id : "-", a->tweak_row[i].usable ? a->tweak_row[i].summary : "not available");
+            printf("tweak row: %s | %s | %s | %s%s%s\n", a->tweak_row[i].name, a->tweak_row[i].kind, a->tweak_row[i].has ? a->tweak_row[i].id : "-", a->tweak_row[i].usable ? a->tweak_row[i].summary : "not available", a->tweak_row[i].usable ? "" : " - ", a->tweak_row[i].usable ? "" : a->tweak_row[i].why);
         return 1;
     }
     if (strncmp(name, "tweak-open-row:", 15) == 0) {   /* tweak-open-row:NAME, Open on the Edit tweak list's row of that car (its masks folder, "Wagon") or track ("CY1") */
