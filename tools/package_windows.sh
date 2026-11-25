@@ -30,6 +30,8 @@ cp "$EXE" "$DIR/Spirited Drive.exe"
 
 # the icon and the name are a resource (game/sys/spirited.rc.in): an exe built without it has the system's default icon, and a package of it is not shipped
 objdump -h "$EXE" | grep -q '\.rsrc' || { echo "$EXE has no resource section: the .rc was not compiled in (enable_language(RC)), so no Spirited Drive icon" >&2; exit 1; }
+# and the manifest that makes its C library calls take UTF-8 paths (game/sys/utf8.manifest): the XML is stored as text in the resource
+grep -aq 'activeCodePage' "$EXE" || { echo "$EXE carries no UTF-8 manifest: a user name outside the ANSI code page could not open its own folder" >&2; exit 1; }
 
 # the DLLs the exe loads that are not Windows' own: ldd lists them with their path in the UCRT64 tree (/ucrt64/bin); the system's live under /c/Windows
 ldd "$EXE" | awk '/=>/ {print $3}' | grep -i '/ucrt64/' | sort -u > "$STAGE/dlls.txt" || true

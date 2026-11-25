@@ -29,6 +29,7 @@ grep -q 'cp "\$EXE" "\$DIR/Spirited Drive.exe"' "$pack" || bad "the packer does 
 grep -q 'tnfs\.exe' "$win" && bad "the Windows workflow still looks for tnfs.exe in the zip"
 sed -n '/^cat > "\$DIR\/README.txt"/,/^EOF/p' "$pack" | grep -q 'tnfs\.exe' && bad "the zip's README sends the player to tnfs.exe"
 grep -q 'rsrc' "$pack" || bad "the packer does not check the exe carries the icon resource"
+grep -q 'activeCodePage' "$pack" || bad "the packer does not check the exe carries the UTF-8 manifest"
 grep -q 'enable_language(RC)' CMakeLists.txt || bad "CMake does not enable RC: the .rc (icon, name) is not compiled and the exe keeps the default icon"
 grep -q '^1 ICON' "$rc" && grep -q 'VALUE "FileDescription", "Spirited Drive"' "$rc" || bad "$rc has no icon or no Spirited Drive name"
 [ $fail -eq 0 ] && echo "release_assets: ok"

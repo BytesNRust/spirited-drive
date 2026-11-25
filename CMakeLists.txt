@@ -835,6 +835,7 @@ target_link_libraries(tnfs PRIVATE tnfs_game)
 if(WIN32)   # the program's icon (Explorer, the taskbar) and its name (Task Manager, the file's properties): data/icon/spirited.ico and the version block as a resource. The project's languages are C only: without RC the .rc is not compiled and the exe has the system's default icon.
     enable_language(RC)
     set(TNFS_ICON_ICO "${CMAKE_SOURCE_DIR}/data/icon/spirited.ico")
+    set(TNFS_UTF8_MANIFEST "${CMAKE_SOURCE_DIR}/game/sys/utf8.manifest")
     configure_file(game/sys/spirited.rc.in "${CMAKE_BINARY_DIR}/generated/spirited.rc" @ONLY)
     target_sources(tnfs PRIVATE "${CMAKE_BINARY_DIR}/generated/spirited.rc")
 endif()
@@ -1240,6 +1241,12 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
+    if(WIN32)
+        # the C library's UTF-8 paths: a program with the manifest (this test links the same .rc) makes and reads a folder named outside the ANSI code page
+        add_executable(test_utf8_paths tests/test_utf8_paths.c "${CMAKE_BINARY_DIR}/generated/spirited.rc")
+        target_compile_options(test_utf8_paths PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME utf8_paths COMMAND test_utf8_paths WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    endif()
     if(TARGET tnfs-track-editor AND NOT WIN32)   # the test is a sh script with python3
         add_test(NAME editor_install COMMAND test_editor_install)
         if(EXISTS ${CMAKE_SOURCE_DIR}/original/SIMDATA/CARFAMS/WAGON.CFM)   # Export original car's kit needs a real CFM: the repository's original/ and data/
