@@ -1889,8 +1889,16 @@ if(NOT EMSCRIPTEN)
             add_test(NAME stock_screens_golden_${profile} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/stock_screens_golden.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
             set_tests_properties(stock_screens_golden_${profile} PROPERTIES TIMEOUT 600 ENVIRONMENT "PROFILES=${profile}")
         endforeach()
-        add_test(NAME tweak_race_facts COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tweak_race_facts.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)   # a tweak's tunnel fact is left out: the race is the same, tick for tick
-        set_tests_properties(tweak_race_facts PROPERTIES TIMEOUT 900)
+        # a tweak's tunnel fact is left out: the race is the same, tick for tick. The three races run side by side (A, B, C), then the compare reads them (the same 13 checks as the one script)
+        set(trf_work ${CMAKE_BINARY_DIR}/tweak_race_facts_work)
+        add_test(NAME tweak_race_facts_clean COMMAND ${CMAKE_COMMAND} -E remove_directory ${trf_work})
+        set_tests_properties(tweak_race_facts_clean PROPERTIES FIXTURES_SETUP trf_clean)
+        foreach(part A B C)
+            add_test(NAME tweak_race_facts_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tweak_race_facts.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original ${part} ${trf_work})
+            set_tests_properties(tweak_race_facts_${part} PROPERTIES TIMEOUT 900 FIXTURES_REQUIRED trf_clean FIXTURES_SETUP trf_${part})
+        endforeach()
+        add_test(NAME tweak_race_facts_compare COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tweak_race_facts.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original compare ${trf_work})
+        set_tests_properties(tweak_race_facts_compare PROPERTIES TIMEOUT 300 FIXTURES_REQUIRED "trf_A;trf_B;trf_C")
         # dep59 step 4 (T11): editions in the menus, one test per game session (each part one boot)
         foreach(part menus modes race)
             add_test(NAME edition_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
@@ -1948,8 +1956,10 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(tunnel_gradient_pool_game PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         add_test(NAME lamp_strip_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lamp_strip_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(lamp_strip_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
-        add_test(NAME vegas_lamps_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/vegas_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-        set_tests_properties(vegas_lamps_game PROPERTIES TIMEOUT 400 SKIP_RETURN_CODE 77)
+        foreach(part night day)   # the night and the day halves of the same script, side by side
+            add_test(NAME vegas_lamps_game_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/vegas_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+            set_tests_properties(vegas_lamps_game_${part} PROPERTIES TIMEOUT 400 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
+        endforeach()
         add_test(NAME tunnel_look_tint_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_look_tint_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # an unlit tunnel (lamps 0) keeps its tunnel_look colour at the four times of day
         set_tests_properties(tunnel_look_tint_game PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77)
         add_test(NAME portal_faces_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/portal_faces_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # a tunnel's portal on both mouths: TR3 reversed shows the far one, by default, not with TNFS_PORTAL_BOTH=0
@@ -2677,14 +2687,14 @@ set(TNFS_E2E_TESTS
     car_card_menus_replays
     showcase_setup_tile
     stock_screens_golden_stock stock_screens_golden_restored stock_screens_golden_restored-16x9
-    tweak_race_facts
+    tweak_race_facts_clean tweak_race_facts_A tweak_race_facts_B tweak_race_facts_C tweak_race_facts_compare
     edition_menus_menus
     edition_menus_race
     track_light_fingerprint_AL track_light_fingerprint_CL track_light_fingerprint_CY track_light_fingerprint_TR
     car_lit_all_game
     light_drive_results_game
     light_drive_setup_game
-    vegas_lamps_game
+    vegas_lamps_game_night vegas_lamps_game_day
     edition_menus_trackrace
     track_menus_race
     track_piece_run
