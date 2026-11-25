@@ -77,6 +77,8 @@ typedef struct {
     float to_x, to_y;       /* where a drag lets it go */
     double wait_from;   /* poll-wait: the clock when it began */
     long wait_serial;   /* poll-wait: the photo edit serial it last saw */
+    float ui_x, ui_y, ui_w, ui_h;   /* a ui- step's widget as the last frame drew it, and for how many frames it has sat there (ui_still) while the step waits for it (ui_wait) */
+    int ui_still, ui_wait;
     int failed;   /* a step that is not one or did nothing: the steps after it are not done */
 } Steps;
 

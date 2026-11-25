@@ -23,7 +23,7 @@
 
 /* the Viewport fits the trace to its size on its third frame: the mouse goes in after SETTLED_FRAMES; the game's log and its end are
  * waited for, not for ever */
-enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
+enum { UI_STILL_FRAMES = 3, UI_WAIT_FRAMES = 600, DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 int shine_draw_get_soft(void);   /* core/raster/shine_draw.h, not included: its View clashes with the editor's */
 int shine_draw_get_render_scale(void);
@@ -889,8 +889,15 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
     }
     if (strncmp(name, "ui-", 3) == 0) {   /* ui-click:W the widget W clicked in its middle; ui-at:W,F a click F (0..1) of its width along (a slider, a bar's cell); ui-span:W,F0,F1 pressed at F0, dragged, let go at F1 */
         const char *colon = strchr(name, ':');
-        float wx, wy, ww, wh;
-        if (colon == NULL || !ui_probe_find(colon + 1, &wx, &wy, &ww, &wh)) {
+        float wx = 0, wy = 0, ww = 0, wh = 0;
+        const int found = colon != NULL && ui_probe_find(colon + 1, &wx, &wy, &ww, &wh);
+        if (p == 0) {   /* the mouse goes in once the widget has been where it is for UI_STILL_FRAMES frames: a panel that is still laying itself out (a slow machine, a picture that arrives) moves it under the click */
+            s->ui_still = found && wx == s->ui_x && wy == s->ui_y && ww == s->ui_w && wh == s->ui_h ? s->ui_still + 1 : 0;
+            s->ui_x = wx, s->ui_y = wy, s->ui_w = ww, s->ui_h = wh;
+            if ((!found || s->ui_still < UI_STILL_FRAMES) && s->ui_wait++ < UI_WAIT_FRAMES) return s->phase = 0, 1;
+            s->ui_wait = s->ui_still = 0;
+        }
+        if (!found) {
             if (p == 0) fprintf(stderr, "--steps %s: no such widget drawn\n", name);
             return s->failed = 1, 0;
         }
