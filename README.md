@@ -33,6 +33,7 @@ The game it could have been with a few more years of development: dozens of addi
 
 **All of it in 8-bit.** Every frame is 256-colour indexed art, drawn the way the 1996 game drew, with no true-colour stage anywhere. Light adds no paint: dusk, tunnels and street lamps recolour the palette, they never leave it. Glows and shine are dithered, the way 1996 faked a gradient. The patina stays.
 
+- **Turn around: the world is all there.** In 1996 the camera never followed the car all the way round. Turn too far and the view stopped turning, because the road behind you was never drawn. In Restomod the camera follows the car through the full 360 degrees and the whole track is there, in front and behind. Spin, drive the wrong way, or hold **Look back** to see who is on your tail. It is real 3D now.
 - **Weather on every track**: rain, storms with lightning and thunder, fog, and snow in the mountains. Every car throws spray, the wet road mirrors the lamps, and in the rain everyone drives with their lights on.
 - **Four times of day**: dawn, day, dusk and night, each with its own light and the sun's shadows across the road.
 - **Night that glows**: headlight beams on the road and the walls, halos on street lamps, tunnel lights, brake lights and police lights, and reflectors that catch your beams.
@@ -41,7 +42,7 @@ The game it could have been with a few more years of development: dozens of addi
 - **Every track again**: mirror, rally and, on circuits, reverse, as switches on the track itself. Gravel, dust and mud on the rally stages.
 - **Lunar Springs**: the moon track the PC game never got to show (the story is below).
 - **Sharper picture**: 2x and 3x render scale, correct perspective, view distance up to Ultra.
-- **More cameras**: a 360 camera, a mirror in the bumper view, the police radar in every view.
+- **More cameras**: a mirror in the bumper view, the police radar in every view, the replay cameras while you race.
 - **Records your way**: a table per track, layout and lap count.
 
 **Always in the workshop.** Restomod's car shine and colours and its track lighting are being tuned track by track and car by car. Expect some reflections in the wrong place, paint that does not take its colour, and tunnels or shadows that look off. The engine is solid; this is art and tuning, and it gets better with every update. Stock '96 and Restored '96 are not affected.

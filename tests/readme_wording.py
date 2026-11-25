@@ -4,12 +4,13 @@ import re
 import sys
 
 NEVER = ("the original 256 colours", "the original 256 colors", "keeps the original palette", "not one extra colour", "nothing is smoothed over", "no filtering",
-         "no smoothing of textures", "256-colour palette")
+         "no smoothing of textures", "256-colour palette",
+         "no look back", "no look-back", "no lookback", "never had a look back", "without a look back", "had no way to look back")   # the exe has a look-back: say what Restomod adds, not that the original lacked it
 MUST = ("Factory spec, recalls done.", "Original paint, new bearings.", "Original block, modern running gear.", "All of it in 8-bit.", "they never leave it",
-        "very beta", "on macOS only for now", "ran out of time", "Always in the workshop.", "not available to download yet")
+        "very beta", "on macOS only for now", "ran out of time", "Always in the workshop.", "not available to download yet", "Turn around: the world is all there.", "Look back")
 
 
-NOTES_MUST = ("All of it still 8-bit", "very beta", "Always in the workshop", "[X.Y.Z]", "Three ways to play")
+NOTES_MUST = ("a full 360° camera", "All of it still 8-bit", "very beta", "Always in the workshop", "[X.Y.Z]", "Three ways to play")
 
 
 WINDOWS_MUST = ("unknown publisher", "More info", "Run anyway", "Bring your own CD", "Network races are not in the Windows version yet", "%APPDATA%",

@@ -10,7 +10,7 @@ ISO image of your own disc. Spirited Drive contains no EA content.
 - **Stock '96**: the 1996 game as it shipped. 4:3, original menus, only its bugs fixed.
 - **Restored '96**: the same game on a modern screen. Widescreen, up to 144 fps.
 - **Restomod '26**: the game it could have been with a few more years of development. Weather,
-  four times of day, night lighting, cars that shine and change colour, a dashboard that lights
+  four times of day, night lighting, a full 360° camera, cars that shine and change colour, a dashboard that lights
   up, mirror, reverse and rally versions of the tracks, the lost moon track, and dozens of
   smaller touches. All of it still 8-bit, palette-indexed art.
 
