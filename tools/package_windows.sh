@@ -66,16 +66,27 @@ while IFS= read -r dll; do
 done < "$STAGE/dlls.txt"
 rm "$STAGE/dlls.txt"
 
+# the text is the approved wording of the README and the release notes (tests/readme_wording.py checks this file too)
 cat > "$DIR/README.txt" <<EOF
 Spirited Drive $VERSION (Windows)
 
-1. Unpack this folder anywhere you can write to (not Program Files).
-2. Run Spirited Drive.exe. Windows may warn that the program is unsigned: More info > Run anyway.
-3. On the first start pick your copy of the original game (the CD, a folder with its files, or an ISO) and a profile.
+The Need for Speed SE (1996), rebuilt to run natively on today's computers. Free and open source.
 
-No game data is included: bring your own copy of the original game.
-Your settings and records are kept between runs.
-The update notice needs Windows 10 version 1803 or newer (it uses the curl.exe that comes with Windows); without it, or without internet, the game starts as usual and shows no notice.
+How to start
+1. Unpack this folder anywhere you can write to (not Program Files).
+2. Run Spirited Drive.exe. The first time, Windows will warn that the app is from an unknown publisher, because it is not signed yet: choose More info, then Run anyway.
+3. On the first start, point the game at your own CD, a folder with its files, or an ISO image of your own disc. It copies what it needs, and you can put the CD away.
+
+Bring your own CD. Spirited Drive contains no game data: you need your own copy of The Need for Speed Special Edition for PC (1996).
+
+Three ways to play: Stock '96 (the 1996 game as it shipped), Restored '96 (the same game on a modern screen) and Restomod '26 (weather, four times of day, night lighting, cars that shine and more, all of it still 8-bit, palette-indexed art). Not sure? Take Restored '96. You can change it at any time on the Game Mode screen.
+
+Network races are not in the Windows version yet.
+
+Your player folder is %APPDATA%\\Spirited Drive\\ (type it in the Explorer address bar). It keeps your settings, your records and your copy of the game's files, and they stay when you replace the program with a newer one.
+The log, spirited-drive.log, is in that folder too. In the game: Customize Game, page 3, Open the log folder. Attach it when you report a bug: https://github.com/BytesNRust/spirited-drive/issues (please do not attach files from the original game).
+
+This game is not finished and is not meant to be: what you find shapes what comes next.
 EOF
 
 ZIP="Spirited-Drive-$VERSION-windows-x64.zip"
