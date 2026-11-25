@@ -11,6 +11,7 @@
 #include "platform/sdl3/input_script.h"
 #include "platform/sdl3/input_shared.h"
 #include "platform/sdl3/pad_keys.h"
+#include "game/platform/frame_stats.h"
 #include "game/platform/vsync_plan.h"
 
 #include <SDL3/SDL.h>
@@ -70,6 +71,37 @@ static int vsync_wanted;             /* the interval the wait that ran last asks
 static bool vsync_refused, vsync_display_stale = true, presented_since_wait;
 static double vsync_display_hz;
 
+/* TNFS_FRAME_STATS=1: every FRAME_STATS_EVERY presents one log line of how evenly they came (frame_stats.h); the yardstick is the period of the wait that ran last,
+ * and a change of it (the race's rate, the front end's 60) starts the count again */
+static FrameStats frame_stats;
+static uint64_t frame_stats_last_ns, frame_stats_period_ns;
+
+static void frame_stats_note(uint64_t period_ns)
+{
+    static int on = -1;
+    if (on < 0) {
+        const char *env = SDL_getenv("TNFS_FRAME_STATS");
+        on = env != NULL && env[0] == '1';
+    }
+    if (!on) return;
+    frame_stats_period_ns = period_ns;
+}
+
+static void frame_stats_present(void)
+{
+    if (frame_stats_period_ns == 0) return;
+    const uint64_t now = SDL_GetTicksNS();
+    if (frame_stats.period_ns != frame_stats_period_ns) frame_stats_reset(&frame_stats, frame_stats_period_ns);
+    else if (frame_stats_last_ns != 0) frame_stats_add(&frame_stats, now - frame_stats_last_ns);
+    frame_stats_last_ns = now;
+    if (frame_stats.count >= FRAME_STATS_EVERY) {
+        char line[200];
+        frame_stats_format(&frame_stats, vsync_applied, line, sizeof line);
+        port_log("platform: %s\n", line);
+        frame_stats_reset(&frame_stats, frame_stats_period_ns);
+    }
+}
+
 static bool vsync_allowed(void)
 {
     static int allowed = -1;
@@ -128,6 +160,7 @@ void platform_wait_vblank(void)
 {
     uint64_t wait_ns;
     vsync_ask((int)(SDL_NS_PER_SECOND / platform_refresh_period_ns()));
+    frame_stats_note(platform_refresh_period_ns());
     if (vsync_kept_the_pace(&sdl3_next_vblank_ns)) return;
     sdl3_next_vblank_ns = pace_step(sdl3_next_vblank_ns, SDL_GetTicksNS(), platform_refresh_period_ns(), &wait_ns);
     if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
@@ -142,6 +175,7 @@ void platform_wait_frontend_frame(void)
 {
     uint64_t wait_ns;
     vsync_ask(PLATFORM_FRONTEND_HZ);
+    frame_stats_note(platform_frontend_period_ns());
     if (vsync_kept_the_pace(&next_frontend_ns)) return;
     next_frontend_ns = pace_step(next_frontend_ns, SDL_GetTicksNS(), platform_frontend_period_ns(), &wait_ns);
     if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
@@ -267,6 +301,7 @@ static void present_frame(const uint8_t *pixels, const PlatformColor palette[256
     vsync_apply();
     SDL_RenderPresent(sdl3_renderer);
     presented_since_wait = true;
+    frame_stats_present();
 }
 
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256])

@@ -710,7 +710,8 @@ set(TNFS_SDL3_PLATFORM
     game/platform/sdl3/platform_pool_sdl3.c
     game/platform/window_fit.c
     game/platform/fullscreen_key.c
-    game/platform/vsync_plan.c)   # platform_sdl3.c split by responsibility; the tests that link the platform list them all
+    game/platform/vsync_plan.c
+    game/platform/frame_stats.c)   # platform_sdl3.c split by responsibility; the tests that link the platform list them all
 add_executable(tnfs
     game/main.c
     game/frontend/config.c
@@ -1440,6 +1441,12 @@ foreach(name first_profile car_livery_unlamp track_light_mirror port_old_files c
     target_include_directories(test_vsync_plan PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests)
     target_compile_options(test_vsync_plan PRIVATE ${TNFS_WARNINGS})
     add_test(NAME vsync_plan COMMAND test_vsync_plan)
+    # the frame-time histogram (TNFS_FRAME_STATS=1)
+    add_executable(test_frame_stats tests/test_frame_stats.c game/platform/frame_stats.c)
+    target_link_libraries(test_frame_stats PRIVATE tnfs_core)
+    target_include_directories(test_frame_stats PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests)
+    target_compile_options(test_frame_stats PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME frame_stats COMMAND test_frame_stats)
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_gallery_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -2337,7 +2344,7 @@ if(NOT EMSCRIPTEN)
     # the test includes platform_sdl3.c and platform_present_sdl3.c (to reach the renderer and the pacing); the rest of the platform is linked
     add_executable(test_platform_present tests/test_platform_present.c game/platform/sdl3/platform_audio_sdl3.c game/platform/sdl3/platform_input_sdl3.c
                    game/platform/sdl3/platform_mods_sdl3.c game/platform/sdl3/platform_user_sdl3.c game/platform/sdl3/platform_pool_sdl3.c
-                   game/platform/sdl3/platform_drop_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c game/platform/window_fit.c game/platform/fullscreen_key.c game/platform/vsync_plan.c)
+                   game/platform/sdl3/platform_drop_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c game/platform/window_fit.c game/platform/fullscreen_key.c game/platform/vsync_plan.c game/platform/frame_stats.c)
     target_link_libraries(test_platform_present PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_present PRIVATE m)

@@ -30,7 +30,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `render_scale` | 1 | 1 | 1, 2, 3 (the 3D drawn at that many times the frame's size) | Graphics Detail: Render Scale | `TNFS_RENDER_SCALE` | 1 / 1 / 2 |
 | `render_bands` | auto (-1) | 0 (off, the plain path) | `auto` (-1), or 0 (off) .. 8 threads; the menu offers Off, Auto, 2 and 4 | Graphics Detail: Render Threads | `TNFS_BANDS` (wins over the file) | not set |
 
-The frame's pace: on Windows the renderer's vsync paces the game when the display's refresh shows the game's rate (60 Hz at 60 or 30, 120 Hz at 60, 144 Hz at 144; a 144 Hz screen at 60 does not, so the software sleep stays). `TNFS_VSYNC=0` turns it off, `TNFS_VSYNC=1` asks for it on other systems; `spirited-drive.log` has a `platform: vsync` line when it changes.
+The frame's pace: on Windows the renderer's vsync paces the game when the display's refresh shows the game's rate (60 Hz at 60 or 30, 120 Hz at 60, 144 Hz at 144; a 144 Hz screen at 60 does not, so the software sleep stays). `TNFS_VSYNC=0` turns it off, `TNFS_VSYNC=1` asks for it on other systems; `spirited-drive.log` has a `platform: vsync` line when it changes. `TNFS_FRAME_STATS=1` adds a line every 600 presents with how evenly they came (on time, early, one late, more, mean and longest frame), to set a run with `TNFS_VSYNC=0` beside one with `TNFS_VSYNC=1`.
 
 ### View and 3D
 
