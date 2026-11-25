@@ -4,23 +4,25 @@
 #   A  no tweak: the race as it is
 #   B  an edition with a tweak whose track_light/TR1.txt holds `tunnel 1 500`: the file is left out (said in the log), and the race is A's, tick for tick (the same trace, the same finish) and keeps its records
 #   C  the same file as --mods (the developer's folder, which is served): the race differs from A. It shows that A and B being the same means something
-# usage: tweak_race_facts.sh TNFS REPO ORIGINAL_DIR
+# The three races are independent: PART A, B or C runs one of them (each its own user folder) into WORK, and PART compare reads the three and makes the 7 checks, so the gate can run them side by side
+# (the CMake tests tweak_race_facts_A/_B/_C then _compare, which needs the three). With no PART (or `all`) the one script does the four as it did.
+# usage: tweak_race_facts.sh TNFS REPO ORIGINAL_DIR [PART [WORK]]
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }
 tnfs=$(abs "$1")
 repo=$(abs "$2")
 orig=$(abs "$3")
+part=${4:-all}
 [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
-work=$(mktemp -d)
-trap 'find "$work" -delete' EXIT
+if [ -n "${5:-}" ]; then work=$(abs "$5"); mkdir -p "$work"; else work=$(mktemp -d); trap 'find "$work" -delete' EXIT; fi
 export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
 # the file with a tunnel fact: the repo's own light for TR1 and a tunnel over the first 500 of its 512 nodes
 tunnel_file() { (head -2 "$repo/data/track_light/TR1.txt"; echo "tunnel 1 500"; tail -n +3 "$repo/data/track_light/TR1.txt") > "$1"; }
-mkdir -p "$work/ua" "$work/ub/mods/twk/track_light" "$work/ub/editions" "$work/cli/track_light"
-printf 'profile=restomod\n' | tee "$work/ua/port.cfg" > "$work/ub/port.cfg"
+mkdir -p "$work/ua" "$work/uc" "$work/ub/mods/twk/track_light" "$work/ub/editions" "$work/cli/track_light"
+printf 'profile=restomod\n' | tee "$work/ua/port.cfg" "$work/uc/port.cfg" > "$work/ub/port.cfg"
 tunnel_file "$work/ub/mods/twk/track_light/TR1.txt"
 tunnel_file "$work/cli/track_light/TR1.txt"
 printf 'name=Test\ncars=rx7\ntracks=city\ntweaks=twk\n' > "$work/ub/editions/ed.ini"
@@ -40,9 +42,10 @@ race() {
     [ -s "$work/$name.trace" ] && [ -s "$work/$name.finish" ] || fail "race $name has no trace or no finish"
 }
 
-race A "$work/ua"
-race B "$work/ub"
-race C "$work/ua" --mods "$work/cli"
+case $part in all | A) race A "$work/ua" ;; esac
+case $part in all | B) race B "$work/ub" ;; esac
+case $part in all | C) race C "$work/uc" --mods "$work/cli" ;; esac
+case $part in A | B | C) [ "$failures" = 0 ] || exit 1; echo "ok (part $part)"; exit 0 ;; esac
 
 grep -q "mods: twk: track_light/TR1.txt is left out: its tunnel or snow lines change the race" "$work/ub/spirited-drive.log" || fail "B: the log does not say the tweak's track_light file is left out: $(grep 'mods:' "$work/ub/spirited-drive.log")"
 cmp -s "$work/A.trace" "$work/B.trace" || fail "B: the race with the tweak is not A's, tick for tick: $(diff "$work/A.trace" "$work/B.trace" | head -3)"
