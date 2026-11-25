@@ -3,6 +3,7 @@
 
 #include "formats/modpath.h"
 #include "formats/validate.h"
+#include "game/platform/fullscreen_key.h"
 #include "game/sys/key_latch.h"
 #include "game/sys/data_path.h"
 #include "game/sys/file_url.h"
@@ -121,10 +122,27 @@ static PlatformKey translate_key(SDL_Keycode key)
     }
 }
 
+/* the numbers game/platform/fullscreen_key.h writes are SDL's */
+typedef char fullscreen_key_f_is_sdls[FULLSCREEN_SC_F == SDL_SCANCODE_F ? 1 : -1];
+typedef char fullscreen_key_return_is_sdls[FULLSCREEN_SC_RETURN == SDL_SCANCODE_RETURN ? 1 : -1];
+typedef char fullscreen_key_kp_enter_is_sdls[FULLSCREEN_SC_KP_ENTER == SDL_SCANCODE_KP_ENTER ? 1 : -1];
+
+static void (*fullscreen_toggle)(void);
+
+void platform_set_fullscreen_toggle(void (*toggle)(void)) { fullscreen_toggle = toggle; }
+
+/* a key press's modifiers as fullscreen_key.h counts them */
+static unsigned chord_mods(SDL_Keymod mod)
+{
+    return ((mod & SDL_KMOD_ALT) != 0 ? FULLSCREEN_MOD_ALT : 0u) | ((mod & SDL_KMOD_CTRL) != 0 ? FULLSCREEN_MOD_CTRL : 0u) |
+           ((mod & SDL_KMOD_GUI) != 0 ? FULLSCREEN_MOD_GUI : 0u) | ((mod & SDL_KMOD_SHIFT) != 0 ? FULLSCREEN_MOD_SHIFT : 0u);
+}
+
 bool platform_poll_events(void)
 {
     static bool quit;  /* the window closed: every caller after the first sees it too (a race's loop, then a screen's) */
     SDL_Event event;
+    bool toggle_pending = false;
     if (quit) return false;
     /* port: a binding's key held or let go while nothing reads the pad (the pause's wait, a race on the keyboard) */
     pad_keys_refresh();
@@ -159,6 +177,15 @@ bool platform_poll_events(void)
         if (event.type == SDL_EVENT_MOUSE_WHEEL) wheel_notches += event.wheel.y > 0 ? 1 : event.wheel.y < 0 ? -1 : 0;
         if (event.type == SDL_EVENT_TEXT_INPUT) sdl3_text_push_utf8(event.text.text);
         if (event.type == SDL_EVENT_DROP_FILE && event.drop.data != NULL) sdl3_drop_push(event.drop.data);   /* port (dep59 step 4b) */
+#if defined(__APPLE__)
+        const bool apple = true;
+#else
+        const bool apple = false;
+#endif
+        if (event.type == SDL_EVENT_KEY_DOWN && fullscreen_toggle != NULL && fullscreen_key_is_toggle((int)event.key.scancode, chord_mods(event.key.mod), apple)) {
+            toggle_pending = toggle_pending || !event.key.repeat;   /* held, it toggles once; and it never reaches the game as an Enter or an F */
+            continue;
+        }
         if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) key_latch_press((int)event.key.scancode);   /* port: a tap shorter than a poll still reaches the sim */
         if (event.type == SDL_EVENT_KEY_DOWN) push_editing_key(event.key.key);
         if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {
@@ -167,6 +194,7 @@ bool platform_poll_events(void)
         }
     }
     input_script_watch_check();
+    if (toggle_pending && fullscreen_toggle != NULL) fullscreen_toggle();   /* outside the event loop: the window's change waits for its events */
     return true;
 }
 

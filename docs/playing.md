@@ -26,6 +26,7 @@ and the rest is greyed out. Each addition below says which modes have it:
   - render scale: 1x by default, or 2x or 3x: the 3D world is drawn at that many times the frame's size and scaled
     down, so it is sharper (and slower) the higher it is.
   The pause menu's Graphics opens the same screen; the rows that need a new race say "(next race)".
+  **Alt+Enter** (Windows, Linux) or **Cmd+Ctrl+F** (macOS) turns full screen on and off at any time, in every mode, in a menu or in a race; the choice is kept, as in Graphics. The format is left as it is (Graphics' Full screen row also takes the desktop's shape).
 - **Controls** (Options → Controls setup; gamepads and wheels work in every mode): page 1 is the original's. Pages 2-3 bind any action (steering, gas, brake,
   gears, camera, handbrake, horn, pause, view, Nitro) to keys, pad buttons, triggers or axes. They also set the dead
   zone, sensitivity and force feedback.

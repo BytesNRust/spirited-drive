@@ -17,6 +17,7 @@
  *   tnfs [--user DIR] --install FILE.zip | --uninstall ID | --mods-list
  *                                          install, update or uninstall a mod, or list them (game/sys/mod_commands.h) */
 #include "game/platform/sdl3/win_console.h"
+#include "game/frontend/fullscreen_toggle.h"
 #include "game/frontend/config.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_pieces.h"
@@ -360,6 +361,7 @@ static void set_stats_sender(void)
 
 int main(int argc, char **argv)
 {
+    platform_set_fullscreen_toggle(fullscreen_toggle_now);   /* Alt+Enter (Cmd+Ctrl+F on macOS) */
     win_console_attach(argc, argv);   /* Windows release: a GUI program, its output goes to the shell that started it, or to a console of --console's own */
     Options opt;
     if (!parse_args(argc, argv, &opt)) return EXIT_FAILURE;
