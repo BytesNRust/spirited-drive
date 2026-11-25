@@ -475,9 +475,18 @@ static void test_a_tunnel_mouth_gradient(void)
     CHECK(look_percent(l, 700) > look_percent(l, 701));
     /* the slots are numbered by depth, and are the gradient's ids */
     CHECK(l->tone_id[100] < l->tone_id[101] && l->tone_id[101] < l->tone_id[102] && l->tone_id[102] > 0);
-    CHECK(track_node_light_gradient_ids(l) == ((1u << l->tone_id[100]) | (1u << l->tone_id[101]) | (1u << l->tone_id[102]) | (1u << l->tone_id[500]) | (1u << l->tone_id[501])));
-    /* outside the tunnel and in a hall: nothing */
-    CHECK(l->tone_id[99] == 0 && l->tone_id[121] == 0 && l->tone_id[900] == 0 && l->tone_id[905] == 0);
+    CHECK((track_node_light_gradient_ids(l) & ((1u << l->tone_id[100]) | (1u << l->tone_id[101]) | (1u << l->tone_id[102]) | (1u << l->tone_id[500]) | (1u << l->tone_id[501]))) == ((1u << l->tone_id[100]) | (1u << l->tone_id[101]) | (1u << l->tone_id[102]) | (1u << l->tone_id[500]) | (1u << l->tone_id[501])));
+    /* the open road before each mouth and past the other end: N outer steps (look 3), the share of the way to the tunnel's road surface and the colour's blend rising toward the mouth, the same at both ends; nodes
+     * past them, a straight cut's and a hall's: nothing */
+    for (uint32_t e = 1; e <= 3; e++) {
+        const TrackNodeLightTone *const t = &l->tone[l->tone_id[100 - e] - 1];
+        CHECK(l->tone_id[100 - e] > 0 && t->look == 3 && t->share == (uint8_t)((4 - e) * 25) && t->blend > 0 && t->blend <= 25);
+        CHECK(l->tone_id[120 + e] == l->tone_id[100 - e]);
+    }
+    CHECK(l->tone[l->tone_id[99] - 1].blend > l->tone[l->tone_id[98] - 1].blend && l->tone[l->tone_id[98] - 1].blend > l->tone[l->tone_id[97] - 1].blend);
+    CHECK(l->tone_id[96] == 0 && l->tone_id[124] == 0 && l->tone_id[299] == 0 && l->tone_id[306] == 0 && l->tone_id[900] == 0 && l->tone_id[905] == 0 && l->tone_id[899] == 0 && l->tone_id[911] == 0);
+    CHECK(look_percent(l, 99) < 100.0 && look_percent(l, 99) > look_percent(l, 100) - 0.01 && look_percent(l, 97) > look_percent(l, 99));   /* the tunnel's light comes in node by node from outside */
+    CHECK(track_node_light_gradient_ids(l) & (1u << l->tone_id[99]));
     track_light_file_free(&file);
     /* the same file at another moment: the same steps over that moment's look */
     CHECK(parse(TEXT, 'B', &file, &bad));

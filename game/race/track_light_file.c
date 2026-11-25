@@ -228,13 +228,33 @@ static int gradient_steps(TrackLightTweaks *tweaks, int *bad_line)
             tunnel_look_at(tweaks, n, &s->light, s->cast, &s->own);
         }
     }
+    const char *const outer_off = getenv("TNFS_GRADIENT_OUTER");   /* dev: 0 the gradient is inside the tunnel only, as it was (an A/B override for before / after pictures) */
+    for (int g = 0; g < tweaks->gradient_count && !(outer_off != NULL && outer_off[0] == '0' && outer_off[1] == '\0'); g++) {   /* and the open road beside each mouth: e nodes out, step N + 1 - e of N + 1 of the way for the road's light, a share of that for the colour (rising to the mouth, below the first inner step's) */
+        const TrackLightGradient *const gr = &tweaks->gradients[g];
+        for (int e = 1; e <= gr->nodes; e++)
+            for (int end = 0; end < 2; end++) {
+                if (end == 0 ? gr->from < (uint32_t)e : 0) continue;
+                const uint32_t n = end == 0 ? gr->from - (uint32_t)e : gr->to + (uint32_t)e;
+                int taken = 0;
+                for (int i = 0; i < tweaks->step_count; i++) taken |= tweaks->steps[i].from == n;
+                for (int h = 0; h < tweaks->gradient_count; h++) taken |= n >= tweaks->gradients[h].from && n <= tweaks->gradients[h].to;
+                if (taken) continue;
+                if (tweaks->step_count >= TRACK_LIGHT_MAX_STEPS) goto cut;
+                const int share = (gr->nodes + 1 - e) * 100 / (gr->nodes + 1);
+                int blend = share / gr->nodes;
+                blend = blend < 1 ? 1 : blend > 99 ? 99 : blend;
+                TrackLightZone *const s = &tweaks->steps[tweaks->step_count++];
+                *s = (TrackLightZone){ .from = n, .to = n, .has_light = 1, .has_colour = 1, .tone = -1, .blend = blend, .share = share };
+                tunnel_look_at(tweaks, end == 0 ? gr->from : gr->to, &s->light, s->cast, &s->own);
+            }
+    }
     for (int blend = 1; blend < 100; blend++)
         for (int i = 0; i < tweaks->step_count; i++) {
             TrackLightZone *const s = &tweaks->steps[i];
             if (s->blend != blend) continue;
             TrackNodeLightTone slot;
             memset(&slot, 0, sizeof slot);
-            slot.rgb[0] = slot.rgb[1] = slot.rgb[2] = 255, slot.look = 2, slot.own = (uint8_t)s->own, slot.blend = (uint8_t)blend, slot.light = (float)s->light;
+            slot.rgb[0] = slot.rgb[1] = slot.rgb[2] = 255, slot.look = s->share > 0 ? 3 : 2, slot.share = (uint8_t)s->share, slot.own = (uint8_t)s->own, slot.blend = (uint8_t)blend, slot.light = (float)s->light;
             memcpy(slot.cast, s->cast, sizeof slot.cast);
             int id = -1;
             for (int t = 0; t < tweaks->tone_count; t++)

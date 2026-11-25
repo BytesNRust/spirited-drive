@@ -131,7 +131,7 @@ int track_node_light_zone_look_blend(const TrackNodeLight *light, uint32_t at, f
     if (!track_node_light_zone_look_at(light, at, percent, cast)) return 0;
     if (light->tone_id == NULL || light->nodes == 0) return 1;
     const int id = light->tone_id[at % light->nodes];
-    if (id <= 0 || id > light->tone_count || light->tone[id - 1].look != 2) return 1;
+    if (id <= 0 || id > light->tone_count || (light->tone[id - 1].look != 2 && light->tone[id - 1].look != 3)) return 1;
     const float f = (float)light->tone[id - 1].blend / 100.0f, open = mean > 0.0f ? mean * 100.0f : 100.0f;
     *percent = (double)(open + ((float)*percent - open) * f);
     if (!light->tone[id - 1].own)   /* the time's colour fades with the light; a tunnel's own colour stays whole on every step */
@@ -143,7 +143,7 @@ uint32_t track_node_light_gradient_ids(const TrackNodeLight *light)
 {
     uint32_t ids = 0;
     for (int i = 0; light != NULL && i < light->tone_count && i < TRACK_NODE_LIGHT_TONES; i++)
-        if (light->tone[i].look == 2) ids |= 1u << (i + 1);
+        if (light->tone[i].look == 2 || light->tone[i].look == 3) ids |= 1u << (i + 1);
     return ids;
 }
 
@@ -227,6 +227,14 @@ static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, u
     /* the road inside a tunnel (a lit foot with 0s from point 4 on, either side) is dark on the console version although its bytes say 255 */
     /* a tunnel mouth's gradient: over its steps the clamp comes in by the step's blend squared (25, 50, 75 % come in as 6, 25, 56 % of the way from the row's own byte: the darkening is steep at the bright end, so a straight share
      * still made a cliff at the first step), so the road darkens node by node instead of all at the first tunnel node */
+    if (!tunnel && light->tone_id != NULL && light->tone_mask != NULL && !unlit_open_at(light, node)) {   /* the open road before a mouth: toward the light at which it is as dark as the tunnel's own road surface */
+        const int id = light->tone_id[node];
+        if (id > 0 && id <= light->tone_count && light->tone[id - 1].look == 3) {
+            const int share = light->tone[id - 1].share;
+            if ((point == 0 || point == 1 || point == 6) && row[point] > TRACK_NODE_LIGHT_MOUTH_OPEN) return (uint8_t)(row[point] - (row[point] - TRACK_NODE_LIGHT_MOUTH_OPEN) * share / 100);
+            if ((point == 2 || point == 7) && row[point] > TRACK_NODE_LIGHT_WALL) return (uint8_t)(row[point] - (row[point] - TRACK_NODE_LIGHT_WALL) * share / 100);
+        }
+    }
     int step = 100;
     if (road_clamps && light->tone_id != NULL && light->tone_mask != NULL) {
         const int id = light->tone_id[node];

@@ -763,6 +763,7 @@ add_executable(tnfs
     game/viewer/cone_cells.c
     game/viewer/tunnel_cells.c
     game/viewer/tunnel_cells_draw.c
+    game/viewer/mouth_cells.c
     game/viewer/modern_look.c
     game/viewer/weather_draw.c
     game/viewer/wiper_draw.c
