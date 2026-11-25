@@ -117,8 +117,8 @@ echo "$out" | grep -q '^drive: running AL1 B node 12 rain$' || fail "the drive d
 echo "$out" | grep -q '^drive: failed AL1 B node 12 rain$' || fail "Stop did not end the drive: $(echo "$out" | grep '^drive:')"
 echo "$out" | grep -q '^drive why: $' || fail "a Stop was reported as a failure: $(echo "$out" | grep '^drive why')"
 grep -q 'edit=1 time=day weather=rain video= ' "$LIVE_RECORD" || fail "the game was not started with the light editor, the day and the rain (and a real window): $(cat "$LIVE_RECORD" 2>&1)"
-# the drive's picture is the same whatever the person's files say: Restomod, 16:9, the top render scale, the effects on; the preview's camera
-grep -q '^profile=restomod$' "$LIVE_RECORD.cfg" && grep -q '^format=16:9$' "$LIVE_RECORD.cfg" && grep -q '^render_scale=3$' "$LIVE_RECORD.cfg" && grep -q '^lamp_flares=1$' "$LIVE_RECORD.cfg" && grep -q '^sun_shadow=1$' "$LIVE_RECORD.cfg" || fail "the drive's scratch settings are not Restomod 16:9 at scale 3 with the effects on: $(cat "$LIVE_RECORD.cfg" 2>&1)"
+# the drive's picture is the same whatever the person's files say: Restomod, 16:9, the player's render scale (2 here: no player folder), the effects on; the preview's camera
+grep -q '^profile=restomod$' "$LIVE_RECORD.cfg" && grep -q '^format=16:9$' "$LIVE_RECORD.cfg" && grep -q '^render_scale=2$' "$LIVE_RECORD.cfg" && grep -q '^lamp_flares=1$' "$LIVE_RECORD.cfg" && grep -q '^sun_shadow=1$' "$LIVE_RECORD.cfg" || fail "the drive's scratch settings are not Restomod 16:9 at the player's scale 2 with the effects on: $(cat "$LIVE_RECORD.cfg" 2>&1)"
 grep -q 'view=1 ' "$LIVE_RECORD" || fail "the drive did not start in the preview's camera: $(cat "$LIVE_RECORD" 2>&1)"
 out=$(run --game "$work/live_game" --frames 40 --steps open-original:0,light-drive,poll-wait:4,light-bright:40,poll-wait:4,print-drive,drive-stop 2>&1) || fail "test drive edit: $out"
 echo "$out" | grep -q '^drive copy: brightness 0 50 40' || fail "an edit made while the game runs did not reach the drive's copy of the file: $(echo "$out" | grep '^drive')"

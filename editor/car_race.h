@@ -147,7 +147,7 @@ int car_race_player_options(const char *user, char *why, size_t why_cap);
 /* After car_race_user_files: the Track light drive takes the person's own game, not a picked part of it: their whole setup: config.dat (transmission, units, ...) and controls.cfg (the gamepad's and keyboard's map)
  * copied as they are, port.cfg and restomod.cfg with every key the scratch does not set. It logs the folder it used and what it took (stderr). Read only: the person's files are never written, and the scratch folder, which holds what the drive fixes, is removed after. 1, or 0 with `why`. */
 int car_race_player_whole(const char *user, char *why, size_t why_cap);
-/* After car_race_player_options: the Track light drive's picture is the same whatever the person set: 16:9, the top render scale (3), the window never full screen and every effect of
+/* After car_race_player_options: the Track light drive's picture is the same whatever the person set: 16:9, the player's own render scale (car_race_player_render_scale: 2 when they set none), the window never full screen and every effect of
  * Restomod on (RACE_LOOK_ON's keys, lamp_halos, shine_soft, reflectors, headlight_beams, sun_shadow). The lines of those keys are taken out of <user>/port.cfg and restomod.cfg
  * (what the person's copy brought, or the file's own), and restomod.cfg ends with the forced ones; the rest of the person's options (the field of view...) stay. 1, or 0 with `why`. */
 int car_race_force_max_look(const char *user, char *why, size_t why_cap);
