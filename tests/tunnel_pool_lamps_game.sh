@@ -8,6 +8,7 @@
 # the outside ramp is not drawn at night with the pool.
 #  (4) by day, going in with the lamps at 0, 1 and 50 %, the road does not rise by more than 2 (of 255) from node -1 to node +2 (the beam comes into the tunnel gradually).
 #  (5) by day, going out with the lamps at 0, 1 and 50 %, the road at the tunnel's last node is not a dip (over 2 under both its neighbours): the beam fades out at the exit.
+# The tunnels' light files are main's of cd627f90 (tests/fixtures/track_light), so the test checks the code and not the owner's tuning of AL1 and AL3.
 # usage: tests/tunnel_pool_lamps_game.sh <tnfs binary> <original/ dir> [contact sheet dir]      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
@@ -23,7 +24,7 @@ AL3 616 639"
 lamps_all="0 1 50 100"
 mkdir -p "$work/shots"
 echo "$cases" | while read -r track from to; do
-  grep -q "^tunnel $from $to" data/track_light/$track.txt || { echo "FAIL: $track's tunnel $from $to is not in data/track_light"; touch "$work/bad"; exit 1; }
+  grep -q "^tunnel $from $to" tests/fixtures/track_light/${track}_main_cd627f90.txt || { echo "FAIL: $track's tunnel $from $to is not in the fixture"; touch "$work/bad"; exit 1; }
 done
 [ ! -e "$work/bad" ] || exit 1
 for lamps in $lamps_all; do
@@ -32,7 +33,7 @@ for lamps in $lamps_all; do
     echo "$cases" | while read -r track from to; do
       d="$work/mods_${track}_${time}_$lamps"
       mkdir -p "$d/track_light"
-      awk -v b="$blk" -v f="$from" -v t="$to" -v s="$lamps" '{ print } $1 == "time" { on = ($2 == b) } on && /^  tunnel_look [0-9.]+ / && !done { print "  tunnel_look " f " " t " 60 lamps " s " reach 1"; done = 1 }' "data/track_light/$track.txt" > "$d/track_light/$track.txt"
+      awk -v b="$blk" -v f="$from" -v t="$to" -v s="$lamps" '{ print } $1 == "time" { on = ($2 == b) } on && /^  tunnel_look [0-9.]+ / && !done { print "  tunnel_look " f " " t " 60 lamps " s " reach 1"; done = 1 }' "tests/fixtures/track_light/${track}_main_cd627f90.txt" > "$d/track_light/$track.txt"
     done
   done
 done
