@@ -114,6 +114,19 @@ static void api_commands_are_bounded(void)
     CHECK_EQ_INT(update_api_command(cmd, sizeof cmd, "first_race\"; x", "0.9.0"), 0);
     CHECK_EQ_INT(update_api_command(cmd, sizeof cmd, "first_race", "0.9.0;ls"), 0);
     CHECK_EQ_INT(update_api_command(cmd, 40, "first_race", "0.9.0"), 0);                /* does not fit */
+
+    /* the test builds' own base: plain address only, http only when asked, the rest of the command as it is */
+    CHECK_EQ_INT(update_api_command_at(cmd, sizeof cmd, "http://127.0.0.1:8123/spirited-drive/v1", 1, NULL, "0.0.1+updatetest"), 1);
+    CHECK(strstr(cmd, "\"http://127.0.0.1:8123/spirited-drive/v1/latest?v=0.0.1&p=" UPDATE_API_PLATFORM "\"") != NULL);
+    CHECK(strstr(cmd, "--proto =http,https") != NULL && strstr(cmd, "--max-time 5") != NULL);
+    CHECK_EQ_INT(update_api_command_at(cmd, sizeof cmd, "http://127.0.0.1:8123/x", 0, NULL, "0.0.1"), 1);
+    CHECK(strstr(cmd, "--proto =https ") != NULL && strstr(cmd, "http,https") == NULL);
+    CHECK_EQ_INT(update_api_command_at(cmd, sizeof cmd, "http://h\"; rm -rf /", 1, NULL, "0.0.1"), 0);   /* nothing but a plain address */
+    CHECK_EQ_INT(update_api_command_at(cmd, sizeof cmd, "http://h/a b", 1, NULL, "0.0.1"), 0);
+    CHECK_EQ_INT(update_api_command_at(cmd, sizeof cmd, "", 1, NULL, "0.0.1"), 0);
+    CHECK_EQ_INT(update_api_command_at(cmd, sizeof cmd, NULL, 1, NULL, "0.0.1"), 0);
+    CHECK_EQ_INT(update_api_command_at(cmd, sizeof cmd, "http://h/a", 1, "first_race", "0.0.1"), 1);
+    CHECK(strstr(cmd, "-X POST") != NULL && strstr(cmd, "http://h/a/event?e=first_race&v=0.0.1") != NULL);
 }
 
 /* the system the API is told: the one this build is for, one of the three the Worker keeps */

@@ -29,6 +29,7 @@
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/tgv_player.h"
 #include "game/platform/first_run.h"
+#include "core/update/update_check.h"
 #include "game/platform/update.h"
 #include "game/sys/art_cache.h"
 #include "game/sys/data_path.h"
@@ -86,6 +87,7 @@ typedef struct {
     const char *install;     /* --install FILE.zip */
     const char *uninstall;   /* --uninstall ID */
     int mods_list;           /* --mods-list */
+    int update_check;        /* --update-check */
 } Options;
 
 /* the usage message, as a fatal; returns 0 for a caller that goes on */
@@ -96,15 +98,16 @@ static int bad_usage(const char *program)
                     "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
                     "       %s [--data DIR] [--mods DIR] --replay FILE.RPL|FILE.RPX\n"
                     "       %s [--data DIR] --movie FILE.TGV\n"
-                    "       %s [--user DIR] --install FILE.zip | --uninstall ID | --mods-list\n",
-            program, program, program, program, program, program);
+                    "       %s [--user DIR] --install FILE.zip | --uninstall ID | --mods-list\n"
+                    "       %s --update-check\n",
+            program, program, program, program, program, program, program);
     return 0;
 }
 
 static int parse_args(int argc, char **argv, Options *opt)
 {
     *opt = (Options){ "original", 0, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
-                      0, NULL, NULL, NULL, 0 };
+                      0, NULL, NULL, NULL, 0, 0 };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--data") == 0 && has_value) {
@@ -134,6 +137,8 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->uninstall = argv[++i];
         } else if (strcmp(argv[i], "--mods-list") == 0) {
             opt->mods_list = 1;
+        } else if (strcmp(argv[i], "--update-check") == 0) {
+            opt->update_check = 1;
         } else if (strcmp(argv[i], "--movie") == 0 && has_value) {
             opt->movie = argv[++i];
         } else if (strcmp(argv[i], "--racers") == 0 && has_value) {
@@ -359,6 +364,30 @@ static void set_stats_sender(void)
     port_stats_set_sender(platform_stats_post);
 }
 
+/* port: `--update-check` runs the update check once in the foreground, no window and no game data, and says what it found in one line:
+ * the tests of the update notice (a release build stamped with an old version, TNFS_UPDATE_TEST_VERSION) and a player's bug report use it. Exit 0 when the
+ * check ended (a notice or not), 3 when it gave no answer in time. */
+static int update_check_command(void)
+{
+    enum { WAIT_MS = 20000, STEP_MS = 50 };
+    if (update_is_dev_build(TNFS_VERSION)) {
+        printf("update check: off (a development build, %s)\n", TNFS_VERSION);
+        return 0;
+    }
+    platform_update_check_start(TNFS_VERSION);
+    char latest[32] = "";
+    UpdateState state = platform_update_check_poll(latest, sizeof latest);
+    for (int waited = 0; state == UPDATE_PENDING && waited < WAIT_MS; waited += STEP_MS) {
+        platform_sleep_ms(STEP_MS);
+        state = platform_update_check_poll(latest, sizeof latest);
+    }
+    if (state == UPDATE_NEWER) printf("update check: newer version available: %s (this is %s)\n", latest, TNFS_VERSION);
+    else if (state == UPDATE_NONE) printf("update check: no newer version (this is %s; %s)\n", TNFS_VERSION, platform_update_check_why());
+    else printf("update check: no answer in %d s (this is %s)\n", WAIT_MS / 1000, TNFS_VERSION);
+    fflush(stdout);
+    return state == UPDATE_PENDING ? 3 : 0;
+}
+
 int main(int argc, char **argv)
 {
     platform_set_fullscreen_toggle(fullscreen_toggle_now);   /* Alt+Enter (Cmd+Ctrl+F on macOS) */
@@ -373,6 +402,7 @@ int main(int argc, char **argv)
         char user[1200];
         if (platform_user_dir(user, sizeof user)) fprintf(stderr, "user folder: %s (--user DIR uses another)\n", user);
     }
+    if (opt.update_check) return update_check_command();
     if (opt.install != NULL || opt.uninstall != NULL || opt.mods_list) {   /* port (dep59 step 2): the installed mods, no window nor game data */
         port_old_files_migrate();
         return opt.install != NULL ? mod_commands_install(opt.install) : opt.uninstall != NULL ? mod_commands_uninstall(opt.uninstall)

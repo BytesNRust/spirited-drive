@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The update notice end to end, on macOS and on Windows: a RELEASE configuration that stamps an OLD version (TNFS_UPDATE_TEST_VERSION, +updatetest) runs the
+# game's real update check headless (`tnfs --update-check`: the system's curl, our API's answer, the version order) and the job fails if it does not say
+# "newer version available". Two parts (tests/update_check_e2e.py):
+#   live   against the live API (api.bytesnrust.com): the old version must be told a newer release exists. THIS COUNTS A START in the API's totals, as every
+#          check does, so it runs only by hand, on ci/update-** branches and once a week: never on every push.
+#   local  against servers of the script's own: the notice, and silence (no notice, no hang) for up to date, {"latest":null}, a 403 rate limit, 429, 5xx,
+#          HTML, garbage, nothing listening, a server that never answers, a proxy (http_proxy) and a dead one.
+# Build Test's update_test input builds the same thing as downloadable apps. A release workflow never sets TNFS_UPDATE_TEST_VERSION, and refuses a cache that has it.
+name: Update check
+
+on:
+  push:
+    branches: ['ci/update-**']
+    paths-ignore: ['**/*.md', 'docs/**', 'notes/**']
+  workflow_dispatch:
+  schedule:
+    - cron: '23 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UPDATE_TEST_VERSION: "0.0.1"
+  SDL_VIDEO_DRIVER: dummy
+  SDL_AUDIO_DRIVER: dummy
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install tools
+        run: brew install ninja sdl3
+      - name: Build the update test (release configuration, old version)
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_UPDATE_TEST_VERSION="$UPDATE_TEST_VERSION"
+          cmake --build build --target tnfs
+      - name: Unit tests of the check (no network)
+        run: |
+          cmake --build build --target test_update_check
+          ctest --test-dir build --output-on-failure -R update_check
+      - name: The notice against the live API
+        run: python3 tests/update_check_e2e.py live build/tnfs
+      - name: Silence and no hang (a server of our own)
+        run: python3 tests/update_check_e2e.py local build/tnfs
+
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c   # v2.34.0
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-sdl3
+            mingw-w64-ucrt-x86_64-python
+            git
+      - name: Build the update test (release configuration, old version)
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DTNFS_UPDATE_TEST_VERSION="$UPDATE_TEST_VERSION"
+          cmake --build build --target tnfs
+      - name: Which curl the game will find
+        run: |
+          export PATH="/c/Windows/System32:$PATH"   # a player's machine has Windows' own curl.exe; MSYS2's would otherwise come first
+          where curl.exe 2>/dev/null || which -a curl
+      - name: The notice against the live API (Windows' own curl first on the PATH)
+        run: |
+          export PATH="/c/Windows/System32:$PATH"
+          python tests/update_check_e2e.py live build/tnfs.exe
+      - name: Silence and no hang (a server of our own)
+        run: |
+          export PATH="/c/Windows/System32:$PATH"
+          python tests/update_check_e2e.py local build/tnfs.exe

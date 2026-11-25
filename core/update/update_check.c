@@ -173,20 +173,30 @@ int update_api_version(const char *version, char *out, size_t cap)
     return 1;
 }
 
-int update_api_command(char *out, size_t cap, const char *event, const char *version)
+/* the base of the test builds' own server (TNFS_UPDATE_API_BASE): letters, digits and : / . _ - only, so that nothing but a plain address reaches the shell */
+static int base_is_plain(const char *base)
+{
+    if (base == NULL || base[0] == '\0' || strlen(base) > 120) return 0;
+    for (const char *c = base; *c != '\0'; c++)
+        if (!((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9') || strchr(":/._-", *c) != NULL)) return 0;
+    return 1;
+}
+
+int update_api_command_at(char *out, size_t cap, const char *base, int allow_http, const char *event, const char *version)
 {
     char v[API_VERSION_MAX + 1];
     if (cap == 0) return 0;
     out[0] = '\0';
-    if (!update_api_version(version, v, sizeof v)) return 0;
+    if (!base_is_plain(base) || !update_api_version(version, v, sizeof v)) return 0;
+    const char *proto = allow_http ? "--proto =http,https --proto-redir =http,https" : "--proto =https --proto-redir =https";
     int n;
     if (event == NULL) {
-        n = snprintf(out, cap, UPDATE_CURL " -fsSL --proto =https --proto-redir =https --max-time 5 -A " UPDATE_API_NAME " "
-                               "\"" UPDATE_API_BASE "/latest?v=%s&p=" UPDATE_API_PLATFORM "\"" UPDATE_STDERR_TO_NULL, v);
+        n = snprintf(out, cap, UPDATE_CURL " -fsSL %s --max-time 5 -A " UPDATE_API_NAME " "
+                               "\"%s/latest?v=%s&p=" UPDATE_API_PLATFORM "\"" UPDATE_STDERR_TO_NULL, proto, base, v);
     } else {
         if (strcmp(event, "first_start") != 0 && strcmp(event, "data_ready") != 0 && strcmp(event, "first_race") != 0) return 0;
-        n = snprintf(out, cap, UPDATE_CURL " -fsS -X POST --proto =https --proto-redir =https --max-time 5 -A " UPDATE_API_NAME " "
-                               "-o " UPDATE_NULL_DEV " \"" UPDATE_API_BASE "/event?e=%s&v=%s&p=" UPDATE_API_PLATFORM "\"" UPDATE_STDERR_TO_NULL, event, v);
+        n = snprintf(out, cap, UPDATE_CURL " -fsS -X POST %s --max-time 5 -A " UPDATE_API_NAME " "
+                               "-o " UPDATE_NULL_DEV " \"%s/event?e=%s&v=%s&p=" UPDATE_API_PLATFORM "\"" UPDATE_STDERR_TO_NULL, proto, base, event, v);
     }
     if (n < 0 || (size_t)n >= cap) {
         out[0] = '\0';
@@ -210,4 +220,9 @@ int update_windows_command(const char *command, const char *system_dir, char *ou
         return 0;
     }
     return 1;
+}
+
+int update_api_command(char *out, size_t cap, const char *event, const char *version)
+{
+    return update_api_command_at(out, cap, UPDATE_API_BASE, 0, event, version);
 }

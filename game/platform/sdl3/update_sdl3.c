@@ -5,10 +5,13 @@
 #include "game/platform/update.h"
 
 #include "core/update/update_check.h"
+#include "game/sys/port_log.h"
 
 #include <SDL3/SDL.h>
 
+#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "game/platform/sdl3/process_pipe.h"
@@ -23,6 +26,17 @@ static SDL_AtomicInt state;          /* an UpdateState */
 static SDL_AtomicInt started;
 static char current[32];
 static char latest_found[32];        /* written by the thread before `state` turns UPDATE_NEWER */
+static char outcome[128];            /* why the check ended as it did (for the bug-report log and `--update-check`); written before `state` leaves UPDATE_PENDING */
+
+/* the check's outcome in a line: in the log, and for platform_update_check_why */
+static void say(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(outcome, sizeof outcome, format, args);
+    va_end(args);
+    port_log("update check: %s\n", outcome);
+}
 
 #if !defined(__EMSCRIPTEN__)
 /* the command started: on Windows curl is System32's own (never the exe's folder, the current one or an earlier PATH entry: CreateProcess searches them first) */
@@ -38,12 +52,21 @@ static ProcessPipe *open_command(const char *cmd)
 #endif
 }
 
+/* 1 and `buf` filled when curl answered; else 0 and `outcome` says how it failed */
 static int fetch_latest_json(char *buf, size_t cap)
 {
     char cmd[512];
-    if (!update_api_command(cmd, sizeof cmd, NULL, current)) return 0;
+    int made;
+#if defined(TNFS_UPDATE_TEST)
+    /* the update test builds only (never a release: CMakeLists.txt): a server of the test's own, and http, so that the failures can be made to happen */
+    const char *const base = getenv("TNFS_UPDATE_API_BASE");
+    made = base != NULL && base[0] != '\0' ? update_api_command_at(cmd, sizeof cmd, base, 1, NULL, current) : update_api_command(cmd, sizeof cmd, NULL, current);
+#else
+    made = update_api_command(cmd, sizeof cmd, NULL, current);
+#endif
+    if (!made) return say("no command for version %s", current), 0;
     ProcessPipe *pipe = open_command(cmd);
-    if (!pipe) return 0;
+    if (!pipe) return say("could not start curl"), 0;
     size_t n = 0, got;
     while (n + 1 < cap && (got = process_pipe_read(pipe, buf + n, cap - 1 - n)) > 0) n += got;
     buf[n] = '\0';
@@ -53,7 +76,9 @@ static int fetch_latest_json(char *buf, size_t cap)
     while (process_pipe_read(pipe, drain, sizeof drain) > 0) {
     }
     int status = process_pipe_close(pipe);
-    return status == 0 && n > 0;
+    if (status != 0) return say("curl ended with status %d (offline, a refused or limited request, a timeout)", status), 0;
+    if (n == 0) return say("curl answered nothing"), 0;
+    return 1;
 }
 
 static int SDLCALL update_thread(void *unused)
@@ -62,10 +87,16 @@ static int SDLCALL update_thread(void *unused)
     static char answer[UPDATE_ANSWER_MAX];
     char tag[32];
     int result = UPDATE_NONE;   /* offline, 503 {"latest":null} before the first release, HTML, garbage: no notice */
-    if (fetch_latest_json(answer, sizeof answer) && update_parse_api_latest(answer, tag, sizeof tag)
-        && update_version_compare(tag, current) > 0) {
-        memcpy(latest_found, tag, sizeof latest_found);
-        result = UPDATE_NEWER;
+    if (fetch_latest_json(answer, sizeof answer)) {
+        if (!update_parse_api_latest(answer, tag, sizeof tag)) {
+            say("the answer has no usable latest version");
+        } else if (update_version_compare(tag, current) > 0) {
+            say("latest %s is newer than %s", tag, current);
+            memcpy(latest_found, tag, sizeof latest_found);
+            result = UPDATE_NEWER;
+        } else {
+            say("latest %s is not newer than %s", tag, current);
+        }
     }
     SDL_SetAtomicInt(&state, result);
     return 0;
@@ -121,6 +152,7 @@ void platform_update_check_start(const char *current_version)
 {
     if (!SDL_CompareAndSwapAtomicInt(&started, 0, 1)) return;
     if (!current_version || update_is_dev_build(current_version) || strlen(current_version) >= sizeof current) {
+        snprintf(outcome, sizeof outcome, "off: a development build or no version");
         SDL_SetAtomicInt(&state, UPDATE_NONE);
         return;
     }
@@ -130,11 +162,17 @@ void platform_update_check_start(const char *current_version)
 #else
     SDL_Thread *thread = SDL_CreateThread(update_thread, "update-check", NULL);
     if (!thread) {
+        snprintf(outcome, sizeof outcome, "no thread for the check");
         SDL_SetAtomicInt(&state, UPDATE_NONE);
         return;
     }
     SDL_DetachThread(thread);
 #endif
+}
+
+const char *platform_update_check_why(void)
+{
+    return SDL_GetAtomicInt(&state) == UPDATE_PENDING ? "" : outcome;
 }
 
 UpdateState platform_update_check_poll(char *latest, size_t cap)

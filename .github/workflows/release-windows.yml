@@ -62,6 +62,8 @@ jobs:
           got=$(sed -n 's/^const char tnfs_version\[\] = "\(.*\)";.*/\1/p' build/rel/generated/tnfs_version.c)
           echo "tag $want, build $got"
           [ "$want" = "$got" ]
+          # a release is never an update test build (CMakeLists.txt TNFS_UPDATE_TEST_VERSION: it stamps an old version and is refused on a tagged commit)
+          if grep -q '^TNFS_UPDATE_TEST_VERSION:STRING=.\+' build/rel/CMakeCache.txt; then echo "::error::this is an update test build"; exit 1; fi
 
       - name: Package
         run: |
