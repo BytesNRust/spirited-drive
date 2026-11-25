@@ -1,7 +1,8 @@
 #!/bin/sh
 # The road before a tunnel's mouth is not the tunnel's (track_node_light.c tunnel_in_file): the made light's rows ramp in a lit wall foot with 0s beyond it ahead of the mouth, and
 # row_is_tunnel read those approach nodes as tunnel, so the road polygons there drew dark and red (28,8,4) as a rectangle. Vertigo Ridge (TR3) at node 470 looks at it: the road at
-# (400,520) must be grey asphalt, not dark or tinted. usage: tests/tunnel_mouth_road_game.sh <tnfs binary> <original/ dir>      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
+# (400,520) must be grey asphalt, not the dark red rectangle: grey (the channels within 16 of each other) and not below 16 (the gradient's outer steps darken this road toward the mouth on purpose, to about 32 24 24;
+# the bug was 28 8 4). usage: tests/tunnel_mouth_road_game.sh <tnfs binary> <original/ dir>      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
 original=$2
@@ -25,7 +26,7 @@ set -- $rgb
 if [ $status -eq 0 ]; then
   hi=$1; lo=$1
   for c in $2 $3; do [ "$c" -gt "$hi" ] && hi=$c; [ "$c" -lt "$lo" ] && lo=$c; done
-  [ "$lo" -ge 40 ] && [ $((hi - lo)) -le 16 ] || { echo "FAIL: the road before the tunnel mouth is dark or tinted ($rgb, want grey, every channel >= 40)"; status=1; }
+  [ "$lo" -ge 16 ] && [ $((hi - lo)) -le 16 ] || { echo "FAIL: the road before the tunnel mouth is dark or tinted ($rgb, want grey, every channel >= 16)"; status=1; }
 fi
 [ $status -eq 0 ] && echo "tunnel_mouth_road_game: ok ($rgb)"
 find "$work" -delete
