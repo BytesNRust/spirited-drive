@@ -869,7 +869,12 @@ endif()
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
     # tnfs_tools: what the command line and the car editor share (dep59 1b): every studio command but the argument parsing of main.c
-    add_library(tnfs_tools STATIC studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_kit.c studio/car_kit_check.c studio/car_view.c studio/car_card.c studio/car_card_shot.c studio/car_masks.c studio/mod_validate.c studio/mod_pack.c studio/fam_command.c studio/pack_tree.c)
+    if(WIN32)   # the card's pictures from a game child process are POSIX spawn: Windows has the stub
+        set(TNFS_CARD_SHOT studio/car_card_shot_win.c)
+    else()
+        set(TNFS_CARD_SHOT studio/car_card_shot.c)
+    endif()
+    add_library(tnfs_tools STATIC studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_kit.c studio/car_kit_check.c studio/car_view.c studio/car_card.c ${TNFS_CARD_SHOT} studio/car_masks.c studio/mod_validate.c studio/mod_pack.c studio/fam_command.c studio/pack_tree.c)
     target_include_directories(tnfs_tools PUBLIC .)
     target_link_libraries(tnfs_tools PUBLIC tnfs_core)
     target_compile_options(tnfs_tools PRIVATE ${TNFS_WARNINGS})
