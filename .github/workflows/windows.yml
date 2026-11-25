@@ -3,14 +3,16 @@
 # instead of stopping at the first thing: the build keeps going past a broken target (ninja -k 0) and ctest runs all.
 # The job summary lists the failing build targets and the failing tests; the logs go up as an artifact.
 # A compiler warning fails the job, as on macOS (CMakeLists.txt: TNFS_WARNINGS on Windows leaves out four gcc-only checks).
-# Only on the ci/windows-build branch and by hand (Actions > Windows > Run workflow) until it is in the CI proper.
+# On every push and pull request, like CI (pushes that touch only docs or notes run nothing); by hand too (Actions > Windows > Run workflow).
 # Studio (the editor, TNFS_EDITOR) is not built here: it is not part of the Windows version.
 # Tests that need the CD's data skip themselves (there is no game data in CI).
 name: Windows
 
 on:
   push:
-    branches: ['ci/windows-**']
+    branches: ['**']
+    paths-ignore: ['**/*.md', 'docs/**', 'notes/**']
+  pull_request:
     paths-ignore: ['**/*.md', 'docs/**', 'notes/**']
   workflow_dispatch:
 
