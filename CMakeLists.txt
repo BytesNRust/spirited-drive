@@ -937,7 +937,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     add_executable(test_editor_path_elide tests/test_editor_path_elide.c editor/path_elide.c)   # a long path in one line, "..." in its middle
     target_include_directories(test_editor_path_elide PRIVATE editor tests)
     target_compile_options(test_editor_path_elide PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_idle tests/test_editor_idle.c editor/idle.c)   # the window at rest is drawn every half second, not every frame
+    add_executable(test_editor_idle tests/test_editor_idle.c editor/idle.c)   # the window at rest is drawn on a change (or a safety beat), not every frame
     target_include_directories(test_editor_idle PRIVATE editor tests ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/core ${CMAKE_SOURCE_DIR}/game ${CMAKE_SOURCE_DIR}/game/sys)
     target_compile_options(test_editor_idle PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_selection tests/test_editor_selection.c editor/selection.c)   # dep87: the selected control points
