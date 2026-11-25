@@ -19,6 +19,14 @@ row='ui-click:door_tweak,ui-click:tweak_tab_car,ui-click:tweak_row_Dodge Viper R
 run --game "$work/gone" --frames 12 --steps ui-click:locate_not_now || fail "the first start did not ask for the game's folder: $(tail -3 "$work/log")"
 run --game "$work/gone" --frames 12 --steps ui-click:locate_not_now,ui-click:locate_not_now && fail "the question was still there after Not now"
 
+# 1b. no --game: the answer is kept in the Documents folder, which is empty on a clean machine; a second session on the same one does not ask (the search for the game is off, whatever is installed here)
+docs=$work/docs
+mkdir -p "$docs" "$work/cwd"
+ask() { exe=$(cd "$(dirname "$editor")" && pwd)/$(basename "$editor"); (cd "$work/cwd" && TNFS_STUDIO_GAME_SEARCH=off TNFS_STUDIO_DOCUMENTS="$docs" "$exe" --user "$work/u2" --cd "$orig" --art-dir "$work/art" --workspace "$work/ws" --window 1280x800 --frames 12 "$@" >"$work/log" 2>&1); }
+ask --steps ui-click:locate_not_now || fail "the first session did not ask for the game's folder: $(tail -3 "$work/log")"
+[ -f "$docs/Spirited Drive Studio/game.txt.asked" ] || fail "Not now left no mark in the Documents folder: $(find "$docs" | head -5)"
+ask --steps ui-click:locate_not_now && fail "the second session asked for the game's folder again"
+
 # 2. Edit tweak -> Car -> the Viper -> Open: the tweak is made in the workspace, the game is not changed
 run --game "$work/none" --frames 90 --steps "$row,tweak-status" || fail "Open the Viper by the doors: $(tail -3 "$work/log")"
 t=$work/ws/tweaks/dviper-tweak

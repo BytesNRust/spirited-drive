@@ -275,6 +275,9 @@ static int mdfind_game(char *app, size_t cap, void *ctx)
 static int default_game(char *out, size_t cap, char *tried, size_t tried_cap, char *memo, size_t memo_cap)
 {
     const char *docs = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
+    char own_docs[GAME_FIND_PATH];
+    const char *given = getenv("TNFS_STUDIO_DOCUMENTS");   /* a test's own Documents folder : the real one is never written by a test */
+    if (given != NULL && given[0] != '\0' && snprintf(own_docs, sizeof own_docs, "%s/", given) < (int)sizeof own_docs) docs = own_docs;
     memo[0] = '\0';
     char remembered[GAME_FIND_PATH] = "";
     if (docs != NULL && snprintf(memo, memo_cap, "%sSpirited Drive Studio/game.txt", docs) < (int)memo_cap) {
@@ -284,6 +287,8 @@ static int default_game(char *out, size_t cap, char *tried, size_t tried_cap, ch
             fclose(f);
         }
     }
+    const char *search = getenv("TNFS_STUDIO_GAME_SEARCH");   /* "off": a test that needs the game not to be found, whatever is installed on the machine */
+    if (search != NULL && strcmp(search, "off") == 0) return out[0] = '\0', snprintf(tried, tried_cap, "(the search is off: TNFS_STUDIO_GAME_SEARCH)"), 0;
     GameFinder finder = { SDL_GetBasePath(), SDL_GetUserFolder(SDL_FOLDER_HOME), remembered, sdl_is_file, NULL, NULL };
 #if defined(__APPLE__)
     finder.by_bundle_id = mdfind_game;

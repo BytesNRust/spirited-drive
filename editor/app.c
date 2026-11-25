@@ -771,11 +771,21 @@ static int asked_path(const App *a, char *out, size_t cap)
     return a->game_memo[0] != '\0' && snprintf(out, cap, "%s.asked", a->game_memo) < (int)cap;
 }
 
+/* the folder the memo files are in ("Spirited Drive Studio" in Documents) does not exist on a clean machine: made before the first write, or neither the located game nor the answer is kept and the question comes back at every start */
+static void memo_folder_make(const char *file)
+{
+    char dir[APP_PATH + 8];
+    snprintf(dir, sizeof dir, "%s", file);
+    char *slash = strrchr(dir, '/');
+    if (slash != NULL && slash != dir) *slash = '\0', mkdir(dir, 0777);
+}
+
 static void game_asked_keep(App *a)
 {
     char path[APP_PATH + 8];
     a->game_asked = 1;
     if (!asked_path(a, path, sizeof path)) return;
+    memo_folder_make(path);
     FILE *f = fopen(path, "wb");
     if (f != NULL) fputs("1\n", f), fclose(f);
 }
@@ -814,6 +824,7 @@ int app_set_game(App *a, const char *picked)
     fclose(f);
     snprintf(a->game, sizeof a->game, "%s", program);
     if (a->game_memo[0] != '\0') {
+        memo_folder_make(a->game_memo);
         FILE *m = fopen(a->game_memo, "wb");
         if (m != NULL) fprintf(m, "%s\n", program), fclose(m);
     }
