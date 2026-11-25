@@ -1,7 +1,7 @@
 #!/bin/sh
 # A tunnel mouth's light falls off over a few nodes instead of cutting (`tunnel A B gradient N`, the default 3): Alpine's first tunnel (nodes 1596..1607, the dawn's look), the chase far view with the car
-# standing at node 1590 (outside, the mouth far ahead) and at 1599 (three nodes in): with the file's own gradient and with `gradient 0` (the straight cut) the picture at 1590 is the same but for the mouth's own steps
-# (the graded road light is seen from outside: under 20000 pixels of a 1.2 million frame) and the car's light, and at 1599 it differs over a large part of the frame, the road near the camera being lighter with the gradient (the first nodes
+# standing at node 1590 (outside, the mouth far ahead) and at 1599 (three nodes in): with the file's own gradient and with `gradient 0` (the straight cut) the picture at 1590 differs only over the mouth's own
+# steps, now on the open road before it as well (the road darkens node by node toward the tunnel: between 5000 and 150000 pixels of a 1.2 million frame, not the whole frame) and the car's light, and at 1599 it differs over a large part of the frame, the road near the camera being lighter with the gradient (the first nodes
 # inside are not yet the tunnel's full dark). usage: tests/tunnel_gradient_game.sh <tnfs binary> <original/ dir>      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
@@ -48,7 +48,8 @@ status=0
 [ "$1" = ok ] || { echo "FAIL: no screenshots"; status=1; }
 if [ $status -eq 0 ]; then
   echo "outside: $2 px differ; inside (3 nodes in): $5 px differ, lower third mean with the gradient $6, cut $7"
-  [ "$2" -le 20000 ] || { echo "FAIL: the gradient changed the picture outside the mouth ($2 pixels)"; status=1; }   # the mouth itself, seen from outside, now shows its steps (the road light is graded): a few thousand pixels of the portal; the whole frame is 1.2 million
+  [ "$2" -le 150000 ] || { echo "FAIL: the gradient changed too much of the picture outside the mouth ($2 pixels)"; status=1; }   # the mouth seen from outside shows its steps, and the open road before it darkens toward the tunnel: tens of thousands of pixels; the whole frame is 1.2 million
+  [ "$2" -ge 5000 ] || { echo "FAIL: the gradient changed too little of the picture outside the mouth ($2 pixels): the open road does not darken before it"; status=1; }
   [ "$5" -ge 20000 ] || { echo "FAIL: the gradient changed too little of the picture inside the mouth ($5 pixels)"; status=1; }
   python3 -I -c "import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) else 1)" "$6" "$7" || { echo "FAIL: the road inside the mouth is not lighter with the gradient than with the cut"; status=1; }
 fi

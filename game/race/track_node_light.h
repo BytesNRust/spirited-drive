@@ -13,7 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { TRACK_NODE_LIGHT_POINTS = 11, TRACK_NODE_LIGHT_FULL = 255, TRACK_NODE_LIGHT_WALL = 128, TRACK_NODE_LIGHT_WALL_FOOT = 64, TRACK_NODE_LIGHT_TUNNEL_ROAD = 100 };
+enum { TRACK_NODE_LIGHT_POINTS = 11, TRACK_NODE_LIGHT_FULL = 255, TRACK_NODE_LIGHT_WALL = 128, TRACK_NODE_LIGHT_WALL_FOOT = 64, TRACK_NODE_LIGHT_TUNNEL_ROAD = 100, TRACK_NODE_LIGHT_MOUTH_OPEN = 30 };
 
 enum { TRACK_NODE_LIGHT_CLASS_UNLIT = 7 };   /* port (tunnel_pool): the polygon class of a tunnel with no lamps while a beam can light it (track_node_light_tunnel_class; the low 3 bits above the lamp pools 2..5) */
 enum { TRACK_NODE_LIGHT_BEAM_TUNNEL = 180 };   /* port: the light out of 255 the console version headlight beam gives a tunnel's walls and road and a lit hall's, at night (the exe's TUNNEL_BEAM is 150) */
@@ -27,8 +27,10 @@ typedef struct { uint32_t node; float x, z, reach; float rgb[3]; int tunnel; flo
 enum { TRACK_NODE_LIGHT_LAMP_RADIUS = 5 };   /* the nodes a lamp with no radius of its own reaches */
 /* A slot is a scene tone (look 0: `rgb` and `percent`, the colour the stretch's polygons are seen through) or, shared with them, a tunnel zone's own look (look 1: `light`, percent of full light, and
  * `cast`, 0..1 a channel, as the time's tunnel_tone: a tunnel zone whose look is not the track's). No padding: slots are compared and copied as bytes. */
-typedef struct { uint8_t rgb[3]; uint8_t percent; uint8_t look; uint8_t blend; uint8_t own; uint8_t pad; float light; float cast[3]; } TrackNodeLightTone;
-/* look 2 is a tunnel mouth's gradient step (`tunnel A B gradient N`): `light` and `cast` are the tunnel's, and `blend` (1..99) the percent of the way from the open road's light (the time's own tint) to them; `own` 1: the tunnel's colour is its own (a `tunnel_look A B` colour), kept whole on every step, else the time's, faded by the blend with the light */
+typedef struct { uint8_t rgb[3]; uint8_t percent; uint8_t look; uint8_t blend; uint8_t own; uint8_t share; float light; float cast[3]; } TrackNodeLightTone;
+/* look 3 is a step of the gradient on the OPEN road before a tunnel's mouth and past its other end: `blend` the tunnel's colour's share (percent, as look 2), `share` the percent of the way the road's light goes from the row's byte to
+ * TRACK_NODE_LIGHT_MOUTH_OPEN (the open road's light at which it looks as dark as the tunnel's own road surface, so the road meets it with no step); `light` and `cast` the tunnel's.
+ * look 2 is a tunnel mouth's gradient step (`tunnel A B gradient N`): `light` and `cast` are the tunnel's, and `blend` (1..99) the percent of the way from the open road's light (the time's own tint) to them; `own` 1: the tunnel's colour is its own (a `tunnel_look A B` colour), kept whole on every step, else the time's, faded by the blend with the light */
 
 typedef struct {
     uint8_t *data;      /* nodes * TRACK_NODE_LIGHT_POINTS bytes (owned), NULL when none is loaded */

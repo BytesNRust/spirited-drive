@@ -24,7 +24,7 @@ typedef struct { uint32_t from, to; int percent; int side; int shade; uint16_t m
 typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightToneRun;
 /* a `tunnel a b [light] [colour | lit]` line: lit, a hall (a tunnel with a lot of light, lit by its own lamps); else the zone's own look when the line gives a light and / or a colour (what it leaves out is the
  * time's tunnel_tone's), which is a tone slot (`tone`: its number, or -1 when the look is the time's) once the file is read. `line` is the line's number, for the slot that does not fit. */
-typedef struct { uint32_t from, to; int lit; int has_light, has_colour; double light; float cast[3]; int line; int tone; int blend; int own; } TrackLightZone;   /* blend 1..99: a step of a tunnel mouth's gradient (made at the end of a time's lines, not read), `light` and `cast` the tunnel's; 0 a zone */
+typedef struct { uint32_t from, to; int lit; int has_light, has_colour; double light; float cast[3]; int line; int tone; int blend; int own; int share; } TrackLightZone;   /* blend 1..99: a step of a tunnel mouth's gradient (made at the end of a time's lines, not read), `light` and `cast` the tunnel's; 0 a zone; share > 0: a step on the open road beside the mouth (look 3), the percent of the way the road's light goes toward the tunnel road surface's */
 /* `tunnel_gradient A B N` (the track file's `tunnel A B gradient N`, a line of every block): the tunnel A..B's mouths fall off over N nodes, 1..TRACK_LIGHT_MAX_GRADIENT */
 typedef struct { uint32_t from, to; int nodes; } TrackLightGradient;
 enum { TRACK_LIGHT_MAX_GRADIENT = 8, TRACK_LIGHT_DEFAULT_GRADIENT = 3, TRACK_LIGHT_MAX_STEPS = 512 };

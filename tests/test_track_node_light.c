@@ -465,9 +465,44 @@ static void test_the_gradient_grades_the_tunnels_road_clamp(void)
     CHECK_EQ_INT(track_node_light_at(&light, 2, 0), TRACK_NODE_LIGHT_TUNNEL_ROAD);
 }
 
+/* the open road before a tunnel's mouth (and past its other end) darkens over the gradient's outer steps (look 3, `share` the percent of the way from the row's byte to TRACK_NODE_LIGHT_MOUTH_OPEN), so it
+ * meets the tunnel's own dark road surface: node by node, at both ends, whatever the row's byte; the nodes past the steps and the tunnel's own are as before */
+static void test_the_gradient_darkens_the_open_road_before_the_mouth(void)
+{
+    enum { N = 16 };
+    static uint8_t rows[N * TRACK_NODE_LIGHT_POINTS];
+    for (int n = 0; n < N; n++)
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) rows[n * TRACK_NODE_LIGHT_POINTS + p] = (p == 0 || p == 1 || p == 6) ? 255 : p == 2 || p == 7 ? 255 : 0;
+    static uint8_t marks[N] = { 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 };   /* a tunnel on nodes 5..10 */
+    static uint8_t ids[N] = { 0, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 3, 2, 1, 0, 0 };    /* its outer steps: 25, 50, 75 % of the way at each end, the shallowest first */
+    TrackNodeLightTone tones[TRACK_NODE_LIGHT_TONES];
+    memset(tones, 0, sizeof tones);
+    for (int i = 0; i < 3; i++) tones[i].look = 3, tones[i].blend = (uint8_t)(8 * (i + 1)), tones[i].share = (uint8_t)(25 * (i + 1));
+    static uint16_t mask[N];
+    for (int n = 0; n < N; n++) mask[n] = 0x7ff;
+    TrackNodeLight light = { .data = rows, .nodes = N, .tunnel = marks, .tone_id = ids, .tone_mask = mask, .tone_count = 3 };
+    memcpy(light.tone, tones, sizeof tones);
+    int road[3];
+    for (int k = 0; k < 3; k++) road[k] = track_node_light_at(&light, (uint32_t)(2 + k), 0);
+    for (int k = 0; k < 3; k++) CHECK_EQ_INT(road[k], 255 - (255 - TRACK_NODE_LIGHT_MOUTH_OPEN) * 25 * (k + 1) / 100);
+    CHECK(road[0] > road[1] && road[1] > road[2] && road[2] > TRACK_NODE_LIGHT_MOUTH_OPEN);
+    for (int k = 0; k < 3; k++) CHECK_EQ_INT(track_node_light_at(&light, (uint32_t)(13 - k), 1), road[k]);   /* the other end: the same, mirrored; point 1 as point 0 */
+    CHECK_EQ_INT(track_node_light_at(&light, 1, 0), 255);                                                     /* past the steps: the row's byte */
+    CHECK_EQ_INT(track_node_light_at(&light, 5, 0), TRACK_NODE_LIGHT_TUNNEL_ROAD);                           /* the tunnel's own: the clamp */
+    CHECK_EQ_INT(track_node_light_at(&light, 4, 2), 255 - (255 - TRACK_NODE_LIGHT_WALL) * 75 / 100);         /* the shoulder's far edge goes toward the wall's light */
+    CHECK_EQ_INT(track_node_light_at(&light, 4, 3), 0);                                                       /* a point with no road in it is left */
+    TrackNodeLight back = light;   /* a reversed track (Mirror reverses nothing: the steps are by node): every node and point is the file's node it came from, steps and all */
+    CHECK(track_node_light_set_reversed(&back, 1));
+    for (uint32_t j = 0; j < N; j++)
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) CHECK_EQ_INT(track_node_light_at(&back, j, p), track_node_light_at(&light, track_node_light_old_node(&back, j), p == 0 ? 0 : (p + 4) % 10 + 1));
+    light.tone_id = NULL;
+    CHECK_EQ_INT(track_node_light_at(&light, 4, 0), 255);                                                     /* no steps: as before */
+}
+
 int main(void)
 {
     test_a_mouth_object_takes_the_open_roads_light();
+    test_the_gradient_darkens_the_open_road_before_the_mouth();
     test_the_gradient_grades_the_tunnels_road_clamp();
     test_marks_start_the_tunnel();
     test_tunnel_road();

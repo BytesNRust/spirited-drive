@@ -4,6 +4,7 @@
 #include "game/race/weather_snow.h"
 #include "game/sys/port_settings.h"
 #include "game/viewer/cone_cells.h"
+#include "game/viewer/mouth_cells.h"
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/street_halo.h"
 #include "game/viewer/tunnel_cells.h"
@@ -100,6 +101,7 @@ static void draw_camera_base(void *user, const View *view, const FshEntry *textu
          * found by uv across the whole texture: it stopped short of the corners and the next polygon's edge started at another value, a hard step of the cone's light at every row) */
         float dark[4];
         for (int i = 0; i < 4; i++) dark[i] = (255.0f - lit_corner[i]) * (MODERN_FOG_LEVELS - 1) / 255.0f;
+        if (mouth_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_corner)) return;   /* port (tunnel gradient): a mouth's polygon in pieces a node long, each at its own node's light and step */
         if (track_light_xz_ok && (track_light_tunnel & 7) == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), light_effects, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
         const uint8_t (*tables)[256] = lit_tables_for(texture);
         float lamp_heat[4];
