@@ -75,7 +75,7 @@ static void test_start_seeds_from_the_saved_value(void)
     CHECK_EQ_INT(s.on, 0);
 }
 
-/* F12 has no effect in Stock, which holds it */
+/* F12 has no effect in Stock and Restored, which hold it (the overlay is Restomod's: owner 2026-11-24) */
 static void test_stock_holds_the_key(void)
 {
     RaceStats s;
@@ -89,8 +89,9 @@ static void test_stock_holds_the_key(void)
     mode = "profile=restored\n";
     port_settings_forget();
     race_stats_start(&s, 0);
-    CHECK_EQ_INT(race_stats_key_save(&s, 1), 1);
-    CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_STATS), 1);
+    CHECK_EQ_INT(race_stats_key_save(&s, 1), 0);
+    CHECK_EQ_INT(s.on, 0);
+    CHECK(!stored_present);
     stored_present = 0;
     mode = "profile=restomod\n";
     port_settings_forget();
