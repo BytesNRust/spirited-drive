@@ -357,7 +357,7 @@ static void test_the_cds_police_shines(void)
 {
     char path[512], masks[512];
     snprintf(path, sizeof path, "%s/original/SIMDATA/CARFAMS/COPMUST.CFM", TNFS_SOURCE_DIR);
-    snprintf(masks, sizeof masks, "%s/data/car_masks/COPMUST", TNFS_SOURCE_DIR);
+    snprintf(masks, sizeof masks, "%s/tests/fixtures/car_masks/COPMUST", TNFS_SOURCE_DIR);   /* main's masks of cd627f90: this checks the code, not the owner's bott mask (all matte since 2026-11-25) */
     if (access(path, R_OK) != 0) return;
     PreviewIn in;
     memset(&in, 0, sizeof in);
@@ -634,7 +634,7 @@ static void test_the_cds_brake_lamps(void)
     }
     closedir(d);
     fprintf(stderr, "W2: %d CD cars checked\n", cars);
-    CHECK(cars >= 30);
+    CHECK(cars >= 28);   /* 30 with main's masks: the owner's (2026-11-25) for BMW and CRX cover their 1 and 2 stray 0xfe texels, so those two cars no longer count */
 }
 
 /* W6: «Use as card photo»: the Model's view at 309 x 166 over a plain backdrop, card.png RGBA with no transparency, written whole or not at all */
