@@ -1858,8 +1858,10 @@ if(NOT EMSCRIPTEN)
         add_test(NAME showcase_setup_tile COMMAND sh ${CMAKE_SOURCE_DIR}/tests/showcase_setup_tile.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(showcase_setup_tile PROPERTIES TIMEOUT 900)
         # Stock and Restored show the original's screens: the front end's pictures against goldens (tests/golden/screens/<profile>), one game session per profile
-        add_test(NAME stock_screens_golden COMMAND sh ${CMAKE_SOURCE_DIR}/tests/stock_screens_golden.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
-        set_tests_properties(stock_screens_golden PROPERTIES TIMEOUT 600)
+        foreach(profile stock restored restored-16x9)   # a session each, side by side
+            add_test(NAME stock_screens_golden_${profile} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/stock_screens_golden.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
+            set_tests_properties(stock_screens_golden_${profile} PROPERTIES TIMEOUT 600 ENVIRONMENT "PROFILES=${profile}")
+        endforeach()
         add_test(NAME tweak_race_facts COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tweak_race_facts.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)   # a tweak's tunnel fact is left out: the race is the same, tick for tick
         set_tests_properties(tweak_race_facts PROPERTIES TIMEOUT 900)
         # dep59 step 4 (T11): editions in the menus, one test per game session (each part one boot)
@@ -1873,9 +1875,16 @@ if(NOT EMSCRIPTEN)
                  ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(ui_kit_check PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         # the light of the 16 tracks at the 4 times of day, hashed (game/race/track_light_fingerprint.h): a change of the files, the format or the generator shows here (about 75 s)
-        add_test(NAME track_light_fingerprint COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
-                 ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-        set_tests_properties(track_light_fingerprint PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+        # the 16 tracks in four groups that run side by side (the script compares each group with its lines of the file)
+        set(TNFS_FP_AL "AL1 AL2 AL3 CL1")
+        set(TNFS_FP_CL "CL2 CL3 CY1 CY2")
+        set(TNFS_FP_CY "CY3 TR1 TR2 TR3")
+        set(TNFS_FP_TR "TR4 TR5 TR6 TR7")
+        foreach(group AL CL CY TR)
+            add_test(NAME track_light_fingerprint_${group} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
+                     ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+            set_tests_properties(track_light_fingerprint_${group} PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77 ENVIRONMENT "TRACKS=${TNFS_FP_${group}}")
+        endforeach()
         add_test(NAME sun_shadow_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/sun_shadow_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(sun_shadow_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME car_lit_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
@@ -1948,8 +1957,13 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_e2e_car PROPERTIES TIMEOUT 300)
             add_test(NAME editor_copy_originals COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_copy_originals.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Copy to game repo for the 20 original cars and the 16 tracks, a clean temp workspace, nothing edited
             set_tests_properties(editor_copy_originals PROPERTIES TIMEOUT 900)
-            add_test(NAME editor_tweak_parity COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_parity.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
-            set_tests_properties(editor_tweak_parity PROPERTIES TIMEOUT 1800)
+            # the 20 cars and the 16 tracks in eight parts that run side by side (each its own temp workspace): the same checks, a part to a car (or track) index mod 4
+            foreach(kind cars tracks)
+                foreach(idx 0 1 2 3)
+                    add_test(NAME editor_tweak_parity_${kind}${idx} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_parity.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} ${kind} ${idx} 4)   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
+                    set_tests_properties(editor_tweak_parity_${kind}${idx} PROPERTIES TIMEOUT 900)
+                endforeach()
+            endforeach()
             add_test(NAME editor_tweak_list COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_list.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak step 2: the list, Open, the Tweak panel, Apply, Replace / Skip / Cancel, a traffic car, an old workspace; needs the game's files
             set_tests_properties(editor_tweak_list PROPERTIES TIMEOUT 900)
             add_test(NAME editor_tweak_pack COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_pack.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>)   # Edit tweak step 4: Pack zip and Check; the zip installs and the race reads its light; needs the game's files
@@ -2610,11 +2624,11 @@ set(TNFS_E2E_TESTS
     car_card_menus_steps
     car_card_menus_replays
     showcase_setup_tile
-    stock_screens_golden
+    stock_screens_golden_stock stock_screens_golden_restored stock_screens_golden_restored-16x9
     tweak_race_facts
     edition_menus_menus
     edition_menus_race
-    track_light_fingerprint
+    track_light_fingerprint_AL track_light_fingerprint_CL track_light_fingerprint_CY track_light_fingerprint_TR
     car_lit_all_game
     light_drive_results_game
     vegas_lamps_game
@@ -2624,7 +2638,8 @@ set(TNFS_E2E_TESTS
     content_menus_own
     editor_e2e_track
     editor_copy_originals
-    editor_tweak_parity
+    editor_tweak_parity_cars0 editor_tweak_parity_cars1 editor_tweak_parity_cars2 editor_tweak_parity_cars3
+    editor_tweak_parity_tracks0 editor_tweak_parity_tracks1 editor_tweak_parity_tracks2 editor_tweak_parity_tracks3
     editor_traffic_car_panel
     editor_real_workspace
     net_port_taken
