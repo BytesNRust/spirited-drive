@@ -735,7 +735,7 @@ static void install_made(TrackNodeLight *made, const char *track, int tunnel_tra
     city_fields(&light, track);   /* port (city_lift): the made light has the City's fields as the CD's has (lamp_pool_bright included) */
     light.object_floor = is_lost_vegas(track) && port_light_effects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects): the made light's buildings and objects keep their light as the CD's do */
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (headlight_beams): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
-    light.tunnel_pool = !headlights_on && port_light_effects() && light.lamps_off != NULL ? &tunnel_day_pool : NULL;   /* port (tunnel_pool) */
+    light.tunnel_pool = !headlights_on && port_light_effects() && (light.lamps_off != NULL || light.lamp_pct != NULL) ? &tunnel_day_pool : NULL;   /* port (tunnel_pool) */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
     ported_view_set_light(&light, NULL);

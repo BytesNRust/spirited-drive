@@ -571,7 +571,12 @@ void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, in
     for (uint32_t n = 0; light->tunnel != NULL && n < light->nodes; n++) {   /* the tunnels whose lamps are written at 0 %: the car's lamp alternation is off there (an unlit tunnel) */
         double strength = 0.0, reach = 0.0;
         float cast[3];
-        if (!light->tunnel[n] || (track_light_tunnel_lamp_at(tweaks, n, &strength, cast, &reach) & TRACK_LIGHT_TUNNEL_LAMP_STRENGTH) == 0 || strength > 0.0) continue;
+        if (!light->tunnel[n] || (track_light_tunnel_lamp_at(tweaks, n, &strength, cast, &reach) & TRACK_LIGHT_TUNNEL_LAMP_STRENGTH) == 0) continue;
+        if (strength > 0.0) {   /* a lit tunnel: its strength, for the share of the beam it leaves */
+            if (light->lamp_pct == NULL) light->lamp_pct = malloc(light->nodes), light->lamp_pct != NULL ? (void)memset(light->lamp_pct, 255, light->nodes) : (void)0;
+            if (light->lamp_pct != NULL) light->lamp_pct[n] = (uint8_t)(strength >= 100.0 ? 100 : (int)(strength + 0.5));
+            continue;
+        }
         uint8_t *const off = flag_array(&light->lamps_off, light->nodes);
         if (off != NULL) off[n] = 1;
     }

@@ -323,6 +323,34 @@ static void test_day_unlit_road_never_brighter_than_lit(void)
     }
 }
 
+/* the owner's second AL3 ask: by day the headlights' pool shows in a LIT tunnel too, fading as the lamps go up: full at 0 %, about half at 50 %, nothing at 100 %, and no jump between 1 % and 0 % */
+static void test_day_pool_fades_with_the_lamps(void)
+{
+    enum { N = 3 };
+    uint8_t rows[N * TRACK_NODE_LIGHT_POINTS], tunnel[N] = { 1, 1, 1 }, off[N] = { 1, 1, 1 }, pct[N] = { 0, 0, 0 };
+    memset(rows, 0, sizeof rows);
+    for (int n = 0; n < N; n++) rows[n * TRACK_NODE_LIGHT_POINTS + 0] = rows[n * TRACK_NODE_LIGHT_POINTS + 1] = rows[n * TRACK_NODE_LIGHT_POINTS + 6] = 255;
+    HeadlightPool pool;
+    memset(&pool, 0, sizeof pool);
+    pool.cone = 1, pool.count = 1;
+    pool.cone_x[0] = 0.0, pool.cone_z[0] = 0.0, pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;
+    const double in_beam[2] = { 0.0, 8.0 };
+    const int lamps[6] = { 0, 1, 10, 50, 99, 100 };
+    int out[6];
+    for (int i = 0; i < 6; i++) {
+        TrackNodeLight l = { .data = rows, .nodes = N, .tunnel = tunnel, .tunnel_pool = &pool, .look_set = 1, .look_light = 100.0 };
+        if (lamps[i] == 0) l.lamps_off = off;
+        else memset(pct, lamps[i], sizeof pct), l.lamp_pct = pct;
+        out[i] = track_node_light_at_xz(&l, 1, 1, in_beam);
+    }
+    for (int i = 1; i < 6; i++) CHECK(out[i] <= out[i - 1]);                       /* it only falls as the lamps go up */
+    CHECK(out[0] - out[1] <= 6);                                                    /* 1 % is almost 0 %: no jump */
+    CHECK(out[0] > TRACK_NODE_LIGHT_TUNNEL_ROAD + 40);                              /* the full pool at 0 % */
+    CHECK_EQ_INT(out[5], TRACK_NODE_LIGHT_TUNNEL_ROAD);                             /* none at 100 % */
+    const int gain = out[0] - TRACK_NODE_LIGHT_TUNNEL_ROAD, half = out[3] - TRACK_NODE_LIGHT_TUNNEL_ROAD;
+    CHECK(half * 2 >= gain - 8 && half * 2 <= gain + 8);                            /* about half at 50 % */
+}
+
 /* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
 static void test_radial_lamps(void)
 {
@@ -574,6 +602,7 @@ int main(void)
     test_unlit_tunnel_has_the_pool();
     test_day_tunnel_pool_stays_in_the_tunnel();
     test_day_unlit_road_never_brighter_than_lit();
+    test_day_pool_fades_with_the_lamps();
     test_radial_lamps();
     test_lamp_shaped_along_the_road();
     test_object_lamp();
