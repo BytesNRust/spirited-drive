@@ -37,7 +37,13 @@ void tweak_list_view(App *a, float total)
     ui_probe("tweak_main");
     if (a->workspace[0] == '\0') ImGui::TextColored(WARN_TEXT, "Choose a workspace first: File > Workspace.");
     const int first = cars ? 0 : EXPORT_CARS, last = cars ? EXPORT_CARS : a->tweak_rows;
-    if (ImGui::BeginTable("tweaks", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY, ImVec2(total, ImGui::GetContentRegionAvail().y - 70.0f))) {
+    // the list is as tall as its rows (Open sits right under it); a long one scrolls inside what the window has left
+    const ImGuiStyle &st = ImGui::GetStyle();
+    const float row = ImGui::GetTextLineHeight() + st.CellPadding.y * 2 + 1.0f;
+    const float room = ImGui::GetContentRegionAvail().y - 70.0f;
+    const float want = row * static_cast<float>(last - first + 1) + 6.0f;
+    const float list_height = want < room ? want : room;
+    if (ImGui::BeginTable("tweaks", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY, ImVec2(total, list_height))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 1.6f);
         ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthStretch, 0.8f);
