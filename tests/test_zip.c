@@ -117,6 +117,25 @@ static void test_refuses_names_windows_cannot_hold(void)
     }
 }
 
+/* two entries whose names differ only in letter case are refused (a file system that ignores case keeps one of them, so what installs is not what was checked); a folder and a file of that name too;
+ * other pairs that merely look alike are fine */
+static void test_refuses_case_twins(void)
+{
+    ZipArchive z;
+    ZbEntry twins[2] = { zb_text("mod.ini", "a"), zb_text("MOD.INI", "b") };
+    CHECK_EQ_INT(open_entries(twins, 2, &z), ZIP_ERR_NAME_TWINS);
+    ZbEntry exact[2] = { zb_text("a.txt", "a"), zb_text("a.txt", "b") };
+    CHECK_EQ_INT(open_entries(exact, 2, &z), ZIP_ERR_NAME_TWINS);
+    ZbEntry deep[3] = { zb_text("x/one", "1"), zb_text("Y/two", "2"), zb_text("X/One", "3") };
+    CHECK_EQ_INT(open_entries(deep, 3, &z), ZIP_ERR_NAME_TWINS);
+    ZbEntry dir_file[2] = { zb_text("data/", ""), zb_text("DATA", "x") };
+    CHECK_EQ_INT(open_entries(dir_file, 2, &z), ZIP_ERR_NAME_TWINS);
+    CHECK(strstr(zip_result_text(ZIP_ERR_NAME_TWINS), "capital letters") != NULL);
+    ZbEntry fine[4] = { zb_text("a.txt", "1"), zb_text("a.txt2", "2"), zb_text("b/a.txt", "3"), zb_text("A_.txt", "4") };
+    CHECK_EQ_INT(open_entries(fine, 4, &z), ZIP_OK);
+    zip_close(&z);
+}
+
 /* review of 4977a5c5, 5: an entry that is neither a file nor a folder is marked special: a link made on Unix or on OS X (host 19), a
  * device or a pipe; no mode at all is a plain file */
 static void test_special_entries(void)
@@ -292,6 +311,7 @@ int main(void)
     test_refuses_encryption_methods_and_links();
     test_refuses_names();
     test_refuses_names_windows_cannot_hold();
+    test_refuses_case_twins();
     test_special_entries();
     test_refuses_overlapping_entries();
     test_limits();

@@ -117,6 +117,43 @@ static ZipResult spans_ok(const uint8_t *data, uint64_t cd_offset, const ZipEntr
     return ZIP_OK;
 }
 
+/* a name's byte folded to lower case, for ASCII (the names are printable ASCII: name_ok) */
+static int fold(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
+
+/* the names as a case-insensitive filesystem reads them (a trailing '/' is not part of a name): <0, 0, >0 */
+static int compare_folded(const char *a, const char *b)
+{
+    size_t la = strlen(a), lb = strlen(b);
+    if (la > 0 && a[la - 1] == '/') la--;
+    if (lb > 0 && b[lb - 1] == '/') lb--;
+    for (size_t i = 0; i < la && i < lb; i++)
+        if (fold((unsigned char)a[i]) != fold((unsigned char)b[i])) return fold((unsigned char)a[i]) - fold((unsigned char)b[i]);
+    return la < lb ? -1 : la > lb;
+}
+
+static const ZipEntry *sort_base;
+
+static int by_folded_name(const void *x, const void *y)
+{
+    return compare_folded(sort_base[*(const uint32_t *)x].name, sort_base[*(const uint32_t *)y].name);
+}
+
+/* ZIP_ERR_NAME_TWINS when two entries would be one file for Windows or macOS: the second would unpack over the first after the first was checked */
+static ZipResult twins_ok(const ZipEntry *entries, uint32_t count)
+{
+    if (count < 2) return ZIP_OK;
+    uint32_t *order = malloc(count * sizeof *order);
+    if (order == NULL) return ZIP_ERR_MEMORY;
+    for (uint32_t i = 0; i < count; i++) order[i] = i;
+    sort_base = entries;
+    qsort(order, count, sizeof *order, by_folded_name);
+    ZipResult r = ZIP_OK;
+    for (uint32_t i = 1; i < count && r == ZIP_OK; i++)
+        if (compare_folded(entries[order[i - 1]].name, entries[order[i]].name) == 0) r = ZIP_ERR_NAME_TWINS;
+    free(order);
+    return r;
+}
+
 ZipResult zip_open(const uint8_t *data, size_t size, ZipArchive *out)
 {
     memset(out, 0, sizeof *out);
@@ -143,6 +180,8 @@ ZipResult zip_open(const uint8_t *data, size_t size, ZipArchive *out)
     }
     const ZipResult spans = spans_ok(data, cd_offset, entries, count);
     if (spans != ZIP_OK) return free(entries), spans;
+    const ZipResult twins = twins_ok(entries, count);
+    if (twins != ZIP_OK) return free(entries), twins;
     out->data = data, out->size = size, out->entries = entries, out->count = count;
     return ZIP_OK;
 }
@@ -270,6 +309,7 @@ const char *zip_result_text(ZipResult r)
     case ZIP_ERR_CRC: return "an entry fails its checksum";
     case ZIP_ERR_OVERLAP: return "entries share their bytes (a crafted zip)";
     case ZIP_ERR_MEMORY: return "out of memory";
+    case ZIP_ERR_NAME_TWINS: return "two entries have names that differ only in capital letters (A.txt and a.txt): Windows and macOS keep one of them, so what installs would not be what was checked";
     }
     return "unknown zip error";
 }

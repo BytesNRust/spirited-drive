@@ -39,7 +39,8 @@ typedef enum {
     ZIP_ERR_INFLATE,        /* the deflated bytes are damaged or do not give the size the directory says */
     ZIP_ERR_CRC,
     ZIP_ERR_OVERLAP,        /* two entries' bytes overlap, or one runs into the central directory */
-    ZIP_ERR_MEMORY
+    ZIP_ERR_MEMORY,
+    ZIP_ERR_NAME_TWINS      /* two entries whose names differ only in letter case (a file and a FILE, a folder and a file of that name): Windows and macOS would keep one of them */
 } ZipResult;
 
 typedef struct {
