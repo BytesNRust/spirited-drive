@@ -84,6 +84,7 @@ Three ways to play: Stock '96 (the 1996 game as it shipped), Restored '96 (the s
 Network races are not in the Windows version yet.
 
 Your player folder is %APPDATA%\\Spirited Drive\\ (type it in the Explorer address bar). It keeps your settings, your records and your copy of the game's files, and they stay when you replace the program with a newer one.
+The update notice needs Windows 10 version 1803 or newer (it uses the curl.exe that comes with Windows); without it, or without internet, the game starts as usual and shows no notice.
 The log, spirited-drive.log, is in that folder too. In the game: Customize Game, page 3, Open the log folder. Attach it when you report a bug: https://github.com/BytesNRust/spirited-drive/issues (please do not attach files from the original game).
 
 This game is not finished and is not meant to be: what you find shapes what comes next.
