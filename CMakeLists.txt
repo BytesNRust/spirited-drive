@@ -2308,7 +2308,7 @@ if(NOT EMSCRIPTEN)
     # the test includes platform_sdl3.c and platform_present_sdl3.c (to reach the renderer and the pacing); the rest of the platform is linked
     add_executable(test_platform_present tests/test_platform_present.c game/platform/sdl3/platform_audio_sdl3.c game/platform/sdl3/platform_input_sdl3.c
                    game/platform/sdl3/platform_mods_sdl3.c game/platform/sdl3/platform_user_sdl3.c game/platform/sdl3/platform_pool_sdl3.c
-                   game/platform/sdl3/platform_drop_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+                   game/platform/sdl3/platform_drop_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c game/platform/window_fit.c)
     target_link_libraries(test_platform_present PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_present PRIVATE m)
