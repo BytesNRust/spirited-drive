@@ -106,6 +106,26 @@ echo mark > "${jk%/}/edited-by-hand.txt"
 "$editor" --workspace "$work/old/ws" --cd "$orig" --port-data "$work/r/data" --user "$work/u" --frames 30 --steps tweak-open-row:Jetta >"$work/log" 2>&1 || fail "old Jetta open again: $(tail -3 "$work/log")"
 [ ! -e "$home/edited-by-hand.txt" ] || fail "a second opening copied the old folder again"
 
+# a tweak made by the older build (it has no studio/project) with the old folder still there and a PSD edited in it: opening copies the old folder in, the PSD with it; nothing is made again from the game
+ed() { "$editor" --workspace "$work/old/ws" --cd "$orig" --port-data "$work/r/data" --user "$work/u" "$@"; }
+find "$home" -mindepth 1 -delete && rmdir "$home" || fail "could not take the Jetta's studio/project away"
+[ -f "$work/old/ws/tweaks/jetta-tweak/mod.ini" ] || fail "the Jetta's tweak is gone"
+printf 'his edited psd\n' > "${jk%/}/his-edited.psd"
+ed --frames 30 --steps tweak-open-row:Jetta >"$work/log" 2>&1 || fail "Jetta with a tweak and no project: $(tail -3 "$work/log")"
+[ "$(cat "$home/his-edited.psd" 2>/dev/null)" = "his edited psd" ] || fail "an existing tweak without studio/project was not given the old folder (his PSD is lost): $(ls "$home" 2>&1 | head -3)"
+# the same for a track: tweak first (fresh), its project taken away, an old tracks/CY1 with an edited PSD
+mkdir -p "$work/old/ws/tracks/CY1/art-source/masks" "$work/old/ws/tracks/CY1/light/track_light" || exit 1
+printf 'kind=original-track\nstem=CY1\n' > "$work/old/ws/tracks/CY1/original.ini"
+cp "$work/r/data/track_light/CY1.txt" "$work/old/ws/tracks/CY1/light/track_light/CY1.txt"
+printf 'his track psd\n' > "$work/old/ws/tracks/CY1/art-source/masks/slot_00.psd"
+ed --frames 30 --steps tweak-open-row:CY1 >"$work/log" 2>&1 || fail "CY1 first open: $(tail -3 "$work/log")"
+ty=$work/old/ws/tweaks/cy1-tweak/studio/project
+[ "$(cat "$ty/art-source/masks/slot_00.psd" 2>/dev/null)" = "his track psd" ] || fail "the old track's PSD was not copied into its tweak: $(ls "$ty/art-source/masks" 2>&1)"
+find "$ty" -mindepth 1 -delete && rmdir "$ty"
+printf 'his track psd, edited again\n' > "$work/old/ws/tracks/CY1/art-source/masks/slot_00.psd"
+ed --frames 30 --steps tweak-open-row:CY1 >"$work/log" 2>&1 || fail "CY1 with a tweak and no project: $(tail -3 "$work/log")"
+[ "$(cat "$ty/art-source/masks/slot_00.psd" 2>/dev/null)" = "his track psd, edited again" ] || fail "an existing track tweak without studio/project lost his PSD: $(ls "$ty/art-source/masks" 2>&1)"
+
 # the buttons the list replaces are gone from the menus
 studio $opts --frames 4 --steps print-menu
 for gone in "Export original car" "Open original track" "Add originals" "Copy to game repo" "Locate game"; do
