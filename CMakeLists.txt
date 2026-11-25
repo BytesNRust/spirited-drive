@@ -1366,6 +1366,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
+    add_test(NAME release_assets COMMAND sh ${CMAKE_SOURCE_DIR}/tests/release_assets.sh WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # the release workflows and the Windows packer agree on the files one release offers
     add_executable(psd_masks_check tests/psd_masks_check.c)   # not a test: the owner's PSDs against data/car_masks and data/dash_masks (psd_masks_check <art/tnfs-masks> <data>)
     target_link_libraries(psd_masks_check PRIVATE tnfs_core)
     target_compile_options(psd_masks_check PRIVATE ${TNFS_WARNINGS})

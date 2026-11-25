@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Pushing a tag vX.Y.Z (or vX.Y.Z-beta.N) builds the Windows game (UCRT64), packs the zip and attaches it, with its SHA-256, to the DRAFT release
+# that Release macOS opens for the same tag: ONE release holds every platform's download, because the game's update notice opens "the latest release"
+# and a player must find his own file there. This workflow never creates the release (the macOS one does: its notes and title are the release's);
+# its publish job waits for the draft to exist and uploads into it. The draft is published by hand once both files are in.
+#
+# The build job only reads the repo (its token is not kept in the checkout); only the publish job may write.
+name: Release Windows
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Check the tag is a version
+        run: |
+          echo "$GITHUB_REF_NAME" | grep -E -q '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || { echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-pre]"; exit 1; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0             # the version comes from the tag
+          persist-credentials: false
+
+      - uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c   # v2.34.0
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-sdl3
+            git
+
+      - name: Build the game (release)
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF
+          cmake --build build/rel --target tnfs
+
+      - name: Check the version matches the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          got=$(sed -n 's/^const char tnfs_version\[\] = "\(.*\)";.*/\1/p' build/rel/generated/tnfs_version.c)
+          echo "tag $want, build $got"
+          [ "$want" = "$got" ]
+
+      - name: Package
+        run: |
+          tools/package_windows.sh build/rel dist
+          cd dist && sha256sum *.zip > SHA256SUMS-windows.txt && cat SHA256SUMS-windows.txt
+          cmake -E tar tf *.zip | grep -E 'tnfs\.exe|SDL3\.dll|data/car_masks' | head -5
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        with:
+          name: windows-zip
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS-windows.txt
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4
+        with:
+          name: windows-zip
+          path: dist
+
+      - name: Attach the zip to the tag's draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Release macOS opens the draft (its build is the longer one): wait for it, up to 45 minutes. If the macOS release fails there is no draft and this job fails too: a Windows zip alone must not be the release.
+          tries=0
+          until [ -n "$(gh api "repos/$GH_REPO/releases" --paginate -q ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id" 2> /dev/null)" ]; do   # the list shows drafts, a lookup by tag may not
+            tries=$((tries + 1))
+            [ "$tries" -le 90 ] || { echo "no release for $GITHUB_REF_NAME after 45 minutes: did Release macOS fail?"; exit 1; }
+            sleep 30
+          done
+          gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS-windows.txt --clobber
+          gh api "repos/$GH_REPO/releases" --paginate -q ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .assets[].name"
