@@ -356,6 +356,28 @@ static void test_the_tree_changes_only_mods(void)
     CHECK(platform_user_remove_tree("editions/b.ini") && !exists("editions/b.ini"));
 }
 
+/* the length limit of an installed mod's paths (Windows keeps them under MOD_STORE_PATH_LIMIT; the check takes the limit, so it is tested here on any system): the longest file is named with its length and by how much it is over */
+static void test_long_paths(void)
+{
+    ModEntry entries[3] = { { 0 }, { 0 }, { 0 } };
+    snprintf(entries[0].path, sizeof entries[0].path, "mod.ini");
+    snprintf(entries[1].path, sizeof entries[1].path, "track/CY1.txt");
+    snprintf(entries[2].path, sizeof entries[2].path, "art/%0100d/deep/very-long-name.png", 7);
+    ModCheck c = { 0 };
+    c.entries = entries, c.entry_count = 3;
+    char text[600] = "";
+    const char *user = "/home/player/AppData/xx", *folder = "mods/.staging/abc";
+    const int worst = (int)(strlen(user) + 1 + strlen(folder) + 1 + strlen(entries[2].path));   /* the longest file's whole path */
+    CHECK(mod_store_paths_fit(&c, user, folder, 0, text, sizeof text));            /* no limit: anything fits */
+    CHECK(mod_store_paths_fit(&c, user, folder, 240, text, sizeof text));
+    CHECK(mod_store_paths_fit(&c, user, folder, worst, text, sizeof text));        /* exactly at the limit fits */
+    CHECK(!mod_store_paths_fit(&c, user, folder, worst - 1, text, sizeof text));
+    CHECK(strstr(text, "art/000") != NULL && strstr(text, "characters") != NULL && strstr(text, "by at least 1") != NULL);
+    CHECK(strstr(text, "mod.ini") == NULL && strstr(text, "CY1") == NULL);          /* the longest, not the others */
+    /* a longer user folder pushes it over */
+    CHECK(!mod_store_paths_fit(&c, "/a/very/long/user/folder/for/the/player/on/windows/AppData/Roaming/Spirited Drive", folder, worst, text, sizeof text));
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/tnfs_mod_store_test_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
@@ -377,5 +399,6 @@ int main(void)
     test_the_tree_changes_only_mods();
     mod_set_stop();
     test_rmtree(base);
+    test_long_paths();
     return TEST_REPORT();
 }

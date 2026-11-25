@@ -142,6 +142,33 @@ static int unpack(const uint8_t *zip, size_t size, const ModCheck *c, const char
     return ok;
 }
 
+int mod_store_paths_fit(const ModCheck *c, const char *user_dir, const char *folder, int limit, char *why, size_t why_cap)
+{
+    if (limit <= 0) return 1;
+    size_t worst = 0, at = 0;
+    const size_t head = strlen(user_dir) + 1 + strlen(folder) + 1;   /* "<user>/<folder>/" */
+    for (size_t i = 0; i < c->entry_count; i++) {
+        const size_t n = head + strlen(c->entries[i].path);
+        if (n > worst) worst = n, at = i;
+    }
+    if (worst <= (size_t)limit) return 1;
+    return refuse(why, why_cap, "%s would be installed at %zu characters (%s/%s/%s) and Windows keeps paths under %d: shorten the names of its folders and files by at least %zu", c->entries[at].path, worst,
+                  user_dir, folder, c->entries[at].path, limit, worst - (size_t)limit);
+}
+
+/* the longest of the three places a mod's files live while it is installed (the staging folder, the backup, the target) must keep to the limit */
+static int paths_fit_all(const ModCheck *c, const ModInstallPlan *p, char *why, size_t cap)
+{
+    char user[1024];
+    if (MOD_STORE_PATH_LIMIT <= 0 || !platform_user_dir(user, sizeof user)) return 1;
+    size_t n = strlen(user);
+    while (n > 0 && (user[n - 1] == '/' || user[n - 1] == '\\')) user[--n] = '\0';
+    const char *const folders[3] = { p->staging, p->backup, p->target };
+    for (int i = 0; i < 3; i++)
+        if (folders[i][0] != '\0' && !mod_store_paths_fit(c, user, folders[i], MOD_STORE_PATH_LIMIT, why, cap)) return 0;
+    return 1;
+}
+
 /* the plan for `c` against what mods/<id> holds today, a backup name of its own; 0 with `why` when refused */
 static int plan_for(const ModCheck *c, ModInfo *installed, int *has_card, ModInstallPlan *p, char *why, size_t cap)
 {
@@ -157,7 +184,7 @@ static int plan_for(const ModCheck *c, ModInfo *installed, int *has_card, ModIns
         date_of(now + s, date);
         mod_install_plan(c, *has_card ? installed : NULL, there && !*has_card, date, p);
         if (p->kind == MOD_INSTALL_REFUSED) return refuse(why, cap, "%s", p->why);
-        if (p->backup[0] == '\0' || !platform_user_exists(p->backup)) return 1;
+        if (p->backup[0] == '\0' || !platform_user_exists(p->backup)) return paths_fit_all(c, p, why, cap);
     }
     return refuse(why, cap, "no free name for the backup of %s", target);
 }

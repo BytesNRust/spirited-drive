@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later
-     Windows: the program's C library calls (fopen, stat, mkdir, rename, remove, opendir) take UTF-8 paths, as SDL's pref path (%APPDATA%\Spirited Drive\) and the player's folders come. Without it they take the ANSI code page, and a user name with a letter outside it (Zoë, Ñandú, 日本語) cannot open its own folder. Windows 10 1903 and later. -->
+     Windows: the program's C library calls (fopen, stat, mkdir, rename, remove, opendir) take UTF-8 paths, as SDL's pref path (%APPDATA%\Spirited Drive\) and the player's folders come. Without it they take the ANSI code page, and a user name with a letter outside it (Zoë, Ñandú, 日本語) cannot open its own folder. Windows 10 1903 and later. 
+     longPathAware: paths over 260 characters work for the program, but only on a Windows 10 whose LongPathsEnabled setting is on (it is off by default), so the game still keeps an installed mod's paths under 240 characters (game/sys/mod_store.c).
+-->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
     </windowsSettings>
   </application>
 </assembly>

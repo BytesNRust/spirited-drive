@@ -8,6 +8,7 @@
 #ifndef TNFS_MOD_STORE_H
 #define TNFS_MOD_STORE_H
 
+#include "formats/mod_check.h"
 #include "formats/mod_ini.h"
 
 #include <stddef.h>
@@ -15,6 +16,17 @@
 /* Each returns 1, or 0 with the reason for the player in `why`. */
 /* installs or updates the mod in the zip at `zip_path`: its card in `info_out` (NULL: not wanted; cleared on a failure), and the version
  * it replaced in `old_out` ("" when new) */
+/* The longest path an installed mod may have, in characters, on Windows (its MAX_PATH is 260, and a player's Windows has no long paths unless it was set up for them); 0 elsewhere, where the paths are not limited. */
+#ifdef _WIN32
+enum { MOD_STORE_PATH_LIMIT = 240 };
+#else
+enum { MOD_STORE_PATH_LIMIT = 0 };
+#endif
+
+/* Whether every file of `c` fits `limit` characters once installed under `folder` ("mods/.staging/<id>", "mods_backup/<id>-<date>" or "mods/<id>") in the player's folder `user_dir` (limit 0: no limit). 1 when it
+ * does; 0 with `why` naming the longest file, its length and what to shorten. */
+int mod_store_paths_fit(const ModCheck *c, const char *user_dir, const char *folder, int limit, char *why, size_t why_cap);
+
 int mod_store_install(const char *zip_path, ModInfo *info_out, char *old_out, size_t old_cap, char *why, size_t why_cap);
 /* what an install did: a mod that was not there; another version over it; the same version again with the same files (a reinstall); or the same
  * version again with other files (the author did not raise version=; checked on the files the zip has, a file only the folder had is not seen) */
