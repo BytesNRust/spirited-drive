@@ -1415,6 +1415,7 @@ foreach(name first_profile car_livery_unlamp track_light_mirror port_old_files c
     # the windowed window kept inside the display's usable area after fullscreen (pure arithmetic)
     add_executable(test_window_fit tests/test_window_fit.c game/platform/window_fit.c)
     target_link_libraries(test_window_fit PRIVATE tnfs_core)
+    target_include_directories(test_window_fit PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests)
     target_compile_options(test_window_fit PRIVATE ${TNFS_WARNINGS})
     add_test(NAME window_fit COMMAND test_window_fit)
     # the CD check of the clean configuration background runs when original/ is there
