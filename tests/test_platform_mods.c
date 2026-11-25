@@ -202,11 +202,13 @@ int main(void)
     CHECK(same(d, size, "cd tri 3"));
     resource_free(d);
 
+#ifndef _WIN32   /* no links to make on Windows without a privilege */
     /* a symbolic link out of the mods directory is refused */
     snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/ESCAPE.TXT", cd);
     d = platform_read_file(asked, &size);
     CHECK(d == NULL);
     CHECK(strstr(platform_mods_error(), "symbolic link") != NULL);
+#endif
 
     /* a path that is not below the data root is not an overlay candidate: read as is */
     snprintf(asked, sizeof asked, "%s/outside/secret.txt", base);

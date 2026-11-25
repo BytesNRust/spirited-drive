@@ -65,6 +65,7 @@ static void to_file(const char *format, va_list args)
     if (file_bytes >= PORT_LOG_FILE_MAX) return;
     const int n = vfprintf(file, format, args);
     if (n > 0) file_bytes += n;
+    fflush(file);   /* Windows' C library does not line-buffer: a crash would keep nothing */
     if (file_bytes >= PORT_LOG_FILE_MAX) fputs("log: stopped at the size limit\n", file);
 }
 

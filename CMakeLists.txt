@@ -2089,6 +2089,9 @@ if(NOT EMSCRIPTEN)
         add_test(NAME text_binarized_lint COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tools/text_binarized_lint.py ${CMAKE_SOURCE_DIR})
         # tools/light_photo.sh: the 2x2 sheet and the arguments, no game and no CD data; stdlib python only
         add_test(NAME light_photo_sheet COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/light_photo_check.py ${CMAKE_SOURCE_DIR})
+        if(WIN32)   # it runs tools/light_photo.sh (a developer's script, with a fake game binary of its own): not part of the Windows version
+            set_tests_properties(light_photo_sheet PROPERTIES DISABLED TRUE)
+        endif()
     endif()
     add_executable(test_setup_choice tests/test_setup_choice.c game/sys/text.c game/sys/text_label.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
                    game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
