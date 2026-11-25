@@ -75,7 +75,7 @@ One screen for everything the original hid behind typed codes and for what we ad
 4. On first start the app asks for your game: choose the CD, a folder with its files, or an ISO image. It copies what it needs, and you can put the CD away.
 
 
-**Windows** <!-- DRAFT [WIN]: minimum version, file name and steps wait for the Windows package -->: the app is not signed yet either, so the first time Windows warns that it is from an unknown publisher: choose **More info**, then **Run anyway**. The Windows version has no network races yet.
+**Windows 10 or 11, 64-bit** <!-- DRAFT [WIN]: file name and steps wait for the Windows package -->: the app is not signed yet either, so the first time Windows warns that it is from an unknown publisher: choose **More info**, then **Run anyway**. The Windows version has no network races yet.
 
 Updates: the game tells you when a new version is out.
 

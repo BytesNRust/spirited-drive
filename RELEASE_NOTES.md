@@ -24,7 +24,7 @@ time on the Game Mode screen.
 2. The first time, macOS will say it cannot check the app. Right-click the app, **Open**, then
    **Open** again; or System Settings → Privacy & Security → **Open Anyway**.
 
-**Windows** [WIN: minimum version, file name, steps]
+**Windows 10 or 11, 64-bit** [WIN: file name, steps]
 1. Download `[WIN]`, unzip it anywhere and run **Spirited Drive**.
 2. The first time, Windows will warn that the app is from an unknown publisher: **More info**,
    then **Run anyway**.
