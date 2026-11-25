@@ -181,7 +181,7 @@ void tweak_panel(App *a)
             char dir[APP_PATH];
             snprintf(dir, sizeof dir, "%s/tweaks/%s", a->workspace, a->tweak_id);
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-            ImGui::TextWrapped("Folder  %s", dir);
+            text_elided_after("Folder  ", dir);   // cut in the middle (the folder's name stays), never in a word; the whole path on hover
             ImGui::PopStyleColor();
             if (ImGui::SmallButton("Show folder")) snprintf(a->reveal, sizeof a->reveal, "%s", dir);
             ui_probe("tweak_show");
@@ -202,7 +202,7 @@ void tweak_panel(App *a)
                 ImGui::TextColored(BAD_TEXT, "%s", a->tweak_why);
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                ImGui::TextWrapped("Against %s", app_tweak_base(a));
+                text_elided_after("Against ", app_tweak_base(a));
                 ImGui::PopStyleColor();
                 const float footer = ImGui::GetFrameHeightWithSpacing() + 4.0f;   // the summary line under the list
                 if (ImGui::BeginChild("##tweakfiles", ImVec2(0, ImGui::GetContentRegionAvail().y > footer + 60.0f ? -footer : 60.0f), ImGuiChildFlags_Borders)) {
