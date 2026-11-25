@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 /* "file://" and the absolute `path` with every byte but letters, digits and -._~/ written as %XX (a space, a comma, a parenthesis or a non-ASCII byte in the path would
- * make the URL invalid to the OS). Returns the length written, or 0 when the path is not absolute or the result does not fit `cap` (with its end). */
+ * make the URL invalid to the OS). A Windows path ("C:\\Player\\x\\", "D:/y") becomes "file:///C:/Player/x/" (the drive's colon kept, backslashes as slashes), a share ("\\\\server\\share\\x") "file://server/share/x". Returns the length written, or 0 when the path is not absolute or the result does not fit `cap` (with its end). */
 size_t file_url_from_path(const char *path, char *out, size_t cap);
 
 #endif
