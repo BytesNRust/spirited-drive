@@ -358,6 +358,7 @@ static void drive_field_port(RaceField *field, const char *name, int arcade)
 static void drive_start_world(const Track *t, const char *data_root, const char *name, RaceField *field, int laps, int exe_laps, int free_race)
 {
     drive_light_load(port_light_effects(), port_light_time(), port_settings_load().psx_dir, name, t->tri.node_count);
+    drive_light_set_direction(t->reversed);   /* port: a track light file is mirrored to the way the track runs */
     drive_light_load_synth(&t->tri, name);   /* port: Burnt Sienna and Transtropolis, which the CD has no light for */
     drive_light_load_alt_sky(data_root, name);
     drive_light_set_reversed(t->reversed);   /* port: the light's nodes and sides of the file's own direction */

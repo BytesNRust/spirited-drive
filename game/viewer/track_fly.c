@@ -226,6 +226,7 @@ int track_viewer_main(const char *data_root, const char *name, uint32_t node, co
         printf("%s: %u segments, %s\n", name, t.tri.segment_count, tri_is_circuit(&t.tri) ? "circuit" : "stage");
         node %= t.tri.node_count;
         drive_light_load(port_light_effects(), port_light_time(), port_settings_load().psx_dir, name, t.tri.node_count);   /* port: the baked light */
+        drive_light_set_direction(0);
         drive_light_load_synth(&t.tri, name);
         drive_light_set_reversed(0);   /* port: the CD light's lamp pools (lamp_pools), the file's own direction */
         if (screenshot != NULL) {

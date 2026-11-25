@@ -28,6 +28,7 @@
 #include "game/race/track_geometry.h"
 #include "game/race/track_objects.h"
 #include "game/sys/reverse_track.h"
+#include "game/race/track_light_mirror.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
@@ -278,6 +279,10 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
 }
 
 static void lay_cd_pools(void);
+
+static int run_reversed;   /* the track about to be made runs the other way round: its file's nodes are mirrored (track_light_mirror.h) */
+
+void drive_light_set_direction(int reversed) { run_reversed = reversed != 0; }
 
 void drive_light_set_reversed(int reversed)
 {
@@ -640,6 +645,10 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
     const uint32_t nodes = tri != NULL ? tri->node_count : 0;
     const int files_on = port_settings_profile() == PROFILE_RESTOMOD && (off == NULL || off[0] != '0');
     const int from_track = files_on && track_light_track_load(track, light_letter, nodes, &file, path, sizeof path);   /* data/track_light/<TRACK>.txt: the one file of the track */
+    if (from_track && run_reversed && !track_light_file_mirror(&file, nodes)) {   /* the file is in the track's own direction, the track runs the other way round */
+        track_light_file_free(&file);
+        return 0;
+    }
     const int have = from_track;
     made_sun_set(have ? &file.tweaks : NULL, have ? &file.sun : NULL);
     if (have && !made_from_track_file(tri, track, &file, &made)) {
