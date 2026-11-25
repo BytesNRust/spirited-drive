@@ -88,7 +88,7 @@ static void test_playable_node(void)
     CHECK_EQ_INT(light_drive_node("AL2", 2312, 2131), 2128);   /* Y is 2131: the last start that runs is 2129, the clamp keeps one more node of margin */
     CHECK_EQ_INT(light_drive_node("TR1", 900, 0), 0);          /* circuits: laps, no node limit */
     CHECK_EQ_INT(light_drive_node("TR4", 900, 899), 899);
-    CHECK_EQ_INT(light_drive_node("AL1", 100, 50), 12);        /* a road too short for a race: the low end wins, never below 12 */
+    CHECK_EQ_INT(light_drive_node("AL1", 100, 50), 50);        /* a road too short for a stage's race (a test fixture): left as it is */
 }
 
 static void test_command(void)

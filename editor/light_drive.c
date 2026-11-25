@@ -70,7 +70,8 @@ unsigned light_drive_node(const char *track, unsigned nodes, unsigned node)
     const int stage = track != NULL && (strncmp(track, "AL", 2) == 0 || strncmp(track, "CL", 2) == 0 || strncmp(track, "CY", 2) == 0);
     if (!stage) return node;
     const unsigned lo = 12;
-    const unsigned hi = nodes > RACE_STAGE_END + 3 + lo ? nodes - RACE_STAGE_END - 3 : lo;
+    if (nodes <= RACE_STAGE_END + 3 + lo) return node;   /* a road too short for a stage's race has no raced part to keep to */
+    const unsigned hi = nodes - RACE_STAGE_END - 3;
     return node < lo ? lo : node > hi ? hi : node;
 }
 
