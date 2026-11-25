@@ -20,6 +20,10 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
  * loaded: the light made from the road's tunnels (light_synth.h) in place of none, the time of day's flat tint kept. Anything else changes nothing. */
 void drive_light_load_synth(const Tri *tri, const char *track);
 
+/* port: before drive_light_load_synth: the track about to be made runs the other way round (tri_reverse.h): a track light file is read in the track's own direction and mirrored to the run's
+ * (track_light_mirror.h). 0 is a track that runs as its file says (the default). */
+void drive_light_set_direction(int reversed);
+
 /* port: the light of a track that runs the other way round (tri_reverse.h), after drive_light_load: the nodes and the sides asked as the new
  * file has them. */
 void drive_light_set_reversed(int reversed);
