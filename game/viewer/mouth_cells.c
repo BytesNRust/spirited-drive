@@ -81,7 +81,7 @@ int mouth_cells_draw(const QuadTarget *q, const View *view, const FshEntry *text
         for (int k = 0; k < 4; k++) {
             const uint32_t at = S[along][k] ? to : from;
             const int point = T[along][k] ? pq : pp;
-            int light_here = track_node_light_at(light, at, point);
+            int light_here = track_node_light_at_xz(light, at, point, piece.xz[k]);   /* at the corner's own place: the headlight pool's lift is in it (the polygon's corners carry it) */
             /* a piece with an open end has the open road's surface unless its texture is already the tunnel's dark one, and a corner of it on the tunnel's first node must meet the tunnel's own surface there: the light at which the texture looks as bright as the tunnel's floor (TRACK_NODE_LIGHT_MOUTH_FLOOR over the texture's own brightness), not the tunnel's */
             if (!in_tunnel && track_node_light_tunnel(light, at)) {
                 const float lum = texture_lum(texture);
@@ -94,7 +94,7 @@ int mouth_cells_draw(const QuadTarget *q, const View *view, const FshEntry *text
         /* the piece's tables: its shallowest step's, in a tunnel when both its nodes are */
         const int a = step_id(light, from), b = step_id(light, to);
         const int id = a != 0 && (b == 0 || a < b) ? a : b;
-        track_light_tunnel = (base_all >= 2 && !in_tunnel ? base_all : in_tunnel ? 1 : 0) | id << 3;
+        track_light_tunnel = (in_tunnel ? (base_all == TRACK_NODE_LIGHT_CLASS_UNLIT ? base_all : 1) : base_all >= 2 ? base_all : 0) | id << 3;   /* a tunnel with no lamps keeps its class (the pool lights it) */
         const int32_t *const pc[4] = { piece.cam[0], piece.cam[1], piece.cam[2], piece.cam[3] };
         modern_road_cell_lit(q, view, texture, piece.uv, pc, transparent, lit_tables_for(texture), piece.dark);
     }
