@@ -2157,6 +2157,8 @@ if(NOT EMSCRIPTEN)
     if(Python3_FOUND)
         add_test(NAME text_binarized_lint COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tools/text_binarized_lint.py ${CMAKE_SOURCE_DIR})
         add_test(NAME unsequenced_size_lint COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tools/unsequenced_size_lint.py ${CMAKE_SOURCE_DIR})   # f(read(&n), n): the order is the compiler's
+        # README.md: the announcement wording (never the claims the notes forbid; the per-mode, network, palette and Lunar Springs lines are there); stdlib python only
+        add_test(NAME readme_wording COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/readme_wording.py ${CMAKE_SOURCE_DIR})
         # tools/light_photo.sh: the 2x2 sheet and the arguments, no game and no CD data; stdlib python only
         add_test(NAME light_photo_sheet COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/light_photo_check.py ${CMAKE_SOURCE_DIR})
         if(WIN32)   # it runs tools/light_photo.sh (a developer's script, with a fake game binary of its own): not part of the Windows version
@@ -2732,7 +2734,7 @@ endif()
 #   product: core / game / editor / both, from what the test links (a binary) or the program the command starts (a script).
 # A new test needs no edit here: a binary is unit, a script integration; add a slow script's name to TNFS_E2E_TESTS.
 set(TNFS_STATIC_CHECKS
-    text_binarized_lint car_mask_class_table car_mask_psd masks_status track_mask_psd dash_mask_psd dash_psd_update
+    readme_wording text_binarized_lint car_mask_class_table car_mask_psd masks_status track_mask_psd dash_mask_psd dash_psd_update
     frame_pick free_udp_ports spirited_logo spirited_icon profile_tables profile_tables_sabotage editor_ui_words
     editor_loose_text)
 set(TNFS_E2E_TESTS

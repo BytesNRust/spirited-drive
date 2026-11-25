@@ -19,29 +19,44 @@ Spirited Drive is a from-scratch reimplementation of the 1996 PC classic. It is 
 
 ## Three ways to play
 
-- **Stock '96** — *Factory spec, recalls done.* The 1996 game in 4:3: its look, its handling. Nothing touched but the bugs.
-- **Restored '96** — *Original paint, new bearings.* The same look, in widescreen, up to 144 Hz.
-- **Restomod '26** — *Original block, modern running gear.* As you remember it, not as it was. The graphics stay true to the era (its techniques, its 256-colour palette), and today's cores fill the game with detail no 1996 PC could run: night lighting, weather, a free camera, and everything below. Yours to tune.
+<!-- DRAFT: announcement text from notes/textos-anuncio-2026-11-25.md, not approved as final -->
+- **Stock '96** — *Factory spec, recalls done.* The 1996 game as it shipped: 4:3 picture, original menus. Nothing is changed but its bugs, and what it takes to run on a computer from today.
+- **Restored '96** — *Original paint, new bearings.* The same game on a modern screen: widescreen and smooth motion up to 144 fps. Nothing else is changed.
+- **Restomod '26** — *Original block, modern running gear.* Everything in Restored, plus weather, four times of day, night lighting, cars that shine and change colour, a dashboard that lights up, mirror, reverse and rally versions of the tracks, and the lost moon track.
 
-All three play with keyboard, gamepad or wheel. You can switch modes at any time from Game Mode, and each mode keeps its own settings.
+All three play with keyboard, gamepad or wheel, and all three race over the network (macOS only for now, very beta). You can switch modes at any time from Game Mode, and each mode keeps its own settings.
 
+<!-- DRAFT: announcement text from notes/textos-anuncio-2026-11-25.md, not approved as final -->
 ## What Restomod adds
 
-- **Sharp**: 2x and 3x render scale, perspective-correct 3D, texture filter and fog, an adjustable field of view, and view distance up to Ultra. (Widescreen, 16:9 and 21:9 with the original pixels, and 60 / 120 / 144 Hz with smooth motion between the game's steps, come with Restored '96 too.)
-- **Night that glows**: four times of day on every track, halos on street lamps and tunnel lights, pools of light on the road, headlight beams that light up the road and the walls, reflectors that shine back, and lit dashboards in each car's own colour.
-- **Weather**: fog, rain and storms on every track, with spray from every car, wet roads that mirror your headlights and working wipers in the cockpit view; real snow on Alpine, and gravel, dust and mud on the rally stages.
-- **Cars that shine**: a glossy body that reflects the sky, and more paint colours for every car.
-- **A free camera**: look all around the car. A wrong-way warning keeps you headed the right way.
-- **More to race**: mirror, reverse and rally versions of the tracks as switches you combine, the moon track (Lunar Springs, below), and separate record tables for every layout, cheats and lap count.
-- **Race friends**: network races over your LAN or the internet.
-- **Make it yours** *(work in progress)*: mods load from a folder, without touching your game files. The light, the lamps and the masks of every track are plain files you can edit.
+The game it could have been with a few more years of development: dozens of additions, large and small, all drawn the way a game of its time would have drawn them.
+
+**All of it in 8-bit.** Every frame is 256-colour indexed art, drawn the way the 1996 game drew, with no true-colour stage anywhere. Light adds no paint: dusk, tunnels and street lamps recolour the palette, they never leave it. Glows and shine are dithered, the way 1996 faked a gradient. The patina stays.
+
+- **Weather on every track**: rain, storms with lightning and thunder, fog, and snow in the mountains. Every car throws spray, the wet road mirrors the lamps, and in the rain everyone drives with their lights on.
+- **Four times of day**: dawn, day, dusk and night, each with its own light and the sun's shadows across the road.
+- **Night that glows**: headlight beams on the road and the walls, halos on street lamps, tunnel lights, brake lights and police lights, and reflectors that catch your beams.
+- **Cars with a shine**: bodywork that reflects, and more colours for every car.
+- **A dashboard that lives**: gauges lit at night in each car's own colour, wipers that keep pace with the rain, drops and snowflakes hitting the glass.
+- **Every track again**: mirror, rally and, on circuits, reverse, as switches on the track itself. Gravel, dust and mud on the rally stages.
+- **Lunar Springs**: the moon track the PC game never got to show (the story is below).
+- **Sharper picture**: 2x and 3x render scale, correct perspective, view distance up to Ultra.
+- **More cameras**: a 360 camera, a mirror in the bumper view, the police radar in every view.
+- **Records your way**: a table per track, layout and lap count.
+
+**Always in the workshop.** Restomod's car shine and colours and its track lighting are being tuned track by track and car by car. Expect some reflections in the wrong place, paint that does not take its colour, and tunnels or shadows that look off. The engine is solid; this is art and tuning, and it gets better with every update. Stock '96 and Restored '96 are not affected.
+
+**Network races** work in all three modes, over your LAN or the internet, **on macOS only for now**. They are **very beta**: they have had little testing, so expect problems and tell us what you find.
+
+**The engine is open, and an editor is coming.** We did not only rebuild the game: we opened it up. **Spirited Drive Studio** *(work in progress, not available to download yet)* is the editor that goes with it. It will let you tweak what is already in the game, and build entirely new cars and tracks with your own art.
 
 ## Customize Game: the garage door is open
 
-One screen for everything the original hid behind typed codes and for what we added. It opens in every mode, but in Stock and Restored only the cheats, the speed units and a few more rows are live; the rest is greyed out and is Restomod's. Open it from Game Mode or Options.
+<!-- DRAFT: announcement text from notes/textos-anuncio-2026-11-25.md, not approved as final -->
+One screen for everything the original hid behind typed codes and for what we added. It is in every mode. Stock and Restored keep the original's spirit: there it offers some of the original cheats as switches, the speed units, and the unlock level, so you can open the extras the 1996 game kept for tournament winners without winning them again. Restomod adds everything new, each thing with its own switch. Open it from Game Mode or Options.
 
 - **The original cheats, as switches**: Explode, Nitro, Turbo and the Warrior. The typed codes still work, and races run with a cheat keep their own record table.
-- **The hidden tracks**: Lost Vegas, and (Restomod only) **Lunar Springs**, the moon track of the PlayStation version, which never came out on PC: it stayed hidden in the PC game's code and art, and here it is recovered and drivable, with moon gravity if you want it.
+- **The hidden tracks**: Lost Vegas, and (Restomod only) **Lunar Springs**, a track on the moon. It was among the PC game's files, but the team ran out of time and the PC version shipped without it; PlayStation players did get to drive it. We found it where they left it, in the PC files, finished the job, and now you can drive it too, with the moon's gravity if you like.
 - **Every track again**: mirrored and as a rally stage in every mode; the circuits in reverse (pick Reverse in Track Select) in Restomod.
 - **The Warrior as your rival**, not only as your car.
 - **Car colours** (Restomod): more paints for every car.
@@ -55,6 +70,9 @@ One screen for everything the original hid behind typed codes and for what we ad
 2. Open the DMG and drag **Spirited Drive** to Applications.
 3. **The first time only**, macOS will say it cannot check the app, because it is not notarized by Apple. Right-click the app, choose **Open**, then **Open** again. On recent macOS: try to open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
 4. On first start the app asks for your game: choose the CD, a folder with its files, or an ISO image. It copies what it needs, and you can put the CD away.
+
+
+**Windows** <!-- DRAFT [WIN]: minimum version, file name and steps wait for the Windows package -->: the app is not signed yet either, so the first time Windows warns that it is from an unknown publisher: choose **More info**, then **Run anyway**. The Windows version has no network races yet.
 
 Updates: the game tells you when a new version is out.
 
