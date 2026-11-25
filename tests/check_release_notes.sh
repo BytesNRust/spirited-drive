@@ -1,5 +1,5 @@
 #!/bin/sh
-# tools/check_release_notes.sh: notes with a draft marker ("DRAFT", "[X.Y.Z]", "[WIN]") fail and say which; clean notes pass; a missing file passes.
+# tools/check_release_notes.sh: notes with a draft marker ("DRAFT", "[X.Y.Z]", "[WIN]", "[NOCHE") fail and say which; clean notes pass; a missing file passes.
 # usage: tests/check_release_notes.sh <repo root>
 set -u
 repo=$1
@@ -12,9 +12,10 @@ printf '# Spirited Drive 1.0.0\n\nA drafted rewrite, and a draft of the install 
 printf '# DRAFT: Spirited Drive\n\ntext\n' > "$work/draft.md"
 printf '# Spirited Drive\n\nDownload Spirited-Drive-[X.Y.Z]-macos.dmg\n' > "$work/version.md"
 printf '# Spirited Drive\n\n[WIN] the Windows install steps\n' > "$work/win.md"
+printf '# Spirited Drive\n\n- Full screen [NOCHE: fix/x] with a key\n' > "$work/noche.md"
 "$chk" "$work/clean.md" > /dev/null 2>&1 || fail "notes without a marker did not pass (lower case 'draft' is text, not a marker)"
 "$chk" "$work/missing.md" > /dev/null 2>&1 || fail "a missing file did not pass"
-for f in draft:DRAFT version:'[X.Y.Z]' win:'[WIN]'; do
+for f in draft:DRAFT version:'[X.Y.Z]' win:'[WIN]' noche:'[NOCHE'; do
     name=${f%%:*}
     marker=${f#*:}
     out=$("$chk" "$work/$name.md" 2>&1) && fail "$name.md passed with the marker $marker"

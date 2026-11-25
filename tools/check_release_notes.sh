@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# check_release_notes.sh [RELEASE_NOTES.md]: a release must not go out with the draft's placeholders. Fails (exit 1) while the file still holds "DRAFT", "[X.Y.Z]" or "[WIN]"
+# check_release_notes.sh [RELEASE_NOTES.md]: a release must not go out with the draft's placeholders. Fails (exit 1) while the file still holds "DRAFT", "[X.Y.Z]", "[WIN]" or "[NOCHE"
 # (the markers a draft of the notes carries until the owner has written the real text), saying which and where. A file that is not there passes with a notice
 # (the release workflow then lets GitHub generate the notes). Exit 2 for bad arguments.
 set -eu
@@ -11,7 +11,7 @@ if [ ! -f "$notes" ]; then
     exit 0
 fi
 found=0
-for marker in 'DRAFT' '[X.Y.Z]' '[WIN]'; do
+for marker in 'DRAFT' '[X.Y.Z]' '[WIN]' '[NOCHE'; do
     lines=$(grep -n -F -- "$marker" "$notes" | head -n 3 || true)
     if [ -n "$lines" ]; then
         found=1
