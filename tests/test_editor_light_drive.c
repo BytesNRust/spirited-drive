@@ -3,6 +3,7 @@
  * window (no dummy drivers) and none of the person's TNFS_* or SDL_*, an update rewrites the copy whole, a run can be stopped, a failing game is reported, and the
  * scratch folder is gone after each. */
 #include "light_drive.h"
+#include "light_photo.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -115,6 +116,71 @@ static void test_drive_render_scale(void)
         CHECK(strstr(text, "format=16:9\n") != NULL && strstr(text, "fullscreen=0\n") != NULL && strstr(text, "lamp_halos=1\n") != NULL && strstr(text, "sun_shadow=1\n") != NULL);   /* the rest is still forced */
     }
     car_race_set_player(NULL);
+}
+
+/* the text after `prefix` ("TNFS_VIEW=") in the environment `v`, "" when it has no such entry */
+static const char *env_of(char *const *v, const char *prefix)
+{
+    for (; *v != NULL; ++v)
+        if (strncmp(*v, prefix, strlen(prefix)) == 0) return *v + strlen(prefix);
+    return "";
+}
+
+/* the value of `key` in the file `path` ("key=value" lines; the last one wins, as the game reads them), "" when it has none */
+static const char *key_in(const char *path, const char *key, char *out, size_t cap)
+{
+    char *text = read_all(path);
+    out[0] = '\0';
+    const size_t n = strlen(key);
+    for (const char *line = text; text != NULL && line != NULL && *line != '\0';) {
+        const char *end = strchr(line, '\n');
+        if (strncmp(line, key, n) == 0 && line[n] == '=') snprintf(out, cap, "%.*s", (int)(end != NULL ? (size_t)(end - line) - n - 1 : strlen(line + n + 1)), line + n + 1);
+        line = end != NULL ? end + 1 : NULL;
+    }
+    return out;
+}
+
+/* Photo at node and Test drive give the same sun and the same light (point 15 of notes/anuncio-estado-2026-11-25.md): the light is the game's own, from the track's light file, the
+ * time and the node, so what can differ is what Studio hands the game. On the 16 CD tracks x the 4 moments, at one node each: the two commands name the same track, the same working
+ * copy folder, the same time of day, node, weather, camera and masks; the player files each makes carry the same time and the same sun; and neither gives the game a key that
+ * changes the light that the other leaves out. (Measured once against the real game, 64 pairs: notes/photo-drive-same-light-2026-11-25.md.) */
+static void test_photo_and_drive_same_light(void)
+{
+    static const char *const TRACKS[16] = { "AL1", "AL2", "AL3", "CL1", "CL2", "CL3", "CY1", "CY2", "CY3", "TR1", "TR2", "TR3", "TR4", "TR5", "TR6", "TR7" };
+    static const char LETTERS[4] = { 'A', 'B', 'C', 'N' };
+    char *const base[] = { "PATH=/usr/bin", NULL };
+    char pdir[600], ddir[600], a[64], b[64];
+    snprintf(pdir, sizeof pdir, "%s/photo_user", dir), snprintf(ddir, sizeof ddir, "%s/drive_user", dir);
+    mkdir(pdir, 0700), mkdir(ddir, 0700);
+    for (int t = 0; t < 16; ++t)
+        for (int l = 0; l < 4; ++l) {
+            const unsigned node = 300u + (unsigned)t;
+            LightPhotoSetup p = { "/g/tnfs", "/cd", pdir, "/m", { 0 }, LETTERS[l], node, 3, 0, 4, "/shot.ppm", "/masks" };
+            LightDriveSetup d = { "/g/tnfs", "/cd", ddir, "/m", { 0 }, LETTERS[l], node, 0, "/masks", NULL, 3 };
+            snprintf(p.track, sizeof p.track, "%s", TRACKS[t]), snprintf(d.track, sizeof d.track, "%s", TRACKS[t]);
+            RaceCommand pc, dc;
+            char why[LIGHT_DRIVE_WHY] = "";
+            CHECK(light_photo_command(&p, base, &pc, why, sizeof why) && light_drive_command(&d, base, &dc, why, sizeof why));
+            const char *const word = light_photo_time_word(LETTERS[l]);
+            char want[64];
+            CHECK(has(pc.argv, "--drive") && has(dc.argv, "--drive") && has(pc.argv, TRACKS[t]) && has(dc.argv, TRACKS[t]) && has(pc.argv, "--mods") && has(dc.argv, "--mods") && has(pc.argv, "/m") && has(dc.argv, "/m"));
+            snprintf(want, sizeof want, "TNFS_LIGHT_TIME=%s", word);
+            CHECK(has(pc.envp, want) && has(dc.envp, want));
+            snprintf(want, sizeof want, "TNFS_START_NODE=%u", node);
+            CHECK(has(pc.envp, want) && has(dc.envp, want));
+            CHECK(has(pc.envp, "TNFS_WEATHER=clear") && has(dc.envp, "TNFS_WEATHER=clear"));
+            CHECK(strcmp(env_of(pc.envp, "TNFS_VIEW="), env_of(dc.envp, "TNFS_VIEW=")) == 0 && env_of(pc.envp, "TNFS_VIEW=")[0] != '\0');
+            CHECK(has(pc.envp, "TNFS_TRACK_MASKS=/masks") && has(dc.envp, "TNFS_TRACK_MASKS=/masks"));
+            car_race_command_free(&pc), car_race_command_free(&dc);
+            CHECK(car_race_user_files(pdir, LETTERS[l] == 'N', NULL, why, sizeof why) && car_race_force_lines(pdir, "sun_shadow=1\n", why, sizeof why));
+            CHECK(car_race_user_files(ddir, LETTERS[l] == 'N', NULL, why, sizeof why) && car_race_force_max_look(ddir, why, sizeof why));
+            char pf[700], df[700];
+            snprintf(pf, sizeof pf, "%s/restomod.cfg", pdir), snprintf(df, sizeof df, "%s/restomod.cfg", ddir);
+            static const char *const SAME[] = { "light_time", "sun_shadow", "light_effects", "car_colours", "body_shine", "fog", "fog_sample", "sky_fill", "sky_fill_below", "perspective", "lamp_flares", "car_soft_shadow", "texture_filter", NULL };
+            for (int k = 0; SAME[k] != NULL; ++k) CHECK(strcmp(key_in(pf, SAME[k], a, sizeof a), key_in(df, SAME[k], b, sizeof b)) == 0);
+            CHECK(strcmp(key_in(pf, "light_time", a, sizeof a), l == 3 ? "night" : "day") == 0);
+            CHECK(strcmp(key_in(pf, "sun_shadow", a, sizeof a), "1") == 0);
+        }
 }
 
 static void test_command(void)
@@ -287,6 +353,7 @@ int main(int argc, char **argv)
     test_weather_words();
     test_playable_node();
     test_drive_render_scale();
+    test_photo_and_drive_same_light();
     test_command();
     test_job();
     test_ends();
