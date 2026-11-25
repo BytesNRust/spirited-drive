@@ -4,6 +4,7 @@
 #include "formats/car_kit_paths.h"
 
 #include <dirent.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,11 @@ void app_psd_setup(App *a, const char *base, const char *root)
     a->psd_root[0] = '\0';
     const char *home = getenv("HOME"), *chosen = root != NULL ? root : getenv("TNFS_PSD_ROOT");
     if (chosen != NULL && chosen[0] != '\0') snprintf(a->psd_root, sizeof a->psd_root, "%s", chosen);
-    else if (home != NULL && home[0] != '\0') join(a->psd_root, sizeof a->psd_root, home, "workspace/bytes-n-rust/art/tnfs-masks");
+    else if (home != NULL && home[0] != '\0') {   /* the owner's own layout, only where it is there: another machine has no such folder, and the status would name a path nobody has */
+        char own[APP_PATH];
+        struct stat st;
+        if (join(own, sizeof own, home, "workspace/bytes-n-rust/art/tnfs-masks") && stat(own, &st) == 0 && S_ISDIR(st.st_mode)) snprintf(a->psd_root, sizeof a->psd_root, "%s", own);
+    }
 }
 
 static int holds_psd(const char *dir)

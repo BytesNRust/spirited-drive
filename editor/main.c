@@ -897,7 +897,8 @@ int main(int argc, char **argv)
         app_set_game_lookup(app, tried, memo);
         {   // the game's data/ for the original tracks: named, or the source tree's it was built from, or the one beside the program
             char data[APP_PATH];
-            snprintf(data, sizeof data, "%s", o.port_data != NULL ? o.port_data : o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);
+            const char *built_in = getenv("TNFS_STUDIO_NO_SOURCE_TREE") != NULL ? "" : STUDIO_LIGHT_DIR;   // a test's way to run as the packaged app does: no source tree compiled in
+            snprintf(data, sizeof data, "%s", o.port_data != NULL ? o.port_data : o.light_dir != NULL ? o.light_dir : built_in);
             if (data[0] == '\0') app_light_default_dir(o.game, data, sizeof data);
             app_set_game_data(app, data, o.art_dir);
             if (!app->data_dir_ok || !path_has_dir(data, "track_light")) {   // an installed app has no source tree (STUDIO_LIGHT_DIR is where it was built): the game's own data/, found as Export original car finds it, read only; the repo is for Apply
@@ -907,7 +908,7 @@ int main(int argc, char **argv)
             }
             app_set_repo_arg(app, o.port_data);   // the copy to the game repo shows only with the repo's data/ given: --port-data, or the kept setting
         }
-        app_set_light_dir(app, o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);   /* the folder the Track light window tunes: named, or the source tree's data/ it was built from */
+        app_set_light_dir(app, o.light_dir != NULL ? o.light_dir : getenv("TNFS_STUDIO_NO_SOURCE_TREE") != NULL ? "" : STUDIO_LIGHT_DIR);   /* the folder the Track light window tunes: named, or the source tree's data/ it was built from */
         app_repo_data_apply(app);   // the repo kept in workspace.txt feeds the data folder too (an installed app has no source tree)
         {   // a folder named on the command line that is not there: the status line says which (the buttons that need it are grey and say so too)
             const struct { const char *option, *path; } given[] = { { "--port-data", o.port_data }, { "--light-dir", o.light_dir }, { "--art-dir", o.art_dir }, { "--cd", o.cd }, { "--psd-root", o.psd_root } };

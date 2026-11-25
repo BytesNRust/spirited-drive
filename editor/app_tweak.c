@@ -115,7 +115,7 @@ void app_tweak_list_refresh(App *a)
         snprintf(r->name, sizeof r->name, "%s", stem);
         snprintf(r->kind, sizeof r->kind, "track");
         r->usable = a->data_dir_ok;
-        if (!r->usable) snprintf(r->why, sizeof r->why, "the game's data/ is not found: %s", a->data_dir[0] != '\0' ? a->data_dir : "(none)");
+        if (!r->usable) snprintf(r->why, sizeof r->why, "the game's data/ was not found%s%s: locate the game or choose the game repo in File > Settings...", a->data_dir[0] != '\0' ? " at " : "", a->data_dir);
         tweak_id(stem, id, sizeof id);
         if (!original_track_dir(a->workspace, stem, project, sizeof project) || !original_track_present(project)) project[0] = '\0';
         row_fill(a, r, id, project[0] != '\0' ? project : NULL);
