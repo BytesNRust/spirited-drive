@@ -149,8 +149,8 @@ static void test_car_takes_the_zones_look(void)
     CHECK(fabsf(out[0] - 1.0f) < 1e-5f && fabsf(out[1] - 0.3654f) < 1e-4f && fabsf(out[2] - 0.0522f) < 1e-4f);
     light_synth_car_tunnel(&light, 31, out);   /* between: 40 % of it */
     CHECK(fabsf(out[0] - 0.4f) < 1e-5f && fabsf(out[1] - 0.14616f) < 1e-4f && fabsf(out[2] - 0.02088f) < 1e-4f);
-    light_synth_car_tunnel(&light, 18, out);   /* 2 nodes outside the mouth, a lamp node: dark 1 - 2/6 of the way in */
-    CHECK(fabsf(out[1] - (1.0f - (1.0f - 0.3654f) * (1.0f - 2.0f / 6.0f))) < 1e-4f);
+    light_synth_car_tunnel(&light, 18, out);   /* 2 nodes outside the mouth: dark 1 - 2/6 of the way in, at the lamps' mean (1 and 40 %), not the node's own: the pattern is inside only */
+    CHECK(fabsf(out[1] - (1.0f - (1.0f - 0.3654f * 0.7f) * (1.0f - 2.0f / 6.0f))) < 1e-4f);
     light_synth_car_tunnel(&light, 14, out);   /* 6 nodes out: the open road */
     CHECK(out[0] == 1.0f && out[1] == 1.0f && out[2] == 1.0f);
     light_synth_car_tunnel(&light, 47, out);   /* and past the other mouth */
@@ -170,7 +170,7 @@ static void test_car_takes_the_zones_look(void)
     light_synth_car_tunnel(&light, 36, out);   /* the other zone: the time's look */
     CHECK(fabsf(out[0] - 0.5f) < 1e-5f);
     light_synth_car_tunnel(&light, 19, out);   /* one node before the first zone: its look, ramping */
-    CHECK(fabsf(out[1] - (1.0f - (1.0f - 0.4f * 0.75f) * (1.0f - 1.0f / 6.0f))) < 1e-4f);
+    CHECK(fabsf(out[1] - (1.0f - (1.0f - 0.7f * 0.75f) * (1.0f - 1.0f / 6.0f))) < 1e-4f);   /* the look 0.75 at the lamps' mean 0.7 */
     uint8_t hall[N] = { 0 };   /* a hall keeps its lamps' own factors */
     hall[35] = 1, light.hall = hall;
     light_synth_car_tunnel(&light, 35, out);
@@ -236,7 +236,7 @@ static void test_car_above_full_light_takes_the_excess(void)
     light_synth_car_tunnel(&light, 31, out);   /* between two lamps: 40 % of it, the flicker stays */
     CHECK(fabsf(out[0] - 0.4f * 2.15f * road) < 1e-4f);
     light_synth_car_tunnel(&light, 16, out);   /* 4 nodes out, the road still open: no excess, the old ratio (the amber tint of the mouth only) */
-    CHECK(out[0] == 1.0f && out[1] == 1.0f && fabsf(out[2] - (1.0f - (1.0f - 0.602f) * (1.0f - 4.0f / 6.0f))) < 1e-4f);
+    CHECK(fabsf(out[0] - (1.0f - 0.3f * (1.0f - 4.0f / 6.0f))) < 1e-4f && fabsf(out[1] - out[0]) < 1e-4f && fabsf(out[2] - (1.0f - (1.0f - 0.602f * 0.7f) * (1.0f - 4.0f / 6.0f))) < 1e-4f);   /* the lamps' mean (0.7) of the full light, ramping in */
     light.look_light = 100.0, light.look_cast[0] = light.look_cast[1] = light.look_cast[2] = 1.0f;   /* 100 % and white: as it was */
     light_synth_car_tunnel(&light, 30, out);
     CHECK(fabsf(out[0] - road) < 1e-5f && out[0] == out[1] && out[1] == out[2]);
@@ -575,6 +575,41 @@ static void test_car_dim_span(void)
     CHECK(even[0] == 1.0f && odd[0] == 1.0f);   /* outside it, no tunnel: the open light */
 }
 
+/* the lamps' alternation (light under a lamp, shade between) is inside the tunnel only: the car's ramp outside a mouth falls (or rises, going out) without going up and down node to node, at both mouths,
+ * whatever the level and the real lamps (the owner's AL3: lit tunnel, lamps 90 %) */
+static void test_lamp_pattern_stays_inside(void)
+{
+    enum { N = 64 };
+    uint8_t tunnel[N] = { 0 }, data[N * TRACK_NODE_LIGHT_POINTS];
+    memset(tunnel + 20, 1, 21);   /* nodes 20..40 */
+    memset(data, 255, sizeof data);
+    TrackNodeLight light = { 0 };
+    light.nodes = N, light.tunnel = tunnel, light.data = data, light.look_set = 1, light.look_light = 100.0;
+    light.look_cast[0] = light.look_cast[1] = light.look_cast[2] = 1.0f;
+    for (int level = 0; level <= 1; level++) {
+        for (int lamps = 0; lamps <= 4; lamps += 4) {
+            light.tunnel_lamp_n = lamps;
+            float prev[3], now[3];
+            int first_in = 1;
+            for (uint32_t node = 10; node <= 19; node++) {   /* going in at the first mouth: never brighter than the node before */
+                light_synth_car_tunnel_match(&light, node, level, 0.5f, now);
+                if (!first_in) CHECK(now[0] <= prev[0] + 1e-6f);
+                memcpy(prev, now, sizeof prev), first_in = 0;
+            }
+            first_in = 1;
+            for (uint32_t node = 41; node <= 50; node++) {   /* going out at the other: never darker than the node before */
+                light_synth_car_tunnel_match(&light, node, level, 0.5f, now);
+                if (!first_in) CHECK(now[0] >= prev[0] - 1e-6f);
+                memcpy(prev, now, sizeof prev), first_in = 0;
+            }
+            float even[3], odd[3];
+            light_synth_car_tunnel_match(&light, 30, level, 0.5f, even);   /* inside it still alternates where it did */
+            light_synth_car_tunnel_match(&light, 31, level, 0.5f, odd);
+            if (level == 0 || lamps == 0) CHECK(even[0] != odd[0]);
+        }
+    }
+}
+
 int main(void)
 {
     test_car_dim_span();
@@ -586,6 +621,7 @@ int main(void)
     test_car_takes_the_zones_look();
     test_look_tunnel();
     test_car_tunnel_match();
+    test_lamp_pattern_stays_inside();
     test_car_is_no_brighter_than_the_road();
     test_car_above_full_light_takes_the_excess();
     test_a_reversed_track_has_its_places_mirrored_for_the_car();
