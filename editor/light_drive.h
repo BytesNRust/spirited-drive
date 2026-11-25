@@ -39,6 +39,12 @@ typedef struct {
  * TNFS_* and SDL_* are dropped, so a variable of the person's cannot change the drive; there is no SDL_* of ours either: the window is real. 1, or 0 with `why`. */
 int light_drive_command(const LightDriveSetup *s, char *const *base, RaceCommand *out, char *why, size_t why_cap);
 
+/* The node the car can be put at in a test drive. A stage (AL, CL, CY: nine of the CD's tracks) does not run a car before node 12 (game/race/car_control.c's car_race_window: BEFORE_START)
+ * nor past its race's last node Y = nodes - RACE_STAGE_END (core/formats/race_stage.h; PAST_FINISH), and a car put at Y - 1 is already stopped, so `node` is brought into 12 .. Y - 3
+ * (measured on the nine: the last start that runs is Y - 2, Y - 3 on CY3). A circuit (TR1..TR7) counts laps, not nodes: `node` stays as it is. `nodes` is the road's node count. The photo
+ * is not limited: it shows any node. */
+unsigned light_drive_node(const char *track, unsigned nodes, unsigned node);
+
 typedef enum { LIGHT_DRIVE_IDLE = 0, LIGHT_DRIVE_RUNNING, LIGHT_DRIVE_ENDED, LIGHT_DRIVE_FAILED } LightDriveState;
 
 typedef struct {

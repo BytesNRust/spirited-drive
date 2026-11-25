@@ -278,6 +278,12 @@ int app_light_drive_running(const App *a)
     return a->light.drive.state == LIGHT_DRIVE_RUNNING;
 }
 
+/* the node the test drive starts at: the photo's node, brought to where the game runs a car (light_drive_node) */
+static unsigned drive_node(const LightUi *ui)
+{
+    return light_drive_node(ui->session.track, ui->session.file.nodes, (unsigned)(ui->node < 0 ? 0 : ui->node));
+}
+
 int app_light_drive(App *a)
 {
     LightUi *ui = &a->light;
@@ -292,13 +298,17 @@ int app_light_drive(App *a)
     set_masks(a);
     snprintf(ui->drive.masks, sizeof ui->drive.masks, "%s", ui->photo.masks);
     snprintf(ui->drive.window, sizeof ui->drive.window, "%s", a->drive_window);
-    const int ok = light_drive_start(&ui->drive, a->game, a->export_src.cd, ui->session.track, light_ui_time_letter(ui->time), (unsigned)ui->node, ui->weather, text, size, why, sizeof why);
+    const int ok = light_drive_start(&ui->drive, a->game, a->export_src.cd, ui->session.track, light_ui_time_letter(ui->time), drive_node(ui), ui->weather, text, size, why, sizeof why);
     free(text);
     if (!ok) return set_error(a, why), 0;
     ui->drive_serial = ui->edit_serial;
     ui->error[0] = '\0';
-    snprintf(a->status, sizeof a->status, "test drive: %s, %s, node %u: the game's window follows every edit (F10 holds the car, F11 copies a brightness line)", ui->session.track,
-             light_ui_time_name(ui->time), (unsigned)ui->node);
+    if (drive_node(ui) != (unsigned)ui->node)
+        snprintf(a->status, sizeof a->status, "test drive: %s, %s, node %u (the car runs only there: the photo's node %d is outside the race): the game's window follows every edit (F10 holds the car, F11 copies a brightness line)", ui->session.track,
+                 light_ui_time_name(ui->time), drive_node(ui), ui->node);
+    else
+        snprintf(a->status, sizeof a->status, "test drive: %s, %s, node %u: the game's window follows every edit (F10 holds the car, F11 copies a brightness line)", ui->session.track,
+                 light_ui_time_name(ui->time), drive_node(ui));
     return 1;
 }
 
@@ -322,7 +332,7 @@ static void drive_follow(App *a, double now)
     LightUi *ui = &a->light;
     const LightDriveJob *d = &ui->drive;
     if (ui->edit_serial == ui->drive_serial) return;
-    const int moved = strcmp(d->track, ui->session.track) != 0 || d->letter != light_ui_time_letter(ui->time) || d->node != (unsigned)ui->node || d->weather != ui->weather;
+    const int moved = strcmp(d->track, ui->session.track) != 0 || d->letter != light_ui_time_letter(ui->time) || d->node != drive_node(ui) || d->weather != ui->weather;
     if (moved && now - ui->edit_at < LIGHT_UI_SETTLE) return;
     if (moved) {
         app_light_drive(a);

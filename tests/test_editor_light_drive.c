@@ -68,6 +68,29 @@ static int has(char *const *v, const char *want)
     return 0;
 }
 
+/* the nine stages, each at both ends: the node count of the road, Y = nodes - 181; a circuit is left as it is */
+static void test_playable_node(void)
+{
+    static const struct { const char *track; unsigned nodes; } STAGES[9] = {
+        { "AL1", 2080 }, { "AL2", 2312 }, { "AL3", 2168 }, { "CL1", 1920 }, { "CL2", 1840 }, { "CL3", 1840 }, { "CY1", 1920 }, { "CY2", 1760 }, { "CY3", 2200 } };
+    for (int i = 0; i < 9; ++i) {
+        const unsigned y = STAGES[i].nodes - 181;
+        CHECK_EQ_INT(light_drive_node(STAGES[i].track, STAGES[i].nodes, 0), 12);
+        CHECK_EQ_INT(light_drive_node(STAGES[i].track, STAGES[i].nodes, 11), 12);
+        CHECK_EQ_INT(light_drive_node(STAGES[i].track, STAGES[i].nodes, 12), 12);
+        CHECK_EQ_INT(light_drive_node(STAGES[i].track, STAGES[i].nodes, 13), 13);
+        CHECK_EQ_INT(light_drive_node(STAGES[i].track, STAGES[i].nodes, y - 3), y - 3);
+        CHECK_EQ_INT(light_drive_node(STAGES[i].track, STAGES[i].nodes, y - 2), y - 3);
+        CHECK_EQ_INT(light_drive_node(STAGES[i].track, STAGES[i].nodes, y), y - 3);
+        CHECK_EQ_INT(light_drive_node(STAGES[i].track, STAGES[i].nodes, STAGES[i].nodes - 1), y - 3);
+    }
+    CHECK_EQ_INT(light_drive_node("AL2", 2312, 5), 12);
+    CHECK_EQ_INT(light_drive_node("AL2", 2312, 2131), 2128);   /* Y is 2131: the last start that runs is 2129, the clamp keeps one more node of margin */
+    CHECK_EQ_INT(light_drive_node("TR1", 900, 0), 0);          /* circuits: laps, no node limit */
+    CHECK_EQ_INT(light_drive_node("TR4", 900, 899), 899);
+    CHECK_EQ_INT(light_drive_node("AL1", 100, 50), 12);        /* a road too short for a race: the low end wins, never below 12 */
+}
+
 static void test_command(void)
 {
     char *const base[] = { "PATH=/usr/bin", "TNFS_PERSON=1", "SDL_VIDEO_DRIVER=dummy", "KEEP_ME=yes", NULL };
@@ -236,6 +259,7 @@ int main(int argc, char **argv)
     snprintf(record, sizeof record, "%s/record", dir);
     write_text(fake, FAKE, 1);
     test_weather_words();
+    test_playable_node();
     test_command();
     test_job();
     test_ends();

@@ -2,6 +2,7 @@
 #include "light_drive.h"
 
 #include "light_photo.h"
+#include "formats/race_stage.h"
 
 #include <errno.h>
 #include <stdarg.h>
@@ -62,6 +63,15 @@ static int check_setup(const char *track, char letter, int weather, char *why, s
     if (light_photo_time_word(letter) == NULL) return refuse(why, cap, "the time of day is A, B, C or N");
     if (light_drive_weather_word(weather) == NULL) return refuse(why, cap, "the weather is 0 to %d", LIGHT_DRIVE_WEATHERS - 1);
     return 1;
+}
+
+unsigned light_drive_node(const char *track, unsigned nodes, unsigned node)
+{
+    const int stage = track != NULL && (strncmp(track, "AL", 2) == 0 || strncmp(track, "CL", 2) == 0 || strncmp(track, "CY", 2) == 0);
+    if (!stage) return node;
+    const unsigned lo = 12;
+    const unsigned hi = nodes > RACE_STAGE_END + 3 + lo ? nodes - RACE_STAGE_END - 3 : lo;
+    return node < lo ? lo : node > hi ? hi : node;
 }
 
 int light_drive_command(const LightDriveSetup *s, char *const *base, RaceCommand *out, char *why, size_t why_cap)
