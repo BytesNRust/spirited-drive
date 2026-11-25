@@ -11,6 +11,8 @@
 
 namespace {
 
+const float VALUE_ROOM = 300.0f;   // the pixels a value (a path) has in Settings, then its buttons
+
 // the Locate dialog's answer: the app (or program) the user picked, none when it was cancelled
 void game_located(void *userdata, const char *const *list, int)
 {
@@ -30,7 +32,7 @@ void value_line(const char *label, const char *value, const char *none)
     const char *shown = value[0] != '\0' ? value : none;
     char cut[APP_PATH];
     const float glyph = ImGui::CalcTextSize("M").x;
-    path_elide(shown, glyph > 0 ? (int)((ImGui::GetContentRegionAvail().x - 190.0f) / glyph) : 40, cut, sizeof cut);
+    path_elide(shown, glyph > 0 ? (int)(VALUE_ROOM / glyph) : 40, cut, sizeof cut);   // a fixed room: the window sizes itself to its content, so the room left is the content's own
     ImGui::TextUnformatted(cut);
     if (ImGui::IsItemHovered() && value[0] != '\0') ImGui::SetTooltip("%s", value);
 }
