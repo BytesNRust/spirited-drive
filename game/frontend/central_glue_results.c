@@ -110,6 +110,7 @@ void cg_drive(void *ctx, int32_t argc, char *const *argv)
      * (variant_rule.h) */
     const char *const stem = rally_track_stem(name, cg_g.variant_m, cg_g.variant_r, cg_g.variant_m != 0 && cg_g.variant_r != 0);
     if (stem != name) memcpy(name, stem, 4);
+    port_log("race: gearbox %s, anti-lock %s, traction %s, speeds in %s\n", cg_image_short(0x97) == 0 ? "automatic" : "manual", cg_image_short(0x99) == 0 ? "on" : "off", cg_image_short(0x8f) == 0 ? "on" : "off", resource_kmh() ? "km/h" : "mph");   /* what the race takes of the saved setup (the Studio's test drive says so in its log) */
     const TrackViewerMenus menus = { cg_image_short(0x97) == 0, cg_image_short(0x99) == 0, cg_image_short(0x8f) == 0, cg_g.laps,
                                      race_head_to_head_model((int16_t)cg_g.opponent), cg_image_short(0x73), cg_image_short(0x75), cg_image_short(0x79),
                                      cg_image_short(0x71), cg_game_state,

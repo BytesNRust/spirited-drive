@@ -1893,6 +1893,8 @@ if(NOT EMSCRIPTEN)
         if(TARGET test_editor_light_drive)
         add_test(NAME light_drive_results_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/light_drive_results_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original $<TARGET_FILE:test_editor_light_drive> WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(light_drive_results_game PROPERTIES TIMEOUT 700 SKIP_RETURN_CODE 77)
+        add_test(NAME light_drive_setup_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/light_drive_setup_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original $<TARGET_FILE:test_editor_light_drive> WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+        set_tests_properties(light_drive_setup_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         endif()
         add_test(NAME dash_light_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/dash_light_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(dash_light_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
@@ -2635,6 +2637,7 @@ set(TNFS_E2E_TESTS
     track_light_fingerprint
     car_lit_all_game
     light_drive_results_game
+    light_drive_setup_game
     vegas_lamps_game
     edition_menus_trackrace
     track_menus_race
