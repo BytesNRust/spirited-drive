@@ -220,7 +220,7 @@ static uint8_t light_at_rows_x(const TrackNodeLight *light, const uint8_t *rows,
         return (uint8_t)(y >= 1.0f ? 255 : y <= 0.0f ? 0 : y * 255.0f + 0.5f);
     }
     const int tunnel = tunnel_in_file(light, node);
-    const int road_clamps = tunnel && !unlit_open_at(light, node);   /* port (tunnel_pool): an unlit tunnel with a beam reads its road as open ground (its walls stay the tunnel's) */
+    const int road_clamps = tunnel && !(unlit_open_at(light, node) && light->pool != NULL);   /* port (tunnel_pool): at night an unlit tunnel reads its road as open ground (its walls stay the tunnel's); by day the road keeps the tunnel's level, so lamps 1 % -> 0 % never brightens it */
     /* in a tunnel a 0 beyond a lit wall foot (point 2 right, 7 left) is no data, not black: the console version shows its walls and pillars at about half light;
      * anywhere else (a cutting, a bridge's shade) a 0 is the black it says */
     const int foot = point >= 3 && point <= 5 ? row[2] : point >= 8 ? row[7] : 0;

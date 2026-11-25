@@ -290,13 +290,37 @@ static void test_day_tunnel_pool_stays_in_the_tunnel(void)
         for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++)
             if (!tunnel[n]) CHECK_EQ_INT(track_node_light_at_xz(&light, (uint32_t)n, p, in_beam), rows[n * TRACK_NODE_LIGHT_POINTS + p]);   /* open road: the row, beam or not */
     const int lit = track_node_light_at_xz(&light, 2, 1, in_beam), dark = track_node_light_at_xz(&light, 2, 1, outside);
-    CHECK(dark >= 200 * 40 / 100 - 3 && dark <= 200 * 40 / 100 + 3);   /* the tunnel's own look (40 %) is its dark */
+    CHECK(dark >= TRACK_NODE_LIGHT_TUNNEL_ROAD * 40 / 100 - 3 && dark <= TRACK_NODE_LIGHT_TUNNEL_ROAD * 40 / 100 + 3);   /* the tunnel's own look (40 %) of the tunnel's road level is its dark */
     CHECK(lit > dark + 40);                                              /* and the beam lifts it */
     pool.count = 0;   /* no lamps lit: the tunnel is as dark as its look, nothing else changes */
     CHECK_EQ_INT(track_node_light_at_xz(&light, 2, 1, in_beam), dark);
     TrackNodeLight no_pool = light;
     no_pool.tunnel_pool = NULL;
     CHECK_EQ_INT(track_node_light_at_xz(&no_pool, 2, 1, in_beam), TRACK_NODE_LIGHT_TUNNEL_ROAD);   /* with no pool at all (Stock, Restored): as ever */
+}
+
+/* the owner's AL3 bug: by day, lowering a tunnel's lamps to 0 % must never brighten its road: the lit tunnel's road (any lamps above 0) sits at TUNNEL_ROAD, and an unlit one, away from the beam, is no brighter */
+static void test_day_unlit_road_never_brighter_than_lit(void)
+{
+    uint8_t rows[3 * TRACK_NODE_LIGHT_POINTS], tunnel[3] = { 1, 1, 1 }, off[3] = { 1, 1, 1 };
+    memset(rows, 0, sizeof rows);
+    for (int n = 0; n < 3; n++) rows[n * TRACK_NODE_LIGHT_POINTS + 0] = rows[n * TRACK_NODE_LIGHT_POINTS + 1] = rows[n * TRACK_NODE_LIGHT_POINTS + 6] = 255;
+    HeadlightPool pool;
+    memset(&pool, 0, sizeof pool);
+    pool.cone = 1, pool.count = 1;
+    pool.cone_x[0] = 0.0, pool.cone_z[0] = 0.0, pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;
+    const double outside[2] = { 0.0, 150.0 };
+    const double looks[4] = { 100.0, 50.0, 1.0, 0.0 };
+    int last = 256;
+    for (int i = 0; i < 4; i++) {
+        const TrackNodeLight lit = { .data = rows, .nodes = 3, .tunnel = tunnel, .look_set = 1, .look_light = looks[i] };
+        const TrackNodeLight unlit = { .data = rows, .nodes = 3, .tunnel = tunnel, .lamps_off = off, .tunnel_pool = &pool, .look_set = 1, .look_light = looks[i] };
+        const int a = track_node_light_at_xz(&unlit, 1, 1, outside);
+        CHECK(a <= TRACK_NODE_LIGHT_TUNNEL_ROAD);
+        CHECK(a <= last);
+        last = a;
+        CHECK(track_node_light_at_xz(&unlit, 1, 1, outside) <= track_node_light_at_xz(&lit, 1, 1, outside) + 1 || looks[i] > 0.0);
+    }
 }
 
 /* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
@@ -549,6 +573,7 @@ int main(void)
     test_pool_ignores_brightness();
     test_unlit_tunnel_has_the_pool();
     test_day_tunnel_pool_stays_in_the_tunnel();
+    test_day_unlit_road_never_brighter_than_lit();
     test_radial_lamps();
     test_lamp_shaped_along_the_road();
     test_object_lamp();
