@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "file_stat64.h"
 
 static char base_dir[DATA_PATH_MAX];
 static char mod_dirs[DATA_PATH_MODS_MAX][DATA_PATH_MAX];
@@ -68,8 +69,8 @@ int data_path_candidates(const char *relative, char paths[DATA_PATH_CANDIDATES][
 
 int data_path_file_size(const char *path, size_t *size)
 {
-    struct stat st;
-    if (path == NULL || path[0] == '\0' || stat(path, &st) != 0) return 0;
+    TNFS_STAT st;
+    if (path == NULL || path[0] == '\0' || tnfs_stat(path, &st) != 0) return 0;
     if ((st.st_mode & S_IFMT) != S_IFREG || st.st_size < 0) return -1;
     *size = (size_t)st.st_size;
     return 1;
@@ -77,6 +78,6 @@ int data_path_file_size(const char *path, size_t *size)
 
 int data_path_exists(const char *path)
 {
-    struct stat st;
-    return path != NULL && path[0] != '\0' && stat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFREG;
+    TNFS_STAT st;
+    return path != NULL && path[0] != '\0' && tnfs_stat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFREG;
 }

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include "file_stat64.h"
 
 /* `dir`/`rel` with each part found without regard to case; 0 when it is not there or does not fit */
 static int find_path(const char *dir, const char *rel, char *out, size_t out_size)
@@ -45,15 +46,15 @@ int data_find_file(const char *dir, const char *rel, char *out, size_t out_size)
     return find_path(dir, rel, out, out_size);
 }
 
-static int hash_file(const char *path, char hex[65], long *size)
+static int hash_file(const char *path, char hex[65], int64_t *size)
 {
     FILE *f = fopen(path, "rb");
     if (f == NULL) return 0;
     Sha256 s;
     sha256_init(&s);
     unsigned char buf[65536];
-    long total = 0;
-    for (size_t n = fread(buf, 1, sizeof buf, f); n > 0; n = fread(buf, 1, sizeof buf, f)) sha256_update(&s, buf, n), total += (long)n;
+    int64_t total = 0;
+    for (size_t n = fread(buf, 1, sizeof buf, f); n > 0; n = fread(buf, 1, sizeof buf, f)) sha256_update(&s, buf, n), total += (int64_t)n;
     const int ok = !ferror(f);
     fclose(f);
     sha256_hex(&s, hex);
@@ -63,8 +64,8 @@ static int hash_file(const char *path, char hex[65], long *size)
 
 static int is_dir(const char *path)
 {
-    struct stat st;
-    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+    TNFS_STAT st;
+    return tnfs_stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
 /* the folder under `dir` that holds the first file, `dir` itself when it does; "" when none */
@@ -93,7 +94,7 @@ int data_check_against(const char *dir, const DataFile *files, int count, DataCh
     r.found = r.root[0] != '\0';
     for (int i = 0; i < count; i++) {
         char path[1024], hex[65];
-        long size = 0;
+        int64_t size = 0;
         if (r.root[0] == '\0' || !find_path(r.root, files[i].path, path, sizeof path) || !hash_file(path, hex, &size)) r.missing++;
         else if (size != files[i].size || strcmp(hex, files[i].sha256) != 0) r.different++;
         else r.matched++;
@@ -153,7 +154,7 @@ int data_check_iso_against(const char *iso_path, const DataFile *files, int coun
         IsoEntry e;
         char hex[65];
         if (iso == NULL || !r.found || !iso_has(iso, r.root, files[i].path, &e) || !iso_hash(iso, &e, hex)) r.missing++;
-        else if ((long)e.size != files[i].size || strcmp(hex, files[i].sha256) != 0) r.different++;
+        else if ((int64_t)e.size != files[i].size || strcmp(hex, files[i].sha256) != 0) r.different++;
         else r.matched++;
     }
     iso_close(iso);
@@ -193,10 +194,10 @@ int data_mark_accepted(const char *dir, const DataCheck *c)
 int data_looks_installed(const char *dir)
 {
     char path[1100];
-    struct stat st;
+    TNFS_STAT st;
     if (dir == NULL || DATA_MANIFEST_COUNT <= 0) return 0;
-    if (!find_path(dir, DATA_MANIFEST[0].path, path, sizeof path) || stat(path, &st) != 0) return 0;
-    if ((long)st.st_size == DATA_MANIFEST[0].size) return 1;
+    if (!find_path(dir, DATA_MANIFEST[0].path, path, sizeof path) || tnfs_stat(path, &st) != 0) return 0;
+    if ((int64_t)st.st_size == DATA_MANIFEST[0].size) return 1;
     snprintf(path, sizeof path, "%s/" ACCEPTED_FILE, dir);   /* a different first file, but the player accepted this copy */
-    return stat(path, &st) == 0;
+    return tnfs_stat(path, &st) == 0;
 }

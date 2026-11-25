@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "file_stat64.h"
 #include <unistd.h>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -40,13 +41,13 @@ typedef struct {
 /* What a directory entry is, for the copy: a regular file (a link to one counts as the file), a folder that is really one (never a link to one: a link can loop), or neither. */
 typedef enum { KIND_OTHER, KIND_FILE, KIND_DIR } Kind;
 
-static Kind kind_of(const char *path, struct stat *st)
+static Kind kind_of(const char *path, TNFS_STAT *st)
 {
-    struct stat link;
-    if (lstat(path, &link) != 0) return KIND_OTHER;
+    TNFS_STAT link;
+    if (tnfs_lstat(path, &link) != 0) return KIND_OTHER;
     if (S_ISDIR(link.st_mode)) return *st = link, KIND_DIR;
     if (S_ISREG(link.st_mode)) return *st = link, KIND_FILE;
-    if (S_ISLNK(link.st_mode) && stat(path, st) == 0 && S_ISREG(st->st_mode)) return KIND_FILE;
+    if (S_ISLNK(link.st_mode) && tnfs_stat(path, st) == 0 && S_ISREG(st->st_mode)) return KIND_FILE;
     return KIND_OTHER;
 }
 
@@ -57,7 +58,7 @@ static int64_t size_of(const char *src, int depth)
     int64_t total = 0;
     for (struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
         char path[1024];
-        struct stat st;
+        TNFS_STAT st;
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0 || snprintf(path, sizeof path, "%s/%s", src, e->d_name) >= (int)sizeof path) continue;
         const Kind k = kind_of(path, &st);
         if (k == KIND_DIR) {
@@ -114,7 +115,7 @@ static void copy_dir(const char *src, const char *dest, Job *job, int depth)
     }
     for (struct dirent *e = readdir(d); e != NULL && !job->failed; e = readdir(d)) {
         char from[1024], to[1024];
-        struct stat st;
+        TNFS_STAT st;
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0 || strcmp(e->d_name, ".DS_Store") == 0) continue;
         if (snprintf(from, sizeof from, "%s/%s", src, e->d_name) >= (int)sizeof from || snprintf(to, sizeof to, "%s/%s", dest, e->d_name) >= (int)sizeof to) {
             job->failed = 1;
@@ -135,15 +136,15 @@ static void copy_dir(const char *src, const char *dest, Job *job, int depth)
 /* Removes a copy's leftovers, read-only files and folders included (a CD's files are r--------, and a copy made from them can be too); links are removed, never followed. */
 static void remove_tree(const char *path, int depth)
 {
-    struct stat st;
-    if (lstat(path, &st) == 0 && S_ISDIR(st.st_mode) && depth < MAX_DEPTH) {
+    TNFS_STAT st;
+    if (tnfs_lstat(path, &st) == 0 && S_ISDIR(st.st_mode) && depth < MAX_DEPTH) {
         chmod(path, 0700);
         DIR *d = opendir(path);
         if (d != NULL) {
             for (struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
                 char sub[1024];
                 if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0 || snprintf(sub, sizeof sub, "%s/%s", path, e->d_name) >= (int)sizeof sub) continue;
-                if (lstat(sub, &st) != 0) continue;
+                if (tnfs_lstat(sub, &st) != 0) continue;
                 if (S_ISDIR(st.st_mode)) remove_tree(sub, depth + 1);
                 else unlink(sub);
             }
@@ -182,12 +183,12 @@ static int rename_again(const char *from, const char *to)
 
 static int finish_copy(const char *dest, const char *part, const char *old, const Job *job)
 {
-    struct stat st;
+    TNFS_STAT st;
     if (job->failed) {
         remove_tree(part, 0);
         return 0;
     }
-    const int replacing = lstat(dest, &st) == 0;
+    const int replacing = tnfs_lstat(dest, &st) == 0;
     if (replacing && rename_again(dest, old) != 0) {
         fail("move aside", dest, errno);
         remove_tree(part, 0);
