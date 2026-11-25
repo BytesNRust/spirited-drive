@@ -477,6 +477,21 @@ static int fixed_black_order(const RepaintBank *bank, const uint32_t used[ENTRIE
     return n;
 }
 
+/* the entry some texture that is not the body's paint already shows whose colour is nearest to `want`, or -1: reusing it takes no spare entry, so the paint's
+ * pool (and what it gives each shade) is what it is without the fixed black; the paint leaves such an entry as it is */
+static int fixed_black_reuse(const RepaintBank *bank, const Survey *s, const uint8_t want[3])
+{
+    int best = -1, best_d = 1 << 30;
+    for (int e = 0; e < FIRST_RESERVED; e++) {
+        if (s->main[e] + s->end[e] != 0 || s->other[e] == 0) continue;
+        uint8_t c[3];
+        colour_of(bank, e, c);
+        const int dr = c[0] - want[0], dg = c[1] - want[1], db = c[2] - want[2];
+        if (dr * dr + dg * dg + db * db < best_d) best = e, best_d = dr * dr + dg * dg + db * db;
+    }
+    return best;
+}
+
 static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx *ctx, int planned, const uint8_t black[3], int floor, Spares *sp, int remap[ENTRIES])
 {
     BodyTone tone[ENTRIES];
@@ -501,7 +516,8 @@ static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx
             memcpy(out, tone[j].out, 3), memcpy(second, tone[j].second, 3);
         }
         before += used[e];
-        remap[e] = spare_for(bank, sp, out, second);
+        remap[e] = fixed_black_reuse(bank, s, out);
+        if (remap[e] < 0) remap[e] = spare_for(bank, sp, out, second);
     }
 }
 

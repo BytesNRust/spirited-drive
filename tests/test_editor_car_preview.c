@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 /* the 1a golden's values for the pass (tests/test_paint_golden.c): a mask folder through the paint, the added car's fixed black, an original car's fixed black */
-static const uint64_t GOLDEN_MASKS = 0x183bc588d5bd6e89ULL, GOLDEN_BLACK_DIR = 0xb48681832aafa24dULL, GOLDEN_BLACK = 0x11b659f841bff0abULL;
+static const uint64_t GOLDEN_MASKS = 0x183bc588d5bd6e89ULL, GOLDEN_BLACK_DIR = 0xd07a363e8862793aULL, GOLDEN_BLACK = 0x15862635ccfb2164ULL;
 
 static uint64_t fnv(uint64_t h, const void *data, size_t n)
 {
