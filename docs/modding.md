@@ -110,6 +110,7 @@ Run with `--mods DIR` (or leave the files in `<player folder>/mods/`). When the 
 
 * The mod's file is checked against what the original executable accepts (`tnfs-studio` has the same checks). A file that fails is **not** given to the game and the run says which file and why (`platform_mods_error`, also in `spirited-drive.log`).
 * Names that leave the mods folder (`..`, absolute paths, symbolic links out of it) are refused.
+  On Windows the symbolic-link part does nothing: the checks that tell a link from its target (the mods folder's containment, the player folder's tree, the copy of the game's data) read a link or a junction as the file or folder it points to (`lstat` is `stat` there, core/win_posix.h). A loop through links stays bounded by the copy's depth limit.
 * The mod is never written: saves, replays and settings go to the player's folder.
 * The mods folder must exist when it is given with `--mods` (a missing one is an error); the default `<player folder>/mods/` is used only when it is there.
 

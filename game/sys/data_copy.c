@@ -11,6 +11,10 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 enum { MAX_DEPTH = 16 };   /* the CD's tree is three levels deep: a deeper one is a loop or not the CD */
 
@@ -162,6 +166,20 @@ static int begin_copy(const char *dest, char part[1100], char old[1100])
 }
 
 /* the finished `part` into place: a copy already at `dest` is moved aside, the new one in, and only then the old one deleted: a failure at any step leaves one whole copy */
+/* rename, and on Windows again for up to half a second while a file inside the folder is open (Explorer, a scanner, the indexer): the folder's rename is refused until it is let go */
+static int rename_again(const char *from, const char *to)
+{
+#ifdef _WIN32
+    enum { TRIES = 250, PAUSE_MS = 2 };
+    for (int tries = 0; tries < TRIES; tries++) {
+        if (rename(from, to) == 0) return 0;
+        if (errno != EACCES) return -1;
+        Sleep(PAUSE_MS);
+    }
+#endif
+    return rename(from, to);
+}
+
 static int finish_copy(const char *dest, const char *part, const char *old, const Job *job)
 {
     struct stat st;
@@ -170,12 +188,12 @@ static int finish_copy(const char *dest, const char *part, const char *old, cons
         return 0;
     }
     const int replacing = lstat(dest, &st) == 0;
-    if (replacing && rename(dest, old) != 0) {
+    if (replacing && rename_again(dest, old) != 0) {
         fail("move aside", dest, errno);
         remove_tree(part, 0);
         return 0;
     }
-    if (rename(part, dest) != 0) {
+    if (rename_again(part, dest) != 0) {
         const int why = errno;
         if (replacing) (void)rename(old, dest);
         fail("move into place", dest, why);

@@ -181,7 +181,7 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
         return false;
     }
     bool renamed = SDL_RenamePath(temp, path);
-    for (int again = 0; !renamed && again < 50; again++) {   /* Windows: the target is open in a reader for an instant, and the rename is refused */
+    for (int again = 0; !renamed && again < 250; again++) {   /* Windows: the target is open in a reader for an instant (a scanner for longer), and the rename is refused: up to half a second */
         SDL_Delay(2);
         renamed = SDL_RenamePath(temp, path);
     }
