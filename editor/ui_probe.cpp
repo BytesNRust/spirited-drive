@@ -19,12 +19,24 @@ void ui_probe_scope(const char *scope)
     snprintf(g_scope, sizeof g_scope, "%s", scope);
 }
 
+static void probe_set(const char *full, float x, float y, float w, float h);
+
+void ui_probe_rect(const char *name, float x, float y, float w, float h)
+{
+    probe_set(name, x, y, w, h);
+}
+
 void ui_probe(const char *name)
 {
     char full[48];
     if (g_scope[0] != '\0') snprintf(full, sizeof full, "%s_%s", g_scope, name);
     else snprintf(full, sizeof full, "%s", name);
     const ImVec2 lo = ImGui::GetItemRectMin(), hi = ImGui::GetItemRectMax();
+    probe_set(full, lo.x, lo.y, hi.x - lo.x, hi.y - lo.y);
+}
+
+static void probe_set(const char *full, float x, float y, float w, float h)
+{
     const int frame = ImGui::GetFrameCount();
     Entry *e = nullptr;
     for (int i = 0; i < g_count && e == nullptr; ++i)
@@ -34,7 +46,7 @@ void ui_probe(const char *name)
     if (e == nullptr && g_count < static_cast<int>(sizeof g_table / sizeof g_table[0])) e = &g_table[g_count++];
     if (e == nullptr) return;
     snprintf(e->name, sizeof e->name, "%s", full);
-    e->x = lo.x, e->y = lo.y, e->w = hi.x - lo.x, e->h = hi.y - lo.y, e->frame = frame;
+    e->x = x, e->y = y, e->w = w, e->h = h, e->frame = frame;
 }
 
 extern "C" int ui_probe_find(const char *name, float *x, float *y, float *w, float *h)

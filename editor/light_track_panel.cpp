@@ -5,6 +5,7 @@
 
 #include "help_marker.h"
 #include "light_strip_bar.h"
+#include "table_fit.h"
 #include "ui_probe.h"
 #include "light_strip.h"
 
@@ -227,9 +228,9 @@ bool value_cell(LightTrackLook &v, int which, bool hall, bool open_time, const f
         ImGui::TextDisabled("--");
         return false;
     }
-    if (which == 0) return optional_number("##value", &v.has_light, &v.light, "%g", -FLT_MIN);
-    if (which == 1) return optional_number("##value", &v.has_lamps, &v.lamps, "%g", -FLT_MIN);
-    if (which == 2) return optional_number("##value", &v.has_reach, &v.reach, "%g", -FLT_MIN);
+    if (which == 0) return optional_number("##value", &v.has_light, &v.light, "%g", table_fit_cell());
+    if (which == 1) return optional_number("##value", &v.has_lamps, &v.lamps, "%g", table_fit_cell());
+    if (which == 2) return optional_number("##value", &v.has_reach, &v.reach, "%g", table_fit_cell());
     bool changed = false;
     float rgb[3] = { inherited[0], inherited[1], inherited[2] };
     if (v.has_colour) light_track_colour_rgb(v.colour, rgb);   // its own, whatever form the file wrote (RRGGBB or r/g/b, with a strength)
@@ -310,21 +311,20 @@ void tunnel_rows(App *a)
     const float row_h = ImGui::GetFrameHeight() + 2.0f * ImGui::GetStyle().CellPadding.y;
     const float table_height = row_h * static_cast<float>(count + 2) + ImGui::GetStyle().ScrollbarSize + 2.0f;
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(2.0f, ImGui::GetStyle().CellPadding.y));
-    const bool tunnel_table = ImGui::BeginTable("##tunnels", 9, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX, ImVec2(0.0f, table_height));
-    if (!tunnel_table) ImGui::PopStyleVar();
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, ImGui::GetStyle().FramePadding.y));   // the cells' boxes and buttons are as wide as their text and 4 px
+    // the columns fill the panel; From/To fit a node, Kind its combo, Gradient its header; a drag of a header's border changes a width and it is kept (table_fit.h)
+    FitColumn tunnel_cols[9] = { { "", 46.0f }, { "From", 32.0f }, { "To", 32.0f }, { "Kind", 62.0f }, { nullptr, 0.0f }, { nullptr, 26.0f }, { nullptr, 0.0f }, { nullptr, 0.0f }, { "Gradient", 0.0f } };
+    for (int t = 0; t < LT_TIMES; ++t) tunnel_cols[4 + t].label = light_ui_time_name(t);
+    if (a->light.tunnel_show == 3) for (int t = 0; t < LT_TIMES; ++t) tunnel_cols[4 + t].need = 44.0f;   // Colour: a swatch and its x button in the cell (the table scrolls across when the panel is narrower)
+    const bool tunnel_table = table_fit_begin("##tunnels", tunnel_cols, 9, table_height);
+    if (!tunnel_table) ImGui::PopStyleVar(2);
     if (tunnel_table) {
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 52.0f);   // fixed widths: a stretch column holding a -FLT_MIN item gives a NaN content size under UBSan
-        ImGui::TableSetupColumn("From", ImGuiTableColumnFlags_WidthFixed, 36.0f);
-        ImGui::TableSetupColumn("To", ImGuiTableColumnFlags_WidthFixed, 36.0f);
-        ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 52.0f);
-        for (int t = 0; t < LT_TIMES; ++t) ImGui::TableSetupColumn(light_ui_time_name(t), ImGuiTableColumnFlags_WidthFixed, 36.0f);
-        ImGui::TableSetupColumn("Gradient", ImGuiTableColumnFlags_WidthFixed, 46.0f);
         ImGui::TableHeadersRow();
         // the default row: the look of every tunnel with no row of its own
         ImGui::PushID("default");
         ui_probe_scope("tunneldefault");
         ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(1);
+        ImGui::TableSetColumnIndex(3);
         ImGui::TextDisabled("default");
         value_cells(a, default_look, false, 0, 0, false, 4);
         ui_probe_scope("");
@@ -343,14 +343,14 @@ void tunnel_rows(App *a)
             if (ImGui::Button("Remove")) remove_row = r;
             ui_probe("remove");
             ImGui::TableSetColumnIndex(1);
-            if (fact) tunnel_changed = node_box("##from", &t.from, -FLT_MIN) || tunnel_changed, ui_probe("from");
+            if (fact) tunnel_changed = node_box("##from", &t.from, table_fit_cell()) || tunnel_changed, ui_probe("from");
             else ImGui::Text("%u", t.from);
             ImGui::TableSetColumnIndex(2);
-            if (fact) tunnel_changed = node_box("##to", &t.to, -FLT_MIN) || tunnel_changed, ui_probe("to");
+            if (fact) tunnel_changed = node_box("##to", &t.to, table_fit_cell()) || tunnel_changed, ui_probe("to");
             else ImGui::Text("%u", t.to);
             ImGui::TableSetColumnIndex(3);
             if (fact) {
-                ImGui::SetNextItemWidth(-FLT_MIN);
+                ImGui::SetNextItemWidth(table_fit_cell());
                 if (ImGui::BeginCombo("##kind", t.lit ? "hall" : "tunnel")) {
                     if (ImGui::Selectable("tunnel", !t.lit) && t.lit) t.lit = 0, tunnel_changed = true;
                     ui_probe("kind_tunnel");
@@ -366,7 +366,7 @@ void tunnel_rows(App *a)
             ImGui::TableSetColumnIndex(8);
             if (rows[r].tunnel >= 0 && !t.lit) {   // the nodes inside each mouth over which the light falls (0: a straight cut); the same at every moment and at both mouths
                 int g = t.has_gradient ? t.gradient : LT_DEFAULT_GRADIENT;
-                ImGui::SetNextItemWidth(-FLT_MIN);
+                ImGui::SetNextItemWidth(table_fit_cell());
                 if (ImGui::InputInt("##gradient", &g, 0, 0)) t.has_gradient = 1, t.gradient = g < 0 ? 0 : g > LT_MAX_GRADIENT ? LT_MAX_GRADIENT : g, tunnel_changed = true;
                 ui_probe("gradient");
                 if (ImGui::IsItemHovered()) ImGui::SetTooltip("Gradient: the nodes inside each mouth over which the light falls from the open road's to the tunnel's.\n0 is a straight cut. It is the same at every moment and at both mouths.");
@@ -378,8 +378,8 @@ void tunnel_rows(App *a)
                 else refused(a, why);
             }
         }
-        ImGui::EndTable();
-        ImGui::PopStyleVar();
+        table_fit_end();
+        ImGui::PopStyleVar(2);
     }
     if (remove_row >= 0) {   // a tunnel and its looks of the four times, or a row that is only looks
         const LightTrackLookRow &r = rows[remove_row];
@@ -424,7 +424,7 @@ bool lamp_strip_combo(LightTrackLamp *l)
         }
     }
     bool changed = false;
-    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::SetNextItemWidth(table_fit_cell());
     if (ImGui::BeginCombo("##strip", shown)) {
         if (ImGui::Selectable("none", !l->has_strip) && l->has_strip) l->has_strip = 0, l->mask = 0, changed = true;
         ui_probe("strip_none");
@@ -544,14 +544,8 @@ void lamp_rows(App *a)
     if (!open) return;
     int remove = -1;
     if (count > 0 && ImGui::BeginChild("##lamplist", ImVec2(0, 220), ImGuiChildFlags_Borders)) {
-        if (ImGui::BeginTable("##lamps", 7, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX)) {
-            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 58.0f);   // Remove first, and the widths what fits the panel at 1280 px: the last columns (Strip, Remove) were past its edge
-            ImGui::TableSetupColumn("Node", ImGuiTableColumnFlags_WidthFixed, 54.0f);
-            ImGui::TableSetupColumn("Light %", ImGuiTableColumnFlags_WidthFixed, 54.0f);
-            ImGui::TableSetupColumn("Colour", ImGuiTableColumnFlags_WidthFixed, 40.0f);
-            ImGui::TableSetupColumn("Radius", ImGuiTableColumnFlags_WidthFixed, 54.0f);
-            ImGui::TableSetupColumn("Strip", ImGuiTableColumnFlags_WidthFixed, 84.0f);
-            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 74.0f);   // Copy to...
+        static const FitColumn lamp_cols[7] = { { "", 48.0f }, { "Node", 40.0f }, { "Light %", 0.0f }, { "Colour", 0.0f }, { "Radius", 0.0f }, { "Strip", 70.0f }, { "", 64.0f } };   // Remove first, then what each cell needs; the last is Copy to...
+        if (table_fit_begin("##lamps", lamp_cols, 7, 0.0f)) {
             ImGui::TableHeadersRow();
             // a night file has hundreds of lamps and each row is found by its number in the file: only the rows in view are drawn
             ImGuiListClipper clipper;
@@ -566,12 +560,12 @@ void lamp_rows(App *a)
                 ImGui::TableNextRow();
                 if (copy_marked(a, LT_LAMP, i)) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(255, 190, 60, 60));
                 ImGui::TableSetColumnIndex(1);
-                changed = node_box("##node", &l.node, -FLT_MIN) || changed;
+                changed = node_box("##node", &l.node, table_fit_cell()) || changed;
                 ui_probe("node");
                 ImGui::TableSetColumnIndex(2);
                 {
                     int v = static_cast<int>(l.percent);
-                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    ImGui::SetNextItemWidth(table_fit_cell());
                     if (ImGui::InputInt("##pct", &v, 0, 0)) l.percent = non_negative(v), changed = true;
                     ui_probe("pct");
                 }
@@ -585,7 +579,7 @@ void lamp_rows(App *a)
                 {
                     double r = static_cast<double>(l.radius);
                     int has = l.has_radius;
-                    if (optional_number("##radius", &has, &r, "%.0f", -FLT_MIN)) l.has_radius = has, l.radius = has ? non_negative(static_cast<int>(r)) : 0, changed = true;
+                    if (optional_number("##radius", &has, &r, "%.0f", table_fit_cell())) l.has_radius = has, l.radius = has ? non_negative(static_cast<int>(r)) : 0, changed = true;
                 }
                 ImGui::TableSetColumnIndex(5);
                 changed = lamp_strip_combo(&l) || changed;
@@ -601,7 +595,7 @@ void lamp_rows(App *a)
                     else refused(a, why);
                 }
             }
-            ImGui::EndTable();
+            table_fit_end();
         }
     }
     if (count > 0) ImGui::EndChild();

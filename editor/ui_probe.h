@@ -18,6 +18,7 @@ void ui_probe_focus(const char *window);
 /* names the last item drawn: scope_name when a scope is set (ui_probe_scope("brightness0")), else name. Cheap: a copy of four floats. */
 void ui_probe(const char *name);
 void ui_probe_scope(const char *scope);   /* "" ends it */
+void ui_probe_rect(const char *name, float x, float y, float w, float h);   /* a rectangle that is no item (a table's column border) */
 #endif
 
 #endif
