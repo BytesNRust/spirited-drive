@@ -1422,6 +1422,7 @@ foreach(name first_profile car_livery_unlamp track_light_mirror port_old_files c
     # the pads' slots when a device comes or goes while the game runs
     add_executable(test_joy_slots tests/test_joy_slots.c game/platform/joy_slots.c)
     target_link_libraries(test_joy_slots PRIVATE tnfs_core)
+    target_include_directories(test_joy_slots PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests)
     target_compile_options(test_joy_slots PRIVATE ${TNFS_WARNINGS})
     add_test(NAME joy_slots COMMAND test_joy_slots)
     # the CD check of the clean configuration background runs when original/ is there
