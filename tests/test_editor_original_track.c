@@ -213,6 +213,57 @@ int main(void)
         CHECK(original_convert(two, home, &files, why, sizeof why) == 0 && !original_track_present(home), "no old folder: nothing made");
     }
 
+    /* a copy that stops midway leaves no half working copy: the next opening copies everything */
+    {
+        char old[400], home[400], ws4[300], file[400];
+        make("ws4"), make("ws4/tracks"), make("ws4/tracks/AL1"), make("ws4/tracks/AL1/light"), make("ws4/tracks/AL1/art-source");
+        put("ws4/tracks/AL1/original.ini", "kind=original-track\nstem=AL1\n");
+        put("ws4/tracks/AL1/light/AL1.txt", "my light\n");
+        put("ws4/tracks/AL1/art-source/zzz.psd", "my psd\n");   /* read last or first: one of them cannot be read */
+        path_of(ws4, sizeof ws4, "ws4");
+        original_track_old_dir(ws4, "AL1", old, sizeof old);
+        original_track_dir(ws4, "AL1", home, sizeof home);
+        path_of(file, sizeof file, "ws4/tracks/AL1/art-source/zzz.psd");
+        chmod(file, 0);
+        int files = -1;
+        CHECK(original_convert(old, home, &files, why, sizeof why) == -1 && why[0] != '\0', "an unreadable file stops the copy: %s", why);
+        char part[420];
+        snprintf(part, sizeof part, "%s.partial", home);
+        CHECK(!exists("ws4/tweaks/al1-tweak/studio/project") && access(part, F_OK) != 0, "no half working copy is left (nor its temporary folder)");
+        chmod(file, 0644);
+        CHECK(original_convert(old, home, &files, why, sizeof why) == 1 && files == 3, "the next opening copies all: %d %s", files, why);
+        CHECK(exists("ws4/tweaks/al1-tweak/studio/project/art-source/zzz.psd") && original_is_home(home) && original_home_state(home) == OH_ORIGINAL, "whole, and marked as an original's");
+        /* a link in the old folder is not followed, and the status line is told */
+        make("ws4/tracks/CL1"), put("ws4/tracks/CL1/original.ini", "kind=original-track\nstem=CL1\n");
+        char target[400], link[400], home2[400], old2[400];
+        path_of(target, sizeof target, "ws4/tracks/AL1/original.ini"), path_of(link, sizeof link, "ws4/tracks/CL1/link.ini");
+        CHECK(symlink(target, link) == 0, "link made");
+        original_track_old_dir(ws4, "CL1", old2, sizeof old2), original_track_dir(ws4, "CL1", home2, sizeof home2);
+        CHECK(original_convert(old2, home2, &files, why, sizeof why) == 1 && files == 1 && strstr(why, "1 links") != NULL, "a skipped link is said: %d %s", files, why);
+    }
+
+    /* an own tweak with the id of an original is not the original's working copy: nothing is converted into it, filled into it, or refused from Open */
+    {
+        char old[400], home[400], ws5[300];
+        make("ws5"), make("ws5/tracks"), make("ws5/tracks/AL1"), put("ws5/tracks/AL1/original.ini", "kind=original-track\nstem=AL1\n");
+        make("ws5/tweaks"), make("ws5/tweaks/al1-tweak"), make("ws5/tweaks/al1-tweak/studio"), make("ws5/tweaks/al1-tweak/studio/project");
+        put("ws5/tweaks/al1-tweak/studio/project/mine.txt", "mine\n");
+        path_of(ws5, sizeof ws5, "ws5");
+        original_track_old_dir(ws5, "AL1", old, sizeof old), original_track_dir(ws5, "AL1", home, sizeof home);
+        CHECK(!original_is_home(home) && original_home_state(home) == OH_FOREIGN, "no mark: not an original's");
+        CHECK(original_convert(old, home, NULL, why, sizeof why) == -1 && strstr(why, "not a game original") != NULL, "not converted into it: %s", why);
+        CHECK(!exists("ws5/tweaks/al1-tweak/studio/project/original.ini"), "nothing of the old folder came in");
+        {
+            OriginalAdd add = { 0 };
+            char data5[300];
+            path_of(data5, sizeof data5, "data");
+            CHECK(!original_track_add(ws5, "AL1", data5, NULL, &add, why, sizeof why) && strstr(why, "not a game original") != NULL && !exists("ws5/tweaks/al1-tweak/studio/project/light"), "Add originals does not fill an own tweak: %s", why);
+        }
+        CHECK(original_mark_home(home) && original_is_home(home), "marked: now it is");
+        original_drop_home(home);
+        CHECK(!exists("ws5/tweaks/al1-tweak/studio/project") && !original_is_home(home) && original_home_state(home) == OH_ABSENT, "dropped with its mark");
+    }
+
     {   // the words of the copy dialog: a changed mask counts pixels (not "texels"), a changed light file lines
         OriginalPublish words = { 0 };
         snprintf(words.item[0].file, sizeof words.item[0].file, "track_masks/AL1/slot_03.png");

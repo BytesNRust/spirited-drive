@@ -24,11 +24,23 @@ int original_track_old_dir(const char *workspace, const char *stem, char *out, s
 /* <workspace>/tweaks/<id>/studio/project for the tweak folder `id` ("al1-tweak", "wagon-tweak"): where an original's working copy (car or track) lives; 0 when it does not fit */
 int original_home(const char *workspace, const char *id, char *out, size_t cap);
 
-/* whether `dir` is an original's working copy in a tweak (.../tweaks/<id>/studio/project): such a folder opens only through Edit tweak */
+/* whether `dir` is an original's working copy in a tweak (.../tweaks/<id>/studio/project) that the conversion or the export made: such a folder opens only through Edit tweak. What makes it one is the file
+ * tweaks/<id>/studio/original-home beside the project, not the name: an own tweak with the same id has no such file, and its studio/project opens from Open like any project */
 int original_is_home(const char *dir);
 
+/* writes that file for `home`; 0 when it cannot */
+int original_mark_home(const char *home);
+
+/* takes `home` and its mark away (a working copy that could not be made whole) */
+void original_drop_home(const char *home);
+
+/* what is at `home`: nothing, an original's working copy (marked), or a folder that is somebody else's (an own tweak of the same id): the last is never converted, filled or opened as an original */
+enum { OH_ABSENT, OH_ORIGINAL, OH_FOREIGN };
+int original_home_state(const char *home);
+
 /* An older workspace's working copy of an original (cars/<kit>, tracks/<STEM>) is copied into its tweak's studio/project the first time the tweak is opened: every file and folder of `old_dir` that `home`
- * has not (symbolic links are not followed), `old_dir` left as it is. 1 when it copied (`files` gets how many), 0 when there was nothing to do (`home` already there, or no `old_dir`), -1 with `why`. */
+ * has not (symbolic links are not followed), `old_dir` left as it is. The copy is made in `<home>.partial` and renamed at the end, so `home` is there whole or not at all. 1 when it copied (`files` gets how many; `why` says
+ * if links were skipped), 0 when there was nothing to do (`home` already there, or no `old_dir`), -1 with `why` (also when `home` is somebody else's folder). */
 int original_convert(const char *old_dir, const char *home, int *files, char *why, size_t cap);
 
 /* whether `dir` is an original track's folder (its original.ini says so), and its stem */

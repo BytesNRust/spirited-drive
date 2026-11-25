@@ -201,9 +201,18 @@ static int make_parents(const char *path)
 }
 
 /* what bringing an older workspace's working copy in said, for the status line: the old folder is left, the owner deletes it by hand */
-static void converted_note(char *note, size_t cap, const char *old, int files)
+static void converted_note(char *note, size_t cap, const char *old, int files, const char *skipped)
 {
-    snprintf(note, cap, "; copied %d files from the old %s into the tweak (the old folder is left: delete it by hand when you want)", files, old);
+    snprintf(note, cap, "; copied %d files from the old %s into the tweak (the old folder is left: delete it by hand when you want; later edits there are not read)%s%s", files, old, skipped[0] != '\0' ? "; " : "", skipped);
+}
+
+/* an own tweak with the id of an original is not the original's working copy: it is left alone */
+static int refuse_foreign(App *a, const char *label, const char *home)
+{
+    if (original_home_state(home) != OH_FOREIGN) return 0;
+    snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s exists and is not a game original's working copy (an own tweak with that id): rename or move it", label, home);
+    snprintf(a->status, sizeof a->status, "%s", a->open_error);
+    return 1;
 }
 
 int app_tweak_open_car(App *a, int index)
@@ -215,18 +224,21 @@ int app_tweak_open_car(App *a, int index)
     tweak_id(car->folder, id, sizeof id);
     if (a->workspace[0] == '\0' || !original_home(a->workspace, id, home, sizeof home) || !workspace_path(a->workspace, WORKSPACE_KIND_CAR, kit, old, sizeof old)) return snprintf(a->status, sizeof a->status, "choose a workspace first (File > Workspace)"), 0;
     int files = 0;
+    if (refuse_foreign(a, car->label, home)) return 0;
     const int converted = original_convert(old, home, &files, why, sizeof why);   /* one at a time, when its tweak is opened; the old folder stays */
     if (converted < 0) {
         snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s", car->label, why);
         return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
     }
-    if (converted == 1) converted_note(note, sizeof note, old, files);
-    if (!exists(home) && !make_parents(home)) {
+    if (converted == 1) converted_note(note, sizeof note, old, files, why);
+    const int fresh = !exists(home);   /* no working copy yet (and none came from the old folder): made from the game */
+    if (fresh && !make_parents(home)) {
         snprintf(a->open_error, sizeof a->open_error, "Could not open %s: cannot make %s", car->label, home);
         return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
     }
-    if (!exists(home) && !car_export_kit(&a->export_src, index, home, why, sizeof why)) {   /* the project the tweak is made from, as the old Export original car made it */
-        snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s", car->label, why);
+    if (fresh && (!original_mark_home(home) || !car_export_kit(&a->export_src, index, home, why, sizeof why))) {   /* the project the tweak is made from, as the old Export original car made it; a failed one leaves no half project */
+        original_drop_home(home);
+        snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s", car->label, why[0] != '\0' ? why : "cannot write the mark of the working copy");
         return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
     }
     if (!app_open_tweak_car(a, home)) return 0;
@@ -242,13 +254,18 @@ int app_tweak_open_track(App *a, int index)
     if (stem == NULL) return 0;
     if (a->workspace[0] == '\0' || !original_track_dir(a->workspace, stem, dir, sizeof dir) || !original_track_old_dir(a->workspace, stem, old, sizeof old)) return snprintf(a->status, sizeof a->status, "choose a workspace first (File > Workspace)"), 0;
     int files = 0;
+    if (refuse_foreign(a, stem, dir)) return 0;
     if (original_track_present(old)) {   /* an older workspace's folder is copied in once, with what was edited in it; the old one stays */
         const int converted = original_convert(old, dir, &files, why, sizeof why);
         if (converted < 0) {
             snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s", stem, why);
             return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
         }
-        if (converted == 1) converted_note(note, sizeof note, old, files);
+        if (converted == 1) converted_note(note, sizeof note, old, files, why);
+    }
+    if (original_home_state(dir) == OH_ABSENT && !original_mark_home(dir)) {
+        snprintf(a->open_error, sizeof a->open_error, "Could not open %s: cannot write the mark of %s", stem, dir);
+        return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
     }
     if (a->data_dir_ok) {   /* the track is made from the game's files when the tweak has none, and a folder from an older version is brought up to date (what was edited is never touched) */
         OriginalAdd add = { 0 };

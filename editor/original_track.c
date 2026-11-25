@@ -50,7 +50,8 @@ int original_home(const char *workspace, const char *id, char *out, size_t cap)
     return n > 0 && (size_t)n < cap;
 }
 
-int original_is_home(const char *dir)
+/* the shape of an original's working copy: .../tweaks/<id>/studio/project */
+static int home_shape(const char *dir)
 {
     static const char TAIL[] = "/studio/project";
     const size_t n = dir != NULL ? strlen(dir) : 0, tail = sizeof TAIL - 1;
@@ -61,6 +62,19 @@ int original_is_home(const char *dir)
     const char *id = strrchr(head, '/');
     if (id == NULL || id == head) return 0;
     return strlen(id) > 1 && (size_t)(id - head) >= 7 && strncmp(id - 7, "/tweaks", 7) == 0;
+}
+
+/* the marker sits beside the project, in tweaks/<id>/studio: the conversion or the export writes it, so a tweak of the owner's own with the same id is never taken for an original's */
+static int marker_path(const char *home, char *out, size_t cap)
+{
+    const int n = snprintf(out, cap, "%.*s/original-home", (int)(strlen(home) - (sizeof "/project" - 1)), home);
+    return home_shape(home) && n > 0 && (size_t)n < cap;
+}
+
+int original_is_home(const char *dir)
+{
+    char marker[1100];
+    return marker_path(dir, marker, sizeof marker) && access(marker, F_OK) == 0;
 }
 
 int original_track_old_dir(const char *workspace, const char *stem, char *out, size_t cap)
@@ -175,7 +189,7 @@ static int make_dir_path(const char *path)
     return make_dir(tmp);
 }
 
-static int copy_tree(const char *from, const char *to, int *files)
+static int copy_tree(const char *from, const char *to, int *files, int *skipped)
 {
     DIR *d = opendir(from);
     if (d == NULL) return 0;
@@ -187,29 +201,70 @@ static int copy_tree(const char *from, const char *to, int *files)
         snprintf(a, sizeof a, "%s/%s", from, e->d_name);
         snprintf(b, sizeof b, "%s/%s", to, e->d_name);
         if (lstat(a, &st) != 0) continue;
-        if (S_ISDIR(st.st_mode)) ok = copy_tree(a, b, files);
+        if (S_ISDIR(st.st_mode)) ok = copy_tree(a, b, files, skipped);
         else if (S_ISREG(st.st_mode)) {
             const int r = copy_keep(a, b);
             if (r == 1) ++*files;
             else if (r == 0) ok = 0;
-        }
+        } else ++*skipped;   /* a symbolic link or another kind of file: not followed, said in the status line */
     }
     closedir(d);
     return ok;
 }
 
+static int remove_entry(const char *path, const struct stat *sb, int flag, struct FTW *ftw);
+
+static void remove_tree(const char *path)
+{
+    nftw(path, remove_entry, 8, FTW_DEPTH | FTW_PHYS);
+}
+
+int original_mark_home(const char *home)
+{
+    char marker[1100], parent[1100];
+    if (!marker_path(home, marker, sizeof marker)) return 0;
+    snprintf(parent, sizeof parent, "%s", marker);
+    *strrchr(parent, '/') = '\0';
+    if (!make_dir_path(parent)) return 0;
+    static const unsigned char BODY[] = "an original's working copy: opens through Edit tweak\n";
+    return write_file(marker, BODY, sizeof BODY - 1);
+}
+
+void original_drop_home(const char *home)
+{
+    char marker[1100];
+    if (exists(home)) remove_tree(home);
+    if (marker_path(home, marker, sizeof marker)) remove(marker);
+}
+
+int original_home_state(const char *home)
+{
+    return !exists(home) ? OH_ABSENT : original_is_home(home) || original_track_present(home) ? OH_ORIGINAL : OH_FOREIGN;   /* a track's folder says so itself (its original.ini) */
+}
+
 int original_convert(const char *old_dir, const char *home, int *files, char *why, size_t cap)
 {
-    int n = 0;
+    int n = 0, skipped = 0;
     if (files != NULL) *files = 0;
-    if (old_dir == NULL || home == NULL || !is_dir(old_dir) || exists(home)) return 0;
-    char parent[1100];
+    if (old_dir == NULL || home == NULL || !is_dir(old_dir)) return 0;
+    if (original_home_state(home) == OH_FOREIGN) return fail(why, cap, "the tweak folder %s exists and is not a game original's working copy", home), -1;
+    if (exists(home)) return 0;
+    char parent[1100], part[1110];
     snprintf(parent, sizeof parent, "%s", home);
     char *slash = strrchr(parent, '/');
     if (slash != NULL) *slash = '\0';
     if (!make_dir_path(parent)) return fail(why, cap, "cannot make the folder %s", parent), -1;
-    if (!copy_tree(old_dir, home, &n)) return fail(why, cap, "cannot copy %s into the tweak", old_dir), -1;
+    /* the copy is made beside `home` and put in its place at the end: a copy that stops midway (disk full, an unreadable file) leaves no half `home` for the next opening to take as done */
+    snprintf(part, sizeof part, "%s.partial", home);
+    if (exists(part)) remove_tree(part);
+    if (!copy_tree(old_dir, part, &n, &skipped)) return remove_tree(part), fail(why, cap, "cannot copy %s into the tweak", old_dir), -1;
+    if (!original_mark_home(home)) return remove_tree(part), fail(why, cap, "cannot write the mark of %s", home), -1;
+    if (rename(part, home) != 0) return remove_tree(part), fail(why, cap, "cannot put the copy of %s in place", old_dir), -1;
     if (files != NULL) *files = n;
+    if (why != NULL && cap > 0) {
+        why[0] = '\0';
+        if (skipped > 0) snprintf(why, cap, "%d links or special files were not copied", skipped);
+    }
     return 1;
 }
 
@@ -273,7 +328,9 @@ int original_track_add(const char *workspace, const char *stem, const char *data
     char dir[1024], ini[1100];
     if (!original_track_dir(workspace, stem, dir, sizeof dir)) return fail(why, cap, "%s is not one of the game's tracks", stem != NULL ? stem : "(none)"), 0;
     static const char *const SUB[] = { "light", "light/track_light", "art-source", "art-source/masks", "art-generated", "art-generated/track_masks" };
+    if (original_home_state(dir) == OH_FOREIGN) return fail(why, cap, "the tweak folder %s exists and is not a game original's working copy", dir), 0;
     if (!make_dir_path(dir) || !make_dirs(dir, SUB, sizeof SUB / sizeof *SUB)) return fail(why, cap, "cannot make the folder %s", dir), 0;
+    if (!original_is_home(dir) && !original_mark_home(dir)) return fail(why, cap, "cannot write the mark of %s", dir), 0;
     if (!add_light(dir, stem, data_dir, out, why, cap)) return 0;
     snprintf(ini, sizeof ini, "%s/original.ini", dir);
     if (!exists(ini)) {
