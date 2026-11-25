@@ -206,12 +206,30 @@ void tweak_panel(App *a)
                 ImGui::PopStyleColor();
                 const float footer = ImGui::GetFrameHeightWithSpacing() + 4.0f;   // the summary line under the list
                 if (ImGui::BeginChild("##tweakfiles", ImVec2(0, ImGui::GetContentRegionAvail().y > footer + 60.0f ? -footer : 60.0f), ImGuiChildFlags_Borders)) {
-                    for (int i = 0; i < a->tweak_st.count; ++i) {
-                        const TweakFile &f = a->tweak_st.item[i];
+                    // what changed or is new first, then what is the game's own (the list may be longer than the box)
+                    int order[TWEAK_FILES];
+                    int n = 0;
+                    for (int i = 0; i < a->tweak_st.count; ++i) if (a->tweak_st.item[i].state != TWEAK_SAME) order[n++] = i;
+                    for (int i = 0; i < a->tweak_st.count; ++i) if (a->tweak_st.item[i].state == TWEAK_SAME) order[n++] = i;
+                    for (int k = 0; k < n; ++k) {
+                        const TweakFile &f = a->tweak_st.item[order[k]];
                         ImGui::TextUnformatted(f.file);
                         ImGui::SameLine(ImGui::GetWindowWidth() * 0.62f);
                         if (f.state == TWEAK_SAME) ImGui::TextDisabled("%s", state_word(f));
-                        else ImGui::TextColored(WARN_TEXT, "%s%s%s", state_word(f), f.note[0] != '\0' ? "  " : "", f.note);
+                        else {
+                            ImGui::TextColored(WARN_TEXT, "%s", state_word(f));
+                            if (f.note[0] != '\0') {   // beside the word when it fits, else on a line under the file's name
+                                const float gap = ImGui::GetStyle().ItemSpacing.x * 2;
+                                const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+                                const bool beside = ImGui::GetItemRectMax().x + gap + ImGui::CalcTextSize(f.note).x <= right;
+                                if (beside) ImGui::SameLine(0, gap);
+                                else ImGui::Indent(12.0f);
+                                ImGui::PushStyleColor(ImGuiCol_Text, WARN_TEXT);
+                                text_elided(f.note);
+                                ImGui::PopStyleColor();
+                                if (!beside) ImGui::Unindent(12.0f);
+                            }
+                        }
                         if (f.own) {   // on its own line: beside the state it does not fit the panel
                             ImGui::Indent(12.0f);
                             ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
