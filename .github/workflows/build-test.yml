@@ -1,11 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # A test build on demand (Actions > Build Test > Run workflow): the universal macOS app (Apple Silicon + Intel) and its
 # DMG, from the branch you pick, as a downloadable artifact. Nothing is released or tagged. The version is the usual
-# <version>-dev+<hash>, so the game's update check stays off in these builds.
+# <version>-dev+<hash>, so the game's update check stays off in these builds. The DMG holds the game only (Spirited Drive.app);
+# the `studio` input adds Spirited Drive Studio.app for the owner's internal test apps.
 name: Build Test
 
 on:
   workflow_dispatch:
+    inputs:
+      studio:
+        description: "Also build and package Spirited Drive Studio (for internal test apps; the downloads are the game only)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,6 +48,7 @@ jobs:
       - name: Build the game (universal, release)
         run: |
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON \
+                -DTNFS_EDITOR=${{ inputs.studio && 'ON' || 'OFF' }} \
                 -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3"
           cmake --build build/rel
 
@@ -49,13 +56,22 @@ jobs:
         run: ctest --test-dir build/rel --output-on-failure
 
       - name: Package
+        env:
+          STUDIO: ${{ inputs.studio && '1' || '0' }}
         run: |
+          [ "$STUDIO" = 1 ] || export GAME_ONLY=1
+          [ "$STUDIO" != 1 ] || export REQUIRE_EDITOR=1
           icon=""
           [ -f data/icon/tnfs.icns ] && icon=data/icon/tnfs.icns
           tools/package_macos.sh build/rel dist $icon
           lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q arm64
           lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q x86_64
           cd dist && shasum -a 256 *.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: The DMG holds only what it should
+        env:
+          STUDIO: ${{ inputs.studio && '1' || '0' }}
+        run: tools/check_dmg_contents.sh dist/*.dmg "$STUDIO"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
         with:

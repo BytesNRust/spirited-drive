@@ -52,7 +52,7 @@ jobs:
 
       - name: Build the game (universal, release)
         run: |
-          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON \
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF \
                 -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3"
           cmake --build build/rel
 
@@ -68,12 +68,16 @@ jobs:
 
       - name: Package
         run: |
+          export GAME_ONLY=1   # the download is the game only: Studio is in progress and stays in the source tree
           icon=""
           [ -f data/icon/tnfs.icns ] && icon=data/icon/tnfs.icns
           tools/package_macos.sh build/rel dist $icon
           lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q arm64
           lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q x86_64
           cd dist && shasum -a 256 *.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: The DMG holds the game only
+        run: tools/check_dmg_contents.sh dist/*.dmg 0
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
         with:

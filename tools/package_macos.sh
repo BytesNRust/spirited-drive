@@ -8,7 +8,8 @@
 # BUILD_DIR holds the tnfs binary (configure it with -DTNFS_RELEASE=ON), tnfs-track-editor (built unless -DTNFS_EDITOR=OFF: without it
 # the DMG has the game only) and generated/tnfs_version.c.
 # OUT_DIR receives "Spirited Drive.app", "Spirited Drive Studio.app" and Spirited-Drive-<version>-macos.dmg.
-# With REQUIRE_EDITOR=1 in the environment a missing editor binary is an error (a release must not ship without Studio).
+# With GAME_ONLY=1 in the environment the DMG has the game only, whatever BUILD_DIR holds (the downloads are the game only: Studio is in progress and stays out;
+# Build Test's `studio` input turns it on for the owner's internal test apps). With REQUIRE_EDITOR=1 a missing editor binary is an error (only a Studio package asks for it).
 # ICNS is the game's icon; without it, the source tree's data/icon/tnfs.icns (tools/spirited_icon.py makes it).
 # STUDIO_ICNS is Studio's: the file in the environment, else editor/icon/studio.icns (tools/studio_icon.py makes it), else ICNS.
 #
@@ -154,7 +155,9 @@ APP="$OUT_DIR/$APP_NAME.app"
 ARCHS=$(lipo -archs "$APP/Contents/MacOS/tnfs")
 
 STUDIO=""
-if [ -x "$EDITOR_BIN" ]; then
+if [ "${GAME_ONLY:-0}" = 1 ]; then
+    echo "GAME_ONLY=1: the DMG has the game only" >&2
+elif [ -x "$EDITOR_BIN" ]; then
     pack_app "$STUDIO_NAME" "$STUDIO_ID" tnfs-track-editor "$EDITOR_BIN" public.app-category.developer-tools 0 "$STUDIO_ICNS"
     STUDIO="$OUT_DIR/$STUDIO_NAME.app"
     # one set of architectures for both apps: a universal game with an arm64-only editor would ship a Studio that fails on an Intel Mac
