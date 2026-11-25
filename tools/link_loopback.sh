@@ -91,6 +91,10 @@ run() {  # name script port [args...]
         mkdir -p "$out/$name/mods/user" && cp "$CLIENT_CONFIG" "$out/$name/mods/user/config.dat"
     fi
     [ -n "${CAPTURE_EVERY:-}" ] && mkdir -p "$out/$name/cap"
+    # the host's-track banner is Restomod's (Stock and Restored keep the original's "Connection Terminated"): a refused run's clients are Restomod
+    if [ "$mode" = refused ] && [ "$name" != host ]; then
+        mkdir -p "$out/$name/mods/user" && printf 'profile=restomod\n' > "$out/$name/mods/user/port.cfg"
+    fi
     local extra=${HOST_ENV:-}
     [ "$name" != host ] && extra=${CLIENT_ENV:-}
     set +e
