@@ -37,6 +37,9 @@ int drive_livery_black(const char *stem, const char *mask_dir, uint8_t *cfm, siz
 
 /* port (emissive lamps): the texels the car's masks mark as a brake, position or head light (car_mask.h), appended to `out` as offsets into the CFM, over
  * both banks and in any texture that has a mask file, not only the body's. The CFM is not changed. Returns the number of texels found. */
+/* port (Restomod): a car's brake lights by its masks alone (car_livery_unlamp): the texels of palette entry 0xfe that a texture's mask does not mark as a brake light stop being lit by the exe's lamp. `mask_dir` as in
+ * drive_livery_paint_masks. Returns the texels changed (0 for a car with no mask). */
+int drive_livery_unlamp(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size);
 int drive_livery_lamps(const char *stem, uint8_t *cfm, size_t size, LampTexels *out);
 /* drive_livery_lamps with the masks of `mask_dir` alone (an added car's skin's folder, as drive_livery_paint_masks); NULL searches as drive_livery_lamps does */
 int drive_livery_lamps_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, LampTexels *out);

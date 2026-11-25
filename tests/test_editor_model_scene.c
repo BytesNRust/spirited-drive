@@ -88,6 +88,23 @@ static int write_file(const char *path, const uint8_t *data, size_t n)
 }
 
 /* side_mask.png: the top two rows headlights, the bottom two brake lights, the rest paint (or, `matte`, all matte: nothing shines) */
+static int make_mask_of(const char *dir, int matte);
+
+/* the same mask with the fixture's lamp row (row 3, palette entry 0xfe) marked as brake lights too: the mask says where the car's brake lights are */
+static int make_mask_lamp_row(const char *dir)
+{
+    uint8_t mask[SIDE * SIDE], *png = NULL;
+    size_t n = 0;
+    for (int i = 0; i < SIDE * SIDE; i++)
+        mask[i] = i < 2 * SIDE ? CAR_MASK_HEADLIGHT : i >= (SIDE - 2) * SIDE || (i >= 3 * SIDE && i < 4 * SIDE) ? CAR_MASK_BRAKE : CAR_MASK_PAINT;
+    if (!car_mask_write(mask, SIDE, SIDE, &png, &n)) return 0;
+    char path[400];
+    snprintf(path, sizeof path, "%s/side_mask.png", dir);
+    const int ok = write_file(path, png, n);
+    png_free(png);
+    return ok;
+}
+
 static int make_mask_of(const char *dir, int matte)
 {
     uint8_t mask[SIDE * SIDE], *png = NULL;
@@ -484,7 +501,7 @@ static void test_the_brake_lamp_is_the_races(void)
     const int nm = snprintf(masks, sizeof masks, "%s/masks_w2", base);
     CHECK(nm > 0 && (size_t)nm < sizeof masks);
     mkdir(masks, 0777);
-    CHECK(make_mask(masks));
+    CHECK(make_mask_lamp_row(masks));   /* Restomod's rule: only what the mask marks as a brake light is lit by the exe's lamp: the fixture's lamp row is marked */
     ModelScene *m = open_cfm("LAMP", 0, masks);
     CHECK(m != NULL);
     if (m == NULL) return;
@@ -514,6 +531,42 @@ static void test_the_brake_lamp_is_the_races(void)
         for (int k = 0; pv->tex[i].index != NULL && k < pv->tex[i].info.width * pv->tex[i].info.height; k++)
             if (pv->tex[i].index[k] == 0xfe) lamp_texels++, right += memcmp(pv->tex[i].rgba + 4 * k, (const uint8_t[]){ 61, 12, 12 }, 3) == 0;
     CHECK(lamp_texels > 0 && lamp_texels % SIDE == 0 && right == lamp_texels);   /* the row, in each bank */
+    model_scene_close(m);
+}
+
+/* the same car whose mask does not mark the lamp row (a mask moved away from the texture's own lamp texels): the row is no lamp, in the Preview's picture it stays the unlit colour with the brake on,
+ * and nothing of the texture is lit by entry 0xfe any more */
+static void test_unmarked_lamp_texels_stay_dark(void)
+{
+    char masks[400];
+    const int nm = snprintf(masks, sizeof masks, "%s/masks_w3", base);
+    CHECK(nm > 0 && (size_t)nm < sizeof masks);
+    mkdir(masks, 0777);
+    CHECK(make_mask(masks));
+    ModelScene *m = open_cfm("LAMP", 0, masks);
+    CHECK(m != NULL);
+    if (m == NULL) return;
+    const CarPreview *pv = model_scene_preview(m);
+    int lamp_texels = 0, masked = 0, unmasked_lamps = 0;
+    for (int i = 0; pv != NULL && i < pv->count; i++)
+        for (int k = 0; pv->tex[i].index != NULL && k < pv->tex[i].info.width * pv->tex[i].info.height; k++) {
+            if (pv->tex[i].mask != NULL) lamp_texels += pv->tex[i].index[k] == 0xfe, masked += k == 0;
+            else unmasked_lamps += pv->tex[i].index[k] == 0xfe;
+        }
+    CHECK(masked > 0);   /* the side texture has a mask: the lamp row it does not mark is no lamp */
+    CHECK_EQ_INT(lamp_texels, 0);
+    CHECK_EQ_INT(unmasked_lamps, SIDE);   /* the low bank's side has no mask file: its lamps are the exe's */
+    Orbit o;
+    orbit_init(&o, model_scene_radius(m));
+    orbit_set(&o, 60 * 16, 30 * 16);
+    CarNightState s;
+    memset(&s, 0, sizeof s);
+    CHECK(model_scene_render(m, &o, W, H, &s, rgba));
+    const int lit_off = count_colour(rgba, W * H, 251, 20, 20);
+    s.brake = 1;
+    CHECK(model_scene_render(m, &o, W, H, &s, rgba));
+    const int lit_on_marked = count_colour(rgba, W * H, 251, 20, 20);   /* the bottom rows are marked: those light with the brake */
+    CHECK(lit_on_marked >= lit_off);
     model_scene_close(m);
 }
 
@@ -764,6 +817,7 @@ int main(void)
     test_the_cds_police_shines();
     test_a_texture_with_no_mask_keeps_its_colours();
     test_the_brake_lamp_is_the_races();
+    test_unmarked_lamp_texels_stay_dark();
     test_the_cds_brake_lamps();
     test_the_car_is_framed();
     test_the_cds_cars_are_framed();

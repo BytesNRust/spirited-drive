@@ -280,6 +280,17 @@ int drive_livery_black(const char *stem, const char *mask_dir, uint8_t *cfm, siz
     return car_livery_black(cfm, size, &pass, rgb);
 }
 
+int drive_livery_unlamp(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size)
+{
+    char upper[LIVERY_STEM];
+    size_t i = 0;
+    for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
+    upper[i] = '\0';
+    const MaskSource src = { stem, mask_dir };
+    const CarLiveryPass pass = { upper, mask_dir != NULL, 0, load_mask, (void *)&src };
+    return car_livery_unlamp(cfm, size, &pass);
+}
+
 typedef struct {
     const uint8_t *cfm;
     LampTexels *out;

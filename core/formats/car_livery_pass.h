@@ -34,6 +34,12 @@ int car_livery_glass_floor(const char *upper);
 int car_livery_black(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const uint8_t rgb[3]);
 int car_livery_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const uint8_t rgb[3]);
 
+/* A car with masks, lamps by its masks (Restomod): the texels of palette entry CAR_BRAKE_LAMP_ENTRY (0xfe: the exe lights that entry by index, wherever the texture has it) that the texture's mask does not
+ * mark as a brake light (CAR_MASK_BRAKE..+3) are pointed at the palette entry nearest the model's unlit lamp colour (never 0xfe or a reserved entry), so they stay that colour and never light; the
+ * texels the mask marks keep entry 0xfe and light as before. A texture with no mask is left as it is (the car's lamps are the exe's there), and so is every car when the pass has no masks. Returns the
+ * texels changed. */
+int car_livery_unlamp(uint8_t *cfm, size_t size, const CarLiveryPass *pass);
+
 /* The draft of a car's masks (car_mask.h) from the rules that repaint it today: for each body texture of each bank, `fn(user, level, name, width, height, pixels, keep,
  * rgb)` with `keep` (width x height of REPAINT_DRAFT_*: paint, or the rules leave the texel as it is, matte or with a shine), the texture's palette indices and the car's own
  * colours (`rgb`, 256 x 3, 8 bits). The race's body shine takes its class maps from it (raster/shine_class.h); the CFM is not changed. Returns the texels marked paint in all. */

@@ -1,5 +1,6 @@
 #include "formats/car_livery_pass.h"
 
+#include "formats/car_brake_lamp.h"
 #include "formats/car_mask_codec.h"
 
 #include <stdlib.h>
@@ -108,6 +109,53 @@ int car_livery_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const
 {
     const ColourJob job = { rgb, car_livery_glass_floor(pass->upper) };
     return car_livery_walk(cfm, size, pass, run_paint, (void *)&job);
+}
+
+/* ----- lamps by the masks ----- */
+
+enum { UNLAMP_RESERVED = 0xfa };   /* the entries from here on are the race's (the police's lights, the lamp's own) */
+
+/* the entry (not a reserved one) whose colour is nearest the unlit lamp colour `six` (6 bits a channel), in the palette's own depth */
+static int unlit_entry(const RepaintBank *bank, const uint8_t six[3])
+{
+    const int shift = bank->type == 0x22 ? 0 : 2;   /* 0x22: 6 bits a channel, 0x24: 8 */
+    int best = 0;
+    long best_d = -1;
+    for (int e = 0; e < UNLAMP_RESERVED; e++) {
+        long d = 0;
+        for (int k = 0; k < 3; k++) {
+            const long diff = (long)bank->palette[0][e * 3 + k] - ((long)six[k] << shift);
+            d += diff * diff;
+        }
+        if (best_d < 0 || d < best_d) best = e, best_d = d;
+    }
+    return best;
+}
+
+static int run_unlamp(const RepaintBank *bank, const CarBankMeta *meta, void *ctx)
+{
+    (void)meta;
+    const int *const row = ctx;
+    if (bank->palette[0] == NULL || (bank->type != 0x22 && bank->type != 0x24)) return 0;
+    uint8_t six[3];
+    car_brake_lamp_colour(*row, 0, six);
+    const uint8_t entry = (uint8_t)unlit_entry(bank, six);
+    int changed = 0;
+    for (int t = 0; t < bank->texture_count; t++) {
+        const RepaintTexture *tex = &bank->textures[t];
+        if (tex->mask == NULL) continue;
+        for (size_t i = 0; i < tex->count; i++) {
+            if (tex->pixels[i] != CAR_BRAKE_LAMP_ENTRY || (tex->mask[i] >= CAR_MASK_BRAKE && tex->mask[i] < CAR_MASK_BRAKE + 4)) continue;
+            tex->pixels[i] = entry, changed++;
+        }
+    }
+    return changed;
+}
+
+int car_livery_unlamp(uint8_t *cfm, size_t size, const CarLiveryPass *pass)
+{
+    int row = car_brake_lamp_row(pass->upper);
+    return car_livery_walk(cfm, size, pass, run_unlamp, &row);
 }
 
 /* ----- the drafts of the masks: the race and the Studio's 3D view shine the same texels ----- */
