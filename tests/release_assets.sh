@@ -30,6 +30,8 @@ grep -q 'tnfs\.exe' "$win" && bad "the Windows workflow still looks for tnfs.exe
 sed -n '/^cat > "\$DIR\/README.txt"/,/^EOF/p' "$pack" | grep -q 'tnfs\.exe' && bad "the zip's README sends the player to tnfs.exe"
 grep -q 'rsrc' "$pack" || bad "the packer does not check the exe carries the icon resource"
 grep -q 'activeCodePage' "$pack" || bad "the packer does not check the exe carries the UTF-8 manifest"
+grep -q 'Windows GUI' "$pack" || bad "the packer does not check the exe is a GUI program"
+grep -q 'WIN32_EXECUTABLE' CMakeLists.txt || bad "CMake does not make the release a GUI program: Explorer would open a console window beside the game"
 grep -q 'enable_language(RC)' CMakeLists.txt || bad "CMake does not enable RC: the .rc (icon, name) is not compiled and the exe keeps the default icon"
 grep -q '^1 ICON' "$rc" && grep -q 'VALUE "FileDescription", "Spirited Drive"' "$rc" || bad "$rc has no icon or no Spirited Drive name"
 [ $fail -eq 0 ] && echo "release_assets: ok"

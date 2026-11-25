@@ -29,9 +29,11 @@
 #if defined(_WIN32)
 #define UPDATE_CURL "curl.exe"
 #define UPDATE_NULL_DEV "NUL"
+#define UPDATE_STDERR_TO_NULL ""   /* no shell there: the runner (game/platform/sdl3/process_pipe.c) points standard error at NUL */
 #else
 #define UPDATE_CURL "/usr/bin/curl"
 #define UPDATE_NULL_DEV "/dev/null"
+#define UPDATE_STDERR_TO_NULL " 2>" UPDATE_NULL_DEV
 #endif
 
 /* The "latest" of the API's answer {"latest":"0.9.1","page":"..."}: MAJOR.MINOR.PATCH[-pre], at most 32 characters, no
@@ -59,5 +61,9 @@ int update_version_compare(const char *a, const char *b);
 
 /* 1 when `version` is a local development build (a "-dev" pre-release): those never ask for updates. */
 int update_is_dev_build(const char *version);
+
+/* Windows: `command` (an update_api_command line, which starts with UPDATE_CURL) with the program named by its full path in `system_dir` (a folder like C:\Windows\System32 gives "C:\Windows\System32\curl.exe" in quotes, then the arguments), so the
+ * curl run is the system's and not one found beside the game, in the current folder or earlier on PATH. 1 when it fits `cap`; 0 when `command` does not start with curl.exe, `system_dir` is empty or has a quote, or it does not fit. */
+int update_windows_command(const char *command, const char *system_dir, char *out, size_t cap);
 
 #endif

@@ -11,12 +11,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "game/platform/sdl3/process_pipe.h"
+
 #if defined(_WIN32)
-#define UPDATE_POPEN _popen
-#define UPDATE_PCLOSE _pclose
-#else
-#define UPDATE_POPEN popen
-#define UPDATE_PCLOSE pclose
+#include <windows.h>
 #endif
 
 #define UPDATE_ANSWER_MAX 65536
@@ -27,21 +25,34 @@ static char current[32];
 static char latest_found[32];        /* written by the thread before `state` turns UPDATE_NEWER */
 
 #if !defined(__EMSCRIPTEN__)
+/* the command started: on Windows curl is System32's own (never the exe's folder, the current one or an earlier PATH entry: CreateProcess searches them first) */
+static ProcessPipe *open_command(const char *cmd)
+{
+#if defined(_WIN32)
+    char dir[MAX_PATH], line[600];
+    const UINT n = GetSystemDirectoryA(dir, sizeof dir);
+    if (n == 0 || n >= sizeof dir || !update_windows_command(cmd, dir, line, sizeof line)) return NULL;
+    return process_pipe_open(line);
+#else
+    return process_pipe_open(cmd);
+#endif
+}
+
 static int fetch_latest_json(char *buf, size_t cap)
 {
     char cmd[512];
     if (!update_api_command(cmd, sizeof cmd, NULL, current)) return 0;
-    FILE *pipe = UPDATE_POPEN(cmd, "r");
+    ProcessPipe *pipe = open_command(cmd);
     if (!pipe) return 0;
     size_t n = 0, got;
-    while (n + 1 < cap && (got = fread(buf + n, 1, cap - 1 - n, pipe)) > 0) n += got;
+    while (n + 1 < cap && (got = process_pipe_read(pipe, buf + n, cap - 1 - n)) > 0) n += got;
     buf[n] = '\0';
     /* a long answer (long release notes): keep only the start, where tag_name is, but read the rest so curl
      * ends normally instead of failing on a closed pipe */
     char drain[4096];
-    while (fread(drain, 1, sizeof drain, pipe) > 0) {
+    while (process_pipe_read(pipe, drain, sizeof drain) > 0) {
     }
-    int status = UPDATE_PCLOSE(pipe);
+    int status = process_pipe_close(pipe);
     return status == 0 && n > 0;
 }
 
@@ -73,12 +84,12 @@ static int SDLCALL stats_thread(void *arg)
     StatsPost *post = arg;
     char cmd[512];
     if (update_api_command(cmd, sizeof cmd, post->event, post->version)) {
-        FILE *pipe = UPDATE_POPEN(cmd, "r");
+        ProcessPipe *pipe = open_command(cmd);
         if (pipe) {
             char drain[256];
-            while (fread(drain, 1, sizeof drain, pipe) > 0) {
+            while (process_pipe_read(pipe, drain, sizeof drain) > 0) {
             }
-            UPDATE_PCLOSE(pipe);
+            (void)process_pipe_close(pipe);
         }
     }
     SDL_free(post);

@@ -827,6 +827,8 @@ add_executable(tnfs
     game/platform/sdl3/first_run_sdl3.c
     game/platform/sdl3/platform_joy_sdl3.c
     game/platform/sdl3/update_sdl3.c
+    game/platform/sdl3/process_pipe.c
+    game/platform/sdl3/win_console.c
 )
 if(NOT TNFS_RELEASE)
     target_compile_definitions(tnfs PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # main.c: a development build run from the repository takes ./original when there is no --data
@@ -838,6 +840,9 @@ if(WIN32)   # the program's icon (Explorer, the taskbar) and its name (Task Mana
     set(TNFS_UTF8_MANIFEST "${CMAKE_SOURCE_DIR}/game/sys/utf8.manifest")
     configure_file(game/sys/spirited.rc.in "${CMAKE_BINARY_DIR}/generated/spirited.rc" @ONLY)
     target_sources(tnfs PRIVATE "${CMAKE_BINARY_DIR}/generated/spirited.rc")
+    if(TNFS_RELEASE)   # the release is a GUI program: no console window beside the game (win_console.c gives a terminal its output, --console opens one); the development and CI builds stay console programs, their tests read the output
+        set_target_properties(tnfs PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif()
 endif()
 if(UNIX AND NOT APPLE)
     target_link_libraries(tnfs PRIVATE m)
@@ -1400,6 +1405,11 @@ foreach(name first_profile car_livery_unlamp track_light_mirror port_old_files c
     target_link_libraries(test_iso9660 PRIVATE tnfs_core)
     target_compile_options(test_iso9660 PRIVATE ${TNFS_WARNINGS})
     add_test(NAME iso9660 COMMAND test_iso9660)
+    # the update check's curl run without a shell or a window (Windows: CreateProcess), its output read; the test is its own child
+    add_executable(test_process_pipe tests/test_process_pipe.c game/platform/sdl3/process_pipe.c)
+    target_link_libraries(test_process_pipe PRIVATE tnfs_core)
+    target_compile_options(test_process_pipe PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME process_pipe COMMAND test_process_pipe)
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_gallery_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

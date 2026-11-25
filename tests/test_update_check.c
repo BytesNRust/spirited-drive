@@ -129,8 +129,31 @@ static void api_platform_is_the_build_s(void)
 #endif
 }
 
+static void windows_command_names_the_system_curl(void)
+{
+    char out[300];
+    CHECK_EQ_INT(update_windows_command("curl.exe -fsSL --max-time 5 \"https://x/y?a=1&b=2\"", "C:\\Windows\\System32", out, sizeof out), 1);
+    CHECK(strcmp(out, "\"C:\\Windows\\System32\\curl.exe\" -fsSL --max-time 5 \"https://x/y?a=1&b=2\"") == 0);
+    CHECK_EQ_INT(update_windows_command("curl.exe", "D:/Win/sys32/", out, sizeof out), 1);   /* a trailing slash is not doubled */
+    CHECK(strcmp(out, "\"D:/Win/sys32/curl.exe\"") == 0);
+    CHECK_EQ_INT(update_windows_command("/usr/bin/curl -s x", "C:\\W", out, sizeof out), 0);   /* not the Windows command */
+    CHECK_EQ_INT(update_windows_command("curl.exe.evil -s x", "C:\\W", out, sizeof out), 0);
+    CHECK_EQ_INT(update_windows_command("curl.exe -s", "", out, sizeof out), 0);
+    CHECK_EQ_INT(update_windows_command("curl.exe -s", "C:\\a\"b", out, sizeof out), 0);        /* a quote in the folder */
+    CHECK_EQ_INT(update_windows_command("curl.exe -s", "C:\\Windows\\System32", out, 20), 0);   /* does not fit */
+    CHECK(out[0] == '\0');
+    CHECK_EQ_INT(update_windows_command(NULL, "C:\\W", out, sizeof out), 0);
+#if defined(_WIN32)
+    char cmd[512];
+    CHECK_EQ_INT(update_api_command(cmd, sizeof cmd, NULL, "0.9.0"), 1);
+    CHECK(strstr(cmd, "2>") == NULL);   /* no shell there: standard error is the runner's */
+    CHECK(strncmp(cmd, "curl.exe ", 9) == 0);
+#endif
+}
+
 int main(void)
 {
+    windows_command_names_the_system_curl();
     api_parse_reads_latest();
     api_parse_rejects_garbage();
     api_version_loses_the_build();

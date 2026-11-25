@@ -182,12 +182,29 @@ int update_api_command(char *out, size_t cap, const char *event, const char *ver
     int n;
     if (event == NULL) {
         n = snprintf(out, cap, UPDATE_CURL " -fsSL --proto =https --proto-redir =https --max-time 5 -A " UPDATE_API_NAME " "
-                               "\"" UPDATE_API_BASE "/latest?v=%s&p=" UPDATE_API_PLATFORM "\" 2>" UPDATE_NULL_DEV, v);
+                               "\"" UPDATE_API_BASE "/latest?v=%s&p=" UPDATE_API_PLATFORM "\"" UPDATE_STDERR_TO_NULL, v);
     } else {
         if (strcmp(event, "first_start") != 0 && strcmp(event, "data_ready") != 0 && strcmp(event, "first_race") != 0) return 0;
         n = snprintf(out, cap, UPDATE_CURL " -fsS -X POST --proto =https --proto-redir =https --max-time 5 -A " UPDATE_API_NAME " "
-                               "-o " UPDATE_NULL_DEV " \"" UPDATE_API_BASE "/event?e=%s&v=%s&p=" UPDATE_API_PLATFORM "\" 2>" UPDATE_NULL_DEV, event, v);
+                               "-o " UPDATE_NULL_DEV " \"" UPDATE_API_BASE "/event?e=%s&v=%s&p=" UPDATE_API_PLATFORM "\"" UPDATE_STDERR_TO_NULL, event, v);
     }
+    if (n < 0 || (size_t)n >= cap) {
+        out[0] = '\0';
+        return 0;
+    }
+    return 1;
+}
+
+int update_windows_command(const char *command, const char *system_dir, char *out, size_t cap)
+{
+    static const char CURL[] = "curl.exe";
+    if (cap == 0) return 0;
+    out[0] = '\0';
+    if (command == NULL || system_dir == NULL || system_dir[0] == '\0' || strchr(system_dir, '"') != NULL) return 0;
+    if (strncmp(command, CURL, sizeof CURL - 1) != 0 || (command[sizeof CURL - 1] != ' ' && command[sizeof CURL - 1] != '\0')) return 0;
+    const size_t dir = strlen(system_dir);
+    const int slash = system_dir[dir - 1] == '\\' || system_dir[dir - 1] == '/';
+    const int n = snprintf(out, cap, "\"%s%s%s\"%s", system_dir, slash ? "" : "\\", CURL, command + sizeof CURL - 1);
     if (n < 0 || (size_t)n >= cap) {
         out[0] = '\0';
         return 0;

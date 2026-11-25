@@ -1,6 +1,6 @@
 /* Entry point.
  *
- *   tnfs [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]...
+ *   tnfs [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--console] [--net-port N] [--net-host IP:PORT]...
  *                                          run the game (00437540); files of the mod in DIR replace the CD's; the
  *                                          network game binds UDP port N (15000 by default) and also asks each
  *                                          --net-host (up to 8) for games besides the LAN's broadcast
@@ -16,6 +16,7 @@
  *   tnfs --movie FILE.TGV                  play a TGV movie in the menus' window (development)
  *   tnfs [--user DIR] --install FILE.zip | --uninstall ID | --mods-list
  *                                          install, update or uninstall a mod, or list them (game/sys/mod_commands.h) */
+#include "game/platform/sdl3/win_console.h"
 #include "game/frontend/config.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_pieces.h"
@@ -114,6 +115,8 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->user = argv[++i];
         } else if (strcmp(argv[i], "--german") == 0) {
             opt->german = 1;
+        } else if (strcmp(argv[i], "--console") == 0) {
+            /* Windows: a console of its own for the output (platform/sdl3/win_console.c, taken before the arguments are read); nothing to do here */
         } else if (strcmp(argv[i], "--verbose") == 0) {
             port_log_set_verbose(1);
         } else if (strcmp(argv[i], "--view") == 0 && has_value) {
@@ -357,6 +360,7 @@ static void set_stats_sender(void)
 
 int main(int argc, char **argv)
 {
+    win_console_attach(argc, argv);   /* Windows release: a GUI program, its output goes to the shell that started it, or to a console of --console's own */
     Options opt;
     if (!parse_args(argc, argv, &opt)) return EXIT_FAILURE;
     port_settings_set_display_probe(platform_desktop_size);   /* the profiles' widescreen is the display's own shape */
