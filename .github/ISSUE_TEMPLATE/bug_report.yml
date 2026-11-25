@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Game version
-      description: Shown in the main menu corner and in Options (e.g. 0.9.0).
+      description: Shown at the foot of the Game Mode screen.
     validations:
       required: true
   - type: dropdown
@@ -61,7 +61,8 @@ body:
     attributes:
       label: Log file
       description: |
-        Drag spirited-drive.log here (EXTRAS → Open the log folder shows it). On macOS it is in
+        Drag spirited-drive.log here (Customize Game, page 3, Open the log folder shows it). Add spirited-drive.log.1 too:
+        opening the game again moves the last run's log there, so after a crash it holds the crash. On macOS they are in
         ~/Library/Application Support/Spirited Drive/ (Finder: Go → Go to Folder…, paste the path),
         on Windows in %APPDATA%\Spirited Drive\, on Linux in ~/.local/share/Spirited Drive/.
   - type: textarea
