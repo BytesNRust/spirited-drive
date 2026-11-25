@@ -88,7 +88,7 @@ int main(void)
     snprintf(fallback, sizeof fallback, "%s/original", TNFS_SOURCE_DIR);
     if (root == NULL) root = fallback;
     snprintf(path, sizeof path, "%s/SIMDATA/CARFAMS/F512TR.CFM", root);
-    snprintf(g_masks, sizeof g_masks, "%s/data/car_masks/F512TR", TNFS_SOURCE_DIR);
+    snprintf(g_masks, sizeof g_masks, "%s/tests/fixtures/car_masks/F512TR", TNFS_SOURCE_DIR);
     size_t size;
     uint8_t *orig = slurp(path, &size);
     if (orig == NULL) {

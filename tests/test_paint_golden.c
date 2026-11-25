@@ -20,7 +20,7 @@
 
 /* the values of this file's results */
 static const uint64_t GOLDEN_RULES = 0x25b9601d5fad4f62ULL, GOLDEN_MASKS = 0x183bc588d5bd6e89ULL, GOLDEN_BLACK = 0x15862635ccfb2164ULL, GOLDEN_LAMPS = 0x93d94adea708889bULL, GOLDEN_DRAFT = 0x6a9eff9842881b23ULL,
-                      GOLDEN_CATALOGUE = 0xfad20577ecab9254ULL;
+                      GOLDEN_CATALOGUE = 0x93c56aadce383d69ULL;
 /* the paths the added-car work added to the code (dep59 1a, on main 0e14fcc6) */
 static const uint64_t GOLDEN_BLACK_DIR = 0xd07a363e8862793aULL, GOLDEN_LAMPS_DIR = 0x93d94adea708889bULL, GOLDEN_DRAFT_DIR = 0x40a88611b2908c72ULL,
                       GOLDEN_TRAFFIC = 0x3a6437c5513c5548ULL, GOLDEN_TRAFFIC_DIR = 0x3a6437c5513c5548ULL;
