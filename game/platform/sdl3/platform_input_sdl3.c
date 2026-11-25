@@ -156,6 +156,8 @@ bool platform_poll_events(void)
         }
         input_script_log_window_event(event.type);
         input_script_watch_key_event(&event);
+        if (event.type == SDL_EVENT_WINDOW_DISPLAY_CHANGED || event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN || event.type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN)
+            sdl3_vsync_display_changed();   /* port: the display's refresh may be another one now */
         if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
             if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear(), mouse_latch = 0, mouse_latch_seen = false, input_script_watch_reset();
             sdl3_window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;

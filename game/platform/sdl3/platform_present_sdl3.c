@@ -11,6 +11,7 @@
 #include "platform/sdl3/input_script.h"
 #include "platform/sdl3/input_shared.h"
 #include "platform/sdl3/pad_keys.h"
+#include "game/platform/vsync_plan.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -60,9 +61,74 @@ static uint64_t pace_step(uint64_t next, uint64_t now, uint64_t period, uint64_t
     return next;
 }
 
+/* port: the renderer's vsync as the pace. Where it can run (Windows by default; TNFS_VSYNC=1 asks for it elsewhere, 0 never) the present blocks until the display's next
+ * vblank, so the software sleep that followed it would only beat against the display's clock (a frame now and then shown twice, the next one dropped). The swap interval
+ * is the one that makes the display's refresh show the game's rate (vsync_plan_interval); when none does (144 Hz at 60), when the renderer refuses, or on the software
+ * renderer / dummy driver (no vblank to wait for) the sleep paces as before. */
+static int vsync_applied;            /* the interval the renderer has now (0: off) */
+static int vsync_wanted;             /* the interval the wait that ran last asks for */
+static bool vsync_refused, vsync_display_stale = true, presented_since_wait;
+static double vsync_display_hz;
+
+static bool vsync_allowed(void)
+{
+    static int allowed = -1;
+    if (allowed < 0) {
+        const char *env = SDL_getenv("TNFS_VSYNC");
+#ifdef _WIN32
+        allowed = env == NULL || env[0] != '0';
+#else
+        allowed = env != NULL && env[0] == '1';
+#endif
+        const char *driver = SDL_GetCurrentVideoDriver(), *renderer = sdl3_renderer != NULL ? SDL_GetRendererName(sdl3_renderer) : NULL;
+        if (driver == NULL || SDL_strcmp(driver, "dummy") == 0 || renderer == NULL || SDL_strcmp(renderer, "software") == 0) allowed = 0;
+    }
+    return allowed > 0 && !vsync_refused;
+}
+
+/* the display's refresh changed (the window moved to another screen, full screen on or off): read it again at the next present */
+void sdl3_vsync_display_changed(void) { vsync_display_stale = true; }
+
+static void vsync_ask(int target_hz)
+{
+    if (!vsync_allowed()) {
+        vsync_wanted = 0;
+        return;
+    }
+    if (vsync_display_stale && sdl3_window != NULL) {
+        const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(sdl3_window));
+        vsync_display_hz = mode != NULL ? (double)mode->refresh_rate : 0.0;
+        vsync_display_stale = false;
+    }
+    vsync_wanted = vsync_plan_interval(vsync_display_hz, target_hz);
+}
+
+static void vsync_apply(void)
+{
+    if (vsync_wanted == vsync_applied) return;
+    if (!SDL_SetRenderVSync(sdl3_renderer, vsync_wanted > 0 ? vsync_wanted : SDL_RENDERER_VSYNC_DISABLED) && vsync_wanted > 0) {
+        port_log("platform: vsync %d refused (%s): the software pace stays\n", vsync_wanted, SDL_GetError());
+        vsync_refused = true, vsync_wanted = 0;
+    } else {
+        port_log("platform: vsync %s (display %.2f Hz)\n", vsync_wanted > 0 ? "on, every vblank counted" : "off", vsync_display_hz);
+    }
+    vsync_applied = vsync_wanted;
+}
+
+/* after a present that blocked on the vblank: the pace has been kept, so the sleep is skipped and its clock restarts from here */
+static bool vsync_kept_the_pace(uint64_t *next_ns)
+{
+    if (vsync_applied <= 0 || !presented_since_wait) return false;
+    presented_since_wait = false;
+    *next_ns = 0;
+    return true;
+}
+
 void platform_wait_vblank(void)
 {
     uint64_t wait_ns;
+    vsync_ask((int)(SDL_NS_PER_SECOND / platform_refresh_period_ns()));
+    if (vsync_kept_the_pace(&sdl3_next_vblank_ns)) return;
     sdl3_next_vblank_ns = pace_step(sdl3_next_vblank_ns, SDL_GetTicksNS(), platform_refresh_period_ns(), &wait_ns);
     if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
 }
@@ -75,6 +141,8 @@ uint64_t platform_frontend_period_ns(void)
 void platform_wait_frontend_frame(void)
 {
     uint64_t wait_ns;
+    vsync_ask(PLATFORM_FRONTEND_HZ);
+    if (vsync_kept_the_pace(&next_frontend_ns)) return;
     next_frontend_ns = pace_step(next_frontend_ns, SDL_GetTicksNS(), platform_frontend_period_ns(), &wait_ns);
     if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
 }
@@ -196,7 +264,9 @@ static void present_frame(const uint8_t *pixels, const PlatformColor palette[256
     }
     SDL_RenderClear(sdl3_renderer);
     SDL_RenderTexture(sdl3_renderer, sdl3_texture, NULL, NULL);
+    vsync_apply();
     SDL_RenderPresent(sdl3_renderer);
+    presented_since_wait = true;
 }
 
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256])

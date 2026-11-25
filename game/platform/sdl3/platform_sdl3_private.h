@@ -22,6 +22,7 @@ extern int sdl3_capture_every;
 extern unsigned sdl3_capture_from;
 extern unsigned sdl3_presented_frames;
 extern uint64_t sdl3_next_vblank_ns;
+void sdl3_vsync_display_changed(void);   /* the display's refresh may have changed: platform_present_sdl3.c asks again */
 extern bool sdl3_window_focused;   /* the window has the keyboard focus: the system cursor is hidden over it then */
 extern char sdl3_user_override[1024];   /* --user DIR */
 extern SDL_AudioStream *sdl3_audio;     /* the open audio stream (platform_audio_sdl3.c), closed by platform_shutdown */
