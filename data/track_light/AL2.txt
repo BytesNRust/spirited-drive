@@ -1,2 +1,17 @@
 # tnfs track light 2
 track AL2
+tunnel 724 812
+
+time B
+  tunnel_look 724 812 190 ffffff lamps 90
+
+time A
+  tunnel_look 724 812 100 ffffff lamps 90
+
+time C
+  tunnel_look 724 812 100 ffffff lamps 90
+  brightness 720 724 55
+  brightness 750 814 150
+
+time N
+  tunnel_look 724 812 50 ffffff lamps 90

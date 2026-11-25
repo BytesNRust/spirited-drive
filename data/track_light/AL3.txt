@@ -1,21 +1,24 @@
 # tnfs track light 2
 track AL3
-tunnel 616 639
+tunnel 616 639 gradient 3
 tunnel 1080 1119
-tunnel 1240 1303
-tunnel 1812 1851
 snow 1
 snow_map 3 36
 snow_map 4 37
+tunnel 1240 1303
+tunnel 1488 1560
+tunnel 1680 1692 gradient 0
+tunnel 1812 1851
 
 time A
-  tunnel_look 67.333335 1/0.8/0.15
+  tunnel_look 67.333335 ffffff lamps 90 reach 1
 
 time B
-  tunnel_look 100 1/0.8/0.15
+  tunnel_look 100 ffffff lamps 90 reach 1
+  tunnel_look 616 639 20 lamps 10
 
 time C
-  tunnel_look 63.000005 1/0.8/0.15
+  tunnel_look 63.000005 ffffff lamps 90 reach 1
 
 time N
-  tunnel_look 60 1/0.8/0.15
+  tunnel_look 60 ffffff lamps 90 reach 1
