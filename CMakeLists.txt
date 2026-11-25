@@ -828,6 +828,7 @@ add_executable(tnfs
     game/platform/sdl3/platform_joy_sdl3.c
     game/platform/sdl3/update_sdl3.c
     game/platform/sdl3/process_pipe.c
+    game/platform/window_fit.c
     game/platform/sdl3/win_console.c
 )
 if(NOT TNFS_RELEASE)
@@ -1411,6 +1412,11 @@ foreach(name first_profile car_livery_unlamp track_light_mirror port_old_files c
     target_include_directories(test_process_pipe PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests)
     target_compile_options(test_process_pipe PRIVATE ${TNFS_WARNINGS})
     add_test(NAME process_pipe COMMAND test_process_pipe)
+    # the windowed window kept inside the display's usable area after fullscreen (pure arithmetic)
+    add_executable(test_window_fit tests/test_window_fit.c game/platform/window_fit.c)
+    target_link_libraries(test_window_fit PRIVATE tnfs_core)
+    target_compile_options(test_window_fit PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME window_fit COMMAND test_window_fit)
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_gallery_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

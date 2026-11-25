@@ -3,6 +3,7 @@
 
 #include "formats/modpath.h"
 #include "formats/validate.h"
+#include "game/platform/window_fit.h"
 #include "game/sys/key_latch.h"
 #include "game/sys/data_path.h"
 #include "game/sys/file_url.h"
@@ -131,6 +132,26 @@ bool platform_init(const PlatformConfig *config)
     return true;
 }
 
+/* port (window_fit): the windowed window in the framebuffer's shape, as tall as it is now when that fits the display's usable area (the desktop less the taskbar) with its title bar and borders, and inside it */
+static void fit_windowed_window(void)
+{
+    int w = 0, h = 0, x = 0, y = 0;
+    if (!SDL_GetWindowSize(sdl3_window, &w, &h) || h <= 0) return;
+    SDL_GetWindowPosition(sdl3_window, &x, &y);
+    SDL_Rect usable;
+    WindowBorders borders = { 0, 0, 0, 0 };
+    const SDL_DisplayID display = SDL_GetDisplayForWindow(sdl3_window);
+    if (display == 0 || !SDL_GetDisplayUsableBounds(display, &usable)) {
+        SDL_SetWindowSize(sdl3_window, h * sdl3_fb_width / sdl3_fb_height, h);   /* no area to keep inside: the shape only */
+        return;
+    }
+    (void)SDL_GetWindowBordersSize(sdl3_window, &borders.top, &borders.left, &borders.bottom, &borders.right);   /* none known: 0 */
+    const WindowRect area = { usable.x, usable.y, usable.w, usable.h };
+    const WindowRect fit = window_fit(sdl3_fb_width, sdl3_fb_height, h, x, y, &area, &borders);
+    SDL_SetWindowSize(sdl3_window, fit.w, fit.h);
+    if (fit.x != x || fit.y != y) SDL_SetWindowPosition(sdl3_window, fit.x, fit.y);
+}
+
 bool platform_reconfigure(const PlatformConfig *config)
 {
     if (sdl3_window == NULL || sdl3_renderer == NULL || config->width <= 0 || config->height <= 0) return false;
@@ -151,11 +172,10 @@ bool platform_reconfigure(const PlatformConfig *config)
     refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
     sdl3_next_vblank_ns = 0;
     SDL_SetWindowFullscreen(sdl3_window, config->fullscreen != 0);
+    /* the change is asynchronous (Windows, macOS): sized before it ends, a window leaving fullscreen is still the screen's size and comes out taller than the screen's usable part */
+    if (!SDL_SyncWindow(sdl3_window)) port_log("platform: the window did not finish its change of fullscreen in time: %s\n", SDL_GetError());
     sdl3_cursor_apply();   /* the mode change may have brought the system's back */
-    if (config->fullscreen == 0) {
-        int w = 0, h = 0;
-        if (SDL_GetWindowSize(sdl3_window, &w, &h) && h > 0) SDL_SetWindowSize(sdl3_window, h * sdl3_fb_width / sdl3_fb_height, h);
-    }
+    if (config->fullscreen == 0) fit_windowed_window();
     SDL_SetRenderLogicalPresentation(sdl3_renderer, sdl3_fb_width, sdl3_fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
