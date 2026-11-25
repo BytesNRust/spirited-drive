@@ -2642,6 +2642,9 @@ set_tests_properties(package_game_only PROPERTIES TIMEOUT 120)
 # a release tag names the version the source says (tools/check_tag_version.sh, the first step after the checkout of both release workflows)
 add_test(NAME check_tag_version COMMAND sh ${CMAKE_SOURCE_DIR}/tests/check_tag_version.sh ${CMAKE_SOURCE_DIR})
 set_tests_properties(check_tag_version PROPERTIES TIMEOUT 60)
+# a release does not go out with the notes' draft markers (tools/check_release_notes.sh, the next step after the tag check)
+add_test(NAME check_release_notes COMMAND sh ${CMAKE_SOURCE_DIR}/tests/check_release_notes.sh ${CMAKE_SOURCE_DIR})
+set_tests_properties(check_release_notes PROPERTIES TIMEOUT 60)
 include(fuzz/fuzz.cmake)
 
 # port: every test, whenever it was registered above, gets a scratch pref dir, so a test that starts tnfs with no --user (or forgets one) writes in the build, never in the player's own

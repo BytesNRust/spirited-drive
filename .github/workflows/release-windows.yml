@@ -48,6 +48,9 @@ jobs:
       - name: Check the tag matches the project's version (before the long build)
         run: tools/check_tag_version.sh "$GITHUB_REF_NAME"
 
+      - name: Check the release notes are not a draft (before the long build)
+        run: tools/check_release_notes.sh RELEASE_NOTES.md
+
       - name: Build the game (release)
         run: |
           cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF

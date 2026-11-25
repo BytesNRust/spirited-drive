@@ -39,6 +39,9 @@ jobs:
       - name: Check the tag matches the project's version (before the long build)
         run: tools/check_tag_version.sh "$GITHUB_REF_NAME"
 
+      - name: Check the release notes are not a draft (before the long build)
+        run: tools/check_release_notes.sh RELEASE_NOTES.md
+
       - name: Install tools
         run: brew install ninja
 
