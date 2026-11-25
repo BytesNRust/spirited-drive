@@ -3,7 +3,7 @@
 #  - the workflows: Release builds with -DTNFS_EDITOR=OFF and packs with GAME_ONLY=1; Build Test has a `studio` input, off by default, that decides the editor's build and the package (and nothing else does);
 #  - tools/package_macos.sh honours GAME_ONLY=1 (the game only, whatever the build holds);
 #  - tools/check_dmg_contents.sh (the workflows run it on the DMG): a DMG with the game only passes with STUDIO 0 and fails with 1; one with Studio too passes with 1 and fails with 0; a stray file fails.
-# usage: tests/package_game_only.sh <repo root>      Exit 77 (skipped) where there is no hdiutil (the DMG part).
+# usage: tests/package_game_only.sh <repo root>      Where there is no hdiutil the DMG part is skipped (exit 0, only the workflow checks ran).
 set -u
 repo=$1
 fails=0

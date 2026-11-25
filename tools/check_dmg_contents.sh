@@ -8,7 +8,7 @@ studio=$2
 mnt=$(mktemp -d)
 trap 'hdiutil detach -quiet "$mnt" >/dev/null 2>&1 || true; rmdir "$mnt" 2>/dev/null || true' EXIT
 hdiutil attach -quiet -nobrowse -readonly -mountpoint "$mnt" "$dmg"
-found=$(ls -1 "$mnt" | sort)
+found=$(ls -1 "$mnt" | LC_ALL=C sort)
 want="Applications
 Spirited Drive.app"
 [ "$studio" != 1 ] || want="Applications
