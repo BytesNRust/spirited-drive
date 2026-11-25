@@ -707,7 +707,8 @@ set(TNFS_SDL3_PLATFORM
     game/platform/sdl3/platform_drop_sdl3.c
     game/platform/sdl3/platform_dialog_sdl3.c
     game/platform/sdl3/platform_present_sdl3.c
-    game/platform/sdl3/platform_pool_sdl3.c)   # platform_sdl3.c split by responsibility; the tests that link the platform list them all
+    game/platform/sdl3/platform_pool_sdl3.c
+    game/platform/window_fit.c)   # platform_sdl3.c split by responsibility; the tests that link the platform list them all
 add_executable(tnfs
     game/main.c
     game/frontend/config.c
@@ -828,7 +829,6 @@ add_executable(tnfs
     game/platform/sdl3/platform_joy_sdl3.c
     game/platform/sdl3/update_sdl3.c
     game/platform/sdl3/process_pipe.c
-    game/platform/window_fit.c
     game/platform/sdl3/win_console.c
 )
 if(NOT TNFS_RELEASE)
