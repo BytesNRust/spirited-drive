@@ -2,6 +2,7 @@
 # Windows, to measure (plan W1): builds everything and runs every test with MSYS2's UCRT64 gcc, and reports what fails
 # instead of stopping at the first thing: the build keeps going past a broken target (ninja -k 0) and ctest runs all.
 # The job summary lists the failing build targets and the failing tests; the logs go up as an artifact.
+# A compiler warning fails the job, as on macOS (CMakeLists.txt: TNFS_WARNINGS on Windows leaves out four gcc-only checks).
 # Only on the ci/windows-build branch and by hand (Actions > Windows > Run workflow) until it is in the CI proper.
 # Studio (the editor, TNFS_EDITOR) is not built here: it is not part of the Windows version.
 # Tests that need the CD's data skip themselves (there is no game data in CI).
@@ -96,7 +97,13 @@ jobs:
           name: windows-ucrt64-logs
           path: out/
           if-no-files-found: warn
-      - name: Fail the job when anything failed
+      - name: No compiler warnings
+        if: always()
+        run: |
+          if grep 'warning:' out/build.log | sort -u | grep .; then
+            echo "::error::the build has compiler warnings"; exit 1
+          fi
+      - name: Fail the job when the build or the tests failed
         if: steps.build.outcome != 'success' || steps.test.outcome != 'success'
         run: |
           echo "build: ${{ steps.build.outcome }}, tests: ${{ steps.test.outcome }} (the list is in the summary)"

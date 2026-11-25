@@ -71,6 +71,9 @@ if(MSVC)
     set(TNFS_WARNINGS /W4)
 else()
     set(TNFS_WARNINGS -Wall -Wextra -Wpedantic)
+    if(WIN32)   # MinGW's gcc: four checks clang (the macOS gate) does not have or reads differently, and that flag correct code: its printf attribute is the msvcrt's (%zu), its snprintf truncation guesses, its pointer-to-array qualifier rule
+        list(APPEND TNFS_WARNINGS -Wno-format -Wno-format-extra-args -Wno-format-truncation -Wno-pedantic)
+    endif()
 endif()
 
 # Platform-independent game code: file formats today, recovered game logic later.
