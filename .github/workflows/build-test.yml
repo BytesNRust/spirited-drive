@@ -3,9 +3,9 @@
 # DMG, from the branch you pick, as a downloadable artifact. Nothing is released or tagged. The version is the usual
 # <version>-dev+<hash>, so the game's update check stays off in these builds. The DMG holds the game only (Spirited Drive.app);
 # the `studio` input adds Spirited Drive Studio.app for the owner's internal test apps.
-# update_test: the UPDATE NOTICE test. The build is the release configuration but stamps an OLD version (+updatetest), so the game's real update check,
+# update_test: the UPDATE NOTICE test. The build is the release configuration but stamps an OLD version (-updatetest), so the game's real update check,
 # which release builds do, runs against the live latest release and must show the notice; a step runs that check headless and fails if it does not say
-# "newer version available". The artifact is named UPDATE-TEST and its version reads 0.0.1+updatetest: not for players. A release workflow never sets it.
+# "newer version available". The artifact is named UPDATE-TEST and its version reads 0.0.1-updatetest: not for players. A release workflow never sets it.
 name: Build Test
 
 on:

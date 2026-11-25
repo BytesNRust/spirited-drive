@@ -21,7 +21,7 @@ endif()
 if(TNFS_VERSION_OVERRIDE)
     set(TNFS_VERSION "${TNFS_VERSION_OVERRIDE}")
 endif()
-# The update test (Build Test's update_test, the update-check workflow): a RELEASE configuration that stamps an OLD version (+updatetest), so that the
+# The update test (Build Test's update_test, the update-check workflow): a RELEASE configuration that stamps an OLD version (0.0.1-updatetest: a pre-release the API takes as it is, so its checks and events carry a version the totals can filter), so that the
 # real update check, which release builds do, finds the live latest release newer and shows the notice. Never set by a release workflow, and never on a
 # tagged commit (a tag is a release: its version is the tag's). TNFS_UPDATE_TEST also lets the game read TNFS_UPDATE_API_BASE (the tests' own server).
 set(TNFS_UPDATE_TEST_VERSION "" CACHE STRING "update test builds only: the old version a release configuration stamps, MAJOR.MINOR.PATCH")
@@ -35,7 +35,7 @@ if(TNFS_UPDATE_TEST_VERSION)
     if(NOT TNFS_UPDATE_TEST_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
         message(FATAL_ERROR "TNFS_UPDATE_TEST_VERSION '${TNFS_UPDATE_TEST_VERSION}' is not MAJOR.MINOR.PATCH")
     endif()
-    set(TNFS_VERSION "${TNFS_UPDATE_TEST_VERSION}+updatetest")
+    set(TNFS_VERSION "${TNFS_UPDATE_TEST_VERSION}-updatetest")
     add_compile_definitions(TNFS_UPDATE_TEST=1)
     message(STATUS "UPDATE TEST BUILD: stamped ${TNFS_VERSION}, not for release")
 endif()

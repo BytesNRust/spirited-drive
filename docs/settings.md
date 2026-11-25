@@ -158,6 +158,8 @@ Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as
 | `no_movies` | 0 | 0 | page 3: Intro video (inverted) | | not set |
 | `update_check` | 1 | not applicable | page 3: Updates and anonymous stats | the update check and the three anonymous counters; each sends the version and the system (macOS, Windows, Linux), the API works out the country from the connection and keeps only daily totals | not set |
 
+The update check asks through the system's own `curl`, which follows the proxy variables of the environment (`https_proxy`, `HTTPS_PROXY`, `NO_PROXY`) and nothing else: a proxy set in the system's network settings or found by WPAD / an auto-configuration script is not used. Behind one with no variable set the question gets no answer, and the game stays silent: no notice and no error. `tnfs --update-check` runs the check once and says what it found (the log has the reason too).
+
 ### Keys with no EXTRAS row
 
 | key | default | exe | where it is set | note | Stock / Restored / Restomod |

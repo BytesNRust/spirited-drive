@@ -17,7 +17,7 @@ import time
 
 NEWER = "update check: newer version available: "
 NONE = "update check: no newer version"
-OLD = "0.0.1"
+OLD = "0.0.1-updatetest"   # what an update test build stamps (CMakeLists.txt): a pre-release, so 0.0.1 itself is newer than it
 failures = []
 
 
@@ -104,7 +104,7 @@ def local(exe):
     check(any("/latest?v=" + OLD + "&p=" in p for p in Answer.seen), "the request was not GET /latest?v=%s&p=...: %s" % (OLD, Answer.seen))
 
     for what, status, body, ctype in (
-        ("an up-to-date latest", 200, b'{"latest":"0.0.1"}', "application/json"),
+        ("an up-to-date latest (the same version)", 200, b'{"latest":"0.0.1-updatetest"}', "application/json"),
         ("an older latest", 200, b'{"latest":"0.0.0"}', "application/json"),
         ("{\"latest\":null} (503, before the first release)", 503, b'{"latest":null}', "application/json"),
         ("a 403 rate limit", 403, b'{"message":"API rate limit exceeded for 1.2.3.4","documentation_url":"https://docs.github.com"}', "application/json"),
@@ -147,9 +147,13 @@ def main():
     if len(sys.argv) != 3 or sys.argv[1] not in ("live", "local") or not os.path.isfile(sys.argv[2]):
         print(__doc__, file=sys.stderr)
         return 2
-    rc, out, _ = run(sys.argv[2], {}, 10)   # the build must be an update test one: it stamps +updatetest
-    if "+updatetest" not in out:
-        print("this is not an update test build (no +updatetest in its version): " + out.strip(), file=sys.stderr)
+    # the build must be an update test one: it stamps -updatetest. Asked at a closed port: this look must not count as a start in the live API
+    rc, out, _ = run(sys.argv[2], {"TNFS_UPDATE_API_BASE": "http://127.0.0.1:%d/spirited-drive/v1" % free_port()}, 30)
+    if rc is None:
+        print("timeout: the executable did not end in 30 s asking its version", file=sys.stderr)
+        return 2
+    if "-updatetest" not in out:
+        print("this is not an update test build (no -updatetest in its version): " + out.strip(), file=sys.stderr)
         return 2
     (live if sys.argv[1] == "live" else local)(sys.argv[2])
     return 1 if failures else 0
