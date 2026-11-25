@@ -1593,6 +1593,12 @@ static void check_installed_mod(void)
     app_begin(a, "", user, NULL);
     CHECK(!app_open_car(a, car) && strstr(a->status, "installed mods are not edited here") != NULL && strstr(a->open_error, "zzcar") != NULL);
     CHECK(!app_open_project(a, track) && strstr(a->status, "installed mods are not edited here") != NULL);
+    /* a game original's working copy opens through Edit tweak only: in its tweak, or an older workspace's cars/<kit> of a game car */
+    CHECK(!app_open_car(a, "/w/tweaks/wagon-tweak/studio/project") && strstr(a->status, "open it with Edit tweak") != NULL);
+    CHECK(!app_open_car(a, "/w/cars/wagon") && strstr(a->open_error, "open it with Edit tweak") != NULL);
+    CHECK(!app_open_project(a, "/w/tweaks/al1-tweak/studio/project") && strstr(a->status, "open it with Edit tweak") != NULL);
+    CHECK(!app_open_car(a, "/w/cars/mymod") && strstr(a->status, "open it with Edit tweak") == NULL);   /* an own car mod is not one (it is no car there: another refusal) */
+    CHECK(!car_race_original_kit("/w/cars/mymod") && car_race_original_kit("/w/cars/Wagon") && !car_race_original_kit("/w/elsewhere/wagon") && !original_is_home("/w/tweaks/x/project") && original_is_home("/w/tweaks/x/studio/project") && !original_is_home("/w/cars/x/studio/project"));
     CHECK(!app_open_any(a, track, "", user, NULL) && strstr(a->status, "installed mods are not edited here") != NULL);   /* the command line's folder: no project.ini, no trace.json */
     app_free(a);
     CHECK(!app_open_any(a, car, "", user, NULL) && strstr(a->status, "installed mods are not edited here") != NULL);

@@ -228,7 +228,7 @@ int app_export_car(App *a, const char *parent)
         return 0;
     }
     a->export_dialog = 0;
-    if (!app_open_car(a, dir)) return 0;   /* it says why in open_error, and the files stay where they were made */
+    if (!app_open_tweak_car(a, dir)) return 0;   /* an export is the owner's own copy, wherever it was asked for; it says why in open_error, and the files stay where they were made */
     snprintf(a->status, sizeof a->status, "exported %s into %s: made from the game's files, for your own use, do not share", car->label, dir);
     char cut[256];
     if (car_export_cut_names(a->export_pick, cut, sizeof cut) > 0) {   // the card cuts a long colour name: say so, the person would not see it
