@@ -10,7 +10,8 @@ static void walk(DocNode *n, int depth)
 {
     if (!doc_is_container(n)) {
         size_t len = 0;
-        fuzz_touch(doc_bytes(n, &len), len);
+        const uint8_t *const bytes = doc_bytes(n, &len);   /* the length is read after the call that sets it */
+        fuzz_touch(bytes, len);
         return;
     }
     if (depth >= DEPTH) return;

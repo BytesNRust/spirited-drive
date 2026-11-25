@@ -34,6 +34,8 @@ const ConfigDat *config_loaded(void)
     return loaded ? &config : NULL;
 }
 
+/* The size is read after the call that sets it: `parse_file(read(&size), size)` leaves the order of the two to the compiler, and the Windows build's
+ * (gcc) read the size first, so every saved config.dat was refused as 0 bytes and the player's settings never came back. */
 static int parse_file(uint8_t *data, size_t size, const char *origin)
 {
     if (data == NULL) return 0;
@@ -47,21 +49,25 @@ static int parse_file(uint8_t *data, size_t size, const char *origin)
 static int load_from_cd(void)
 {
     char path[PATH_MAX_LEN], upper[PATH_MAX_LEN];
-    size_t size;
+    size_t size = 0;
     snprintf(path, sizeof path, "%s%s", resource_dir(PATH_CONFIG), CONFIG_NAME);
-    if (parse_file(platform_read_file(path, &size), size, path)) return 1;
+    uint8_t *const lower_data = platform_read_file(path, &size);
+    if (parse_file(lower_data, size, path)) return 1;
     snprintf(upper, sizeof upper, "%s", path);
     for (char *c = upper; *c; c++) {
         if (*c >= 'a' && *c <= 'z') *c = (char)(*c - 'a' + 'A');
     }
-    return parse_file(platform_read_file(upper, &size), size, upper);
+    size = 0;
+    uint8_t *const upper_data = platform_read_file(upper, &size);
+    return parse_file(upper_data, size, upper);
 }
 
 /* 0042a010 */
 int config_load(void)
 {
     size_t size = 0;
-    const int saved = parse_file(platform_read_user_file(CONFIG_NAME, &size), size, "saved config.dat");
+    uint8_t *const saved_data = platform_read_user_file(CONFIG_NAME, &size);
+    const int saved = parse_file(saved_data, size, "saved config.dat");
     const int found = saved || load_from_cd();
     name_saved = saved;
     if (!found) config_dat_defaults(&config, resource_german());
