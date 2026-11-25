@@ -65,8 +65,7 @@ a file or of the generator that changes a light shows there; one that is meant i
 ## The Studio
 
 The **Track light** window of `tnfs-track-editor` edits these files (editor/light_track.h is its model: a file that was not changed is written back byte for byte, and a change the game would refuse is not
-made, with its reason in red). Open it from the main menu: Tracks > **Open original track...** (a list of the workspace's 16 originals; **Add originals** / **Update originals** puts the game's tracks and their light
-file in the workspace first); File > Open original track... is the same list. (`--ask light --light-dir DIR` opens the window on a plain folder of light files, with a **Light folder** / **Choose...** row
+made, with its reason in red). Open it from the main menu: **Edit tweak...** > the **Track** tab > a track's row > **Open** (the list of the game's 16 tracks; Open puts the track in the workspace from the game's files the first time and makes its tweak, see `originals-workflow.md`). (`--ask light --light-dir DIR` opens the window on a plain folder of light files, with a **Light folder** / **Choose...** row
 instead of the original track's.) What the window has, top to bottom:
 
 * **Track** and the four moments **Dawn / Day / Dusk / Night**; changing the track with unsaved changes is refused ("Save or Revert before another track"). **View** (Bumper, Dash, Chase near/mid/far, High) and **HUD**
@@ -91,8 +90,8 @@ instead of the original track's.) What the window has, top to bottom:
   without asking: when a moment has the same line with another value a window asks **Replace** (changes those and adds the rest), **Skip** (only adds) or **Cancel**. A line that shares nodes with another of that moment
   is added all the same (the file's order is the order the game applies them in, so the result may not be what you expect: the detail says so). If the game's limits (64 lines a moment, 16 tones, 2048 lamps) would be passed at
   any moment, nothing is copied and the red line says which. The line beside Save says what was done, hour by hour in its hover, and the copied lines are tinted until the next change.
-* **Save** and **Revert** (the file as it was read or saved), and on an original track **Copy to game repo** (the same window as File > Copy to game repo: it lists what would change in the game repo's `data/`,
-  the light file and the changed mask PNGs, and writes only on Copy; the repo's folder is set once in File > Game repo folder...; Save first).
+* **Save** and **Revert** (the file as it was read or saved), and, for an original track, the **Tweak** panel's **Apply to game repo...** (it lists what would change in the game repo's `data/`, the light file and the changed mask PNGs, and writes only on Apply;
+  the repo's folder is asked the first time and kept in File > Settings...; Save first).
 * **Light compare** (its own tab): **Off**, **Before** (the file on disk beside the edit) or **Four times** (dawn, day, dusk and night at the node).
 
 The live mode `light_edit=1` in `port.cfg` (or `TNFS_LIGHT_EDIT=1`) shows in a race the node the car is at and the values there; **F10** holds the race where it is, and saving the light file in the folder given as

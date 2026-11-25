@@ -124,13 +124,13 @@ race reads too). A new project is born just long enough (see above): shortening 
 ## Start screen, cars, and projects: New, Open, recent, and unsaved changes
 
 Studio is **two rooms behind one hub**: Cars and Tracks (the Track light window is in Tracks). It has one project open, a car in the Cars room or a track in
-the Tracks room. With nothing to reopen it shows the **main menu**, the hub, with a door for each room side by side: **Cars** (Open car..., Export original car...)
-and **Tracks** (New track..., Open track..., Track light...). Under each door are the projects of the workspace of that kind (if one is set) and **Recent** of that
+the Tracks room. With nothing to reopen it shows the **main menu**, the hub, with three doors side by side: **Edit car mod** (New car..., Open car...), **Edit track mod** (New track..., Open track..., New track from an original...)
+and **Edit tweak** (Edit tweak...: the game's own cars and tracks, see below). Under each door are the projects of the workspace of that kind (if one is set) and **Recent** of that
 kind (up to eight in all; a folder that is gone is greyed). A normal run with no folder given reopens the project it had last. Each kind keeps its own docked layout
 in the layout file.
 
-Inside a room, the **File** menu holds that room's actions only, New before Open: in Tracks New track..., Open track..., Track light..., Open recent (tracks);
-in Cars Open car..., Export original car..., Open recent (cars); in both Save, **Main menu** (Cmd+W on a Mac, Ctrl+W elsewhere) and Quit. Main menu
+Inside a room, the **File** menu holds that room's actions only, New before Open: in Tracks New track..., Open track..., New track from an original..., Open recent (tracks);
+in Cars New car..., Open car..., Open recent (cars); **Settings...** in both (the game, the workspace and the game repo's folder); in both Save, **Main menu** (Cmd+W on a Mac, Ctrl+W elsewhere) and Quit. Main menu
 closes the project and goes back to the hub, asking once about unsaved changes; the recent list and the workspace stay. The workspace is chosen on the hub only (its File menu and the row at the top, which shows the whole path, cut in the middle when it is long, with all of it on hover). **Window** lists the room's panels, each a
 toggle: ticked when the panel is open, a click closes it or opens it again where it was (kept between runs; Reset layout opens them all).
 
@@ -157,7 +157,7 @@ line says to raise Version in the Car tab (and to which).
 The same folder on the command line opens as a track when it has a `project.ini`, as a car
 when it holds a car's `mod.ini`, else as a new track project.
 
-**Export original car** (File menu and the start screen) makes a project of your own from one of the game's cars, to adjust its masks. It reads the player's own
+**Edit tweak** > **Car** > **Open** (and the headless `--export-car`) makes a project from one of the game's cars, to adjust its masks, and its tweak folder (see `originals-workflow.md`). It reads the player's own
 copy of the game's files (`gamedata/` in the player folder: `--user`, else the system's) for the car files, and the game's own `data/` (the app's
 `Contents/Resources/data`, or `data/` beside a build tree's program) for the masks; `--cd DIR` and `--port-data DIR` name either. The window lists the cars; one
 the game has no masks for (probe) or no files for is greyed, with the reason as its tooltip. After the car, a folder is asked for and the project is made in it,
@@ -177,7 +177,7 @@ game's source tree (`data/car_masks/<folder>/`): the way to change a game mask i
 files: for your own use, do not share" and has `redistributable=0`. `--export-car FOLDER --into PARENT` does it before the first frame (headless), `--ask export`
 shows the window and `--pick FOLDER` chooses a car in it.
 
-**Test drive and In-game photo** (the Drive window, for a project of one of the game's own cars: the eight from Export original car, and the traffic and police ones).
+**Test drive and In-game photo** (the Drive window, for a project of one of the game's own cars: the eight from Edit tweak, and the traffic and police ones).
 Both run the game (the one Studio found; Locate game if it is not there) on a scratch player folder made for the run (`studio-race-XXXXXX` in the temporary folder,
 Restomod whole, its look keys written out, no extra liveries, removed when the run ends): the player's own folder and the installed game are never touched. The project's masks are
 in front of the game's own (`TNFS_CAR_MASKS=<project>/car_masks`, and `TNFS_DASH_MASKS` for a car you drive); the person's own `TNFS_*` variables are dropped.
@@ -207,10 +207,9 @@ use what is on screen, not the file, as before.
 
 ## Original tracks: light and reflective masks
 
-The game's 16 tracks are projects of the workspace, put there once by the migration (the **Add originals** button on the main menu, with `--port-data DIR` for the game repo's `data/` and `--art-dir DIR` for the owner's
-mask PSDs; headless, `--steps add-originals`). Each is `<workspace>/tracks/<TRACK>/`: `original.ini` (what marks it), `light/` (the track's light files, the layout the Track light window works on), `art-source/masks/` (the
-owner's mask PSDs, copied, never moved; backups with a second dot in the name are skipped) and `art-generated/track_masks/`. Nothing that is already there is overwritten. File > **Open original track...**
-(Tracks room, or the button on the main menu) lists the ones in the workspace.
+The game's 16 tracks are projects of the workspace, put there when their tweak is first opened (**Edit tweak...** > **Track** > **Open**, from the game's `data/`, found through File > Settings... or `--port-data DIR`, and `--art-dir DIR` for the owner's
+mask PSDs; headless, `--steps add-originals` or `tweak-open-row:<TRACK>`; an older workspace's folder is brought up to date by Open, what you edited is never touched). Each is `<workspace>/tracks/<TRACK>/`: `original.ini` (what marks it), `light/` (the track's light files, the layout the Track light window works on), `art-source/masks/` (the
+owner's mask PSDs, copied, never moved; backups with a second dot in the name are skipped) and `art-generated/track_masks/`. Nothing that is already there is overwritten. The **Track** tab of **Edit tweak** lists all 16.
 
 An original track opens in the Track light window on its own `light/` folder with the track fixed (its time of day still changes), and a **Track masks** panel beside the comparison: a row for each texture with a mask, its
 size, the texels it marks and its state, and the picked mask over the game's texture (read from the game's files; without them the mask is shown alone). Above the list: **Show PSD folder** and **Show masks folder** (in the Finder), **Update masks from PSD** (makes again the PNGs of the PSDs newer than them; a PNG edited by hand is asked about first: Replace / Keep / Cancel) and **Re-scan** (reads the folders again). Below it, **Changes from the game's masks** lists the PNGs that differ from the game repo's `data/track_masks` (when the repo's data/ is set), with **Copy list of changed files to clipboard**. The PSDs make the PNGs the game reads, in C (the rule of
@@ -223,10 +222,10 @@ Textures whose PSD has no mask painted and no PNG (all of TR2, TR5 and TR7 at fi
 The **photo** of an original track shows its workspace's masks: the PNGs of `art-generated/track_masks` go in front of the game's own (`TNFS_TRACK_MASKS`, a copy in the photo's scratch folder), so a retouched PSD shows in the
 next photo (and in the comparison pictures).
 
-**Copy to game repo** (File menu of an original track) shows only when the game repo's `data/` is given: `--port-data DIR` for this run, or `repo data<TAB><path to the repo>/data` in `workspace.txt` (beside the recent
-list; `app_repo_data_set` writes it), nothing on the hub and no dialog. It lists what would change in that `data/` (each light file by lines, each mask PNG by texels gained and lost, compared as marks) and copies the changed and new ones into
-`data/track_light`, `data/track` and `data/track_masks/<TRACK>/`. It copies only; it never commits or pushes. `tools/track_mask_fill_psd.py <workspace>/tracks data/track_masks` is the one-time migration step for PSDs whose mask
-layer is empty: it fills the layer of the workspace copy from the PNG the game uses today (other layers byte for byte); `--steps check-originals` compares every original's generated PNGs with `data/track_masks`. Steps: `add-originals`,
+**Apply to game repo...** (the **Tweak** panel of an original track or car) needs the game repo's `data/`: File > Settings... (**Game repo** > Choose...; kept as `repo data<TAB><path to the repo>/data` in `workspace.txt`, beside the recent
+list), or `--port-data DIR` for one run; the first Apply asks for it. It lists what would change in that `data/` (each light file by lines, each mask PNG by texels gained and lost, compared as marks, each file marked same, changed or new) and, on **Apply**, writes the changed and new ones into
+`data/track_light` and `data/track_masks/<TRACK>/` (for a car, `car_masks`, `dash_masks` and the colors into `core/formats/car_paint.c`). A file the repo has changed by itself is listed apart: **Replace**, **Skip** or **Cancel**. It is all or nothing, and it never commits or pushes. `tools/track_mask_fill_psd.py <workspace>/tracks data/track_masks` is the one-time migration step for PSDs whose mask
+layer is empty: it fills the layer of the workspace copy from the PNG the game uses today (other layers byte for byte); `--steps check-originals` compares every original's generated PNGs with `data/track_masks`. Steps: `add-originals`, `tweak-list`, `tweak-open-row:NAME`, `tweak-make`, `tweak-status`, `tweak-check`, `tweak-apply:ID`, `settings-open`,
 `open-original:I`, `masks-print`, `masks-poll`, `mask-select:I`, `mask-regen`, `repo-ask`, `repo-copy`, `print-repo`, `print-original`, `check-originals`.
 
 ## Metres and the Node window
@@ -330,7 +329,7 @@ The bank's palette is taken to 6 bits a channel, as the race loads it. Not appli
 
 ## Changes from the game's masks
 
-At the top of the **Masks** window of a project made from one of the game's cars (Export original car), **Changes from the game's masks** compares each `*_mask.png` of `car_masks/<folder>/` with the game's own copy, `data/car_masks/<folder>/`, the one the export started from: *unchanged*, *changed* (how many texels, and which classes gained and lost them), *new* (only the project has it) or *missing* (only the game has it). Masks are compared as classes, so a file written again by another picture editor with the same texels is unchanged; backups with an extra dot in the name (`frnt.before-1650_mask.png`) are left out, as the export leaves them. **Refresh** reads the files again; **Copy the changed list** puts plain text on the clipboard (the folder, then a line for each changed file with its texel count and classes, each new and each missing file, and how many are unchanged) for pasting into a hand-over. Read only. Headless: `--changes` prints the same text.
+At the top of the **Masks** window of a project made from one of the game's cars (Edit tweak > Car), **Changes from the game's masks** compares each `*_mask.png` of `car_masks/<folder>/` with the game's own copy, `data/car_masks/<folder>/`, the one the export started from: *unchanged*, *changed* (how many texels, and which classes gained and lost them), *new* (only the project has it) or *missing* (only the game has it). Masks are compared as classes, so a file written again by another picture editor with the same texels is unchanged; backups with an extra dot in the name (`frnt.before-1650_mask.png`) are left out, as the export leaves them. **Refresh** reads the files again; **Copy the changed list** puts plain text on the clipboard (the folder, then a line for each changed file with its texel count and classes, each new and each missing file, and how many are unchanged) for pasting into a hand-over. Read only. Headless: `--changes` prints the same text.
 
 ## Masks window: the list and the mask view
 
