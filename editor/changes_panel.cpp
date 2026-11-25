@@ -58,7 +58,7 @@ void masks_changes_section(App *a)
         ImGui::SetClipboardText(text);
         snprintf(a->status, sizeof a->status, "copied the list of changed masks (%d changed, %d new, %d missing)", c.changed, c.added, c.missing);
     }
-    ImGui::Text("car_masks/%s against the game's: %d changed, %d new, %d missing, %d unchanged", oc->folder, c.changed, c.added, c.missing, c.unchanged);
+    ImGui::TextWrapped("car_masks/%s against the game's: %d changed, %d new, %d missing, %d unchanged", oc->folder, c.changed, c.added, c.missing, c.unchanged);
     for (int i = 0; i < c.count; ++i) {
         const MaskChange &m = c.item[i];
         if (m.kind == MC_UNCHANGED) continue;

@@ -127,7 +127,7 @@ void changes(App *a)
         snprintf(a->status, sizeof a->status, "copied the list of changed masks (%d changed, %d new)", p.changed, p.added);
     }
     ui_probe("tmask_copy_list");
-    ImGui::Text("track_masks against the game's: %d changed, %d new, %d unchanged", p.changed, p.added, p.same);
+    ImGui::TextWrapped("track_masks against the game's: %d changed, %d new, %d unchanged", p.changed, p.added, p.same);
     for (int i = 0; i < p.count; ++i) {
         const OriginalPublishItem &it = p.item[i];
         if (it.state == OT_SAME) continue;
