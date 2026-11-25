@@ -26,6 +26,12 @@ static Fsh fsh;
 static FshEntry sprite;          /* ptr0 */
 static PointerState ptr = { .x = 320, .y = 240 };
 static unsigned os_buttons;
+/* port: the buttons pressed since a read has taken them. A menu pumps the input twice a turn and reads the buttons once, so a tap whose down and up came in
+ * one poll (a touchpad's tap, or a real click during a slow frame) is seen by a pump and gone by the next one: it is kept here until a read has had it. */
+enum { TAP_KEEP_MS = 500 };   /* a tap nobody read for this long (a fade, a movie) is let go, not fired on the next screen */
+static unsigned tap_pending, tap_synced;   /* the presses not yet read; the buttons of the last sync, to tell a press from a hold */
+static int tap_taken;                      /* a read has had tap_pending: the next sync lets it go */
+static uint32_t tap_at;
 static int16_t *bound;           /* pointer_bind_active's copy */
 static int range_x0, range_y0, range_x1 = VIDEO_WIDTH, range_y1 = VIDEO_HEIGHT;  /* 0052cdac, 0052cdb0, 0052cda4, 0052cda0 */
 
@@ -93,6 +99,15 @@ void pointer_range(int x0, int y0, int x1, int y1)
 
 int pointer_take_wheel(void) { return platform_mouse_wheel(); }
 
+/* after each sync: what a read has had is let go, and a button newly down (not held from the last sync) is kept until a read has had it */
+static void tap_note(void)
+{
+    if (tap_taken) tap_pending = 0, tap_taken = 0;
+    const unsigned pressed = os_buttons & ~tap_synced;
+    if (pressed != 0) tap_pending |= pressed, tap_at = platform_ticks_ms();
+    tap_synced = os_buttons;
+}
+
 void pointer_sync_from_os(void)
 {
     int os_x, os_y, width = VIDEO_WIDTH, height = VIDEO_HEIGHT;
@@ -105,10 +120,10 @@ void pointer_sync_from_os(void)
     /* port: on a wide screen the 640 picture is centred; over the darkened sides the pointer does nothing: no
      * move (no highlight) and no click */
     if (width > VIDEO_WIDTH) os_x -= screen_menu_left(width);
-    if (os_x < 0 || os_x >= VIDEO_WIDTH) {
-        os_buttons = 0;
-        return;
-    }
+    const int outside = os_x < 0 || os_x >= VIDEO_WIDTH;
+    if (outside) os_buttons = 0;
+    tap_note();
+    if (outside) return;
     if (moved) {
         ptr.x = os_x;
         ptr.y = os_y;
@@ -159,6 +174,7 @@ void pointer_start(void)
 {
     active_set(1);
     os_buttons = 0;
+    tap_pending = tap_synced = 0, tap_taken = 0;   /* a new screen starts with no press kept from the last one */
 }
 
 int pointer_active(void)
@@ -194,14 +210,17 @@ void pointer_show(void)
 
 static int buttons_now(void)
 {
-    if (os_buttons & PLATFORM_MOUSE_LEFT) return POINTER_BUTTON_SELECT;
-    if (os_buttons & PLATFORM_MOUSE_RIGHT) return POINTER_BUTTON_BACK;
+    const unsigned down = os_buttons | tap_pending;
+    if (down & PLATFORM_MOUSE_LEFT) return POINTER_BUTTON_SELECT;
+    if (down & PLATFORM_MOUSE_RIGHT) return POINTER_BUTTON_BACK;
     return POINTER_BUTTON_NONE;
 }
 
 int pointer_read_buttons(void)
 {
     if (ptr.x != ptr.mark_x || ptr.y != ptr.mark_y) draw();
+    if (tap_pending != 0 && platform_ticks_ms() - tap_at > TAP_KEEP_MS) tap_pending = 0;
+    if (tap_pending != 0) tap_taken = 1;   /* every reader of this turn sees the tap; the next sync lets it go */
     return buttons_now();
 }
 
