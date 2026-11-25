@@ -7,7 +7,7 @@
 # Run it in MSYS2's UCRT64 shell (the Windows job does). BUILD_DIR holds tnfs.exe (configure it with -DTNFS_RELEASE=ON) and
 # generated/tnfs_version.c. The zip holds one folder "Spirited Drive" with: Spirited Drive.exe, every DLL it needs from the UCRT64 tree
 # (SDL3.dll and the compiler runtime: found with ldd, nothing guessed), our own data/ (only what git tracks, beside the exe where the
-# game reads it: SDL_GetBasePath), the licences and a short README. No game data: players bring their own CD.
+# game reads it: SDL_GetBasePath), the licences (ours and those of the DLLs) and a short README. No game data: players bring their own CD.
 set -eu
 
 [ $# -eq 2 ] || { echo "usage: $0 BUILD_DIR OUT_DIR" >&2; exit 2; }
@@ -39,7 +39,6 @@ objdump -p "$EXE" | grep -q '^Subsystem.*Windows GUI' || { echo "$EXE is a conso
 ldd "$EXE" | awk '/=>/ {print $3}' | grep -i '/ucrt64/' | sort -u > "$STAGE/dlls.txt" || true
 grep -qi 'SDL3' "$STAGE/dlls.txt" || { echo "ldd shows no SDL3.dll for tnfs.exe" >&2; cat "$STAGE/dlls.txt" >&2; exit 1; }
 while IFS= read -r dll; do cp "$dll" "$DIR/"; done < "$STAGE/dlls.txt"
-rm "$STAGE/dlls.txt"
 
 # our own data: only the files git tracks under data/ (a dev machine's untracked files never ship)
 if git -C "$SRC_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -52,6 +51,21 @@ fi
 for doc in LICENSE NOTICE.md; do [ -f "$SRC_DIR/$doc" ] && cp "$SRC_DIR/$doc" "$DIR/"; done
 [ -d "$SRC_DIR/LICENSES" ] && cp -R "$SRC_DIR/LICENSES" "$DIR/LICENSES"
 
+# the licence texts of the DLLs shipped (SDL3: zlib, libgcc_s: GPL with the runtime exception, libwinpthread: its notice must travel with the binary):
+# the files their MSYS2 packages install under share/licenses, found by asking pacman which package owns each DLL
+mkdir -p "$DIR/LICENSES/third-party"
+while IFS= read -r dll; do
+    pkg=$(pacman -Qoq "$dll") || { echo "pacman does not know which package owns $dll" >&2; exit 1; }
+    found=0
+    for lic in $(pacman -Ql "$pkg" | awk '$2 ~ /\/share\/licenses\// && $2 !~ /\/$/ {print $2}'); do
+        mkdir -p "$DIR/LICENSES/third-party/$pkg"
+        cp "$lic" "$DIR/LICENSES/third-party/$pkg/"
+        found=1
+    done
+    [ "$found" = 1 ] || { echo "package $pkg (for $dll) installs no licence text under share/licenses" >&2; exit 1; }
+done < "$STAGE/dlls.txt"
+rm "$STAGE/dlls.txt"
+
 cat > "$DIR/README.txt" <<EOF
 Spirited Drive $VERSION (Windows)
 
@@ -61,6 +75,7 @@ Spirited Drive $VERSION (Windows)
 
 No game data is included: bring your own copy of the original game.
 Your settings and records are kept between runs.
+The update notice needs Windows 10 version 1803 or newer (it uses the curl.exe that comes with Windows); without it, or without internet, the game starts as usual and shows no notice.
 EOF
 
 ZIP="Spirited-Drive-$VERSION-windows-x64.zip"

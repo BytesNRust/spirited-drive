@@ -116,6 +116,17 @@ jobs:
           cd dist && sha256sum *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt
           cmake -E tar tf *.zip | grep -E 'Spirited Drive\.exe|SDL3\.dll|data/car_masks' | head -5
 
+      - name: The package runs by itself
+        # a clean Windows has none of MSYS2's folders: unpack into a new folder and start the exe with only Windows' own on PATH
+        # (--mods-list opens no window and exits); a DLL missing from the zip makes the load fail (exit 0xC0000135) here and not on the runner's PATH
+        run: |
+          rm -rf unpacked && mkdir unpacked
+          (cd unpacked && cmake -E tar xf ../dist/*.zip)
+          ls unpacked/*/ | grep -q 'SDL3.dll'
+          ls "unpacked/Spirited Drive/LICENSES/third-party"/*/* | grep -q . || { echo "no DLL licence texts in the package" >&2; exit 1; }
+          mkdir user-clean
+          env PATH=/c/Windows/System32:/c/Windows "unpacked/Spirited Drive/Spirited Drive.exe" --user "$PWD/user-clean" --mods-list
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
         with:
           name: spirited-drive-windows-${{ github.sha }}

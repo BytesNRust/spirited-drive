@@ -39,7 +39,7 @@ Each source file carries an `SPDX-License-Identifier` line.
 
 | Component | Licence | Where |
 |-----------|---------|-------|
-| [SDL 3](https://libsdl.org) | zlib | linked; bundled with the macOS app |
+| [SDL 3](https://libsdl.org) | zlib | linked; bundled with the macOS app and the Windows zip (with the compiler runtime DLLs, whose texts are in `LICENSES/third-party/` inside the zip) |
 | [stb_image](https://github.com/nothings/stb) v2.30 by Sean Barrett | Public domain / MIT | `third_party/stb_image.h` |
 | Generic road, gravel, rock, grass and plank textures by [ambientCG](https://ambientcg.com) | CC0 1.0 (no attribution needed) | `editor/art/GENERIC.FAM`, see `editor/art/README.md`; shipped in Studio's `Contents/Resources` |
 | [Dear ImGui](https://github.com/ocornut/imgui) v1.92.9b (docking branch) by Omar Cornut | MIT — [`LICENSES/MIT-imgui.txt`](LICENSES/MIT-imgui.txt) | `third_party/imgui/`; linked into the track editor only |
