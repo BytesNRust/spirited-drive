@@ -48,6 +48,9 @@ jobs:
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-ccache
             git
+            diffutils
+      - name: A /tmp for the programs that name one (the native programs read it as D:\tmp)
+        run: mkdir -p /d/tmp
       - name: Configure
         run: |
           mkdir -p out

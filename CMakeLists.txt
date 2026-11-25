@@ -63,7 +63,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(WIN32)   # MinGW's strict C99 hides M_PI and the POSIX calls the sources use: core/win_posix.h puts them back in front of every C file
-    add_compile_definitions(_USE_MATH_DEFINES)
+    add_compile_definitions(_USE_MATH_DEFINES __USE_MINGW_ANSI_STDIO=1)   # (the latter: printf with %zu, as the C99 the code is)
     add_compile_options("$<$<COMPILE_LANGUAGE:C>:-include${CMAKE_SOURCE_DIR}/core/win_posix.h>")
 endif()
 
@@ -1377,6 +1377,9 @@ foreach(name car_livery_unlamp track_light_mirror port_old_files car_registry ca
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
+    if(WIN32)   # the Windows build has no network yet (docs/online.md): its UDP tests do not run there
+        set_tests_properties(net_udp net_udp_service net_runtime PROPERTIES DISABLED TRUE)
+    endif()
     # the ISO reader on synthetic images (tests/iso_build.c writes them)
     add_executable(test_iso9660 tests/test_iso9660.c tests/iso_build.c)
     target_link_libraries(test_iso9660 PRIVATE tnfs_core)
