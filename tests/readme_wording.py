@@ -1,4 +1,4 @@
-"""README.md wording from the announcement texts: the phrases the analyst's notes say never to use (a claim about the palette or the filter that is not true of
+"""README.md and RELEASE_NOTES.md wording from the announcement texts: the phrases the analyst's notes say never to use (a claim about the palette or the filter that is not true of
 Restomod), and the lines that must be there (per-mode text, network, Lunar Springs, the 8-bit palette). Stdlib only; usage: readme_wording.py REPO"""
 import re
 import sys
@@ -9,11 +9,14 @@ MUST = ("Factory spec, recalls done.", "Original paint, new bearings.", "Origina
         "very beta", "on macOS only for now", "ran out of time", "Always in the workshop.", "not available to download yet")
 
 
-def problems(text):
+NOTES_MUST = ("All of it still 8-bit", "very beta", "Always in the workshop", "[X.Y.Z]", "Three ways to play")
+
+
+def problems(text, must=MUST):
     low = re.sub(r"\s+", " ", text).lower()
     flat = re.sub(r"\s+", " ", text.replace("*", ""))
     out = [f"never write: {p}" for p in NEVER if p in low]
-    out += [f"missing: {m}" for m in MUST if m.replace("*", "") not in flat]
+    out += [f"missing: {m}" for m in must if m.replace("*", "") not in flat]
     if "DRAFT" not in text:
         out.append("no DRAFT mark: the announcement text waits for the owner's approval")
     return out
@@ -21,6 +24,7 @@ def problems(text):
 
 def main(repo):
     found = problems(open(f"{repo}/README.md", encoding="utf-8").read())
+    found += [f"RELEASE_NOTES.md: {p}" for p in problems(open(f"{repo}/RELEASE_NOTES.md", encoding="utf-8").read(), NOTES_MUST)]
     for p in found:
         print("FAIL:", p)
     planted = problems("Nothing is smoothed over. In the original 256 colours. DRAFT")

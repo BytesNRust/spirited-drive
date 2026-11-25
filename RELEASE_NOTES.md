@@ -1,42 +1,59 @@
-**Spirited Drive** 0.9.1: *The Need for Speed* Special Edition (1996), rebuilt from scratch to run natively on today's Macs. This release brings sound in the rain and snow, records kept the way you race, fewer and clearer settings, and a round of fixes from your reports.
+<!-- DRAFT: the next version's notes from notes/textos-anuncio-2026-11-25.md (section 4), not approved as final. [X.Y.Z] is the owner's to set; [WIN] waits for the Windows package. Do not release with these marks in. -->
+**Spirited Drive** [X.Y.Z]: *The Need for Speed* Special Edition (1996), rebuilt from scratch
+to run natively on today's computers. Now on Windows as well as macOS.
 
-You need your own copy of the game: the PC Special Edition CD, a folder with its files, or an ISO image of your own disc. Spirited Drive contains no EA content.
+You need your own copy of the game: the PC Special Edition CD, a folder with its files, or an
+ISO image of your own disc. Spirited Drive contains no EA content.
+
+## Three ways to play
+
+- **Stock '96**: the 1996 game as it shipped. 4:3, original menus, only its bugs fixed.
+- **Restored '96**: the same game on a modern screen. Widescreen, up to 144 fps.
+- **Restomod '26**: the game it could have been with a few more years of development. Weather,
+  four times of day, night lighting, cars that shine and change colour, a dashboard that lights
+  up, mirror, reverse and rally versions of the tracks, the lost moon track, and dozens of
+  smaller touches. All of it still 8-bit, palette-indexed art.
+
+The first start asks which one you want. Not sure? Take Restored '96. You can change it at any
+time on the Game Mode screen.
 
 ## Install
 
-1. Download `Spirited-Drive-0.9.1-macos.dmg` below. One app for Apple Silicon and Intel, macOS 11 or later.
-2. Open it and drag **Spirited Drive** to Applications. **Updating from 0.9.0?** Replace the old app: your settings, records and the copied game files are kept.
-3. **The first time only**, macOS will say it cannot check the app: the app is not notarized by Apple. Right-click the app, choose **Open**, then **Open** again. On recent macOS: try to open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
-4. On first start, point it at your game. It copies what it needs, and you can put the CD away.
+**macOS** (11 or later, Apple Silicon and Intel)
+1. Download `Spirited-Drive-[X.Y.Z]-macos.dmg`, open it and drag **Spirited Drive** to Applications.
+2. The first time, macOS will say it cannot check the app. Right-click the app, **Open**, then
+   **Open** again; or System Settings → Privacy & Security → **Open Anyway**.
 
-## New in 0.9.1
+**Windows** [WIN: minimum version, file name, steps]
+1. Download `[WIN]`, unzip it anywhere and run **Spirited Drive**.
+2. The first time, Windows will warn that the app is from an unknown publisher: **More info**,
+   then **Run anyway**.
 
-- **Rain and snow you can hear** (Restomod): rain on the car when you stop, outside or on the roof in the cockpit, and on the move the rain around the car and the hiss of wet tyres, rising with your speed. Every car throws up its own spray and splashes through puddles, yours, the rivals' and the traffic's, each heard from where it is, quieter the farther it is. The rain sits under the engine without distorting it, and it goes quiet at once when you pause or open the race menu, with the thunder and the snow. Snow on asphalt brings the wet spray of meltwater; the snowy rally stage has its own sound of tyres in snow. All new clips are CC0.
-- **Records in Restomod**: a table per track and layout (normal, mirror, reverse, rally), per cheats and per lap count, with the best lap shared by every lap count. Every time notes its weather, time of day and difficulty, shown beside it on Best Times and on the results, and every race mode counts. **Best Times** lets you pick the layout, cheats, laps and page (Top 10, Best Lap, Segments), and Track Select lets you set your own lap count. The first start brings in your existing records and leaves the old files as they were; Stock and Restored keep the original's records.
-- **Track variants in Restomod**: Mirror, Reverse and Rally are switches on the track screen, and they stay as you set them when you change track, open Options or race. Each track's card shows what it will run: its variants, laps, time of day and weather. A tournament keeps the variants chosen before its first race, and a network race runs the host's.
-- **Unlocks**: the unlock level decides them, as in the original: Mirror, Warrior and Lost Vegas at level 1; Rally, Reverse and the Lunar Springs track at level 2. Restomod has its own level, starting at 2. Lunar Gravity is a cheat with three settings: Lunar Springs only, all tracks, or off.
-- **Fewer, clearer settings**: one switch per effect instead of pairs and steps that did the same thing. Your old settings files still load.
-- **Customize Game**: a cleaner page 3 (Restore profile defaults set apart), a **Star us on GitHub** row, and the selection now follows the mouse or the keys, never both: a click acts only on what is under the pointer, and the page arrows go back and forward as they show.
-- **Changing mode takes effect at once**: switching between Stock, Restored and Restomod, or changing one setting, reaches everything without a restart.
-- **Restomod**: traffic headlight halos, rally stage lamps in the dry and the snow effects are on by default.
-- **Cameras and cockpit**: the chase camera no longer shakes the car about on bumpy and banked roads; the wipers turn on either side of the steering wheel; the widened rear-view mirror's frame is whole.
-- **Start-up**: the Spirited Drive screen comes first, and the press that skips EA's logo no longer skips the Road & Track title too.
-- **HUD**: the green start lights no longer stay under the numbers when you change view as the race starts.
-- **Music**: the menu music no longer goes quiet as Control Central opens.
-- **Sturdier**: every reader of the game's files has been tested against damaged files; a damaged or missing file is refused instead of crashing a menu.
-- **Mac icon**: the same size as your other apps.
-- **Update check and anonymous stats** now say which system you play on (macOS, Windows or Linux); the API works out the country from the connection. Only daily totals are kept: no IP, no ID. Turn them off in **Customize Game**, page 3.
+On first start, point the game at your CD, folder or ISO. It copies what it needs.
+
+**Updating?** Replace the old app. Your settings, records and copied game files are kept.
+
+## New in [X.Y.Z]
+
+- **Windows.**
+- [the owner writes what has gone in since 0.9.1, from the commit list]
+
+## Always in the workshop
+
+Restomod's car shine and colours and its track lighting are being tuned track by track and car
+by car. Expect some reflections in the wrong place, paint that does not take its colour, and
+tunnels or shadows that look off. The engine is solid; this is art and tuning, and it gets
+better with every update. Stock '96 and Restored '96 are not affected.
 
 ## Known issues
 
-- The app is not notarized: macOS asks you to allow it the first time (see Install).
-- Only the Mac app is available for now. Windows and Linux builds are on the way.
-- Network races have been tested between Macs only.
+- Neither app is signed: macOS and Windows ask you to allow it the first time (see Install).
+- Network races work in all three modes, on macOS only for now: the Windows version has none
+  yet. They are very beta, little tested so far.
+- Linux is planned, later.
 
-## Found a bug?
+## Tell us
 
-[Open an issue](https://github.com/BytesNRust/spirited-drive/issues) and attach `spirited-drive.log` (**Customize Game**, page 3, **Open the log folder**). Please don't attach files from the original game.
-
-`SHA256SUMS.txt` lists the DMG's checksum.
-
-Spirited Drive is by Bytes & Rust, under the GPL v3. Not affiliated with or endorsed by Electronic Arts.
+This game is not finished and is not meant to be: what you find shapes what comes next.
+Bugs: [Open an issue](https://github.com/BytesNRust/spirited-drive/issues), with `spirited-drive.log` (Customize Game, page 3, Open the log folder).
+Ideas and questions: [Discussions](https://github.com/BytesNRust/spirited-drive/discussions). Please don't attach files from the original game.
