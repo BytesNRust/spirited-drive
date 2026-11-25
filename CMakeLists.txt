@@ -1902,6 +1902,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(portal_light_game PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         add_test(NAME lamp_strip_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lamp_strip_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(lamp_strip_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
+        add_test(NAME intro_pointer_hidden COMMAND sh ${CMAKE_SOURCE_DIR}/tests/intro_pointer_hidden.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # the game's pointer is not on the intro's movies
+        set_tests_properties(intro_pointer_hidden PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME vegas_lamps_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/vegas_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(vegas_lamps_game PROPERTIES TIMEOUT 400 SKIP_RETURN_CODE 77)
         add_test(NAME tunnel_look_tint_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_look_tint_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # an unlit tunnel (lamps 0) keeps its tunnel_look colour at the four times of day
@@ -2625,6 +2627,7 @@ set(TNFS_E2E_TESTS
     track_light_fingerprint
     car_lit_all_game
     light_drive_results_game
+    intro_pointer_hidden
     vegas_lamps_game
     edition_menus_trackrace
     track_menus_race

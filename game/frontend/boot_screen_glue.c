@@ -206,7 +206,7 @@ static uint32_t hold(void)
     for (;;) {
         HoldSource src[HOLD_SOURCES];
         const int key = any_key();   /* first: it pumps the events the pointer's buttons are read from */
-        boot_screen_sources(key, pointer_read_buttons(), any_pad_button(), src);
+        boot_screen_sources(key, pointer_buttons_unseen(), any_pad_button(), src);   /* port: read, not drawn: the intro has hidden the pointer and the boot screen has none */
         const uint32_t now = timer_ticks();
         if (screen_hold_step(&h, now, src) != HOLD_STAY) return now - start;
         video_wait_vblank();
@@ -220,7 +220,7 @@ static uint32_t let_go(void)
     for (;;) {
         HoldSource src[HOLD_SOURCES];
         const int key = any_key();
-        boot_screen_sources(key, pointer_read_buttons(), any_pad_button(), src);
+        boot_screen_sources(key, pointer_buttons_unseen(), any_pad_button(), src);   /* port: read, not drawn: the intro has hidden the pointer and the boot screen has none */
         const uint32_t now = timer_ticks();
         if (screen_hold_all_up(src) || now - start >= BOOT_RELEASE_TICKS) return now - start;
         video_wait_vblank();

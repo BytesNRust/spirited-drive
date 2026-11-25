@@ -181,6 +181,8 @@ int tgv_player_play(const char *path)
         if (walk(file, size, &sound, &sound_size)) {
             if (sound != NULL) menu_audio_movie_sound(sound, sound_size);
             port_log("mark:movie=%s\n", path);   /* port: a headless walk can tell the order of what the game shows */
+            port_log("mark:pointer=%d\n", pointer_drawn());   /* and whether the pointer was on it as the movie came (the screens before it hide it: a test reads this) */
+            pointer_undraw();   /* a movie has no pointer, whoever asked for it and whatever drew it last */
             skipped = play(file, size, s);
             port_log("mark:movie_end skipped=%d\n", skipped);
             if (sound != NULL) menu_audio_movie_sound_stop();

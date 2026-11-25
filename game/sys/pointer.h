@@ -29,6 +29,8 @@ int pointer_read_buttons(void);                       /* 004417f8 */
 int pointer_take_wheel(void);                        /* port (dep59 showcase): the wheel's notches since the last call, + up, - down */
 /* 004417f8 without the pointer drawn: a movie's frames hide it in the original, the port's overlay would stay */
 int pointer_buttons_unseen(void);
+int pointer_drawn(void);      /* port: 1 while the pointer's sprite is on what is presented */
+void pointer_undraw(void);    /* port: the sprite taken off what is presented (a movie has no pointer); it comes back when pointer_show draws it */
 void pointer_click_feedback(void);                    /* 00441814 */
 /* what 00441814 runs while it waits (0046417c, the music); the game sets it */
 void pointer_on_wait(void (*service)(void));

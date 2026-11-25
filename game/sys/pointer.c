@@ -20,6 +20,7 @@ enum {
 };
 
 static uint8_t *data;
+static int overlay_drawn;         /* port: the pointer's sprite is on what is presented now (a walk reads it at each movie: mark:pointer=) */
 static int data_variant;         /* port (dep59): which file `data` is (gmouse.fsh: 1), and the mods' generation it was read under (mod_set.h) */
 static uint32_t data_mods;
 static Fsh fsh;
@@ -146,6 +147,7 @@ static void off_hide(void *ctx)
 {
     (void)ctx;
     video_set_overlay(NULL, 0, 0);
+    overlay_drawn = 0;
 }
 
 void pointer_off(void)
@@ -182,6 +184,7 @@ static void draw(void)
 {
     follow();
     video_set_overlay(data != NULL ? &sprite : NULL, ptr.x, ptr.y);
+    overlay_drawn = data != NULL;
     ptr.mark_x = ptr.x;
     ptr.mark_y = ptr.y;
 }
@@ -206,6 +209,14 @@ int pointer_read_buttons(void)
 }
 
 int pointer_buttons_unseen(void) { return buttons_now(); }
+
+int pointer_drawn(void) { return overlay_drawn; }
+
+void pointer_undraw(void)
+{
+    video_set_overlay(NULL, 0, 0);
+    overlay_drawn = 0;
+}
 
 void pointer_on_wait(void (*service)(void)) { wait_service = service; }
 
