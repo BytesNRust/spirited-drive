@@ -3,22 +3,27 @@
 # temp workspace with a retouch (a mask changed from outside, a color changed on the card, a line added to the light file): one copy of the repo's data/ gets Copy (repo-copy), another gets
 # tweak-make + tweak-apply on the same project, and the two trees (data/ and core/formats/car_paint.c) must be identical (diff -r). The traffic and police cars have a masks folder and no colors.
 # Also: the tweak folder's layout (mod.ini type=tweak, data/ paths, studio/), and hand-copying the folders over a third data/ gives the same tree as Apply.
-# Needs the game's files (original/). usage: editor_tweak_parity.sh EDITOR ORIGINAL_DIR REPO
+# Needs the game's files (original/). usage: editor_tweak_parity.sh EDITOR ORIGINAL_DIR REPO [cars|tracks IDX OF]   (with the part: only the cars (or tracks) whose index mod OF is IDX, so the parts run side by side; the gate runs 4 + 4)
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$2
 repo=$3
 here=$(dirname "$0")
+kind=${4:-all}; idx=${5:-0}; of=${6:-1}
+mine() { [ $(($1 % of)) -eq "$idx" ]; }   # mine I: the I-th car (or track) is this part's
 [ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 0; }
 mkdir -p "$work/cars" "$work/ws" "$work/art" || exit 1
-fresh() {   # fresh NAME: a repo copy with the layout Copy needs, in $work/NAME
-    mkdir -p "$work/$1/core/formats" && cp -R "$repo/data" "$work/$1/data" && cp "$repo/core/formats/car_paint.c" "$work/$1/core/formats/car_paint.c"
+fresh() {   # fresh NAME: a repo copy with the layout Copy needs, in $work/NAME (a clone where the volume has them: the data/ is copied twice a car and a track)
+    mkdir -p "$work/$1/core/formats" && { cp -Rc "$repo/data" "$work/$1/data" 2>/dev/null || cp -R "$repo/data" "$work/$1/data"; } && cp "$repo/core/formats/car_paint.c" "$work/$1/core/formats/car_paint.c"
 }
 studio() { "$editor" "$@" --user "$work/u" --frames 30 >"$work/log" 2>&1; }
 same_tree() {   # same_tree A B WHAT
     diff -r "$work/$1/data" "$work/$2/data" >"$work/diff" 2>&1 && cmp -s "$work/$1/core/formats/car_paint.c" "$work/$2/core/formats/car_paint.c" || fail "$3: Apply is not Copy: $(head -5 "$work/diff") $(diff "$work/$1/core/formats/car_paint.c" "$work/$2/core/formats/car_paint.c" | head -4)"
 }
-n=0 changed_cars=0
+n=0 changed_cars=0 ci=-1 want_cars=0
 for c in $(ls "$repo/data/car_masks"); do
+    ci=$((ci + 1))
+    { [ "$kind" = all ] || [ "$kind" = cars ]; } && mine $ci || continue
+    want_cars=$((want_cars + 1))
     before=$(ls "$work/cars")
     "$editor" --export-car "$c" --into "$work/cars" --cd "$orig" --port-data "$repo/data" --frames 1 --user "$work/u" >"$work/log" 2>&1 || { fail "Export original car $c: $(cat "$work/log")"; continue; }
     kit=$work/cars/$(ls "$work/cars" | grep -vxF "$before" | head -n 1)
@@ -42,13 +47,14 @@ PY
     diff -r "$repo/data" "$work/copy/data" >/dev/null 2>&1 || changed_cars=$((changed_cars + 1))
     n=$((n + 1))
 done
-[ "$n" -eq 20 ] || fail "$n of the 20 original cars went through"
-[ "$changed_cars" -ge 16 ] || fail "the retouch changed the repo for only $changed_cars cars: the parity proves nothing"
+[ "$n" -eq "$want_cars" ] || fail "$n of the $want_cars original cars went through"
+[ "$kind" = tracks ] || [ "$changed_cars" -ge $((want_cars * 4 / 5)) ] || fail "the retouch changed the repo for only $changed_cars cars: the parity proves nothing"
 # the tracks: the light file with a line added, and a mask PNG changed from outside
-"$editor" --workspace "$work/ws" --port-data "$repo/data" --art-dir "$work/art" --cd "$orig" --user "$work/u" --frames 4 --steps add-originals >"$work/log" 2>&1 || fail "Add originals: $(cat "$work/log")"
+[ "$kind" = cars ] || "$editor" --workspace "$work/ws" --port-data "$repo/data" --art-dir "$work/art" --cd "$orig" --user "$work/u" --frames 4 --steps add-originals >"$work/log" 2>&1 || fail "Add originals: $(cat "$work/log")"
 i=-1
 for t in AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7; do
     i=$((i + 1))
+    { [ "$kind" = all ] || [ "$kind" = tracks ]; } && mine $i || continue
     echo "# tweak parity" >>"$work/ws/tracks/$t/light/track_light/$t.txt"
     mkdir -p "$work/ws/tracks/$t/art-generated/track_masks"
     for p in "$repo/data/track_masks/$t"/*.png; do   # the first mask that is an 8-bit grey PNG, changed from outside
