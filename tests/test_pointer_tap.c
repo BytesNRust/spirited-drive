@@ -75,10 +75,22 @@ int main(void)
     button(false, SDL_BUTTON_LEFT);
     input_pump();
     CHECK_EQ_INT(pointer_read_buttons(), 0);
+    /* the skip screens read with pointer_buttons_unseen after a sync, no pointer_read_buttons: a click that skips one does not skip the next */
+    for (int screen = 0; screen < 3; screen++) {
+        for (int turn = 0; turn < 3; turn++) {
+            input_pump();
+            pointer_sync_from_os();
+            CHECK_EQ_INT(pointer_buttons_unseen(), 0);   /* nothing is held over from the click before */
+        }
+        tap(SDL_BUTTON_LEFT);
+        input_pump();
+        pointer_sync_from_os();
+        CHECK_EQ_INT(pointer_buttons_unseen(), POINTER_BUTTON_SELECT);   /* the click skips this one */
+    }
     /* a tap nobody read for a long while (a fade, a movie) is not a click on the next screen */
     tap(SDL_BUTTON_LEFT);
     input_pump();
-    SDL_Delay(700);
+    SDL_Delay(400);
     input_pump();
     CHECK_EQ_INT(pointer_read_buttons(), 0);
     /* the next screen starts clean: a tap before pointer_start is gone */

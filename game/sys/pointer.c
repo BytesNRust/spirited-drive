@@ -28,7 +28,7 @@ static PointerState ptr = { .x = 320, .y = 240 };
 static unsigned os_buttons;
 /* port: the buttons pressed since a read has taken them. A menu pumps the input twice a turn and reads the buttons once, so a tap whose down and up came in
  * one poll (a touchpad's tap, or a real click during a slow frame) is seen by a pump and gone by the next one: it is kept here until a read has had it. */
-enum { TAP_KEEP_MS = 500 };   /* a tap nobody read for this long (a fade, a movie) is let go, not fired on the next screen */
+enum { TAP_KEEP_MS = 250 };   /* a tap nobody read for this long (a fade, a movie) is let go, not fired on the next screen: the SDL latch's own limit */
 static unsigned tap_pending, tap_synced;   /* the presses not yet read; the buttons of the last sync, to tell a press from a hold */
 static int tap_taken;                      /* a read has had tap_pending: the next sync lets it go */
 static uint32_t tap_at;
@@ -210,21 +210,29 @@ void pointer_show(void)
 
 static int buttons_now(void)
 {
+    if (tap_pending != 0 && platform_ticks_ms() - tap_at > TAP_KEEP_MS) tap_pending = 0;
     const unsigned down = os_buttons | tap_pending;
     if (down & PLATFORM_MOUSE_LEFT) return POINTER_BUTTON_SELECT;
     if (down & PLATFORM_MOUSE_RIGHT) return POINTER_BUTTON_BACK;
     return POINTER_BUTTON_NONE;
 }
 
+/* what a reader sees: the buttons held and the taps kept; every reader of this turn sees a tap and the next sync lets it go (the skip screens and the movies read
+ * this way too: a click that skipped one must not skip the next) */
+static int buttons_taken(void)
+{
+    const int now = buttons_now();
+    if (tap_pending != 0) tap_taken = 1;
+    return now;
+}
+
 int pointer_read_buttons(void)
 {
     if (ptr.x != ptr.mark_x || ptr.y != ptr.mark_y) draw();
-    if (tap_pending != 0 && platform_ticks_ms() - tap_at > TAP_KEEP_MS) tap_pending = 0;
-    if (tap_pending != 0) tap_taken = 1;   /* every reader of this turn sees the tap; the next sync lets it go */
-    return buttons_now();
+    return buttons_taken();
 }
 
-int pointer_buttons_unseen(void) { return buttons_now(); }
+int pointer_buttons_unseen(void) { return buttons_taken(); }
 
 void pointer_on_wait(void (*service)(void)) { wait_service = service; }
 
