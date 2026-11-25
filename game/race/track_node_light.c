@@ -205,7 +205,8 @@ int track_node_light_vertex_class(const TrackNodeLight *light, uint32_t node, in
     return cls;
 }
 
-static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, uint32_t node, int point)
+/* `outer` 0: without the gradient's outer steps (the row as the pool lights it: a beam's light on the open road is not the mouth's ramp) */
+static uint8_t light_at_rows_x(const TrackNodeLight *light, const uint8_t *rows, uint32_t node, int point, int outer)
 {
     if (light == NULL || rows == NULL || light->nodes < 2 || point < 0 || point >= TRACK_NODE_LIGHT_POINTS) return TRACK_NODE_LIGHT_FULL;
     node = track_node_light_old_node(light, node);
@@ -227,7 +228,7 @@ static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, u
     /* the road inside a tunnel (a lit foot with 0s from point 4 on, either side) is dark on the console version although its bytes say 255 */
     /* a tunnel mouth's gradient: over its steps the clamp comes in by the step's blend and a half of it (25, 50, 75 % come in as 37, 75, 100 %): the tunnel's floor is a dark road surface of its own, so the light on the first nodes in has to give way
  * fast for the road not to rise again after the open road's last step; the road darkens node by node instead of all at the first tunnel node */
-    if (!tunnel && light->pool == NULL && light->tone_id != NULL && light->tone_mask != NULL && !unlit_open_at(light, node)) {   /* with the headlight pool (the night's second look) the open road is dark already and the beam lights it as it does anywhere: no outer ramp; the open road before a mouth: toward the light at which it is as dark as the tunnel's own road surface */
+    if (outer && !tunnel && light->tone_id != NULL && light->tone_mask != NULL && !unlit_open_at(light, node)) {   /* the open road before a mouth: toward the light at which it is as dark as the tunnel's own road surface */
         const int id = light->tone_id[node];
         if (id > 0 && id <= light->tone_count && light->tone[id - 1].look == 3) {
             const int share = light->tone[id - 1].share;
@@ -245,6 +246,8 @@ static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, u
     return row[point];
 }
 
+static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, uint32_t node, int point) { return light_at_rows_x(light, rows, node, point, 1); }
+
 static uint8_t light_at(const TrackNodeLight *light, uint32_t node, int point)
 {
     return light_at_rows(light, light != NULL ? light->data : NULL, node, point);
@@ -257,8 +260,13 @@ enum { POOL_BRIGHTNESS_KEEP = 0 };
 /* the row point the pool lights: `v` (the row after the retouches) moved back toward the row before them by all but POOL_BRIGHTNESS_KEEP/256; `v` itself when the file has no brightness line */
 static uint8_t pool_row(const TrackNodeLight *light, uint32_t node, int point, uint8_t v)
 {
-    if (light->data_plain == NULL) return v;
-    const int plain = light_at_rows(light, light->data_plain, node, point);
+    /* without the gradient's outer steps whatever the file's retouches: the beam's light on the open road before a mouth is not the mouth's ramp (the ramp is the scene's light, the pool lifts over it) */
+    if (light->data_plain == NULL) {
+        const int ramp = (int)light_at_rows_x(light, light->data, node, point, 0) - (int)light_at_rows_x(light, light->data, node, point, 1);   /* what the outer step took off the row, 0 away from one */
+        const int vp = (int)v + ramp;
+        return (uint8_t)(vp > 255 ? 255 : vp);
+    }
+    const int plain = light_at_rows_x(light, light->data_plain, node, point, 0);
     return (uint8_t)(v + (plain - (int)v) * (256 - POOL_BRIGHTNESS_KEEP) / 256);
 }
 
@@ -343,7 +351,7 @@ static uint8_t light_at_dark(const TrackNodeLight *light, uint32_t node, int poi
         if (gain < floor) gain = floor;
         const int reach = floor + (gain - floor) * share / 256;
         uint8_t open = headlight_pool_apply(v, reach);
-        if (light->data_plain != NULL && reach > floor) {   /* port (pool_brightness): the pool's added light is the row's before the retouches, mostly; the dark around it keeps them */
+        if (reach > floor) {   /* port (pool_brightness): the pool's added light is the row's before the retouches and the mouth's outer steps, mostly; the dark around it keeps them */
             const uint8_t vp = pool_row(light, node, point, v);
             const int dark = headlight_pool_apply(v, floor), lit = headlight_pool_apply(vp, reach), dark_vp = headlight_pool_apply(vp, floor);
             const int share_of_pool = (reach - floor) * 256 / (256 - floor);

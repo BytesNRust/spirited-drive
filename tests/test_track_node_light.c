@@ -499,9 +499,9 @@ static void test_the_gradient_darkens_the_open_road_before_the_mouth(void)
     CHECK_EQ_INT(track_node_light_at(&light, 4, 0), 255);                                                     /* no steps: as before */
 }
 
-/* with the headlight pool (the night's second look) the open road before a mouth is dark already and the beam lights it as it does anywhere on the open road: the gradient's outer steps leave it (a pool
- * that scaled the darkened byte would be a third of the main's at the approach, an unlit tunnel's mouth most of all) */
-static void test_the_outer_steps_leave_the_pools_open_road(void)
+/* at night the outer ramp is there too (the open road before an unlit mouth is not a cliff), and the headlight pool lifts over it as it does on any open road: where the beam is the road is as it would be with
+ * no steps; away from the beam the ramp darkens it as without a pool */
+static void test_the_pool_lifts_over_the_outer_ramp(void)
 {
     enum { N = 16 };
     static uint8_t rows[N * TRACK_NODE_LIGHT_POINTS];
@@ -512,25 +512,28 @@ static void test_the_outer_steps_leave_the_pools_open_road(void)
     static uint16_t mask[N];
     for (int n = 0; n < N; n++) mask[n] = 0x7ff;
     static HeadlightPool pool;
-    pool.count = 1, pool.node[0] = 3, pool.ring = N;
+    pool.count = 1, pool.node[0] = 0, pool.ring = N;   /* a car at node 0: the light is full from 3 to 5 nodes ahead of it, over nodes 3 and 4 of the ramp */
     TrackNodeLight light = { .data = rows, .nodes = N, .tunnel = marks, .tone_id = ids, .tone_mask = mask, .tone_count = 3, .pool = &pool };
     for (int i = 0; i < 3; i++) light.tone[i].look = 3, light.tone[i].blend = (uint8_t)(8 * (i + 1)), light.tone[i].share = (uint8_t)(25 * (i + 1));
-    for (uint32_t k = 0; k < 3; k++) CHECK_EQ_INT(track_node_light_at(&light, 2 + k, 0), track_node_light_at(&light, 2 + k, 1));   /* point 1 as point 0 */
-    light.pool = NULL;   /* no beams: the outer ramp is there */
-    CHECK(track_node_light_at(&light, 4, 0) < 120);
-    light.pool = &pool;
-    uint8_t with_steps[3], without[3];
-    for (uint32_t k = 0; k < 3; k++) with_steps[k] = track_node_light_at(&light, 2 + k, 0);
-    light.tone_id = NULL;
-    for (uint32_t k = 0; k < 3; k++) without[k] = track_node_light_at(&light, 2 + k, 0);
-    for (int k = 0; k < 3; k++) CHECK_EQ_INT(with_steps[k], without[k]);   /* the pool's night: as if the file had no steps */
+    uint8_t lit[3], flat[3];
+    for (uint32_t k = 0; k < 3; k++) lit[k] = track_node_light_at(&light, 2 + k, 0);
+    TrackNodeLight bare = light;
+    bare.tone_id = NULL;   /* the same pool, no steps */
+    for (uint32_t k = 0; k < 3; k++) flat[k] = track_node_light_at(&bare, 2 + k, 0);
+    for (int k = 0; k < 3; k++) CHECK(lit[k] <= flat[k]);   /* never above the road as it would be without steps */
+    CHECK_EQ_INT(lit[1], flat[1]);                          /* in the beam's full light the road is the whole road's: as if the file had no steps */
+    CHECK_EQ_INT(lit[2], flat[2]);
+    pool.node[0] = 8;   /* the car past the mouth: the nodes of the ramp are in the dark, and the ramp darkens them node by node as without a pool */
+    uint8_t dim[3], dim_flat[3];
+    for (uint32_t k = 0; k < 3; k++) dim[k] = track_node_light_at(&light, 2 + k, 0), dim_flat[k] = track_node_light_at(&bare, 2 + k, 0);
+    CHECK(dim[0] < dim_flat[0] && dim[1] < dim[0] && dim[2] < dim[1]);
 }
 
 int main(void)
 {
     test_a_mouth_object_takes_the_open_roads_light();
     test_the_gradient_darkens_the_open_road_before_the_mouth();
-    test_the_outer_steps_leave_the_pools_open_road();
+    test_the_pool_lifts_over_the_outer_ramp();
     test_the_gradient_grades_the_tunnels_road_clamp();
     test_marks_start_the_tunnel();
     test_tunnel_road();
