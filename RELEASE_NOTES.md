@@ -31,7 +31,7 @@ time on the Game Mode screen.
 
 On first start, point the game at your CD, folder or ISO. It copies what it needs.
 
-**Updating?** Replace the old app. Your settings, records and copied game files are kept.
+**Updating?** On macOS, replace the old app. On Windows, delete the old Spirited Drive folder and unzip the new one in its place; do not unzip over it, because files a version removed would stay. Your profile, settings, records, mods and copied game files are kept (on Windows they are in `%APPDATA%\Spirited Drive`, which is not touched).
 
 ## New in 0.9.2
 

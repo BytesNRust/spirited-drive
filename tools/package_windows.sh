@@ -85,6 +85,7 @@ Network races are not in the Windows version yet.
 
 Your player folder is %APPDATA%\\Spirited Drive\\ (type it in the Explorer address bar). It keeps your settings, your records and your copy of the game's files, and they stay when you replace the program with a newer one.
 The update notice needs Windows 10 version 1803 or newer (it uses the curl.exe that comes with Windows); without it, or without internet, the game starts as usual and shows no notice.
+Updating: delete the old Spirited Drive folder and unzip the new one in its place. Do not unzip over the old one: files a version removed would stay. Your profile, settings, records and mods are in %APPDATA%\\Spirited Drive\\ and are not touched.
 The log, spirited-drive.log, is in that folder too. In the game: Customize Game, page 3, Open the log folder. Attach it when you report a bug: https://github.com/BytesNRust/spirited-drive/issues (please do not attach files from the original game).
 
 This game is not finished and is not meant to be: what you find shapes what comes next.

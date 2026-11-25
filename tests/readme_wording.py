@@ -15,7 +15,7 @@ NOTES_MUST = ("a full 360° camera", "All of it still 8-bit", "very beta", "Alwa
 
 
 WINDOWS_MUST = ("unknown publisher", "More info", "Run anyway", "Bring your own CD", "Network races are not in the Windows version yet", "%APPDATA%",
-                "spirited-drive.log", "Open the log folder", "Restored '96", "Windows 10 version 1803")
+                "spirited-drive.log", "Open the log folder", "Do not unzip over the old one", "Restored '96", "Windows 10 version 1803")
 
 
 def windows_readme(script):
