@@ -2628,6 +2628,9 @@ if(NOT EMSCRIPTEN)
     endif()
 endif()
 
+# the downloads are the game only: the workflows, the package script and the DMG check (hdiutil: skipped where there is none)
+add_test(NAME package_game_only COMMAND sh ${CMAKE_SOURCE_DIR}/tests/package_game_only.sh ${CMAKE_SOURCE_DIR})
+set_tests_properties(package_game_only PROPERTIES TIMEOUT 120)
 include(fuzz/fuzz.cmake)
 
 # port: every test, whenever it was registered above, gets a scratch pref dir, so a test that starts tnfs with no --user (or forgets one) writes in the build, never in the player's own
@@ -2682,9 +2685,6 @@ set(TNFS_STATIC_CHECKS
     text_binarized_lint car_mask_class_table car_mask_psd masks_status track_mask_psd dash_mask_psd dash_psd_update
     frame_pick free_udp_ports spirited_logo spirited_icon profile_tables profile_tables_sabotage editor_ui_words
     editor_loose_text)
-# the downloads are the game only: the workflows, the package script and the DMG check (hdiutil: skipped where there is none)
-add_test(NAME package_game_only COMMAND sh ${CMAKE_SOURCE_DIR}/tests/package_game_only.sh ${CMAKE_SOURCE_DIR})
-set_tests_properties(package_game_only PROPERTIES TIMEOUT 120)
 set(TNFS_E2E_TESTS
     car_lamps_by_mask_game    editor_headless_track_a
     editor_headless_track_b
