@@ -9,10 +9,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "file_stat64.h"   /* a file of 2 GiB or more is there for the 64-bit stat only */
+
 static int test_rmtree(const char *path)
 {
-    struct stat st;
-    if (lstat(path, &st) != 0) return 0;   /* nothing there */
+    TNFS_STAT st;
+    if (tnfs_lstat(path, &st) != 0) return 0;   /* nothing there */
     if (S_ISDIR(st.st_mode)) {
         DIR *d = opendir(path);
         if (d == NULL) return -1;
