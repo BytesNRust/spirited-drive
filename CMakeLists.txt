@@ -1386,8 +1386,10 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_light_tables PROPERTIES TIMEOUT 300)
         add_test(NAME editor_original_track_flow_a COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> a)   # original tracks in a workspace, part a: add the 16, old workspace, open one, publish its light
         set_tests_properties(editor_original_track_flow_a PROPERTIES TIMEOUT 900)
-        add_test(NAME editor_original_track_flow_b COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> b)   # part b: test drive, masks, polls, repo folder, main menu (split from one test that took 299.8 s on the Intel sanitizers runner)
+        add_test(NAME editor_original_track_flow_b COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> b)   # part b: test drive and the 854 px layout
         set_tests_properties(editor_original_track_flow_b PROPERTIES TIMEOUT 900)
+        add_test(NAME editor_original_track_flow_c COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> c)   # part c: masks, polls, repo folder, main menu (the rest of what part b was: split to run side by side)
+        set_tests_properties(editor_original_track_flow_c PROPERTIES TIMEOUT 900)
         add_test(NAME editor_game_repo_enables COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_repo_enables.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:make_fake_tri>)   # a Studio with no game data folder of its own: File > Game repo folder... enables Add originals and Open original track
         set_tests_properties(editor_game_repo_enables PROPERTIES TIMEOUT 300)
         add_test(NAME editor_settings_first_run COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_settings_first_run.sh $<TARGET_FILE:tnfs-track-editor>)   # Edit tweak step 3: the three doors, the first start's question about the game, File > Settings
@@ -2785,7 +2787,7 @@ set(TNFS_E2E_TESTS
     editor_model_flow
     editor_light_window
     editor_original_track_flow_a
-    editor_original_track_flow_b
+    editor_original_track_flow_b editor_original_track_flow_c
     studio_cli
     car_piece_race_giveup
     car_piece_race_finish

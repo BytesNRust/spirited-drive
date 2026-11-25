@@ -4,7 +4,7 @@
 # usage: editor_original_track.sh EDITOR REPO MAKE_TEST_PSD MAKE_FAKE_TRI
 set -u
 editor=$1 repo=$2 make_psd=$3 make_tri=$4
-part=${5:-all}   # a: hub, old workspace, light flow, copy; b: test drive, masks, polls, repo folder, main menu; all: both (two ctest tests run a and b: each well under the limit on a slow runner)
+part=${5:-all}   # a: hub, old workspace, light flow, copy; b: test drive, 854 px layout; c: masks, polls, repo folder, main menu; all: the three (three ctest tests run a, b and c side by side: each well under the limit on a slow runner)
 want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 stamp() { echo "editor_original_track[$part]: $* at ${SECONDS}s" >&2; }
 work=$(mktemp -d)
@@ -98,7 +98,6 @@ fi
 if want b; then
 [ "$part" = all ] || run --frames 4 --steps add-originals >/dev/null 2>&1 || fail "part b: add-originals"   # part b alone starts from the sixteen the hub makes
 stamp "part b starts"
-# the masks: PSDs make the PNGs when the track opens (never from an empty mask layer); the panel's rows say the state
 # the test drive in the Track light window (light tuning design, piece 1): the game in a window beside Studio, the working copy in front of the files, weather and stop
 cat > "$work/live_game" <<'SH'
 #!/bin/sh
@@ -129,6 +128,12 @@ echo "$out" | grep -q "the game's program is not there" || fail "no game: the re
 out=$(run --window 854x560 --reset-layout --frames 30 --steps open-original:0,poll-wait:6,print-panels 2>&1) || fail "854 px layout: $out"
 masks_w=$(echo "$out" | grep '^widths:' | sed -n 's/.*\[Track masks \([0-9]*\)\].*/\1/p')
 [ -n "$masks_w" ] && [ "$masks_w" -ge 250 ] || fail "the Track masks panel is $masks_w px wide in an 854 px window (250 needed): $(echo "$out" | grep '^widths:')"
+fi
+
+if want c; then
+[ "$part" = all ] || run --frames 4 --steps add-originals >/dev/null 2>&1 || fail "part c: add-originals"   # part c alone starts from the sixteen the hub makes, as part b does
+[ "$part" = all ] || run --window 854x560 --reset-layout --frames 30 --steps open-original:0,poll-wait:6,print-panels >/dev/null 2>&1   # the dock the layout check of part b leaves, which the clicks below rely on
+stamp "part c starts"
 out=$(run --frames 20 --steps open-original:0,masks-print 2>&1) || fail "masks-print: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "three masks, all made: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective, 0 lamps$' || fail "scenery_00 ok: $out"
