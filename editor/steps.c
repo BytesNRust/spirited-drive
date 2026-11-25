@@ -359,8 +359,11 @@ static int at_once(App *a, const char *name, const double *arg)
         app_tweak_list_refresh(a);
         tweak_id(name + 15, want, sizeof want);   /* "wagon-tweak": a row is found by the id its tweak has */
         for (int i = 0; i < a->tweak_rows; ++i)
-            if (strcmp(a->tweak_row[i].id, want) == 0) return app_tweak_open_row(a, i);
-        return printf("tweak-open-row: no row %s\n", name + 15), 0;
+            if (strcmp(a->tweak_row[i].id, want) == 0) {
+                if (!a->tweak_row[i].usable) printf("tweak-open-row: row %s is not usable: %s\n", name + 15, a->tweak_row[i].why);
+                return app_tweak_open_row(a, i);
+            }
+        return printf("tweak-open-row: no row %s among %d (looked for %s)\n", name + 15, a->tweak_rows, want), 0;
     }
     if (strncmp(name, "tweak-apply:", 12) == 0) return app_tweak_apply(a, name + 12);   /* tweak-apply:ID, the tweak folder <workspace>/tweaks/ID, into the game repo */
     if (strcmp(name, "add-originals") == 0) return app_original_add_all(a);   /* the Add the 16 original tracks button */

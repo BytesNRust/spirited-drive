@@ -67,7 +67,7 @@ cp "$work/r/data/track_light/CY1.txt" "$work/before.txt"
 studio $opts --frames 60 --steps tweak-open-row:CY1,sun:100,20,60,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm_cancel || fail "confirm, Cancel: $(tail -3 "$work/log")"
 cmp -s "$work/r/data/track_light/CY1.txt" "$work/before.txt" || fail "Cancel on the list wrote into the repo"
 # Apply with no repo set asks for the folder (the dialog itself is the system's) and writes nothing
-studio --frames 40 --light-dir "$work/r/data" --port-data "" --steps tweak-open-row:CY1,ui-click:tweak_check,ui-click:tweak_apply,status || fail "Apply with no repo: $(tail -3 "$work/log")"
+studio --frames 40 --light-dir "$work/r/data" --steps tweak-open-row:CY1,ui-click:tweak_check,ui-click:tweak_apply,status || fail "Apply with no repo: $(tail -3 "$work/log")"
 grep -q "^status: choose the game repo's folder, then Apply again" "$work/log" || fail "Apply with no repo did not ask for the folder: $(grep status "$work/log")"
 # a car with colors by the doors: the Diablo, a color changed, Save, Apply: its row in the repo's table has it
 studio $opts --frames 90 --steps ui-click:door_tweak,ui-click:tweak_row_Lamborghini\ Diablo\ VT,ui-click:tweak_open,paint-rgb:0,9,9,9,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm || fail "Diablo by the doors: $(tail -3 "$work/log")"
