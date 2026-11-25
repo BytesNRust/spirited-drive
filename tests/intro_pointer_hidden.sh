@@ -11,7 +11,7 @@ mkdir -p "$work/user"
 printf 'profile=restomod\npsx_dir=\n' > "$work/user/port.cfg"
 # ESC on the boot screen starts EA's first movie (its mark is in the game's log), ESC ends the intro
 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT="1500:ESC,0:WAIT:mark:movie=:30,500:ESC" \
-  SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy TNFS_PREF_DIR="$work/pref" timeout -k 5 200 "$bin" --data "$original" --user "$work/user" > "$work/out" 2>&1
+  SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy TNFS_PREF_DIR="$work/pref" timeout -k 5 30 "$bin" --data "$original" --user "$work/user" > "$work/out" 2>&1
 log="$work/user/spirited-drive.log"
 [ -f "$log" ] || log="$work/out"
 first=$(grep -m1 -A1 '^mark:movie=' "$log" | tail -1)   # the line after the first movie's mark: the pointer's state as it began
