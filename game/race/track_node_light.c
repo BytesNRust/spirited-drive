@@ -227,7 +227,7 @@ static uint8_t light_at_rows(const TrackNodeLight *light, const uint8_t *rows, u
     /* the road inside a tunnel (a lit foot with 0s from point 4 on, either side) is dark on the console version although its bytes say 255 */
     /* a tunnel mouth's gradient: over its steps the clamp comes in by the step's blend and a half of it (25, 50, 75 % come in as 37, 75, 100 %): the tunnel's floor is a dark road surface of its own, so the light on the first nodes in has to give way
  * fast for the road not to rise again after the open road's last step; the road darkens node by node instead of all at the first tunnel node */
-    if (!tunnel && light->tone_id != NULL && light->tone_mask != NULL && !unlit_open_at(light, node)) {   /* the open road before a mouth: toward the light at which it is as dark as the tunnel's own road surface */
+    if (!tunnel && light->pool == NULL && light->tone_id != NULL && light->tone_mask != NULL && !unlit_open_at(light, node)) {   /* with the headlight pool (the night's second look) the open road is dark already and the beam lights it as it does anywhere: no outer ramp; the open road before a mouth: toward the light at which it is as dark as the tunnel's own road surface */
         const int id = light->tone_id[node];
         if (id > 0 && id <= light->tone_count && light->tone[id - 1].look == 3) {
             const int share = light->tone[id - 1].share;
