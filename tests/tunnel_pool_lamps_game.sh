@@ -4,7 +4,7 @@
 #  (1) never jumps over 40 % of its range between neighbouring nodes (the whole run of a mouth, lamps and time fixed);
 #  (2) on the open road outside the mouth the pool never makes it lighter than the same node at lamps 100 % or than the farthest open node (+5 %);
 #  (3) inside, at each node, the lamps 0 % -> 1 % step is no jump (within 10 % of the range) and 1 -> 50 -> 100 % no jump over 40 %.
-# By day these are checked (FAIL); at night they are printed as NOTE: the night's own steps at a mouth (the open night's pool against a lit tunnel's floor) are not the lamps' fade.
+# (1) at night is printed as NOTE: the night's own step at a mouth (AL1 nodes 0 -> 1, 42 % of the range even at lamps 100) is the gradient's, not the lamps' fade.
 # usage: tests/tunnel_pool_lamps_game.sh <tnfs binary> <original/ dir> [contact sheet dir]      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
@@ -117,10 +117,10 @@ for track, f, t in cases:
             inside = [i for i, o in enumerate(offsets) if (o >= 0 if mouth == "in" else o <= 0)]
             for i in inside:
                 if abs(s[0][i] - s[1][i]) > 0.10 * rng:
-                    (bad if tm == "day" else notes).append("(3) %s %s %s node %d: lamps 0 -> 1 jumps %.1f -> %.1f" % (track, tm, mouth, offsets[i], s[0][i], s[1][i]))
+                    bad.append("(3) %s %s %s node %d: lamps 0 -> 1 jumps %.1f -> %.1f" % (track, tm, mouth, offsets[i], s[0][i], s[1][i]))
                 for a, b in ((1, 2), (2, 3)):
                     if abs(s[b][i] - s[a][i]) > 0.4 * rng:
-                        (bad if tm == "day" else notes).append("(3) %s %s %s node %d: lamps %d -> %d jumps %.1f -> %.1f" % (track, tm, mouth, offsets[i], (0, 1, 50, 100)[a], (0, 1, 50, 100)[b], s[a][i], s[b][i]))
+                        bad.append("(3) %s %s %s node %d: lamps %d -> %d jumps %.1f -> %.1f" % (track, tm, mouth, offsets[i], (0, 1, 50, 100)[a], (0, 1, 50, 100)[b], s[a][i], s[b][i]))
 for k in sorted(tab):
     print(" ".join(map(str, k)), " ".join("%.0f" % v for v in tab[k]))
 for b in notes:

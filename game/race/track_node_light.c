@@ -263,15 +263,15 @@ static uint8_t light_at(const TrackNodeLight *light, uint32_t node, int point)
 enum { POOL_BRIGHTNESS_KEEP = 0 };
 
 /* the row point the pool lights: `v` (the row after the retouches) moved back toward the row before them by all but POOL_BRIGHTNESS_KEEP/256; `v` itself when the file has no brightness line */
-static uint8_t pool_row(const TrackNodeLight *light, uint32_t node, int point, uint8_t v)
+static uint8_t pool_row(const TrackNodeLight *light, uint32_t node, int point, uint8_t v, int clamp)
 {
     /* without the gradient's outer steps whatever the file's retouches: the beam's light on the open road before a mouth is not the mouth's ramp (the ramp is the scene's light, the pool lifts over it) */
     if (light->data_plain == NULL) {
-        const int ramp = (int)light_at_rows_x(light, light->data, node, point, 0, 1) - (int)light_at_rows_x(light, light->data, node, point, 1, 1);   /* what the outer step took off the row, 0 away from one */
+        const int ramp = (int)light_at_rows_x(light, light->data, node, point, 0, clamp) - (int)light_at_rows_x(light, light->data, node, point, 1, clamp);   /* what the outer step took off the row, 0 away from one */
         const int vp = (int)v + ramp;
         return (uint8_t)(vp > 255 ? 255 : vp);
     }
-    const int plain = light_at_rows_x(light, light->data_plain, node, point, 0, 1);
+    const int plain = light_at_rows_x(light, light->data_plain, node, point, 0, clamp);
     return (uint8_t)(v + (plain - (int)v) * (256 - POOL_BRIGHTNESS_KEEP) / 256);
 }
 
@@ -329,7 +329,7 @@ enum { DARK_AS_IS = 0, DARK_AS_UNLIT = 1, DARK_AS_UNLIT_NO_BEAM = 2 };
 
 static uint8_t light_at_dark_as(const TrackNodeLight *light, uint32_t node, int point, const double *xz, int mode)
 {
-    uint8_t v = light_at(light, node, point);
+    uint8_t v = mode != DARK_AS_IS && light != NULL && light->pool != NULL ? light_at_rows_ex(light, light->data, node, point, 0) : light_at(light, node, point);   /* at night the unlit reading is the open ground's: no road clamp */
     if (light == NULL) return v;
     const HeadlightPool *const pool = light->pool != NULL ? light->pool : light->tunnel_pool;   /* port (tunnel_pool): by day only an unlit tunnel's nodes have a pool */
     const int unlit = mode != DARK_AS_IS || unlit_open_at(light, track_node_light_old_node(light, node));
@@ -363,7 +363,7 @@ static uint8_t light_at_dark_as(const TrackNodeLight *light, uint32_t node, int 
         const int reach = floor + (gain - floor) * share / 256;
         uint8_t open = headlight_pool_apply(v, reach);
         if (reach > floor) {   /* port (pool_brightness): the pool's added light is the row's before the retouches and the mouth's outer steps, mostly; the dark around it keeps them */
-            const uint8_t vp = pool_row(light, node, point, v);
+            const uint8_t vp = pool_row(light, node, point, v, !(mode != DARK_AS_IS && light->pool != NULL));
             const int dark = headlight_pool_apply(v, floor), lit = headlight_pool_apply(vp, reach), dark_vp = headlight_pool_apply(vp, floor);
             const int share_of_pool = (reach - floor) * 256 / (256 - floor);
             const int away = 256 - share_of_pool;   /* 0 in the pool's full light, 256 outside it; cubed, so the retouch's darkness fades in only well outside the lit patch (no seam at its edge) */
@@ -388,7 +388,7 @@ static uint8_t light_at_dark_as(const TrackNodeLight *light, uint32_t node, int 
 
 static int lit_pool_share(const TrackNodeLight *light, uint32_t node)
 {
-    if (light == NULL || light->pool != NULL || light->tunnel_pool == NULL || light->lamp_pct == NULL || light->nodes == 0) return 0;
+    if (light == NULL || (light->pool == NULL && light->tunnel_pool == NULL) || light->lamp_pct == NULL || light->nodes == 0) return 0;
     const uint32_t at = track_node_light_old_node(light, node) % light->nodes;
     const int pct = light->lamp_pct[at];
     if (pct < 1 || pct >= 100 || !made_tunnel(light, at)) return 0;
@@ -400,6 +400,10 @@ static uint8_t light_at_dark(const TrackNodeLight *light, uint32_t node, int poi
 {
     const int share = lit_pool_share(light, node);
     if (share <= 0) return light_at_dark_as(light, node, point, xz, DARK_AS_IS);
+    if (light->pool != NULL) {   /* at night: from the lit tunnel's own light (100 %) to the unlit one's, the open night with its beam (0 %), by the share the lamps leave */
+        const int lit = light_at_dark_as(light, node, point, xz, DARK_AS_IS), unlit = light_at_dark_as(light, node, point, xz, DARK_AS_UNLIT);
+        return (uint8_t)(lit + (unlit - lit) * share / 256);
+    }
     /* a lit tunnel by day is drawn in the unlit tables (its class): the dark is its look in the polygons' light and the beam's light comes on top by the share the lamps leave */
     const int with = light_at_dark_as(light, node, point, xz, DARK_AS_UNLIT), without = light_at_dark_as(light, node, point, xz, DARK_AS_UNLIT_NO_BEAM);
     const int out = without + (with > without ? (with - without) * share / 256 : 0);

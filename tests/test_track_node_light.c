@@ -351,6 +351,31 @@ static void test_day_pool_fades_with_the_lamps(void)
     CHECK(half * 2 >= gain - 8 && half * 2 <= gain + 8);                            /* about half at 50 % */
 }
 
+/* the same at night (the real pool): the lit tunnel's light (100 %) goes to the open night's with its beam (0 %) by the lamps, with no jump at 1 % */
+static void test_night_pool_fades_with_the_lamps(void)
+{
+    enum { N = 3 };
+    uint8_t rows[N * TRACK_NODE_LIGHT_POINTS], tunnel[N] = { 1, 1, 1 }, off[N] = { 1, 1, 1 }, pct[N] = { 0, 0, 0 };
+    memset(rows, 0, sizeof rows);
+    for (int n = 0; n < N; n++) rows[n * TRACK_NODE_LIGHT_POINTS + 0] = rows[n * TRACK_NODE_LIGHT_POINTS + 1] = rows[n * TRACK_NODE_LIGHT_POINTS + 6] = 255;
+    HeadlightPool pool;
+    memset(&pool, 0, sizeof pool);
+    pool.cone = 1, pool.count = 1;
+    pool.cone_x[0] = 0.0, pool.cone_z[0] = 0.0, pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;
+    const double in_beam[2] = { 0.0, 8.0 }, outside[2] = { 0.0, 150.0 };
+    const int lamps[6] = { 0, 1, 10, 50, 99, 100 };
+    int beam[6], dark[6];
+    for (int i = 0; i < 6; i++) {
+        TrackNodeLight l = { .data = rows, .nodes = N, .tunnel = tunnel, .pool = &pool, .look_set = 1, .look_light = 60.0 };
+        if (lamps[i] == 0) l.lamps_off = off;
+        else memset(pct, lamps[i], sizeof pct), l.lamp_pct = pct;
+        beam[i] = track_node_light_at_xz(&l, 1, 1, in_beam);
+        dark[i] = track_node_light_at_xz(&l, 1, 1, outside);
+    }
+    CHECK(abs(beam[0] - beam[1]) <= 6 && abs(dark[0] - dark[1]) <= 6);   /* 1 % is almost 0 %: no jump, in the beam or out of it */
+    for (int i = 1; i < 6; i++) CHECK(abs(beam[i] - beam[i - 1]) <= (beam[0] > beam[5] ? beam[0] - beam[5] : beam[5] - beam[0]) * 6 / 10 + 6);   /* and no step over 60 % of the whole way */
+}
+
 /* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
 static void test_radial_lamps(void)
 {
@@ -603,6 +628,7 @@ int main(void)
     test_day_tunnel_pool_stays_in_the_tunnel();
     test_day_unlit_road_never_brighter_than_lit();
     test_day_pool_fades_with_the_lamps();
+    test_night_pool_fades_with_the_lamps();
     test_radial_lamps();
     test_lamp_shaped_along_the_road();
     test_object_lamp();

@@ -228,6 +228,7 @@ static void car_tunnel_look(const TrackNodeLight *light, uint32_t node, int matc
         const float between = match >= 1 ? (float)LIGHT_SYNTH_LAMP_GAP_SMOOTH_PERCENT / 100.0f : lamp_gap;
         const int constant = unlit || (match >= 1 && light->tunnel_lamp_n > 0);   /* no parity in it: the same on every node */
         const float gap = d == 0 || constant ? alternation : (1.0f + between) / 2.0f;   /* the lamps' pattern (light under a lamp, shade between) is inside [A,B] only: outside, in the ramp, the car takes its mean, never the node's own, or it flickers before the mouth */
+        const float gap_lamps = light->lamp_pct != NULL && light->lamp_pct[zone] >= 1 && light->lamp_pct[zone] < 100 ? (float)light->lamp_pct[zone] / 100.0f : 1.0f;   /* lamps under 100 %: the alternation between two lamps fades with them, so 1 % is as 0 % (no alternation) */
         const float road = track_node_light_road_light(light, node);   /* the look is a table's gain; how lit the place is comes from its rows: the car never has more than the road around it */
         const float cap = (float)TRACK_NODE_LIGHT_TUNNEL_ROAD / (float)TRACK_NODE_LIGHT_FULL;
         const float inside = road >= 1.0f ? 0.0f : road <= cap ? 1.0f : (1.0f - road) / (1.0f - cap);   /* how far in the road's own darkening says the car is: the open road 0, a tunnel's 1 */
@@ -238,7 +239,7 @@ static void car_tunnel_look(const TrackNodeLight *light, uint32_t node, int matc
         for (int k = 0; k < 3; k++) {
             const float look = (float)(percent / 100.0) * cast[k];
             const float full = look > 1.0f ? 1.0f : look, excess = look > 1.0f ? look - 1.0f : 0.0f;   /* above full light the world is brighter by the excess: the car takes it as the road's darkening comes in */
-            const float lit = (full + excess * inside) * share * gap * gain;
+            const float lit = (full + excess * inside) * share * (1.0f + (gap - 1.0f) * gap_lamps) * gain;
             out[k] = 1.0f - (1.0f - lit) * dark;
         }
         return;
