@@ -395,18 +395,29 @@ static int lit_pool_share(const TrackNodeLight *light, uint32_t node)
     return (100 - pct) * 256 / 100;
 }
 
+/* by day the beam comes into a tunnel gradually: none at its first node, half at the second, full from the third (from either mouth): the road does not rise at the mouth where the beam starts. 0..256 */
+static int day_beam_edge(const TrackNodeLight *light, uint32_t node)
+{
+    const uint32_t at = track_node_light_old_node(light, node) % light->nodes;
+    for (uint32_t k = 1; k <= 2; k++)
+        if (!made_tunnel(light, (at + k) % light->nodes) || !made_tunnel(light, (at + light->nodes - k % light->nodes) % light->nodes)) return (int)(k - 1) * 128;
+    return 256;
+}
+
 /* xz: the point's place on the ground in metres, or NULL when only the node is known (the node's centre is used with headlight_cone) */
 static uint8_t light_at_dark(const TrackNodeLight *light, uint32_t node, int point, const double *xz)
 {
-    const int share = lit_pool_share(light, node);
+    if (light == NULL) return light_at_dark_as(light, node, point, xz, DARK_AS_IS);
+    int share = lit_pool_share(light, node);
+    if (light->pool == NULL && share <= 0 && unlit_open_at(light, track_node_light_old_node(light, node))) share = 256;   /* lamps at 0 %: the whole beam, by day too */
     if (share <= 0) return light_at_dark_as(light, node, point, xz, DARK_AS_IS);
     if (light->pool != NULL) {   /* at night: from the lit tunnel's own light (100 %) to the unlit one's, the open night with its beam (0 %), by the share the lamps leave */
         const int lit = light_at_dark_as(light, node, point, xz, DARK_AS_IS), unlit = light_at_dark_as(light, node, point, xz, DARK_AS_UNLIT);
         return (uint8_t)(lit + (unlit - lit) * share / 256);
     }
-    /* a lit tunnel by day is drawn in the unlit tables (its class): the dark is its look in the polygons' light and the beam's light comes on top by the share the lamps leave */
+    /* by day a tunnel with lamps under 100 % is drawn in the unlit tables (its class): the dark is its look in the polygons' light and the beam's light comes on top, by the share the lamps leave and as far in as the mouth lets it */
     const int with = light_at_dark_as(light, node, point, xz, DARK_AS_UNLIT), without = light_at_dark_as(light, node, point, xz, DARK_AS_UNLIT_NO_BEAM);
-    const int out = without + (with > without ? (with - without) * share / 256 : 0);
+    const int out = without + (with > without ? (with - without) * share / 256 * day_beam_edge(light, node) / 256 : 0);
     return (uint8_t)(out > 255 ? 255 : out);
 }
 

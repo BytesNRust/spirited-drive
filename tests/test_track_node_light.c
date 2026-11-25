@@ -276,8 +276,8 @@ static void test_unlit_tunnel_has_the_pool(void)
  * all, gets exactly its row: a pool that escaped to the open road by day would show here */
 static void test_day_tunnel_pool_stays_in_the_tunnel(void)
 {
-    enum { N = 6 };
-    uint8_t rows[N * TRACK_NODE_LIGHT_POINTS], tunnel[N] = { 0, 0, 1, 1, 0, 0 }, lamps_off[N] = { 0, 0, 1, 1, 0, 0 };
+    enum { N = 10 };
+    uint8_t rows[N * TRACK_NODE_LIGHT_POINTS], tunnel[N] = { 0, 0, 1, 1, 1, 1, 1, 1, 0, 0 }, lamps_off[N] = { 0, 0, 1, 1, 1, 1, 1, 1, 0, 0 };   /* the beam comes in over the first two nodes: the checks are at node 4 */
     for (int n = 0; n < N; n++)
         for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) rows[n * TRACK_NODE_LIGHT_POINTS + p] = (uint8_t)(p == 0 || p == 1 || p == 6 ? 200 : 30 + 7 * p);
     HeadlightPool pool;
@@ -289,14 +289,14 @@ static void test_day_tunnel_pool_stays_in_the_tunnel(void)
     for (int n = 0; n < N; n++)
         for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++)
             if (!tunnel[n]) CHECK_EQ_INT(track_node_light_at_xz(&light, (uint32_t)n, p, in_beam), rows[n * TRACK_NODE_LIGHT_POINTS + p]);   /* open road: the row, beam or not */
-    const int lit = track_node_light_at_xz(&light, 2, 1, in_beam), dark = track_node_light_at_xz(&light, 2, 1, outside);
+    const int lit = track_node_light_at_xz(&light, 4, 1, in_beam), dark = track_node_light_at_xz(&light, 4, 1, outside);
     CHECK(dark >= TRACK_NODE_LIGHT_TUNNEL_ROAD * 40 / 100 - 3 && dark <= TRACK_NODE_LIGHT_TUNNEL_ROAD * 40 / 100 + 3);   /* the tunnel's own look (40 %) of the tunnel's road level is its dark */
     CHECK(lit > dark + 40);                                              /* and the beam lifts it */
     pool.count = 0;   /* no lamps lit: the tunnel is as dark as its look, nothing else changes */
-    CHECK_EQ_INT(track_node_light_at_xz(&light, 2, 1, in_beam), dark);
+    CHECK_EQ_INT(track_node_light_at_xz(&light, 4, 1, in_beam), dark);
     TrackNodeLight no_pool = light;
     no_pool.tunnel_pool = NULL;
-    CHECK_EQ_INT(track_node_light_at_xz(&no_pool, 2, 1, in_beam), TRACK_NODE_LIGHT_TUNNEL_ROAD);   /* with no pool at all (Stock, Restored): as ever */
+    CHECK_EQ_INT(track_node_light_at_xz(&no_pool, 4, 1, in_beam), TRACK_NODE_LIGHT_TUNNEL_ROAD);   /* with no pool at all (Stock, Restored): as ever */
 }
 
 /* the owner's AL3 bug: by day, lowering a tunnel's lamps to 0 % must never brighten its road: the lit tunnel's road (any lamps above 0) sits at TUNNEL_ROAD, and an unlit one, away from the beam, is no brighter */
@@ -320,6 +320,41 @@ static void test_day_unlit_road_never_brighter_than_lit(void)
         CHECK(a <= last);
         last = a;
         CHECK(track_node_light_at_xz(&unlit, 1, 1, outside) <= track_node_light_at_xz(&lit, 1, 1, outside) + 1 || looks[i] > 0.0);
+    }
+}
+
+/* the owner's pick: by day the beam comes into a tunnel gradually, none at its first node (the road does not rise at the mouth where the beam starts), half at the second, full from the third,
+ * with the lamps at 0, 1 or 50 % alike, from both mouths; nothing outside the tunnel changes */
+static void test_day_beam_eases_in_at_the_mouth(void)
+{
+    enum { N = 14 };
+    uint8_t rows[N * TRACK_NODE_LIGHT_POINTS], tunnel[N] = { 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0 }, off[N] = { 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0 }, pct[N];
+    memset(rows, 0, sizeof rows);
+    for (int n = 0; n < N; n++) rows[n * TRACK_NODE_LIGHT_POINTS + 0] = rows[n * TRACK_NODE_LIGHT_POINTS + 1] = rows[n * TRACK_NODE_LIGHT_POINTS + 6] = 255;
+    const int lamps[3] = { 0, 1, 50 };
+    for (int i = 0; i < 3; i++) {
+        int gain[N];
+        for (int node = 2; node <= 12; node++) {
+            HeadlightPool pool;
+            memset(&pool, 0, sizeof pool);
+            pool.cone = 1, pool.count = 1;
+            pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;
+            const double car[2] = { 0.0, 0.0 };   /* the beam on the road under the car, wherever the node is */
+            memset(pct, lamps[i], sizeof pct);
+            TrackNodeLight l = { .data = rows, .nodes = N, .tunnel = tunnel, .tunnel_pool = &pool, .look_set = 1, .look_light = 100.0 };
+            if (lamps[i] == 0) l.lamps_off = off;
+            else l.lamp_pct = pct;
+            const int with = track_node_light_at_xz(&l, (uint32_t)node, 1, car);
+            pool.count = 0;
+            gain[node] = with - track_node_light_at_xz(&l, (uint32_t)node, 1, car);
+        }
+        CHECK_EQ_INT(gain[2], 0);                                  /* outside: nothing */
+        CHECK_EQ_INT(gain[12], 0);
+        CHECK_EQ_INT(gain[3], 0);                                  /* the first node in: no beam */
+        CHECK_EQ_INT(gain[11], 0);                                 /* and from the other mouth */
+        CHECK(gain[5] > 20);                                       /* the third on: the beam */
+        CHECK(gain[4] > 0 && gain[4] * 2 >= gain[5] - 8 && gain[4] * 2 <= gain[5] + 8);   /* the second: half */
+        CHECK_EQ_INT(gain[10] * 2 >= gain[8] - 8 && gain[10] * 2 <= gain[8] + 8, 1);     /* the second from the other mouth: half */
     }
 }
 
@@ -628,6 +663,7 @@ int main(void)
     test_day_tunnel_pool_stays_in_the_tunnel();
     test_day_unlit_road_never_brighter_than_lit();
     test_day_pool_fades_with_the_lamps();
+    test_day_beam_eases_in_at_the_mouth();
     test_night_pool_fades_with_the_lamps();
     test_radial_lamps();
     test_lamp_shaped_along_the_road();

@@ -6,6 +6,7 @@
 #  (3) inside, at each node, the lamps 0 % -> 1 % step is no jump (within 10 % of the range) and 1 -> 50 -> 100 % no jump over 40 %.
 # (1) at night is printed as NOTE, not checked: with the pool on, a step inside the beam (AL1 nodes 0 -> 1, 42 % of the range even at lamps 100) is the tunnel floor's texture, accepted by the owner's rule (the pool wins);
 # the outside ramp is not drawn at night with the pool.
+#  (4) by day, going in with the lamps at 0, 1 and 50 %, the road does not rise by more than 2 (of 255) from node -1 to node +2 (the beam comes into the tunnel gradually).
 # usage: tests/tunnel_pool_lamps_game.sh <tnfs binary> <original/ dir> [contact sheet dir]      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
@@ -122,6 +123,15 @@ for track, f, t in cases:
                 for a, b in ((1, 2), (2, 3)):
                     if abs(s[b][i] - s[a][i]) > 0.4 * rng:
                         bad.append("(3) %s %s %s node %d: lamps %d -> %d jumps %.1f -> %.1f" % (track, tm, mouth, offsets[i], (0, 1, 50, 100)[a], (0, 1, 50, 100)[b], s[a][i], s[b][i]))
+for track, f, t in cases:   # (4) going in by day with the lamps at 0, 1, 50 %: the road under the car does not rise by more than 2 from the mouth to the third node in (the beam comes in gradually)
+    for lamps in (0, 1, 50):
+        seq = tab.get((track, "day", "in", lamps))
+        if seq is None: continue
+        v = {o: seq[i] for i, o in enumerate(offsets)}
+        path = [o for o in (-1, 0, 1, 2) if o in v]
+        for a, b in zip(path, path[1:]):
+            if v[b] > v[a] + 2:
+                bad.append("(4) %s day in lamps %d: the road rises going in, node %d -> %d: %.1f -> %.1f" % (track, lamps, a, b, v[a], v[b]))
 for k in sorted(tab):
     print(" ".join(map(str, k)), " ".join("%.0f" % v for v in tab[k]))
 for b in notes:
@@ -139,6 +149,6 @@ if [ -n "$sheets" ]; then
   mkdir -p "$sheets"
   cp "$work/shots/"*.ppm "$sheets/" 2>/dev/null
 fi
-[ $status -eq 0 ] && echo "tunnel_pool_lamps_game: ok" && rm -rf "$work"
+[ $status -eq 0 ] && echo "tunnel_pool_lamps_game: ok" && { [ -n "${TNFS_POOL_KEEP:-}" ] && echo "kept shots: $work" || rm -rf "$work"; }
 [ $status -ne 0 ] && echo "kept: $work"
 exit $status
