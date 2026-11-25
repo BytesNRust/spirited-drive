@@ -187,7 +187,7 @@ void tweak_panel(App *a)
             ui_probe("tweak_show");
             if (a->tweak_report[0] != '\0') ImGui::TextColored(strcmp(a->tweak_report, "ok") == 0 ? GOOD_TEXT : BAD_TEXT, "Check: %s", a->tweak_report);
             if (app_modified(a)) ImGui::TextColored(WARN_TEXT, "Unsaved changes are not in the tweak: File > Save first.");
-            if (ImGui::Button("Check")) app_tweak_check(a);
+            if (ImGui::Button("Check tweak")) app_tweak_check(a);
             ui_probe("tweak_check");
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make the tweak again from the project and look for what is wrong with it (no game needed)");
             ImGui::SameLine();
