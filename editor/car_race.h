@@ -237,4 +237,7 @@ void car_race_free(RaceJob *job);
 /* the ExportCar a project is of (its stem for a car project, its masks folder for a masks project); NULL for a car that is not one of the game's */
 const ExportCar *car_race_original_of(const CarProject *c);
 
+/* whether `dir` is <workspace>/cars/<kit> with the kit name of one of the game's cars: an older workspace's working copy of an original (an own car mod does not take that name) */
+int car_race_original_kit(const char *dir);
+
 #endif

@@ -5,6 +5,7 @@
 #include "car_race.h"
 #include "tweak.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -104,7 +105,7 @@ void app_tweak_list_refresh(App *a)
         r->usable = car_export_available(&a->export_src, i, r->why, sizeof r->why);
         tweak_id(car->folder, id, sizeof id);
         car_export_kit_folder(i, kit, sizeof kit);
-        if (!workspace_path(a->workspace, WORKSPACE_KIND_CAR, kit, project, sizeof project)) project[0] = '\0';
+        if (!workspace_path(a->workspace, WORKSPACE_KIND_CAR, kit, project, sizeof project)) project[0] = '\0';   /* the old workspace's working copy: what "from the old workspace" is */
         row_fill(a, r, id, project);
     }
     for (int i = 0; i < OT_STEMS; ++i) {
@@ -117,7 +118,7 @@ void app_tweak_list_refresh(App *a)
         r->usable = a->data_dir_ok;
         if (!r->usable) snprintf(r->why, sizeof r->why, "the game's data/ is not found: %s", a->data_dir[0] != '\0' ? a->data_dir : "(none)");
         tweak_id(stem, id, sizeof id);
-        if (!original_track_dir(a->workspace, stem, project, sizeof project) || !original_track_present(project)) project[0] = '\0';
+        if (!original_track_old_dir(a->workspace, stem, project, sizeof project) || !original_track_present(project)) project[0] = '\0';   /* the old workspace's working copy */
         row_fill(a, r, id, project[0] != '\0' ? project : NULL);
     }
     if (a->tweak_pick >= a->tweak_rows) a->tweak_pick = -1;
@@ -182,30 +183,74 @@ int app_tweak_pack(App *a)
     return ok;
 }
 
+/* the folders above `path` (the tweak's studio/), so a kit can be made in it */
+static int make_parents(const char *path)
+{
+    char tmp[APP_PATH];
+    snprintf(tmp, sizeof tmp, "%s", path);
+    char *last = strrchr(tmp, '/');
+    if (last == NULL) return 0;
+    *last = '\0';
+    for (char *p = tmp + 1; *p != '\0'; ++p) {
+        if (*p != '/') continue;
+        *p = '\0';
+        if (mkdir(tmp, 0777) != 0 && errno != EEXIST) return 0;
+        *p = '/';
+    }
+    return mkdir(tmp, 0777) == 0 || errno == EEXIST;
+}
+
+/* what bringing an older workspace's working copy in said, for the status line: the old folder is left, the owner deletes it by hand */
+static void converted_note(char *note, size_t cap, const char *old, int files)
+{
+    snprintf(note, cap, "; copied %d files from the old %s into the tweak (the old folder is left: delete it by hand when you want)", files, old);
+}
+
 int app_tweak_open_car(App *a, int index)
 {
-    char kit[96], dir[APP_PATH], why[APP_MSG] = "";
+    char kit[96], id[64], old[APP_PATH], home[APP_PATH], why[APP_MSG] = "", note[APP_PATH + 160] = "";
     const ExportCar *car = car_export_car(index);
     if (car == NULL) return 0;
     car_export_kit_folder(index, kit, sizeof kit);
-    if (a->workspace[0] == '\0' || !workspace_path(a->workspace, WORKSPACE_KIND_CAR, kit, dir, sizeof dir)) return snprintf(a->status, sizeof a->status, "choose a workspace first (File > Workspace)"), 0;
-    if (!exists(dir) && !car_export_kit(&a->export_src, index, dir, why, sizeof why)) {   /* the project the tweak is made from, as the old Export original car made it */
+    tweak_id(car->folder, id, sizeof id);
+    if (a->workspace[0] == '\0' || !original_home(a->workspace, id, home, sizeof home) || !workspace_path(a->workspace, WORKSPACE_KIND_CAR, kit, old, sizeof old)) return snprintf(a->status, sizeof a->status, "choose a workspace first (File > Workspace)"), 0;
+    int files = 0;
+    const int converted = original_convert(old, home, &files, why, sizeof why);   /* one at a time, when its tweak is opened; the old folder stays */
+    if (converted < 0) {
         snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s", car->label, why);
         return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
     }
-    if (!app_open_car(a, dir)) return 0;
+    if (converted == 1) converted_note(note, sizeof note, old, files);
+    if (!exists(home) && !make_parents(home)) {
+        snprintf(a->open_error, sizeof a->open_error, "Could not open %s: cannot make %s", car->label, home);
+        return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
+    }
+    if (!exists(home) && !car_export_kit(&a->export_src, index, home, why, sizeof why)) {   /* the project the tweak is made from, as the old Export original car made it */
+        snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s", car->label, why);
+        return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
+    }
+    if (!app_open_tweak_car(a, home)) return 0;
     app_workspace_refresh(a);
     if (!app_tweak_refresh(a)) return snprintf(a->status, sizeof a->status, "opened %s, but its tweak was not made: %s", car->label, a->tweak_why), 0;
-    return snprintf(a->status, sizeof a->status, "tweak %s: %s/tweaks/%s", car->label, a->workspace, a->tweak_id), 1;
+    return snprintf(a->status, sizeof a->status, "tweak %s: %s/tweaks/%s%s", car->label, a->workspace, a->tweak_id, note), 1;
 }
 
 int app_tweak_open_track(App *a, int index)
 {
-    char dir[APP_PATH], why[OT_WHY] = "";
+    char dir[APP_PATH], old[APP_PATH], why[OT_WHY] = "", note[APP_PATH + 160] = "";
     const char *stem = original_track_stem(index);
     if (stem == NULL) return 0;
-    if (a->workspace[0] == '\0' || !original_track_dir(a->workspace, stem, dir, sizeof dir)) return snprintf(a->status, sizeof a->status, "choose a workspace first (File > Workspace)"), 0;
-    if (a->data_dir_ok) {   /* the track is made from the game's files when the workspace has none, and an older workspace's folder is brought up to date (what was edited is never touched) */
+    if (a->workspace[0] == '\0' || !original_track_dir(a->workspace, stem, dir, sizeof dir) || !original_track_old_dir(a->workspace, stem, old, sizeof old)) return snprintf(a->status, sizeof a->status, "choose a workspace first (File > Workspace)"), 0;
+    int files = 0;
+    if (original_track_present(old)) {   /* an older workspace's folder is copied in once, with what was edited in it; the old one stays */
+        const int converted = original_convert(old, dir, &files, why, sizeof why);
+        if (converted < 0) {
+            snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s", stem, why);
+            return snprintf(a->status, sizeof a->status, "%s", a->open_error), 0;
+        }
+        if (converted == 1) converted_note(note, sizeof note, old, files);
+    }
+    if (a->data_dir_ok) {   /* the track is made from the game's files when the tweak has none, and a folder from an older version is brought up to date (what was edited is never touched) */
         OriginalAdd add = { 0 };
         if (!original_track_add(a->workspace, stem, a->data_dir, a->art_dir[0] != '\0' ? a->art_dir : NULL, &add, why, sizeof why) && !original_track_present(dir)) {
             snprintf(a->open_error, sizeof a->open_error, "Could not open %s: %s", stem, why);
@@ -218,7 +263,7 @@ int app_tweak_open_track(App *a, int index)
     if (!app_open_original(a, dir)) return 0;
     app_workspace_refresh(a);
     if (!app_tweak_refresh(a)) return snprintf(a->status, sizeof a->status, "opened %s, but its tweak was not made: %s", stem, a->tweak_why), 0;
-    return snprintf(a->status, sizeof a->status, "tweak %s: %s/tweaks/%s", stem, a->workspace, a->tweak_id), 1;
+    return snprintf(a->status, sizeof a->status, "tweak %s: %s/tweaks/%s%s", stem, a->workspace, a->tweak_id, note), 1;
 }
 
 int app_tweak_open_row(App *a, int row)

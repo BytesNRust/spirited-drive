@@ -43,6 +43,26 @@ int original_track_dir(const char *workspace, const char *stem, char *out, size_
     return w > 0 && (size_t)w < cap;
 }
 
+int original_home(const char *workspace, const char *id, char *out, size_t cap)
+{
+    if (workspace == NULL || id == NULL || id[0] == '\0') return 0;
+    const int n = snprintf(out, cap, "%s/tweaks/%s/studio/project", workspace, id);
+    return n > 0 && (size_t)n < cap;
+}
+
+int original_is_home(const char *dir)
+{
+    static const char TAIL[] = "/studio/project";
+    const size_t n = dir != NULL ? strlen(dir) : 0, tail = sizeof TAIL - 1;
+    if (n <= tail || strcmp(dir + n - tail, TAIL) != 0) return 0;
+    char head[1100];
+    if (n - tail >= sizeof head) return 0;
+    memcpy(head, dir, n - tail), head[n - tail] = '\0';
+    const char *id = strrchr(head, '/');
+    if (id == NULL || id == head) return 0;
+    return strlen(id) > 1 && (size_t)(id - head) >= 7 && strncmp(id - 7, "/tweaks", 7) == 0;
+}
+
 int original_track_old_dir(const char *workspace, const char *stem, char *out, size_t cap)
 {
     if (workspace == NULL || !is_stem(stem)) return 0;

@@ -573,6 +573,15 @@ int app_close_project(App *a)
     return 1;
 }
 
+/* an original's working copy (the tweak's studio/project, or an older workspace's cars/<kit> and tracks/<STEM>) opens only through Edit tweak */
+static int refuse_original(App *a, const char *dir, int car)
+{
+    if (!original_is_home(dir) && !(car ? car_race_original_kit(dir) : original_track_present(dir))) return 0;
+    snprintf(a->status, sizeof a->status, "%s is a game original: open it with Edit tweak (File > Edit tweak...)", dir);
+    snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
+    return 1;
+}
+
 int app_open_project(App *a, const char *dir)
 {
     char mod[MOD_INI_ID_MAX + 1];
@@ -581,7 +590,7 @@ int app_open_project(App *a, const char *dir)
         snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
         return 0;
     }
-    if (original_track_present(dir)) return app_open_original(a, dir);
+    if (refuse_original(a, dir, 0)) return 0;
     if (!recent_is_project(dir)) {
         set_status(a, "that folder holds no project (no project.ini): use New to start one there");
         snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
@@ -591,6 +600,11 @@ int app_open_project(App *a, const char *dir)
 }
 
 int app_open_car(App *a, const char *dir)
+{
+    return refuse_original(a, dir, 1) ? 0 : open_in(a, dir, APP_KIND_CAR);
+}
+
+int app_open_tweak_car(App *a, const char *dir)
 {
     return open_in(a, dir, APP_KIND_CAR);
 }

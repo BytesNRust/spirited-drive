@@ -531,6 +531,8 @@ int app_new_project(App *a, const char *dir);
 /* Opens the car in `dir` (a kit's folder: car_project_detect); on a failure the status says what was looked at and what is missing, and the open
  * project stays as it was. */
 int app_open_car(App *a, const char *dir);
+/* The same for the working copy of a game car in its tweak (tweaks/<id>/studio/project): app_open_car refuses that folder and an older workspace's cars/<kit> of a game car, which open through Edit tweak. */
+int app_open_tweak_car(App *a, const char *dir);
 /* Opens a recent folder as the kind it was kept as. */
 int app_open_recent(App *a, const char *dir);
 

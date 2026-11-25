@@ -684,6 +684,17 @@ const ExportCar *car_race_original_of(const CarProject *c)
     return NULL;
 }
 
+int car_race_original_kit(const char *dir)
+{
+    const char *name = dir != NULL ? strrchr(dir, '/') : NULL;
+    if (name == NULL || name == dir) return 0;
+    const size_t head = (size_t)(name - dir);
+    if (head < 5 || strncmp(dir + head - 5, "/cars", 5) != 0) return 0;
+    for (int i = 0; car_export_car(i) != NULL; ++i)
+        if (strcasecmp(name + 1, car_export_car(i)->file) == 0) return 1;
+    return 0;
+}
+
 /* ---- the job ---- */
 
 static void job_log(RaceJob *j, const char *text, size_t n)

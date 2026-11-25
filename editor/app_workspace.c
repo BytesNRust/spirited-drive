@@ -10,7 +10,7 @@
 
 static int present(const char *dir, int kind)
 {
-    if (kind == WORKSPACE_KIND_TRACK && original_track_present(dir)) return 1;   // an original track of the game, added from its data/
+    if (kind == WORKSPACE_KIND_TRACK ? original_track_present(dir) : car_race_original_kit(dir)) return 0;   // a game original's working copy from an older workspace: it opens through Edit tweak, not here
     return recent_present(dir, kind == WORKSPACE_KIND_CAR ? RECENT_CAR : RECENT_TRACK);
 }
 

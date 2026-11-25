@@ -21,6 +21,12 @@ int original_track_dir(const char *workspace, const char *stem, char *out, size_
 /* <workspace>/tracks/<stem>: where an older workspace kept the working copy (before it moved into the tweak); 0 for a stem that is not one of the 16 */
 int original_track_old_dir(const char *workspace, const char *stem, char *out, size_t cap);
 
+/* <workspace>/tweaks/<id>/studio/project for the tweak folder `id` ("al1-tweak", "wagon-tweak"): where an original's working copy (car or track) lives; 0 when it does not fit */
+int original_home(const char *workspace, const char *id, char *out, size_t cap);
+
+/* whether `dir` is an original's working copy in a tweak (.../tweaks/<id>/studio/project): such a folder opens only through Edit tweak */
+int original_is_home(const char *dir);
+
 /* An older workspace's working copy of an original (cars/<kit>, tracks/<STEM>) is copied into its tweak's studio/project the first time the tweak is opened: every file and folder of `old_dir` that `home`
  * has not (symbolic links are not followed), `old_dir` left as it is. 1 when it copied (`files` gets how many), 0 when there was nothing to do (`home` already there, or no `old_dir`), -1 with `why`. */
 int original_convert(const char *old_dir, const char *home, int *files, char *why, size_t cap);
