@@ -18,6 +18,11 @@ member() { python3 -I -c "import sys, zipfile; sys.stdout.write(zipfile.ZipFile(
 t=$work/ws/tweaks/cy1-tweak
 zip=$t/build/cy1-tweak.zip
 
+# Save makes the tweak again: the panel's status says changed right after Save, with no Check, Apply or reopening in between
+studio --frames 60 --steps tweak-open-row:CY1,tweak-shown,sun:110,25,65,save,tweak-shown || fail "Save refresh: $(tail -3 "$work/log")"
+grep -q '^tweak shown: same as the game' "$work/log" || fail "a tweak not changed yet is not the game's: $(grep shown "$work/log")"
+[ "$(grep -c '^tweak shown: ' "$work/log")" -eq 2 ] && ! grep '^tweak shown: ' "$work/log" | tail -n 1 | grep -q 'same as the game' || fail "Save did not refresh the tweak: $(grep shown "$work/log")"
+
 # the track: the sun changed, Check, Pack zip
 studio --frames 90 --steps tweak-open-row:CY1,sun:120,30,70,save,ui-click:tweak_check,ui-click:tweak_pack,status || fail "CY1 pack: $(tail -3 "$work/log")"
 grep -q '^status: pack zip: 1 file packed' "$work/log" || fail "Pack zip did not say what went in: $(grep status "$work/log")"

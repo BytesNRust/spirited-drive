@@ -632,7 +632,16 @@ static int track_open(App *a)
     return 0;
 }
 
+static int app_save_inner(App *a);
+
 int app_save(App *a)
+{
+    const int ok = app_save_inner(a);
+    if (ok && app_tweak_active(a)) app_tweak_refresh(a);   /* the tweak is made again from what was just saved (once, here: nothing is read per frame) */
+    return ok;
+}
+
+static int app_save_inner(App *a)
 {
     char why[APP_MSG];
     if (a->kind == APP_KIND_LIGHT) return app_light_save(a);
