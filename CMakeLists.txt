@@ -62,6 +62,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(WIN32)   # MinGW's strict C99 hides M_PI and the POSIX calls the sources use: core/win_posix.h puts them back in front of every C file
+    add_compile_definitions(_USE_MATH_DEFINES)
+    add_compile_options("$<$<COMPILE_LANGUAGE:C>:-include${CMAKE_SOURCE_DIR}/core/win_posix.h>")
+endif()
+
 if(MSVC)
     set(TNFS_WARNINGS /W4)
 else()

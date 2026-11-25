@@ -3,6 +3,7 @@
 # instead of stopping at the first thing: the build keeps going past a broken target (ninja -k 0) and ctest runs all.
 # The job summary lists the failing build targets and the failing tests; the logs go up as an artifact.
 # Only on the ci/windows-build branch and by hand (Actions > Windows > Run workflow) until it is in the CI proper.
+# Studio (the editor, TNFS_EDITOR) is not built here: it is not part of the Windows version.
 # Tests that need the CD's data skip themselves (there is no game data in CI).
 name: Windows
 
@@ -50,7 +51,7 @@ jobs:
       - name: Configure
         run: |
           mkdir -p out
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee out/configure.log
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_EDITOR=OFF 2>&1 | tee out/configure.log
           test "${PIPESTATUS[0]}" -eq 0
       - name: Build (keeps going)
         id: build
