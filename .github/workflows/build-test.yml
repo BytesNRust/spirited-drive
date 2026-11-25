@@ -91,7 +91,7 @@ jobs:
 
       - name: Build the game (release)
         run: |
-          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF
           cmake --build build/rel --target tnfs
 
       - name: Package
