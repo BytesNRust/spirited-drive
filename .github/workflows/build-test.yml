@@ -65,3 +65,46 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0             # the version's hash comes from the history
+          persist-credentials: false
+
+      - uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c   # v2.34.0
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-sdl3
+            git
+
+      - name: Build the game (release)
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON
+          cmake --build build/rel --target tnfs
+
+      - name: Package
+        run: |
+          tools/package_windows.sh build/rel dist
+          cd dist && sha256sum *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt
+          cmake -E tar tf *.zip | grep -E 'tnfs\.exe|SDL3\.dll|data/car_masks' | head -5
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        with:
+          name: spirited-drive-windows-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
