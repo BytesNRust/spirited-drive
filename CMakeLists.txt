@@ -1338,8 +1338,10 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_headless_car_b PROPERTIES TIMEOUT 900)
         add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back
         set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)
-        add_test(NAME editor_light_window COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_light_window.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_fake_tri>)   # the Track light window headless: opens, photographs the working copy through a fake game, leaves the folder as it was
-        set_tests_properties(editor_light_window PROPERTIES TIMEOUT 900)
+        foreach(part a b c d e f)   # the Track light window headless, six parts side by side (alone the one run took ten minutes: the editor paints a frame in software here): a window and views, more views and the HUD, tunnels/sun/clicks/copy, lamps and kinds, tunnel cells, sun sliders and the rest
+            add_test(NAME editor_light_window_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_light_window.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_fake_tri> ${part})
+            set_tests_properties(editor_light_window_${part} PROPERTIES TIMEOUT 900)
+        endforeach()
         add_test(NAME editor_light_tables COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_light_tables.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:make_fake_tri>)   # the Track light tables at 1280 px: no column narrower than it needs, a drag of a header's border widens one, the width survives a restart
         set_tests_properties(editor_light_tables PROPERTIES TIMEOUT 300)
         add_test(NAME editor_original_track_flow_a COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> a)   # original tracks in a workspace, part a: add the 16, old workspace, open one, publish its light
@@ -2684,7 +2686,7 @@ set(TNFS_E2E_TESTS
     editor_car_panel_clicks
     editor_new_car
     editor_model_flow
-    editor_light_window
+    editor_light_window_a editor_light_window_b editor_light_window_c editor_light_window_d editor_light_window_e editor_light_window_f
     editor_original_track_flow_a
     editor_original_track_flow_b editor_original_track_flow_c
     studio_cli
