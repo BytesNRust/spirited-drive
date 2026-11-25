@@ -67,7 +67,7 @@ int32_t screen_horizon_scale(int32_t scale, int width)
     return (int32_t)((num + den / 2) / den);
 }
 
-void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS])
+void screen_layouts(int width, int strip, ViewLayout out[VIEW_LAYOUTS])
 {
     const int left = screen_menu_left(width);
     for (int r = 0; r < VIEW_LAYOUTS; r++) {
@@ -82,7 +82,7 @@ void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS])
     }
     /* the clip box only: the projection (its centre, its focal length) stays, so the picture above the old strip is
      * the same and the lines below it show more of the road */
-    out[OUTSIDE_ROW].unknown_24 = OUTSIDE_HEIGHT;
+    if (!strip) out[OUTSIDE_ROW].unknown_24 = OUTSIDE_HEIGHT;
 }
 
 CockpitScale screen_cockpit_scale(int width)

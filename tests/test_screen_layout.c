@@ -43,7 +43,7 @@ int main(void)
 
     const ViewLayout *orig = race_view_layouts[1];
     ViewLayout l[VIEW_LAYOUTS];
-    screen_layouts(640, l);
+    screen_layouts(640, 0, l);
     for (int r = 0; r < VIEW_LAYOUTS; r++) {
         if (r == 3) continue;
         same_layout(l, orig, r);
@@ -51,8 +51,11 @@ int main(void)
     ViewLayout want3 = orig[3];
     want3.unknown_24 = 448;     /* the box the view is clipped to, or the strip stays; the projection as it was */
     CHECK(memcmp(&l[3], &want3, sizeof want3) == 0);
+    CHECK(orig[3].unknown_24 < 448);   /* the exe's own box leaves the strip under the view */
+    screen_layouts(640, 1, l);   /* Stock: the exe's rows as they are, the strip under the outside view included */
+    for (int r = 0; r < VIEW_LAYOUTS; r++) same_layout(l, orig, r);
 
-    screen_layouts(854, l);
+    screen_layouts(854, 0, l);
     CHECK_EQ_INT(l[0].width, 854);
     CHECK_EQ_INT(l[0].height, 480);
     CHECK_EQ_INT(l[3].width, 854);

@@ -21,6 +21,7 @@
 #include "game/sys/race_records.h"
 #include "game/sys/reverse_track.h"
 #include "game/race/race_schedule.h"
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "formats/stock_content.h"
 #include "game/sys/track_pieces.h"
@@ -108,12 +109,12 @@ static int env_switch(const char *name, int otherwise)
 /* port: the menu's Ultra, TNFS_VIEW_ULTRA overriding port.cfg's view_ultra for the checks */
 static int view_ultra_on(const PortSettings *ps) { return env_switch("TNFS_VIEW_ULTRA", ps->view_ultra); }
 
-/* port: the race about to start: its 640 x 480 rows without the strip in every format, the field's adjustment, and
+/* port: the race about to start: its 640 x 480 rows without the strip in every format but Stock's (the exe's black strip under the outside view), the field's adjustment, and
  * 640 wide until drive_wide_size */
 static void drive_wide_setup(void)
 {
     const PortSettings ps = port_settings_load();
-    screen_layouts(SCREEN_W, drive_views.layouts[HIGH_SCREEN]);
+    screen_layouts(SCREEN_W, ps.profile == PROFILE_STOCK, drive_views.layouts[HIGH_SCREEN]);
     drive_wide.fov_adjust = ps.fov_adjust;
     /* port: the "ultra" view distance (TNFS_VIEW_ULTRA=1 / 0 overrides port.cfg for the checks) and F3's rotation */
     const int ultra = view_ultra_on(&ps);

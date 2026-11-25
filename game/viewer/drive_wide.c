@@ -12,6 +12,7 @@
 #include "viewer/dash_box.h"
 #include "game/sys/bands.h"
 #include "game/sys/port_log.h"
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "game/race/car_draw.h"
 #include "game/race/dash_color.h"
@@ -794,7 +795,7 @@ void drive_wide_size(int width)
     free(drive_wide.layer);
     drive_wide.layer = NULL;
     if (!drive_wide_active()) return;
-    screen_layouts(drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W, drive_wide.rows);
+    screen_layouts(drive_wide.width > SCREEN_W ? drive_wide.width : SCREEN_W, port_settings_load().profile == PROFILE_STOCK, drive_wide.rows);
     const size_t out = (size_t)drive_wide.width * drive_wide.scale * SCREEN_H * drive_wide.scale;
     uint8_t *p = realloc(drive_wide.pixels, out);
     uint8_t *layer = drive_wide.scale > 1 ? malloc((size_t)drive_wide.width * SCREEN_H) : NULL;

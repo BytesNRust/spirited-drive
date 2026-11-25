@@ -27,8 +27,8 @@ int32_t screen_horizon_scale(int32_t scale, int width);
 
 /* The 17 rows of the high mode (race_view_layouts[1]) for `width`: row 0 (cockpit) is width x 480, row 3 (outside,
  * 640x384 at y 32) is width wide with its clip box 448 lines (no strip, in 640 too; the projection keeps its 384); the 640-based rows (1, 2, 4..11) move right by
- * screen_menu_left(width); the mirror's row 12 and the unused rows stay as they are. */
-void screen_layouts(int width, ViewLayout out[VIEW_LAYOUTS]);
+ * screen_menu_left(width); the mirror's row 12 and the unused rows stay as they are. `strip` 1 (Stock): the outside row keeps the exe's clip box too, the black strip under the view (0041e3f4). */
+void screen_layouts(int width, int strip, ViewLayout out[VIEW_LAYOUTS]);
 
 /* The cockpit art's scale (k = width / 640, 16.16) and the lines of the scaled 640x480 art cut at the top. */
 typedef struct { int32_t scale; int crop_top; } CockpitScale;
