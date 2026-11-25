@@ -3,6 +3,7 @@
 #include "panels.h"
 
 #include "help_marker.h"
+#include "text_elided.h"
 #include "ui_probe.h"
 
 #include <stdio.h>
@@ -211,9 +212,12 @@ void tweak_panel(App *a)
                         ImGui::SameLine(ImGui::GetWindowWidth() * 0.62f);
                         if (f.state == TWEAK_SAME) ImGui::TextDisabled("%s", state_word(f));
                         else ImGui::TextColored(WARN_TEXT, "%s%s%s", state_word(f), f.note[0] != '\0' ? "  " : "", f.note);
-                        if (f.own) {
-                            ImGui::SameLine();
-                            ImGui::TextColored(BAD_TEXT, "the repo has changes of its own");
+                        if (f.own) {   // on its own line: beside the state it does not fit the panel
+                            ImGui::Indent(12.0f);
+                            ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
+                            text_elided("the repo has changes of its own");
+                            ImGui::PopStyleColor();
+                            ImGui::Unindent(12.0f);
                         }
                     }
                     if (a->tweak_st.count == 0) ImGui::TextDisabled("Nothing in the tweak yet.");
