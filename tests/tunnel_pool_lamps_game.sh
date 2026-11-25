@@ -4,7 +4,8 @@
 #  (1) never jumps over 40 % of its range between neighbouring nodes (the whole run of a mouth, lamps and time fixed);
 #  (2) on the open road outside the mouth the pool never makes it lighter than the same node at lamps 100 % or than the farthest open node (+5 %);
 #  (3) inside, at each node, the lamps 0 % -> 1 % step is no jump (within 10 % of the range) and 1 -> 50 -> 100 % no jump over 40 %.
-# (1) at night is printed as NOTE: the night's own step at a mouth (AL1 nodes 0 -> 1, 42 % of the range even at lamps 100) is the gradient's, not the lamps' fade.
+# (1) at night is printed as NOTE, not checked: with the pool on, a step inside the beam (AL1 nodes 0 -> 1, 42 % of the range even at lamps 100) is the tunnel floor's texture, accepted by the owner's rule (the pool wins);
+# the outside ramp is not drawn at night with the pool.
 # usage: tests/tunnel_pool_lamps_game.sh <tnfs binary> <original/ dir> [contact sheet dir]      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
