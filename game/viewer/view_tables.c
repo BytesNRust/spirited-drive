@@ -101,6 +101,18 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
 {
     if (light_effects == NULL || id < 0 || id >= light_effects->tone_count) return NULL;
     const TrackNodeLightTone *const slot = &light_effects->tone[id];
+    if (slot->look >= 2 && !in_tunnel) {   /* a gradient step's open-ended polygon (the open road's outside step, the half-open piece at the first node): the road's tables with the tunnel's colour in by the step's blend, so there is no edge of hue where the tunnel starts */
+        uint8_t (*o)[256] = tone_tables[id][0];
+        if (tone_made[id][0]) return o;
+        const float f = (float)slot->blend / 100.0f;
+        float lit[3];
+        for (int k = 0; k < 3; k++) lit[k] = tone_lit_tint[k] * (1.0f + (slot->cast[k] - 1.0f) * f);
+        const float y = lit[0] + lit[1] + lit[2], y0 = tone_lit_tint[0] + tone_lit_tint[1] + tone_lit_tint[2];   /* the mean of the channels, as a picture's mean brightness reads it */
+        if (y > 0.01f) for (int k = 0; k < 3; k++) lit[k] *= y0 / y;   /* the hue comes in, not a darkening: the road's light is the step's own (and the pool's) */
+        modern_light_tables(tone_palette, lit, o);
+        tone_made[id][0] = 1;
+        return o;
+    }
     if (slot->look && !in_tunnel) return NULL;   /* port (tunnel zone looks): a zone's look is a tunnel's tables; a polygon that is not in a tunnel has the road's */
     uint8_t (*t)[256] = tone_tables[id][in_tunnel != 0];
     if (tone_made[id][in_tunnel != 0]) return t;
@@ -110,8 +122,9 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
         if (slot->look == 2) {   /* a gradient step of a tunnel mouth: part of the way from the open road (gain 1, no cast) to the tunnel's */
             const float f = (float)slot->blend / 100.0f;
             gain = 1.0f + (gain - 1.0f) * f;
+            const float fc = f + 0.22f > 1.0f ? 1.0f : f + 0.22f;   /* the colour leads the light by 22 points: the first steps in are not a pale slab against the amber behind them */
             if (!slot->own)   /* the time's colour fades with the light; a tunnel's own colour stays whole on every step */
-                for (int k = 0; k < 3; k++) cast[k] = 1.0f + (cast[k] - 1.0f) * f;
+                for (int k = 0; k < 3; k++) cast[k] = 1.0f + (cast[k] - 1.0f) * fc;
         }
         const float grey[3] = { gain, gain, gain };
         modern_tunnel_tables(tone_palette, grey, cast, 0.0f, t);
