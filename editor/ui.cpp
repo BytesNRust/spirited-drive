@@ -204,6 +204,7 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
     if (ini != nullptr) {
         snprintf(g_ini, sizeof g_ini, "%s", ini);
         io.IniFilename = g_ini;
+        io.IniSavingRate = 1.0e9f;   // not on a timer: the layout file (the panels, the tables' column widths) is written when a mouse button is let go (ui_frame), and when the window closes
         FILE *f = fopen(g_ini, "rb");
         g_had_layout = f != nullptr;
         if (f != nullptr) fclose(f);
@@ -1093,6 +1094,9 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (g_save_in == SAVE_AFTER_FRAMES) front_tabs(a);
         if (--g_save_in == 0 && g_ini[0] != '\0') ImGui::SaveIniSettingsToDisk(g_ini);
     }
+    if (g_ini[0] != '\0' && ImGui::GetCurrentContext()->SettingsDirtyTimer > 0.0f &&
+        (ImGui::IsMouseReleased(ImGuiMouseButton_Left) || ImGui::IsMouseReleased(ImGuiMouseButton_Right)))
+        ImGui::SaveIniSettingsToDisk(g_ini);   // something in the layout changed (a drag of a panel, of a table's column border): written now that the mouse is let go, never every frame
     export_popup(a);
     confirm_popup(a);
     new_track_popup(a);
