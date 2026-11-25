@@ -39,6 +39,8 @@ namespace {
 
 enum { MAX_W = 3072,  /* the Model picture's width at most (a very wide panel gets the same shape made smaller; the software renderer used by the headless tests draws a texture wider than 2048 wrong on screen, the buffer is right) */ FIT_SIDE = 240, FRAME_PERCENT = 80, AUTO_DEG_PER_SECOND = 24, GAME_TICKS_PER_SECOND = 30 /* the race calls its wheels 30 times a second (game/race/race_sim.h; the Studio links only the core) */ };
 
+int g_rotate_pref = 0;   // Auto-rotate as the layout file kept it (ui.cpp reads and writes it): 0 at a new start
+
 struct Model {
     char loaded[APP_PATH] = "";   // the CFM the scene holds (or tried to)
     unsigned loaded_serial = 0;   // the car file as a->cdisk.serial counted it then: another program wrote the file since when it moved
@@ -50,7 +52,7 @@ struct Model {
     uint8_t key_rgb[3] = {};
     bool painted = false;
     Orbit orbit = {};
-    bool auto_rotate = false, dirty = true;
+    bool auto_rotate = false, rotate_seeded = false, dirty = true;
     CardBackdrop backdrop = card_backdrop_default();   // what the card photo stands in front of (session only)
     uint8_t back_rgba[CARD_PHOTO_W * CARD_PHOTO_H * 4] = {};   // the backdrop made, and the reason when its picture cannot be
     bool back_dirty = true;
@@ -434,7 +436,12 @@ void toolbar(App *a)
     ImGui::SameLine();
     if (ImGui::Button("Home")) orbit_home(&g.orbit), g.fit = true, g.dirty = true;
     ImGui::SameLine();
-    if (ImGui::Checkbox("Auto-rotate", &g.auto_rotate)) g.dirty = true;
+    if (!g.rotate_seeded) g.auto_rotate = g_rotate_pref != 0, g.rotate_seeded = true;   // off at a new start; on when the person turned it on and the layout file kept it
+    if (ImGui::Checkbox("Auto-rotate", &g.auto_rotate)) {
+        g.dirty = true;
+        g_rotate_pref = g.auto_rotate ? 1 : 0;
+        ImGui::MarkIniSettingsDirty();   // kept with the layout, written when the mouse is let go
+    }
     ui_probe("model_auto_rotate");
     a->model_auto_rotate = g.auto_rotate ? 1 : 0;
     ImGui::SameLine();
@@ -801,3 +808,6 @@ void model_panel(App *a, SDL_Renderer *ren)
     }
     ImGui::End();
 }
+
+void model_auto_rotate_pref_set(int on) { g_rotate_pref = on != 0; }
+int model_auto_rotate_pref() { return g_rotate_pref; }

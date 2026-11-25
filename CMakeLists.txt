@@ -1302,6 +1302,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_new_car PROPERTIES TIMEOUT 600)
         add_test(NAME editor_model_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_model_flow.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
         set_tests_properties(editor_model_flow PROPERTIES TIMEOUT 900)
+        add_test(NAME editor_model_autorotate COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_model_autorotate.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})   # the Model's Auto-rotate: off at a new start, kept when turned on by hand; needs the game's files
+        set_tests_properties(editor_model_autorotate PROPERTIES TIMEOUT 600)
         add_test(NAME editor_installed_mod COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_installed_mod.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})   # Studio refuses an installed mod's folder and writes nothing in it
         set_tests_properties(editor_installed_mod PROPERTIES TIMEOUT 300)
         if(APPLE AND NOT CMAKE_C_FLAGS MATCHES "-fsanitize")   # the UI thread's file calls at rest are counted by a dylib put in front of the editor (tests/io_count.c); not in a sanitizer build: its runtime must come first

@@ -54,6 +54,8 @@ void race_panel(App *a, ImTextureID photo, ImTextureID sheet);   // Test in race
 void photo_view_panel(App *a, ImTextureID photo);   // the photo in a large window of its own (a->photo_view_open)
 void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
 void model_panel_preset(double yaw, double pitch, int dist);
+void model_auto_rotate_pref_set(int on);   // the Model's Auto-rotate as the layout file kept it (read at the start, written by ui.cpp)
+int model_auto_rotate_pref();
 void model_panel_nudge(void);   // the camera moved as a hand would (a drag and two wheel notches): the step camera:1
 int model_panel_save_picture(const char *path);   // the picture as drawn (the game's frame at the render scale, not the screen's copy of it) as a PNG, and "model picture: W x H, N drawn" on stdout; 0 when there is none: --model-shot
 void model_panel_state(int *big, int *docked, int *scale, int *soft);   // the Model window floating enlarged, docked when last drawn, its render scale and its Soft edges switch: the step camera:3
