@@ -1956,6 +1956,8 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_tweak_pack PROPERTIES TIMEOUT 900)
             add_test(NAME editor_tweak_flows COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_flows.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak flows the list/parity tests leave: the list with tweaks, reopening, a track mask, Replace/Skip/Cancel on a car with several masks and with colors, Apply with nothing new; needs the game's files
             set_tests_properties(editor_tweak_flows PROPERTIES TIMEOUT 900)
+            add_test(NAME editor_first_start_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_first_start_flow.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs>)   # the first start end to end: the game's folder asked once, Edit tweak, a car's mask, Check, Pack zip, installed, raced; needs the game's files
+            set_tests_properties(editor_first_start_flow PROPERTIES TIMEOUT 900)
             add_test(NAME editor_original_psd_newer COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_psd_newer.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:make_test_psd>)   # the owner's ANSX: the game's own PNG with no manifest gives way to a newer PSD, an edited one is kept, Regenerate from PSD is enabled
             set_tests_properties(editor_original_psd_newer PROPERTIES TIMEOUT 600)
             add_test(NAME editor_e2e_diablo COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_diablo.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # the Diablo from the game files with the panels clicked
