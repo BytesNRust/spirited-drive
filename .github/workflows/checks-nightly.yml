@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Every night (and by hand: Actions > Checks nightly > Run workflow), on main: what the checks of a push (checks.yml) leave out. The tests run on macOS Apple Silicon and
+# Intel (macos-15-intel), each in Release (Studio, the editor, built: it is the default configuration) and with AddressSanitizer + UndefinedBehaviorSanitizer. A compiler
+# warning fails the build. ccache keeps the objects between runs: this job saves the cache on main, and the branches' checks restore it.
+# Tests that need the CD's data skip themselves (there is no game data in CI).
+name: Checks nightly
+
+on:
+  schedule:
+    - cron: '17 3 * * *'   # 03:17 UTC, on main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+        build: [release, sanitizers]
+        include:
+          - build: release
+            cmake: -DCMAKE_BUILD_TYPE=Release
+          - build: sanitizers
+            cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer"
+    name: ${{ matrix.runner }} ${{ matrix.build }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      ASAN_OPTIONS: detect_leaks=0
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          persist-credentials: false
+      - name: Install tools
+        run: brew install ninja sdl3 ccache
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.runner }}-${{ matrix.build }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.runner }}-${{ matrix.build }}-
+      - name: Configure
+        run: |
+          ccache -z
+          cmake -S . -B build -G Ninja ${{ matrix.cmake }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build.log
+      - name: ccache statistics
+        run: ccache -s
+      - name: Save the ccache (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.runner }}-${{ matrix.build }}-${{ github.sha }}
+      - name: No compiler warnings
+        run: |
+          if grep 'warning:' build.log | grep -v '^ld: warning' | sort -u | grep .; then
+            echo "::error::the build has compiler warnings"; exit 1
+          fi
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -j "$(sysctl -n hw.ncpu)"
