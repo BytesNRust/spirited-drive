@@ -37,3 +37,17 @@ void boot_screen_sources(int key, int buttons, int pad, HoldSource out[HOLD_SOUR
     out[HOLD_BUTTONS] = (HoldSource){ buttons != 0, HOLD_NEXT };
     out[HOLD_PAD] = (HoldSource){ pad != 0, HOLD_NEXT };
 }
+
+void boot_redraw_start(BootRedraw *r, uint32_t now, int shown)
+{
+    r->last = now, r->shown = shown != 0;
+}
+
+int boot_redraw_due(BootRedraw *r, uint32_t now, int shown)
+{
+    const int came = shown != 0 && !r->shown;
+    r->shown = shown != 0;
+    if (!came && now - r->last < BOOT_REDRAW_TICKS) return 0;
+    r->last = now;
+    return 1;
+}

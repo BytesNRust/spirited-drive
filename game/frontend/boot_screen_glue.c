@@ -197,18 +197,23 @@ static int any_pad_button(void)
     return 0;
 }
 
+static void present_picture(void);
+
 /* held BOOT_HOLD_TICKS or until a press; the ticks it stayed. The game's first screen: nothing is held from a screen before, so a press counts from
  * the first look, a key tapped while the picture was made or faded in too (latched until that look) */
 static uint32_t hold(void)
 {
     const uint32_t start = timer_ticks();
     ScreenHold h = screen_hold_start_armed(start, BOOT_HOLD_TICKS);
+    BootRedraw again;
+    boot_redraw_start(&again, start, platform_window_shown());
     for (;;) {
         HoldSource src[HOLD_SOURCES];
         const int key = any_key();   /* first: it pumps the events the pointer's buttons are read from */
         boot_screen_sources(key, pointer_read_buttons(), any_pad_button(), src);
         const uint32_t now = timer_ticks();
         if (screen_hold_step(&h, now, src) != HOLD_STAY) return now - start;
+        if (boot_redraw_due(&again, now, platform_window_shown())) present_picture();   /* a window exposed late, a dropped drawable: the same picture again, no new fade */
         video_wait_vblank();
     }
 }
@@ -231,40 +236,56 @@ static uint32_t let_go(void)
  * menus' files, whatever a new install asks the system for) so that work is not a black window. Not marked; boot_screen_show does that, and the hold that follows. 0 when it
  * cannot be drawn. */
 static int prepared;
+static uint8_t *kept_picture, kept_palette[768];   /* what it shows, kept while it is held: presented again when the window needs it */
+static BootLine kept_lines[BOOT_LINES_MAX];
+static int kept_n, kept_banner;
+
+/* the picture into the screen's back page and presented, with the whole palette (no fade): what prepare did at its end, and what the hold does again and again */
+static void present_picture(void)
+{
+    int w, h;
+    uint8_t *to = video_target(&w, &h);
+    for (int y = 0; y < SCREEN_H && y < h; y++) memcpy(&to[y * w], &kept_picture[y * SCREEN_W], (size_t)(w < SCREEN_W ? w : SCREEN_W));
+    draw(kept_lines, kept_n, kept_banner);
+    video_set_palette(0, PALETTE_COLOURS, kept_palette);
+    video_flip();
+}
 
 int boot_screen_prepare(void)
 {
     if (prepared) return 1;
-    BootLine lines[BOOT_LINES_MAX];
-    const int n = boot_screen_lines(TNFS_VERSION, lines);
-    uint8_t *picture = malloc((size_t)SCREEN_W * SCREEN_H), palette[768], black[768] = { 0 };
-    if (picture == NULL || !text_small_init()) {
-        free(picture);
+    uint8_t black[768] = { 0 };
+    kept_n = boot_screen_lines(TNFS_VERSION, kept_lines);
+    kept_picture = malloc((size_t)SCREEN_W * SCREEN_H);
+    if (kept_picture == NULL || !text_small_init()) {
+        free(kept_picture), kept_picture = NULL;
         return 0;
     }
-    const int banner = compose(picture, palette);
+    kept_banner = compose(kept_picture, kept_palette);
     ea_select_default();
     video_set_palette(0, PALETTE_COLOURS, black);
+    text_build_styles_from(kept_palette);
     int w, h;
     uint8_t *to = video_target(&w, &h);
-    for (int y = 0; y < SCREEN_H && y < h; y++) memcpy(&to[y * w], &picture[y * SCREEN_W], (size_t)(w < SCREEN_W ? w : SCREEN_W));
-    free(picture);
-    text_build_styles_from(palette);
-    draw(lines, n, banner);
+    for (int y = 0; y < SCREEN_H && y < h; y++) memcpy(&to[y * w], &kept_picture[y * SCREEN_W], (size_t)(w < SCREEN_W ? w : SCREEN_W));
+    draw(kept_lines, kept_n, kept_banner);
     video_flip();
-    video_fade_in(0, PALETTE_COLOURS, palette);
+    video_fade_in(0, PALETTE_COLOURS, kept_palette);
     prepared = 1;
     return 1;
 }
 
 /* a window that is not on screen yet draws nothing the player sees (a new install's window took seconds to be exposed on a big external display, and the hold ran out in the
- * dark): the hold starts when the window is shown, after BOOT_SHOWN_WAIT_TICKS at the most; the events keep coming, a press stays latched for the hold */
+ * dark): the hold starts when the window is shown, after BOOT_SHOWN_WAIT_TICKS (3 s) at the most; the events keep coming, a press stays latched for the hold */
 static uint32_t wait_shown(void)
 {
     enum { BOOT_SHOWN_WAIT_TICKS = 300 };
     const uint32_t start = timer_ticks();
+    BootRedraw again;
+    boot_redraw_start(&again, start, platform_window_shown());
     while (!platform_window_shown() && timer_ticks() - start < BOOT_SHOWN_WAIT_TICKS) {
         if (!platform_poll_events()) break;
+        if (boot_redraw_due(&again, timer_ticks(), platform_window_shown())) present_picture();
         video_wait_vblank();
     }
     return timer_ticks() - start;
@@ -279,6 +300,7 @@ void boot_screen_show(void)
     if (!early) port_log("mark:screen=boot\n");   /* port: a headless walk can wait for it */
     if (!boot_screen_prepare()) return;
     if (early) port_log("mark:screen=boot\n");
+    present_picture();   /* the first seconds' work has run since it was drawn: the window gets it again */
     const uint32_t dark = wait_shown();
     if (dark > 1) port_log("boot: the window was not on screen for %u ticks; the hold begins now\n", (unsigned)dark);
     port_log("mark:hold screen=boot ticks=%u\n", (unsigned)hold());   /* port: what a headless walk measures it by */
@@ -286,5 +308,6 @@ void boot_screen_show(void)
     ea_select_default();
     video_clear_back();
     video_flip();
+    free(kept_picture), kept_picture = NULL;
     port_log("mark:let_go screen=boot ticks=%u\n", (unsigned)let_go());
 }

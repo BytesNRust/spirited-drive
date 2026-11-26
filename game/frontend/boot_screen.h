@@ -8,12 +8,15 @@
 
 #include "game/frontend/screen_hold.h"
 
+#include <stdint.h>
+
 enum {
     BOOT_LINES_MAX = 8,
     BOOT_LINE_CHARS = 96,
     /* the banner (data/logo/spirited_logo.png, RGBA, drawn 1:1): where it goes and the size it must have */
     BOOT_BANNER_X = 30, BOOT_BANNER_Y = 150, BOOT_BANNER_W = 580, BOOT_BANNER_H = 140,
     BOOT_HOLD_TICKS = 500,      /* how long it stays between its fades, on the timer (100 a second): five seconds */
+    BOOT_REDRAW_TICKS = 10,     /* while it is held, the same picture is presented again this often (a tenth of a second): a window exposed late, a drawable the system dropped */
     BOOT_RELEASE_TICKS = 300    /* after it, the longest it waits for the press that ended it to be let go: three seconds */
 };
 
@@ -34,6 +37,15 @@ typedef struct {
 /* The screen's lines, top to bottom, for `version` (NULL or empty: no version line); how many (never more than BOOT_LINES_MAX). The BOOT_NAME line is
  * among them; the drawing leaves it out when it has the banner. */
 int boot_screen_lines(const char *version, BootLine out[BOOT_LINES_MAX]);
+
+/* When the held picture is presented again (no new fade): at once when the window has just come on screen (`shown` went from 0 to 1), else every BOOT_REDRAW_TICKS.
+ * Pure: the glue asks it every frame with the timer's ticks and platform_window_shown. */
+typedef struct {
+    uint32_t last;
+    int shown;
+} BootRedraw;
+void boot_redraw_start(BootRedraw *r, uint32_t now, int shown);
+int boot_redraw_due(BootRedraw *r, uint32_t now, int shown);
 
 /* What skips it: any key held (`key`), any of the pointer's buttons, any button of a pad (screen_hold.h; the first screen, its sources armed from the start). */
 void boot_screen_sources(int key, int buttons, int pad, HoldSource out[HOLD_SOURCES]);
