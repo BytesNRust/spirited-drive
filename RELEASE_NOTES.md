@@ -9,17 +9,24 @@ to run natively on today's computers. Now on Windows as well as macOS. This rele
    **Open** again; or System Settings → Privacy & Security → **Open Anyway**.
 
 **Windows 10 or 11, 64-bit**
-1. Download `Spirited-Drive-0.9.2-windows-x64.zip`, unzip it anywhere and run **Spirited Drive**.
-2. The first time, Windows will warn that the app is from an unknown publisher: **More info**,
-   then **Run anyway**.
+1. Download `Spirited-Drive-0.9.2-windows-x64-setup.exe` and run it. It needs no administrator:
+   it installs for you alone, in `%LOCALAPPDATA%\Programs\Spirited Drive`, and adds Spirited Drive
+   to the Start menu.
+2. The first time, Windows will warn that the app is from an unknown publisher, because it is not
+   signed yet: **More info**, then **Run anyway**.
+
+No installer? Download `Spirited-Drive-0.9.2-windows-x64.zip` instead, unzip it anywhere you can
+write to (not Program Files) and run **Spirited Drive**. Same game, same warning.
 
 On first start, point the game at your CD, folder or ISO. It copies what it needs. You need your own copy of the game: the PC Special Edition CD, a folder with its files, or an ISO image of your own disc. Spirited Drive contains no EA content.
 
-**Updating?** On macOS, replace the old app. On Windows, delete the old Spirited Drive folder and unzip the new one in its place; do not unzip over it, because files a version removed would stay. Your profile, settings, records, mods and copied game files are kept (on Windows they are in `%APPDATA%\Spirited Drive`, which is not touched).
+**Updating?** On macOS, replace the old app. On Windows, run the new installer: it updates the old version in place. With the zip, delete the old Spirited Drive folder and unzip the new one in its place; do not unzip over it, because files a version removed would stay. Your profile, settings, records, mods and copied game files are kept (on Windows in `%APPDATA%\Spirited Drive`, which neither the installer nor the uninstaller touches).
+
+**Uninstalling** on Windows: Settings → Apps → Spirited Drive. Your player folder stays.
 
 ## New in 0.9.2
 
-- **Windows 10 and 11 (64-bit)**: unzip it and play. There are no network races on Windows yet: Multiplayer is dimmed and says why.
+- **Windows 10 and 11 (64-bit)**: run the installer, or unzip it and play. There are no network races on Windows yet: Multiplayer is dimmed and says why.
 - **Choose how to play**: the first start asks for Stock '96, Restored '96 or Restomod '26 and says what each one changes; change it any time on the Game Mode screen. The picture fills the screen by default, and Alt+Enter (Windows) or Cmd+Ctrl+F (macOS) switches full screen.
 - **Stock '96 and Restored '96 look like 1996 again**: Stock keeps the black band under the outside view, and the things we added show only in Restomod.
 - **Light** (Restomod): the sun casts shadows at dawn, by day and at dusk; tunnels fade in and out and your headlights light the dark ones; reflectors and headlight halos work at dawn and dusk too; several cars' detail masks for lights and shine have been adjusted.
