@@ -73,6 +73,7 @@ bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
     }
     if (!watching) watching = SDL_AddEventWatch(device_event, NULL);
     audio_fill = fill, audio_user = user;
+    SDL_SetAtomicInt(&device_added, 0);   /* before the try: a device that appears during a failing open is kept for the retry */
     const SDL_AudioSpec spec = { SDL_AUDIO_S16, 2, rate };
     sdl3_audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_get, NULL);
     if (sdl3_audio != NULL && !SDL_ResumeAudioStreamDevice(sdl3_audio)) {
@@ -81,7 +82,6 @@ bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
     }
     if (sdl3_audio == NULL) {   /* the subsystem stays up: a device that appears later is heard (platform_audio_device_added) */
         port_log("platform: no audio device: %s\n", SDL_GetError());
-        SDL_SetAtomicInt(&device_added, 0);
         return false;
     }
     return true;

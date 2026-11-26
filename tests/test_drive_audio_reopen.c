@@ -34,7 +34,8 @@ uint8_t *platform_read_file(const char *path, size_t *size)
 }
 void platform_free_file(uint8_t *data) { (void)data; }
 void platform_sleep_ms(uint32_t ms) { (void)ms; }
-uint32_t platform_ticks_ms(void) { return 0; }
+static uint32_t now_ms;
+uint32_t platform_ticks_ms(void) { return now_ms; }
 
 static int hook_calls;
 static void hook(void *user) { (*(int *)user)++, hook_calls++; }
@@ -61,6 +62,35 @@ int main(void)
     drive_audio_pump();
     CHECK_EQ_INT(open_calls, 2);   /* the event was taken: no second try until the next */
     CHECK_EQ_INT(hook_calls, 0);
+
+    /* the retries: a headset whose event comes before it is the default opens ~1 s later, at most 3 retries */
+    open_calls = 0;
+    now_ms = 10000;
+    added_events = 1;
+    CHECK_EQ_INT(drive_audio_retry(), 0);   /* the event's try fails */
+    CHECK_EQ_INT(open_calls, 1);
+    now_ms += 500;
+    drive_audio_pump();
+    CHECK_EQ_INT(open_calls, 1);   /* not yet */
+    for (int k = 0; k < 3; k++) now_ms += 1000, drive_audio_pump();
+    CHECK_EQ_INT(open_calls, 4);   /* 3 retries, no more */
+    now_ms += 5000;
+    drive_audio_pump();
+    CHECK_EQ_INT(open_calls, 4);
+    added_events = 1;
+    CHECK_EQ_INT(drive_audio_retry(), 0);   /* a new event starts over */
+    now_ms += 1000;
+    device_present = true;   /* the device is the default by now */
+    CHECK_EQ_INT(drive_audio_retry(), 1);
+    CHECK_EQ_INT(hook_calls, 1);
+    CHECK_EQ_INT(drive_audio_retry(), 0);
+    drive_audio_close();
+    hook_calls = 0, hook_user = 0, device_present = false, open_calls = 0;
+    CHECK_EQ_INT(drive_audio_device_open("data"), 0);
+    drive_audio_on_reopen(hook, &hook_user);
+    added_events = 1;
+    CHECK_EQ_INT(drive_audio_retry(), 0);
+    CHECK_EQ_INT(open_calls, 2);
 
     /* another device appears and opens: the mixer starts, the hook runs once */
     device_present = true;

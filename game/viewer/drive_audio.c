@@ -546,13 +546,23 @@ const RaceSoundBankOps *drive_audio_bank_ops(void)
 }
 
 /* the mixing and the 100 Hz service run on the device's thread (mix): nothing is left for the game's loops to do */
+enum { RETRY_TRIES = 3, RETRY_WAIT_MS = 1000 };
+static int retries_left;       /* after a device appeared and could not be opened: a headset's event can come before it is the default */
+static uint32_t retry_at_ms;
+
 int drive_audio_retry(void)
 {
-    if (open_ || !wanted || !platform_audio_device_added()) return 0;   /* one try for each device that appears */
+    if (open_ || !wanted) return 0;
+    const int event = platform_audio_device_added();   /* one try for each device that appears */
+    if (event) retries_left = RETRY_TRIES;
+    else if (retries_left == 0 || (int32_t)(platform_ticks_ms() - retry_at_ms) < 0) return 0;
     if (!drive_audio_device_open(root)) {
-        port_log("audio: a device appeared but could not be opened\n");
+        if (event) port_log("audio: a device appeared but could not be opened\n");
+        retry_at_ms = platform_ticks_ms() + RETRY_WAIT_MS;
+        if (!event) retries_left--;   /* the event's own try is not one of the retries */
         return 0;
     }
+    retries_left = 0;
     port_log("audio: a device appeared: sound on\n");
     if (reopened_hook != NULL) reopened_hook(reopened_user);
     return 1;
@@ -835,4 +845,5 @@ void drive_audio_close(void)
     open_ = 0;
     wanted = 0;
     reopened_hook = NULL;
+    retries_left = 0;
 }

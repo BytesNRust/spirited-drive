@@ -311,7 +311,7 @@ static void run_audio_reopened(void *ctx)
     (void)ctx;
     drive_audio_refresh_race(&drive_sim.race);
     run_followed_sound_words();
-    race_sound_load_banks(&drive_sim.race, drive_audio_load, &drive_banks);
+    if (drive_banks.count == 0) race_sound_load_banks(&drive_sim.race, drive_audio_load, &drive_banks);   /* loading appends: once */
     race_sound_start_engine(&drive_sim.race);
 }
 static void run_start_voices(void *ctx) { (void)ctx, race_sound_start_voices(&drive_sim.race); }  /* 00443820 */
