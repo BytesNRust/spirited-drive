@@ -170,6 +170,8 @@ jobs:
           path: .ccache
           key: ccache-windows-ucrt64-downloads-${{ github.sha }}
           restore-keys: ccache-windows-ucrt64-downloads-
+      - name: A /tmp for the programs that name one (the native programs read it as D:\tmp)
+        run: mkdir -p /d/tmp
       - name: Configure
         run: |
           ccache -z
