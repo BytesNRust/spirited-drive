@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Every night (and by hand: Actions > Checks nightly > Run workflow), on main: what the checks of a push (checks.yml) leave out. The tests run on macOS Apple Silicon and
-# Intel (macos-15-intel), each in Release (Studio, the editor, built: it is the default configuration) and with AddressSanitizer + UndefinedBehaviorSanitizer. A compiler
+# Intel (macos-15-intel), each in Release (Studio built) and with AddressSanitizer + UndefinedBehaviorSanitizer, and the game-only release configuration of the downloads. A compiler
 # warning fails the build. ccache keeps the objects between runs: this job saves the cache on main, and the branches' checks restore it.
 # Tests that need the CD's data skip themselves (there is no game data in CI).
 name: Checks nightly
@@ -69,6 +69,54 @@ jobs:
         with:
           path: .ccache
           key: ccache-${{ matrix.runner }}-${{ matrix.build }}-${{ github.sha }}
+      - name: No compiler warnings
+        run: |
+          if grep 'warning:' build.log | grep -v '^ld: warning' | sort -u | grep .; then
+            echo "::error::the build has compiler warnings"; exit 1
+          fi
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -j "$(sysctl -n hw.ncpu)"
+
+  # The release's own configuration, tested every night: the downloads are the game only (-DTNFS_EDITOR=OFF) and a release build keeps no source-tree
+  # data fallbacks (-DTNFS_RELEASE=ON); the tag workflows build and test exactly so, and nothing else here does, so a test that assumed Studio or the
+  # source tree would show only on a tag. Apple Silicon alone, one job. (The tag workflows build it too.)
+  game-only:
+    name: macos-15 game only (release configuration)
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          persist-credentials: false
+      - name: Install tools
+        run: brew install ninja sdl3 ccache
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-macos-15-game-only-${{ github.sha }}
+          restore-keys: ccache-macos-15-game-only-
+      - name: Configure
+        run: |
+          ccache -z
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build.log
+      - name: Save the ccache (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-macos-15-game-only-${{ github.sha }}
       - name: No compiler warnings
         run: |
           if grep 'warning:' build.log | grep -v '^ld: warning' | sort -u | grep .; then
