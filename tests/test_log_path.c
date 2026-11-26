@@ -26,6 +26,13 @@ int main(void)
     CHECK(says("/hm/pat/x", NULL, NULL, "/hm/pat/x"));                                                       /* nothing to hide */
     CHECK(says("/hm/pat/x", "", "", "/hm/pat/x"));
     CHECK(says("", home, user, ""));
+#ifdef _WIN32   /* Windows paths differ in case alone: the drive letter, the folder names */
+    CHECK(says("c:\\users\\pat\\x", "C:\\Home\\Pat", NULL, "c:\\users\\pat\\x"));
+    CHECK(says("c:\\home\\pat\\x", "C:\\Home\\Pat", NULL, "~\\x"));
+    CHECK(says("C:\\HOME\\PAT\\AppData", "c:\\home\\pat", "c:\\home\\pat\\appdata", "<user>"));
+#else           /* elsewhere case matters */
+    CHECK(says("/hm/PAT/x", home, NULL, "/hm/PAT/x"));
+#endif
     char small[8];
     log_path_for_report("/hm/pat/Games/NFS", home, user, small, sizeof small);
     CHECK(strlen(small) < sizeof small);                                                                          /* cut, not overrun */

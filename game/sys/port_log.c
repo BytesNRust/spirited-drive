@@ -6,6 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 static int verbose = -1;   /* -1: not read yet */
 static FILE *file;
 static long file_bytes;
@@ -71,42 +76,64 @@ static const char *base_name(const char *path)
     return slash != NULL ? slash + 1 : path;
 }
 
-/* the runs move up one place (the oldest goes); returns 1 when the run that was `path` did not end */
+/* `from` moved to `to`, which is replaced. On Windows MoveFileEx with MOVEFILE_REPLACE_EXISTING (the C library's rename does not replace), and again for up to half a second when it is
+ * refused: a scanner (Defender) holds the file for an instant, or another copy of the game has the log open (as art_cache.c's replace_file). 1 when it moved. */
+static int move_over(const char *from, const char *to)
+{
+#ifdef _WIN32
+    enum { TRIES = 250, PAUSE_MS = 2 };
+    for (int tries = 0; tries < TRIES; tries++) {
+        if (MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING)) return 1;
+        Sleep(PAUSE_MS);
+    }
+    return 0;
+#else
+    remove(to);   /* rename replaces on POSIX; a leftover that cannot be removed fails the rename below */
+    return rename(from, to) == 0;
+#endif
+}
+
+enum { ROTATED, ROTATED_UNCLEAN, HELD };   /* what became of the run that was `path`: moved aside (it ended or did not), or could not be moved */
+
+/* the runs move up one place (the oldest goes). HELD when the current log could not be moved (another copy of the game has it open): the new run then follows it instead of truncating it,
+ * and nothing is said of how it ended (it may not have) */
 static int rotate(const char *path)
 {
     int exists;
     const int ended = log_has_end(path, &exists);
-    if (!exists) return 0;
+    if (!exists) return ROTATED;
     char from[1100], to[1100];
-    if (!ended) {
-        unclean_name(path, to, sizeof to);
-        remove(to);
-        copy_file(path, to);   /* the log of the run that did not end stays beyond the five */
-    }
     numbered(path, RUNS_KEPT - 1, to, sizeof to);
-    remove(to);   /* Windows' rename does not replace */
-    for (int n = RUNS_KEPT - 2; n >= 0; n--) {
+    remove(to);
+    for (int n = RUNS_KEPT - 2; n >= 1; n--) {
         numbered(path, n, from, sizeof from);
         numbered(path, n + 1, to, sizeof to);
-        remove(to);
-        rename(from, to);
+        move_over(from, to);   /* a failed one only leaves the older run where it was */
     }
-    return !ended;
+    numbered(path, 1, to, sizeof to);
+    if (!move_over(path, to)) return HELD;
+    if (ended) return ROTATED;
+    char kept[1100];
+    unclean_name(path, kept, sizeof kept);
+    remove(kept);
+    copy_file(to, kept);   /* the log of the run that did not end stays beyond the five */
+    return ROTATED_UNCLEAN;
 }
 
 int port_log_open_file(const char *path)
 {
     port_log_close_file();
     if (path == NULL || path[0] == '\0') return 0;
-    const int unclean = rotate(path);
-    file = fopen(path, "wb");   /* binary: the same bytes, and the limit counts the same, on every system */
+    const int rotated = rotate(path);
+    file = fopen(path, rotated == HELD ? "ab" : "wb");   /* binary: the same bytes, and the limit counts the same, on every system */
     if (file == NULL) return 0;
     setvbuf(file, NULL, _IOLBF, 0);   /* a crash keeps what was said */
     file_bytes = 0;
     fatal_said = 0;
     snprintf(log_path, sizeof log_path, "%s", path);
     if (!hook_set) hook_set = atexit(port_log_exit) == 0;
-    if (unclean) {
+    if (rotated == HELD) port_log("log: the last run's log could not be moved aside (it is open elsewhere?): this run follows it\n");
+    if (rotated == ROTATED_UNCLEAN) {
         char kept[1100];
         unclean_name(path, kept, sizeof kept);
         port_log("previous run: did not end cleanly (kept as %s)\n", base_name(kept));

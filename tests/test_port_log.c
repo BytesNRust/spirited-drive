@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -162,6 +163,35 @@ static void test_unclean_marker(void)
     rmdir(dir);
 }
 
+/* a log that cannot be moved aside (another copy of the game, a scanner, has it): the new run follows it instead of truncating it, and it is not called unclean (a running game has no end yet).
+ * Here the folder cannot be written to, which no move survives (a file in it can still be opened; skipped as root, which ignores that) */
+static void test_log_held(void)
+{
+    if (geteuid() == 0) return;
+    char dir[] = "/tmp/tnfs_port_log_held_XXXXXX";
+    CHECK(mkdtemp(dir) != NULL);
+    char path[220], other[260], text[512];
+    numbered(dir, 0, path, sizeof path);
+    FILE *last = fopen(path, "wb");   /* the other copy's log, with no end yet */
+    CHECK(last != NULL);
+    if (last != NULL) fputs("other run\n", last), fclose(last);
+    CHECK(chmod(dir, 0500) == 0);
+    port_log_set_verbose(0);
+    CHECK_EQ_INT(port_log_open_file(path), 1);
+    port_log("this run\n");
+    port_log_exit();
+    CHECK(chmod(dir, 0700) == 0);
+    text_of(path, text, sizeof text);
+    CHECK(strncmp(text, "other run\n", 10) == 0);                   /* what was there is still there */
+    CHECK(strstr(text, "could not be moved aside") != NULL);        /* and the log says so */
+    CHECK(strstr(text, "this run\nexit: clean\n") != NULL);          /* this run follows it */
+    CHECK(strstr(text, "did not end cleanly") == NULL);              /* not called a crash */
+    snprintf(other, sizeof other, "%s/spirited-drive-unclean.log", dir);
+    CHECK_EQ_INT((int)size_of(other), -1);
+    unlink(path);
+    rmdir(dir);
+}
+
 /* a log that stopped at the size limit still gets its end */
 static void test_exit_after_limit(void)
 {
@@ -243,6 +273,7 @@ int main(void)
     test_five_runs();
     test_unclean_marker();
     test_exit_after_limit();
+    test_log_held();
     test_watch();
     unsetenv("TNFS_VERBOSE");
     port_log_set_verbose(0);

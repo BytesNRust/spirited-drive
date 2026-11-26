@@ -6,6 +6,7 @@
 #include "game/platform/os_info.h"
 #include "game/platform/window_fit.h"
 #include "game/sys/key_latch.h"
+#include "game/sys/log_path.h"
 #include "game/sys/data_path.h"
 #include "game/sys/file_url.h"
 #include "game/sys/port_log.h"
@@ -73,7 +74,12 @@ void sdl3_open_log(void)
     port_log("started: %s (local time)\n", when);
     port_log("system: %s %s, %s build, SDL %d.%d.%d, %d logical cpus, %d MB of memory\n", SDL_GetPlatform(), os, os_info_build_arch(), SDL_VERSIONNUM_MAJOR(SDL_GetVersion()),
              SDL_VERSIONNUM_MINOR(SDL_GetVersion()), SDL_VERSIONNUM_MICRO(SDL_GetVersion()), SDL_GetNumLogicalCPUCores(), SDL_GetSystemRAM());
-    port_log("log: %s\n", path);
+    char user[1200] = "", shown[1300];
+    const char *home = SDL_getenv("HOME");
+    if (home == NULL || home[0] == '\0') home = SDL_getenv("USERPROFILE");   /* Windows */
+    if (sdl3_user_dir(user, sizeof user) == NULL) user[0] = '\0';
+    log_path_for_report(path, home, user, shown, sizeof shown);   /* the player's name is not in the log */
+    port_log("log: %s\n", shown);
 }
 
 /* port: the window's size in points and in pixels, the renderer's output and the presentation rectangle, so a log shows what a retina display gave */
