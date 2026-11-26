@@ -32,6 +32,9 @@ AppSupportURL=https://github.com/BytesNRust/spirited-drive/issues
 VersionInfoVersion={#VersionNumeric}
 DefaultDirName={localappdata}\Programs\Spirited Drive
 DisableProgramGroupPage=yes
+; always ask for the folder, the previous one (UsePreviousAppDir, on by default) as the default: an update must not go silently into a folder the player forgot
+DisableDirPage=no
+UsePreviousAppDir=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -62,6 +65,8 @@ Type: files; Name: "{app}\*.dll"
 Type: files; Name: "{app}\*.txt"
 Type: files; Name: "{app}\*.md"
 Type: files; Name: "{app}\LICENSE"
+; the program was called tnfs.exe before: a folder where an older zip was unpacked by hand keeps it beside the new Spirited Drive.exe, and it would start the old version
+Type: files; Name: "{app}\tnfs.exe"
 Type: files; Name: "{app}\Spirited Drive.exe"
 
 [Files]
@@ -75,6 +80,48 @@ Name: "{autodesktop}\Spirited Drive"; Filename: "{app}\Spirited Drive.exe"; Task
 Filename: "{app}\Spirited Drive.exe"; Description: "Start Spirited Drive"; Flags: nowait postinstall skipifsilent
 
 [Code]
+{ Browse appends the default folder name to the folder picked (AppendDefaultDirName): picking an existing "Spirited Drive" folder gave ...\Spirited Drive\Spirited Drive, one level
+  below it. A path that ends in two of them is the one level the player meant. }
+function CollapsedDir(const Dir: String): String;
+var
+  Parent: String;
+begin
+  Result := Dir;
+  Parent := ExtractFileDir(Dir);
+  if (CompareText(ExtractFileName(Dir), 'Spirited Drive') = 0) and (CompareText(ExtractFileName(Parent), 'Spirited Drive') = 0) then Result := Parent;
+end;
+
+{ an update: an earlier install is registered (the previous folder) and its program is still there }
+function IsUpdate: Boolean;
+begin
+  Result := (WizardForm.PrevAppDir <> '') and FileExists(AddBackslash(WizardForm.PrevAppDir) + 'Spirited Drive.exe');
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpSelectDir then begin
+    if IsUpdate then begin
+      { the folder is shown, not asked: the game is updated where it is }
+      WizardForm.DirEdit.Text := RemoveBackslashUnlessRoot(WizardForm.PrevAppDir);
+      WizardForm.DirEdit.Enabled := False;
+      WizardForm.DirBrowseButton.Visible := False;
+      WizardForm.PageNameLabel.Caption := 'Update Spirited Drive';
+      WizardForm.PageDescriptionLabel.Caption := 'Spirited Drive is already installed on this computer.';
+      WizardForm.SelectDirLabel.Caption := 'Spirited Drive is already installed in the folder below and will be updated there. Your settings, records and the copy of the original game are kept.';
+      WizardForm.SelectDirBrowseLabel.Caption := 'Click Next to continue.';
+    end else if WizardForm.PrevAppDir <> '' then
+      { an earlier install whose program is gone: not its folder, the usual one }
+      WizardForm.DirEdit.Text := ExpandConstant('{localappdata}\Programs\Spirited Drive');
+  end;
+  if (CurPageID = wpReady) and IsUpdate then WizardForm.NextButton.Caption := 'Update';
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  if (CurPageID = wpSelectDir) and not IsUpdate then WizardForm.DirEdit.Text := CollapsedDir(RemoveBackslashUnlessRoot(WizardDirValue));
+  Result := True;
+end;
+
 { the player's folder is kept: say so, once, where it is (not in a silent uninstall) }
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var

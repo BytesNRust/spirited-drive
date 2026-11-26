@@ -4,7 +4,7 @@
 # removes %LOCALAPPDATA%\Programs\Spirited Drive and Spirited Drive's Start menu entry):
 #   1. silent install into the default folder: the program, its data and the Start menu shortcut are there, and no administrator was needed
 #   2. the installed program starts (--mods-list, no window, exit 0)
-#   3. an update over it (the same installer run again) removes what the program carried before and the new one does not (a stale file in data\ and a stale DLL),
+#   3. an update over it (the same installer run again) removes what the program carried before and the new one does not (a stale file in data\, a stale DLL, the old tnfs.exe),
 #      and leaves what is not the program's (a file of the player's beside the program)
 #   4. the uninstaller removes the program and the shortcut and keeps the player's folder (%APPDATA%\Spirited Drive, here a marker file)
 #
@@ -33,6 +33,10 @@ rc=$?
 [ -d "$APP/data/car_masks" ] || fail "no data/car_masks in $APP"
 [ -f "$APP/unins000.exe" ] || fail "no uninstaller in $APP"
 [ -f "$SHORTCUT" ] || fail "no Start menu shortcut at $SHORTCUT"
+# what Explorer may read as something it is not: no file of the install starts like a zip ("PK"), and the folder's top level is listed in the log
+zips=$(find "$APP" -type f -exec sh -c 'for f; do [ "$(head -c 2 "$f")" = "PK" ] && echo "$f"; done' _ {} +)
+[ -z "$zips" ] || fail "files of the install start like a zip (Explorer may ask for the last disk of a multi-volume set): $zips"
+echo "installed folder (top level):"; ls -la "$APP"
 done_or_stop
 
 # 2. the installed program starts
@@ -43,14 +47,16 @@ rc=$?
 [ -s "$WORK/user/spirited-drive.log" ] || fail "the installed program left no log"
 done_or_stop
 
-# 3. an update over it
-mkdir -p "$APP/data" && echo old > "$APP/data/stale.txt" && echo old > "$APP/stale.dll" && echo mine > "$APP/player-file.bin"
+# 3. an update over it (the same folder, no folder below it)
+mkdir -p "$APP/data" && echo old > "$APP/data/stale.txt" && echo old > "$APP/stale.dll" && echo mine > "$APP/player-file.bin" && echo old > "$APP/tnfs.exe"
 timeout -k 5 300 "$SETUP" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/LOG=$(cygpath -w "$WORK/update.log")"
 rc=$?
 [ "$rc" -eq 0 ] || fail "the update ended with status $rc"
 [ -f "$APP/Spirited Drive.exe" ] && [ -d "$APP/data/car_masks" ] || fail "the update left the program incomplete"
+[ ! -d "$APP/Spirited Drive" ] || fail "the update went one level below: $APP/Spirited Drive exists"   # same folder as the first install, no nesting
 [ ! -e "$APP/data/stale.txt" ] || fail "the update kept data/stale.txt: what the new version does not carry stays"
 [ ! -e "$APP/stale.dll" ] || fail "the update kept stale.dll"
+[ ! -e "$APP/tnfs.exe" ] || fail "the update kept tnfs.exe (the program's old name: it would start the old version)"
 [ -f "$APP/player-file.bin" ] || fail "the update deleted a file that is not the program's"
 done_or_stop
 rm -f "$APP/player-file.bin"

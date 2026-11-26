@@ -46,5 +46,14 @@ grep -q 'Windows GUI' "$pack" || bad "the packer does not check the exe is a GUI
 grep -q 'WIN32_EXECUTABLE' CMakeLists.txt || bad "CMake does not make the release a GUI program: Explorer would open a console window beside the game"
 grep -q 'enable_language(RC)' CMakeLists.txt || bad "CMake does not enable RC: the .rc (icon, name) is not compiled and the exe keeps the default icon"
 grep -q '^1 ICON' "$rc" && grep -q 'VALUE "FileDescription", "Spirited Drive"' "$rc" || bad "$rc has no icon or no Spirited Drive name"
+iss=packaging/windows/spirited-drive.iss
+if [ -f "$iss" ]; then   # the installer commit's files (pure text): the folder is always asked, the old exe name goes, a doubled Spirited Drive folder is collapsed
+    grep -q '^DisableDirPage=no' "$iss" || bad "the installer does not always ask for the folder (DisableDirPage=no)"
+    grep -q 'Name: "{app}\\tnfs.exe"' "$iss" || bad "the installer does not remove the old tnfs.exe"
+    grep -q 'function IsUpdate' "$iss" && grep -q 'PrevAppDir' "$iss" || bad "the installer does not tell an update (an earlier install with its program) from a fresh install"
+    grep -q 'DirBrowseButton.Visible := False' "$iss" || bad "the update page still lets the player browse for another folder"
+    grep -q 'function CollapsedDir' "$iss" || bad "the installer does not collapse a doubled Spirited Drive folder (Browse appends the name)"
+    grep -qi 'APPDATA\|userappdata' "$iss" && grep -v '^ *[;{]' "$iss" | grep -i 'Type: .*\(userappdata\|appdata\)' | grep -q . && bad "the installer deletes something in the player's folder"
+fi
 [ $fail -eq 0 ] && echo "release_assets: ok"
 exit $fail
