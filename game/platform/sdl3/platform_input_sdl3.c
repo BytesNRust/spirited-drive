@@ -103,6 +103,15 @@ void sdl3_cursor_apply(void)
     else SDL_ShowCursor();
 }
 
+static bool redraw_wanted;   /* an event came that leaves the window with a picture it has not been given (platform_take_redraw) */
+
+bool platform_take_redraw(void)
+{
+    const bool wanted = redraw_wanted;
+    redraw_wanted = false;
+    return wanted;
+}
+
 bool platform_window_shown(void)
 {
     if (sdl3_window == NULL) return true;
@@ -164,6 +173,9 @@ bool platform_poll_events(void)
         }
         input_script_log_window_event(event.type);
         input_script_watch_key_event(&event);
+        if (event.type == SDL_EVENT_WINDOW_EXPOSED || event.type == SDL_EVENT_WINDOW_SHOWN || event.type == SDL_EVENT_WINDOW_RESTORED ||
+            event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED || event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED)
+            redraw_wanted = true;   /* port: the picture on screen may be an empty one now */
         if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
             if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear(), mouse_latch = 0, mouse_latch_seen = false, input_script_watch_reset();
             sdl3_window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;

@@ -5,7 +5,14 @@
 #include "game/sys/video.h"
 #include "test.h"
 
-void platform_present(const uint8_t *pixels, const PlatformColor palette[256]) { (void)pixels, (void)palette; }
+static int presents, redraw_flag;   /* the frames presented; the window's need of its picture again */
+void platform_present(const uint8_t *pixels, const PlatformColor palette[256]) { (void)pixels, (void)palette; presents++; }
+bool platform_take_redraw(void)
+{
+    const bool wanted = redraw_flag != 0;
+    redraw_flag = 0;
+    return wanted;
+}
 static int vblanks;   /* the frontend's frames waited */
 void platform_wait_vblank(void) {}
 void platform_wait_frontend_frame(void) { vblanks++; }
@@ -168,9 +175,25 @@ static void test_the_serviced_fade_calls_its_hook_each_step(void)
     CHECK_EQ_INT(serviced, PALETTE_FADE_STEPS);
 }
 
+/* a window exposed in the middle of a hold that never flips: the next wait presents the frame as it is, once */
+static void test_an_exposed_window_gets_the_picture_again(void)
+{
+    video_flip();
+    const int before = presents;
+    video_wait_vblank();
+    video_wait_vblank();
+    CHECK_EQ_INT(presents, before);        /* nothing happened to the window: a wait only waits */
+    redraw_flag = 1;                       /* SDL_EVENT_WINDOW_EXPOSED */
+    video_wait_vblank();
+    CHECK_EQ_INT(presents, before + 1);    /* the picture is presented again */
+    video_wait_vblank();
+    CHECK_EQ_INT(presents, before + 1);    /* once for the event */
+}
+
 int main(void)
 {
     if (!video_init()) return 1;
+    test_an_exposed_window_gets_the_picture_again();
     test_the_serviced_fade_calls_its_hook_each_step();
     test_clip_keeps_blits_inside();
     test_clip_cut_to_target();

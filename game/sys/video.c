@@ -209,6 +209,7 @@ void video_flip(void)
 void video_wait_vblank(void)
 {
     platform_wait_frontend_frame();   /* port: the exe's 60 a second, not the race's refresh rate */
+    if (platform_take_redraw()) show();   /* port: a window exposed late (or restored, resized) gets the frame as it is now: a screen that holds without flipping never presents */
 }
 
 void video_set_palette(int first, int count, const uint8_t *rgb)
