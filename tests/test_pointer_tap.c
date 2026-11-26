@@ -53,7 +53,7 @@ int main(void)
     CHECK_EQ_INT(pointer_read_buttons(), 0);
     tap(SDL_BUTTON_LEFT);
     input_pump();                              /* the second pump of the turn */
-    SDL_Delay(120);                            /* the draw of a slow frame */
+    SDL_Delay(40);                             /* the draw of a slow frame (short of the 250 ms keep with room for a loaded CI runner: 120 ms failed there 2026-11-26) */
     input_pump();                              /* the next turn's first pump */
     CHECK_EQ_INT(pointer_read_buttons(), POINTER_BUTTON_SELECT);
     input_pump();
