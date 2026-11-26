@@ -63,6 +63,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 
 typedef struct {
@@ -290,8 +291,14 @@ static int run_drive(const Options *opt)
 }
 
 /* 00437540: the game's main(). */
-/* port: where the first seconds go, in the log: milliseconds since SDL started, at each step of the start (a new install's first start once sat black for eight seconds) */
-static void startup_note(const char *step) { port_log("startup: %s at %u ms\n", step, (unsigned)platform_ticks_ms()); }
+/* port: where the first seconds go, in the log: milliseconds since the process started, at each step of the start (the first-run setup included) (a new install's first start once sat black for eight seconds) */
+static struct timespec process_start;
+static void startup_note(const char *step)
+{
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    port_log("startup: %s at %ld ms\n", step, (long)((now.tv_sec - process_start.tv_sec) * 1000 + (now.tv_nsec - process_start.tv_nsec) / 1000000));
+}
 
 static int run_game(const Options *opt)
 {
@@ -349,7 +356,10 @@ static int resolve_data_root(const Options *opt, char *out, size_t out_size, int
     const char *const dev = NULL;
 #endif
     if (data_root_resolve(opt->data_explicit ? opt->data_root : NULL, has_copy ? copy : NULL, dev, out, out_size) != DATA_ROOT_NEEDS_SETUP) return 1;
-    if (!has_copy || !first_run_setup(copy)) {
+    startup_note("setup begins");
+    const int set_up = has_copy && first_run_setup(copy);
+    startup_note("setup ends");
+    if (!set_up) {
         port_fatal("no game data: run it once without --data on a machine with a display and choose the CD's folder, or give --data DIR\n");
         return 0;
     }
@@ -403,6 +413,7 @@ static int update_check_command(void)
 
 int main(int argc, char **argv)
 {
+    timespec_get(&process_start, TIME_UTC);
     platform_set_fullscreen_toggle(fullscreen_toggle_now);   /* Alt+Enter (Cmd+Ctrl+F on macOS) */
     win_console_attach(argc, argv);   /* Windows release: a GUI program, its output goes to the shell that started it, or to a console of --console's own */
     Options opt;
@@ -430,6 +441,7 @@ int main(int argc, char **argv)
     int data_copied = 0;
     if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
     opt.data_root = data_root;
+    startup_note("data root");
     {   /* port: the tables of the original's exe, from the player's own copy */
         char tables_error[1200];
         if (exe_tables_install(opt.data_root, tables_error, sizeof tables_error) != 0) {
@@ -437,9 +449,11 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
     }
+    startup_note("tables");
     port_old_files_migrate();   /* before any setting is read, and before there are threads */
     if (!mod_set_start(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, then the edition in use's; followed with the settings (mod_set.h) */
     if (!resolve_car(&opt)) return EXIT_FAILURE;
+    startup_note("mods");
     if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to the player's folder (--user DIR) */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);
