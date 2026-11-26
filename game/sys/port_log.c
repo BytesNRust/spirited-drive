@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "game/sys/log_path.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -19,6 +21,7 @@ enum { RUNS_KEPT = 5, COPY_CHUNK = 16384 };   /* this run and the four before it
 static int fatal_said;                        /* port_fatal ran in this run: its end is on purpose */
 static int hook_set;                          /* the atexit hook is set (once) */
 static char log_path[1100];                   /* what this run opened */
+static char hide_home[1100], hide_user[1100]; /* the folders the file does not name: the player's (where the log is) and the home folder; empty: none */
 
 /* the file of the run `n` back (0 is `path` itself): "x.log" gives "x-1.log" ... ; a name without ".log" gets ".1" ... */
 static void numbered(const char *path, int n, char *out, size_t cap)
@@ -120,6 +123,20 @@ static int rotate(const char *path)
     return ROTATED_UNCLEAN;
 }
 
+/* the player's name is not in the file: the folder the log is in and the home folder are written "<user>" and "~" (log_path.h). TNFS_LOG_RAW=1 keeps them (the tests' logs name their own
+ * folders); the console is as it was */
+static void set_hidden_folders(const char *path)
+{
+    hide_home[0] = hide_user[0] = '\0';
+    const char *const raw = getenv("TNFS_LOG_RAW");
+    if (raw != NULL && raw[0] != '\0' && !(raw[0] == '0' && raw[1] == '\0')) return;
+    const char *const home = getenv("HOME") != NULL && getenv("HOME")[0] != '\0' ? getenv("HOME") : getenv("USERPROFILE");
+    if (home != NULL) snprintf(hide_home, sizeof hide_home, "%s", home);
+    const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
+    if (back != NULL && (slash == NULL || back > slash)) slash = back;
+    if (slash != NULL && slash != path) snprintf(hide_user, sizeof hide_user, "%.*s", (int)(slash - path), path);
+}
+
 int port_log_open_file(const char *path)
 {
     port_log_close_file();
@@ -131,6 +148,7 @@ int port_log_open_file(const char *path)
     file_bytes = 0;
     fatal_said = 0;
     snprintf(log_path, sizeof log_path, "%s", path);
+    set_hidden_folders(path);
     if (!hook_set) hook_set = atexit(port_log_exit) == 0;
     if (rotated == HELD) port_log("log: the last run's log could not be moved aside (it is open elsewhere?): this run follows it\n");
     if (rotated == ROTATED_UNCLEAN) {
@@ -181,7 +199,25 @@ static void to_file(const char *format, va_list args)
     va_end(again);
     if (file == NULL) return;
     if (file_bytes >= PORT_LOG_FILE_MAX) return;
-    const int n = vfprintf(file, format, args);
+    int n;
+    if (hide_home[0] == '\0' && hide_user[0] == '\0') {
+        n = vfprintf(file, format, args);
+    } else {   /* the line as the file gets it: the folders named in it written <user> and ~ */
+        va_list size_args;
+        va_copy(size_args, args);
+        const int need = vsnprintf(NULL, 0, format, size_args);
+        va_end(size_args);
+        char *line = need >= 0 ? malloc((size_t)need + 1) : NULL;   /* a name of one character can become "<user>": six times the room */
+        char *shown = line != NULL ? malloc((size_t)need * 6 + 1) : NULL;
+        n = 0;
+        if (shown != NULL) {
+            vsnprintf(line, (size_t)need + 1, format, args);
+            n = (int)log_text_for_report(line, hide_home, hide_user, shown, (size_t)need * 6 + 1);
+            fwrite(shown, 1, (size_t)n, file);
+        }
+        free(shown);
+        free(line);
+    }
     if (n > 0) file_bytes += n;
     if (file_bytes >= PORT_LOG_FILE_MAX) fputs("log: stopped at the size limit\n", file);
     fflush(file);   /* Windows' C library does not line-buffer: a crash would keep nothing */

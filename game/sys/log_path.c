@@ -42,3 +42,38 @@ void log_path_for_report(const char *path, const char *home, const char *user_di
     if (n != 0) snprintf(out, cap, "~%s", path + n);
     else snprintf(out, cap, "%s", path);
 }
+
+/* a character a folder's name cannot be preceded by if the folder is to be taken as the whole of a path's start: one of a longer path or word */
+static int is_name_char(char c) { return isalnum((unsigned char)c) || c == '/' || c == '\\' || c == '.' || c == '_' || c == '-' || c == '~'; }
+
+static size_t folder_length(const char *folder)
+{
+    size_t n = folder != NULL ? strlen(folder) : 0;
+    while (n > 0 && is_separator(folder[n - 1])) n--;
+    return n;
+}
+
+size_t log_text_for_report(const char *text, const char *home, const char *user_dir, char *out, size_t cap)
+{
+    if (cap == 0) return 0;
+    if (text == NULL) text = "";
+    const size_t user_n = folder_length(user_dir), home_n = folder_length(home);
+    size_t at = 0;
+    for (size_t i = 0; text[i] != '\0';) {
+        const char *shown = NULL;
+        size_t used = 0;
+        const int starts = i == 0 || !is_name_char(text[i - 1]);
+        if (starts && user_n != 0 && same_prefix(text + i, user_dir, user_n) && strlen(text + i) >= user_n && (text[i + user_n] == '\0' || !isalnum((unsigned char)text[i + user_n]))) shown = "<user>", used = user_n;
+        else if (starts && home_n != 0 && strlen(text + i) >= home_n && same_prefix(text + i, home, home_n) && (text[i + home_n] == '\0' || !isalnum((unsigned char)text[i + home_n]))) shown = "~", used = home_n;
+        if (shown != NULL) {
+            for (const char *c = shown; *c != '\0' && at + 1 < cap; c++) out[at++] = *c;
+            i += used;
+        } else if (at + 1 < cap) {
+            out[at++] = text[i++];
+        } else {
+            break;
+        }
+    }
+    out[at] = '\0';
+    return at;
+}

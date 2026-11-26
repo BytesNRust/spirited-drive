@@ -163,6 +163,54 @@ static void test_unclean_marker(void)
     rmdir(dir);
 }
 
+/* the player's name is not in the file: the folder the log is in is written <user> and the home folder ~, in any line; the console and the watch see the line as it was; TNFS_LOG_RAW=1 keeps it */
+static const char *console_dir;
+static void console_line(void) { port_log("%s/mods\n", console_dir); }
+static void test_hidden_folders(void)
+{
+    char dir[] = "/tmp/tnfs_port_log_hide_XXXXXX";
+    CHECK(mkdtemp(dir) != NULL);
+    char path[220], line[400], text[1024];
+    numbered(dir, 0, path, sizeof path);
+    setenv("HOME", "/hm/pat", 1);
+    unsetenv("TNFS_LOG_RAW");
+    port_log_set_verbose(0);
+    CHECK_EQ_INT(port_log_open_file(path), 1);
+    port_log("platform: cannot read %s/mods/a.zip: gone\n", dir);
+    port_log("mods: restored a from /hm/pat/Downloads/a.zip\n");
+    port_log("an ordinary line %d\n", 7);
+    port_log_watch("/hm/pat/Downloads");
+    port_log("seen %s\n", "/hm/pat/Downloads/x");
+    CHECK_EQ_INT(port_log_watch_hit(), 1);                      /* the watch reads the line as it was */
+    port_log_exit();
+    text_of(path, text, sizeof text);
+    CHECK(strstr(text, "platform: cannot read <user>/mods/a.zip: gone\n") != NULL);
+    CHECK(strstr(text, "mods: restored a from ~/Downloads/a.zip\n") != NULL);
+    CHECK(strstr(text, "an ordinary line 7\n") != NULL);
+    CHECK(strstr(text, "seen ~/Downloads/x\n") != NULL);
+    CHECK(strstr(text, dir) == NULL && strstr(text, "/hm/pat") == NULL);
+    /* the console keeps the whole path */
+    CHECK_EQ_INT(port_log_open_file(path), 1);
+    console_dir = dir;
+    port_log_set_verbose(1);
+    CHECK_EQ_INT((int)written(console_line, 2), (int)strlen(dir) + 6);
+    port_log_set_verbose(0);
+    text_of(path, text, sizeof text);
+    CHECK(strstr(text, "<user>/mods\n") != NULL);              /* and the file the short one */
+    setenv("TNFS_LOG_RAW", "1", 1);
+    CHECK_EQ_INT(port_log_open_file(path), 1);                  /* raw: the folders stay */
+    port_log("raw %s/mods/a.zip /hm/pat/x\n", dir);
+    port_log_exit();
+    text_of(path, text, sizeof text);
+    CHECK(strstr(text, dir) != NULL && strstr(text, "/hm/pat/x") != NULL);
+    unsetenv("TNFS_LOG_RAW");
+    for (int n = -1; n <= 4; n++) {
+        numbered(dir, n, line, sizeof line);
+        unlink(line);
+    }
+    rmdir(dir);
+}
+
 /* a log that cannot be moved aside (another copy of the game, a scanner, has it): the new run follows it instead of truncating it, and it is not called unclean (a running game has no end yet).
  * Here the folder cannot be written to, which no move survives (a file in it can still be opened; skipped as root, which ignores that) */
 static void test_log_held(void)
@@ -274,6 +322,7 @@ int main(void)
     test_unclean_marker();
     test_exit_after_limit();
     test_log_held();
+    test_hidden_folders();
     test_watch();
     unsetenv("TNFS_VERBOSE");
     port_log_set_verbose(0);

@@ -13,6 +13,8 @@ static int says(const char *path, const char *home, const char *user, const char
     return strcmp(out, want) == 0;
 }
 
+static const char *home_pat(void) { return "/hm/pat"; }
+
 int main(void)
 {
     const char *home = "/hm/pat", *user = "/hm/pat/Library/Application Support/Spirited Drive/";
@@ -33,6 +35,21 @@ int main(void)
 #else           /* elsewhere case matters */
     CHECK(says("/hm/PAT/x", home, NULL, "/hm/PAT/x"));
 #endif
+    /* free text: every place a folder is named, not only a path's start */
+    char text[300];
+    log_text_for_report("platform: cannot move /hm/pat/Games/a to /hm/pat/Games/b: no room", home_pat(), NULL, text, sizeof text);
+    CHECK(strcmp(text, "platform: cannot move ~/Games/a to ~/Games/b: no room") == 0);
+    log_text_for_report("user: 2 item(s) moved from /hm/pat/App/Spirited Drive/mods to /hm/pat/App/Spirited Drive/x", "/hm/pat", "/hm/pat/App/Spirited Drive/", text, sizeof text);
+    CHECK(strcmp(text, "user: 2 item(s) moved from <user>/mods to <user>/x") == 0);   /* the player's folder before the home */
+    log_text_for_report("mark:movie=/hm/pat/App/Spirited Drive/gamedata/x.tgv", "/hm/pat", "/hm/pat/App/Spirited Drive", text, sizeof text);
+    CHECK(strcmp(text, "mark:movie=<user>/gamedata/x.tgv") == 0);
+    log_text_for_report("in /data/hm/pat/x and /hm/patty/x and /hm/pat", "/hm/pat", NULL, text, sizeof text);
+    CHECK(strcmp(text, "in /data/hm/pat/x and /hm/patty/x and ~") == 0);   /* a longer path or name is not it; the end of the text is */
+    log_text_for_report("nothing to hide here", "/hm/pat", "/hm/pat/x", text, sizeof text);
+    CHECK(strcmp(text, "nothing to hide here") == 0);
+    log_text_for_report("/hm/pat/x", NULL, NULL, text, sizeof text);
+    CHECK(strcmp(text, "/hm/pat/x") == 0);
+    CHECK(log_text_for_report("a /hm/pat/b", "/hm/pat", NULL, text, 5) == 4);   /* cut to the room, NUL-terminated */
     char small[8];
     log_path_for_report("/hm/pat/Games/NFS", home, user, small, sizeof small);
     CHECK(strlen(small) < sizeof small);                                                                          /* cut, not overrun */
