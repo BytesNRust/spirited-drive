@@ -28,10 +28,11 @@ static PointerState ptr = { .x = 320, .y = 240 };
 static unsigned os_buttons;
 /* port: the buttons pressed since a read has taken them. A menu pumps the input twice a turn and reads the buttons once, so a tap whose down and up came in
  * one poll (a touchpad's tap, or a real click during a slow frame) is seen by a pump and gone by the next one: it is kept here until a read has had it. */
-enum { TAP_KEEP_MS = 250 };   /* a tap nobody read for this long (a fade, a movie) is let go, not fired on the next screen: the SDL latch's own limit */
+enum { TAP_KEEP_SYNCS = 400 };   /* a tap that 400 pumps went by without a read having it (a click's wait pumps about a hundred) is let go, not fired on a later screen. Counted in pumps, not
+                                  * milliseconds: a slow frame (a machine of 2012, a loaded runner) has no pumps in it and loses nothing, and no clock is read. The SDL latch has its own, in time, between its poll and its read */
 static unsigned tap_pending, tap_synced;   /* the presses not yet read; the buttons of the last sync, to tell a press from a hold */
 static int tap_taken;                      /* a read has had tap_pending: the next sync lets it go */
-static uint32_t tap_at;
+static unsigned tap_age;                  /* the syncs since the kept tap came in, none of them with a read having it */
 static int16_t *bound;           /* pointer_bind_active's copy */
 static int range_x0, range_y0, range_x1 = VIDEO_WIDTH, range_y1 = VIDEO_HEIGHT;  /* 0052cdac, 0052cdb0, 0052cda4, 0052cda0 */
 
@@ -100,11 +101,12 @@ void pointer_range(int x0, int y0, int x1, int y1)
 int pointer_take_wheel(void) { return platform_mouse_wheel(); }
 
 /* after each sync: what a read has had is let go, and a button newly down (not held from the last sync) is kept until a read has had it */
-static void tap_note(void)
+static void tap_note(unsigned fresh)
 {
     if (tap_taken) tap_pending = 0, tap_taken = 0;
-    const unsigned pressed = os_buttons & ~tap_synced;
-    if (pressed != 0) tap_pending |= pressed, tap_at = platform_ticks_ms();
+    const unsigned pressed = (os_buttons & ~tap_synced) | fresh;   /* a button newly down, or a press the platform counted (two taps in a row show LEFT both times) */
+    if (pressed != 0) tap_pending |= pressed, tap_age = 0;
+    else if (tap_pending != 0 && ++tap_age > TAP_KEEP_SYNCS) tap_pending = 0;
     tap_synced = os_buttons;
 }
 
@@ -121,8 +123,9 @@ void pointer_sync_from_os(void)
      * move (no highlight) and no click */
     if (width > VIDEO_WIDTH) os_x -= screen_menu_left(width);
     const int outside = os_x < 0 || os_x >= VIDEO_WIDTH;
-    if (outside) os_buttons = 0;
-    tap_note();
+    unsigned fresh = platform_mouse_take_presses();
+    if (outside) os_buttons = 0, fresh = 0;
+    tap_note(fresh);
     if (outside) return;
     if (moved) {
         ptr.x = os_x;
@@ -210,7 +213,6 @@ void pointer_show(void)
 
 static int buttons_now(void)
 {
-    if (tap_pending != 0 && platform_ticks_ms() - tap_at > TAP_KEEP_MS) tap_pending = 0;
     const unsigned down = os_buttons | tap_pending;
     if (down & PLATFORM_MOUSE_LEFT) return POINTER_BUTTON_SELECT;
     if (down & PLATFORM_MOUSE_RIGHT) return POINTER_BUTTON_BACK;

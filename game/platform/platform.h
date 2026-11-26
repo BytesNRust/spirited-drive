@@ -115,6 +115,9 @@ enum {
 /* Mouse in framebuffer coordinates and its button mask. Returns true when
  * the mouse moved since the previous call. */
 bool platform_mouse(int *x, int *y, unsigned *buttons);
+/* The buttons (PLATFORM_MOUSE_*) that went down since the last call, each press counted once whatever the state between polls showed: two taps in two polls in a row read LEFT both times in
+ * platform_mouse's buttons, and the second would not look like a press. A press nobody took for a quarter of a second (a fade, a movie) is let go. The pointer (game/sys/pointer.c) takes them at each pump. */
+unsigned platform_mouse_take_presses(void);
 /* port (dep59 showcase): the wheel's notches since the last call, positive away from the user (up), negative towards (down); 0 with no wheel */
 int platform_mouse_wheel(void);
 

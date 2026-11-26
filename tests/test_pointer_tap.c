@@ -53,7 +53,7 @@ int main(void)
     CHECK_EQ_INT(pointer_read_buttons(), 0);
     tap(SDL_BUTTON_LEFT);
     input_pump();                              /* the second pump of the turn */
-    SDL_Delay(120);                            /* the draw of a slow frame */
+    SDL_Delay(900);                            /* the draw of a very slow frame: no pump in it, so nothing wears the tap, whatever the clock does */
     input_pump();                              /* the next turn's first pump */
     CHECK_EQ_INT(pointer_read_buttons(), POINTER_BUTTON_SELECT);
     input_pump();
@@ -75,6 +75,24 @@ int main(void)
     button(false, SDL_BUTTON_LEFT);
     input_pump();
     CHECK_EQ_INT(pointer_read_buttons(), 0);
+        /* two taps in two pumps in a row (each down and up inside its poll): the state reads LEFT both times, and the second is a press too */
+    tap(SDL_BUTTON_LEFT);
+    input_pump();
+    CHECK_EQ_INT(pointer_read_buttons(), POINTER_BUTTON_SELECT);
+    input_pump();
+    CHECK_EQ_INT(pointer_read_buttons(), 0);
+    tap(SDL_BUTTON_LEFT);
+    input_pump();
+    CHECK_EQ_INT(pointer_read_buttons(), POINTER_BUTTON_SELECT);
+    input_pump();
+    CHECK_EQ_INT(pointer_read_buttons(), 0);
+    tap(SDL_BUTTON_LEFT);
+    input_pump();
+    tap(SDL_BUTTON_LEFT);
+    input_pump();   /* both before a read: one turn, one click */
+    CHECK_EQ_INT(pointer_read_buttons(), POINTER_BUTTON_SELECT);
+    input_pump();
+    CHECK_EQ_INT(pointer_read_buttons(), 0);
     /* the skip screens read with pointer_buttons_unseen after a sync, no pointer_read_buttons: a click that skips one does not skip the next */
     for (int screen = 0; screen < 3; screen++) {
         for (int turn = 0; turn < 3; turn++) {
@@ -87,11 +105,16 @@ int main(void)
         pointer_sync_from_os();
         CHECK_EQ_INT(pointer_buttons_unseen(), POINTER_BUTTON_SELECT);   /* the click skips this one */
     }
-    /* a tap nobody read for a long while (a fade, a movie) is not a click on the next screen */
+    /* a tap that many pumps went by without a read having it (a fade, a movie) is not a click on a later screen: counted in pumps, so a loaded machine cannot change the answer */
     tap(SDL_BUTTON_LEFT);
     input_pump();
-    SDL_Delay(400);
+    for (int pumps = 0; pumps < 100; pumps++) input_pump();      /* a click's wait pumps about this many: still there */
+    CHECK_EQ_INT(pointer_read_buttons(), POINTER_BUTTON_SELECT);
     input_pump();
+    CHECK_EQ_INT(pointer_read_buttons(), 0);
+    tap(SDL_BUTTON_LEFT);
+    input_pump();
+    for (int pumps = 0; pumps < 450; pumps++) input_pump();
     CHECK_EQ_INT(pointer_read_buttons(), 0);
     /* the next screen starts clean: a tap before pointer_start is gone */
     tap(SDL_BUTTON_LEFT);
