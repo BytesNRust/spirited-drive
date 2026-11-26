@@ -21,7 +21,7 @@ On first start, point the game at your CD, folder or ISO. It copies what it need
 
 - **Windows 10 and 11 (64-bit)**: unzip it and play. There are no network races on Windows yet: Multiplayer is dimmed and says why.
 - **Choose how to play**: the first start asks for Stock '96, Restored '96 or Restomod '26 and says what each one changes; change it any time on the Game Mode screen. The picture fills the screen by default, and Alt+Enter (Windows) or Cmd+Ctrl+F (macOS) switches full screen.
-- **Stock '96 and Restored '96 look like 1996 again**: the black band under the outside view, movies in 4:3, and the things we added only in Restomod.
+- **Stock '96 and Restored '96 look like 1996 again**: Stock keeps the black band under the outside view, and the things we added show only in Restomod.
 - **Light** (Restomod): the sun casts shadows at dawn, by day and at dusk; tunnels fade in and out and your headlights light the dark ones; reflectors and headlight halos work at dawn and dusk too; several cars' detail masks for lights and shine have been adjusted.
 - **Cars** (Restomod): Torch Red for the Corvette ZR-1, paint that takes the whole body (911 Carrera, 512TR), and records per car: the showcase's RECORDS tile shows each car's best times and top speed on every track.
 - **Mouse and pads**: a quick touchpad tap counts as a click, and a pad plugged in or pulled out mid-game is picked up.
