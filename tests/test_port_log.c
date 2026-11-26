@@ -212,23 +212,35 @@ static void test_hidden_folders(void)
 }
 
 /* a log that cannot be moved aside (another copy of the game, a scanner, has it): the new run follows it instead of truncating it, and it is not called unclean (a running game has no end yet).
- * Here the folder cannot be written to, which no move survives (a file in it can still be opened; skipped as root, which ignores that) */
+ * Where it is held: on Windows the other copy's open file (a file open for writing cannot be moved there); elsewhere a folder that cannot be written to, which no move survives (a file in it
+ * can still be opened; skipped as root, which ignores that) */
 static void test_log_held(void)
 {
+#ifndef _WIN32
     if (geteuid() == 0) return;
+#endif
     char dir[] = "/tmp/tnfs_port_log_held_XXXXXX";
     CHECK(mkdtemp(dir) != NULL);
     char path[220], other[260], text[512];
     numbered(dir, 0, path, sizeof path);
     FILE *last = fopen(path, "wb");   /* the other copy's log, with no end yet */
     CHECK(last != NULL);
-    if (last != NULL) fputs("other run\n", last), fclose(last);
+    if (last != NULL) fputs("other run\n", last), fflush(last);
+#ifdef _WIN32
+    FILE *holding = last;   /* still open while this run starts */
+#else
+    if (last != NULL) fclose(last);
     CHECK(chmod(dir, 0500) == 0);
+#endif
     port_log_set_verbose(0);
     CHECK_EQ_INT(port_log_open_file(path), 1);
     port_log("this run\n");
     port_log_exit();
+#ifdef _WIN32
+    if (holding != NULL) fclose(holding);
+#else
     CHECK(chmod(dir, 0700) == 0);
+#endif
     text_of(path, text, sizeof text);
     CHECK(strncmp(text, "other run\n", 10) == 0);                   /* what was there is still there */
     CHECK(strstr(text, "could not be moved aside") != NULL);        /* and the log says so */
