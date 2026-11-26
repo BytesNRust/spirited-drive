@@ -61,6 +61,12 @@ bool platform_poll_events(void);
 /* port: the window is on screen (not hidden, minimised or covered): a window that is not shown draws nothing the player sees. True with no window and on a headless driver. */
 bool platform_window_shown(void);
 
+/* port: the window's size in pixels is what it was at the previous call. The first picture waits for it, so it is not drawn for a size the window is about to leave. */
+bool platform_window_settled(void);
+
+/* port: one line in the log with the window's sizes and the presentation rect, headed `when` */
+void platform_log_window(const char *when);
+
 /* port: the window needs its picture again: it was exposed, shown, restored or resized since the last call (a window that comes on screen late shows an empty frame until
  * the next present, and a screen that holds without flipping never presents). True once for each such event; the video layer presents the current frame then. */
 bool platform_take_redraw(void);

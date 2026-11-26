@@ -120,6 +120,18 @@ bool platform_window_shown(void)
     return (SDL_GetWindowFlags(sdl3_window) & (SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED | SDL_WINDOW_OCCLUDED)) == 0;
 }
 
+/* port: the window's size in pixels is the one it had at the previous call (a window that is still being sized, by the system or by the display it lands on, changes it between calls) */
+bool platform_window_settled(void)
+{
+    static int last_w, last_h;
+    if (sdl3_window == NULL) return true;
+    int w = 0, h = 0;
+    if (!SDL_GetWindowSizeInPixels(sdl3_window, &w, &h)) return true;
+    const bool same = w == last_w && h == last_h;
+    last_w = w, last_h = h;
+    return same;
+}
+
 bool platform_cursor_hidden(void)
 {
     return sdl3_window != NULL && !SDL_CursorVisible();
