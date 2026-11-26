@@ -3,6 +3,7 @@
 #include "game/sys/first_profile.h"
 #include "test.h"
 
+#include <stdio.h>
 #include <string.h>
 
 int main(void)
@@ -18,6 +19,12 @@ int main(void)
     const int n = first_profile_text(text, sizeof text);
     CHECK(n > 0 && (size_t)n < sizeof text);   /* nothing cut */
     CHECK(strstr(text, "Game Mode screen") != NULL);
+    for (const char *line = text; *line != '\0';) {   /* Windows' message box does not wrap: no line longer than 60 characters */
+        const char *end = strchr(line, '\n');
+        const size_t len = end != NULL ? (size_t)(end - line) : strlen(line);
+        CHECK(len <= 60);
+        line += len + (end != NULL);
+    }
     CHECK(strstr(text, "Options") == NULL);
     CHECK(strstr(text, "keyboard, gamepad or wheel") != NULL);
     /* the profiles appear in the window's order, each with its title and what it changes */
@@ -27,7 +34,11 @@ int main(void)
         CHECK(title != NULL);
         if (title == NULL) break;
         const char *changes = first_profile_changes(order[i]);
-        CHECK(changes != NULL && strstr(title, changes) != NULL);
+        char flat[2000];   /* the window wraps its lines: the words are the same with the newlines as spaces */
+        snprintf(flat, sizeof flat, "%s", title);
+        for (char *c = flat; *c != '\0'; c++)
+            if (*c == '\n') *c = ' ';
+        CHECK(changes != NULL && strstr(flat, changes) != NULL);
         at = title + 1;
     }
     CHECK(strstr(first_profile_changes(PROFILE_RESTOMOD), "Everything in Restored") != NULL);

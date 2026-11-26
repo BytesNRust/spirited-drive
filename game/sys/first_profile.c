@@ -1,5 +1,6 @@
 /* port (profiles): the first start's profile window text; see first_profile.h. */
 #include "game/sys/first_profile.h"
+#include "game/sys/dialog_text.h"
 
 #include <stdio.h>
 
@@ -27,11 +28,12 @@ const char *first_profile_changes(Profile p)
 
 int first_profile_text(char *out, size_t size)
 {
-    int n = snprintf(out, size, "Choose how the game looks and plays.\nAll three play with keyboard, gamepad or wheel.\n"
+    char raw[2000];
+    int n = snprintf(raw, sizeof raw, "Choose how the game looks and plays.\nAll three play with keyboard, gamepad or wheel.\n"
                                 "You can change it any time on the Game Mode screen.\n\n");
     Profile order[FIRST_PROFILE_COUNT];
     first_profile_order(order);
-    for (int i = 0; i < FIRST_PROFILE_COUNT && n > 0 && (size_t)n < size; i++)
-        n += snprintf(out + n, size - (size_t)n, "%s\n%s\n%s\n\n", port_profile_title(order[i]), port_profile_line1(order[i]), first_profile_changes(order[i]));
-    return n;
+    for (int i = 0; i < FIRST_PROFILE_COUNT && n > 0 && (size_t)n < sizeof raw; i++)
+        n += snprintf(raw + n, sizeof raw - (size_t)n, "%s\n%s\n%s\n\n", port_profile_title(order[i]), port_profile_line1(order[i]), first_profile_changes(order[i]));
+    return dialog_wrap(raw, DIALOG_LINE_MAX, out, size);   /* Windows' message box does not wrap: a long line makes the window as wide as the screen */
 }

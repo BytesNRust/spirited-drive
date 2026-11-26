@@ -4,6 +4,7 @@
 #include "game/platform/platform.h"
 #include "game/sys/data_check.h"
 #include "game/sys/data_copy.h"
+#include "game/sys/dialog_text.h"
 #include "game/sys/first_profile.h"
 #include "game/sys/game_name.h"
 #include "game/sys/port_log.h"
@@ -23,6 +24,17 @@ bool first_run_user_copy(char *out, size_t out_size)
     return true;
 }
 
+/* Windows' message box puts the first button on the right; the labels are listed left to right (the profile window's Stock, Restored, Restomod): there the order is asked for.
+ * macOS keeps what it does today. */
+static SDL_MessageBoxFlags box_flags(void)
+{
+#ifdef _WIN32
+    return SDL_MESSAGEBOX_INFORMATION | SDL_MESSAGEBOX_BUTTONS_LEFT_TO_RIGHT;
+#else
+    return SDL_MESSAGEBOX_INFORMATION;
+#endif
+}
+
 /* a message box with up to three buttons: the index of the one pressed (the last when it is closed), left to right in the order given */
 static int ask(const char *title, const char *text, const char *const labels[], int count)
 {
@@ -30,7 +42,9 @@ static int ask(const char *title, const char *text, const char *const labels[], 
     for (int i = 0; i < count; i++) {
         buttons[i] = (SDL_MessageBoxButtonData){ i == 0 ? SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT : (i == count - 1 ? SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT : 0), i, labels[i] };
     }
-    const SDL_MessageBoxData box = { SDL_MESSAGEBOX_INFORMATION, NULL, title, text, count, buttons, NULL };
+    char wrapped[2400];
+    dialog_wrap(text, DIALOG_LINE_MAX, wrapped, sizeof wrapped);
+    const SDL_MessageBoxData box = { box_flags(), NULL, title, wrapped, count, buttons, NULL };
     int pressed = count - 1;
     if (!SDL_ShowMessageBox(&box, &pressed)) return count - 1;
     return pressed;
@@ -47,7 +61,7 @@ static void choose_profile(void)
     SDL_MessageBoxButtonData buttons[FIRST_PROFILE_COUNT];
     for (int i = 0; i < FIRST_PROFILE_COUNT; i++)
         buttons[i] = (SDL_MessageBoxButtonData){ i == FIRST_PROFILE_DEFAULT ? SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT : 0, i, port_profile_title(order[i]) };
-    const SDL_MessageBoxData box = { SDL_MESSAGEBOX_INFORMATION, NULL, "Pick your profile", text, FIRST_PROFILE_COUNT, buttons, NULL };
+    const SDL_MessageBoxData box = { box_flags(), NULL, "Pick your profile", text, FIRST_PROFILE_COUNT, buttons, NULL };
     int pressed = FIRST_PROFILE_DEFAULT;
     if (!SDL_ShowMessageBox(&box, &pressed) || pressed < 0 || pressed >= FIRST_PROFILE_COUNT) pressed = FIRST_PROFILE_DEFAULT;
     if (!port_profile_select(order[pressed])) port_log("first_run: could not keep the profile %s\n", port_profile_key(order[pressed]));
@@ -140,7 +154,7 @@ static int iso_readable_or_ask(const char *chosen)
 {
     char why[200] = { 0 };
     if (data_iso_readable(chosen, why, sizeof why)) return 1;
-    static const char *const AGAIN[] = { "Choose again", "Quit" };
+    static const char *const AGAIN[] = { FIRST_RUN_BUTTON_AGAIN, FIRST_RUN_BUTTON_QUIT };
     char text[1500];
     snprintf(text, sizeof text, "%s\n\nIt could not be read as an ISO image of a CD (%s). Choose the .iso of The Need for Speed SE (PC), or the CD or a folder.", chosen, why);
     port_log("first run: %s: %s\n", chosen, why);
@@ -152,12 +166,12 @@ static int ask_unexpected(const char *chosen, const DataCheck *c, WizardSource k
 {
     char text[640];
     snprintf(text, sizeof text, "%s\n\n%d of the %d key files are as in The Need for Speed SE (PC); %d are missing and %d are different.\n\n"
-                                "It may be another edition, a modified copy, or the wrong %s.",
+                                "It may be another edition, a modified copy, or the wrong %s.\n\nUse anyway keeps it as it is; the other button lets you choose again.",
              chosen, c->matched, c->total, c->missing, c->different, what);
-    static const char *const OTHER_FOLDER[] = { "Choose another folder", "Use it anyway", "Quit" };
-    static const char *const OTHER_IMAGE[] = { "Choose another image", "Use it anyway", "Quit" };
-    static const char *const OTHER_NONE_FOLDER[] = { "Choose another folder", "Quit" };
-    static const char *const OTHER_NONE_IMAGE[] = { "Choose another image", "Quit" };
+    static const char *const OTHER_FOLDER[] = { FIRST_RUN_BUTTON_OTHER_FOLDER, FIRST_RUN_BUTTON_ANYWAY, FIRST_RUN_BUTTON_QUIT };
+    static const char *const OTHER_IMAGE[] = { FIRST_RUN_BUTTON_OTHER_IMAGE, FIRST_RUN_BUTTON_ANYWAY, FIRST_RUN_BUTTON_QUIT };
+    static const char *const OTHER_NONE_FOLDER[] = { FIRST_RUN_BUTTON_OTHER_FOLDER, FIRST_RUN_BUTTON_QUIT };
+    static const char *const OTHER_NONE_IMAGE[] = { FIRST_RUN_BUTTON_OTHER_IMAGE, FIRST_RUN_BUTTON_QUIT };
     const char *const title = kind == WIZARD_ISO ? "This is not the expected image" : "This is not the expected folder";
     const int found = c->found;   /* the game's own files are there, only some differ: using it is possible */
     return found ? ask(title, text, kind == WIZARD_ISO ? OTHER_IMAGE : OTHER_FOLDER, 3)
@@ -190,10 +204,8 @@ bool first_run_setup(const char *dest)
         port_fatal("first run: no display: %s\n", SDL_GetError());
         return false;
     }
-    static const char *const START[] = { "Choose the CD or a folder", "Choose an ISO image", "Quit" };
-    const int start = ask(GAME_NAME, "This game needs the files of your own copy of The Need for Speed Special Edition (PC, 1996).\n\n"
-                                           "Choose where they are: the CD, a copy of it on your disk, or an ISO image of it. They are copied once into this game's own folder, "
-                                           "which takes a minute.", START, 3);
+    static const char *const START[] = { FIRST_RUN_BUTTON_CD, FIRST_RUN_BUTTON_ISO, FIRST_RUN_BUTTON_QUIT };
+    const int start = ask(GAME_NAME, FIRST_RUN_START_TEXT, START, 3);
     if (start != 0 && start != 1) {
         SDL_Quit();
         return false;
