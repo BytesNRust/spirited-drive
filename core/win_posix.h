@@ -13,7 +13,7 @@
  * The macros below only need `stat` where they are used. */
 int _mkdir(const char *path);
 #define mkdir(path, ...) _mkdir(path)         /* the mode has no meaning here; variadic so that <direct.h>'s own one-argument declaration still reads */
-#define lstat(path, st) stat(path, st)        /* no links to tell from their targets */
+#define lstat(path, st) stat(path, st)        /* no links to tell from their targets. NOT for sizes: stat is the 32-bit pair here (EOVERFLOW from 2 GiB); use tnfs_stat in core/file_stat64.h */
 #ifndef S_ISLNK
 #define S_ISLNK(m) 0
 #endif

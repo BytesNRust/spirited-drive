@@ -1418,6 +1418,9 @@ foreach(name large_file first_profile car_livery_unlamp track_light_mirror port_
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
+        if(name STREQUAL "large_file")
+            set_tests_properties(large_file PROPERTIES TIMEOUT 120)
+        endif()
     endforeach()
     if(WIN32)   # the Windows build has no network yet (docs/online.md): its UDP tests do not run there
         set_tests_properties(net_udp net_udp_service net_runtime PROPERTIES DISABLED TRUE)
