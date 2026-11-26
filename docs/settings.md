@@ -167,14 +167,14 @@ The update check asks through the system's own `curl`, which follows the proxy v
 | `reverse` | 0 | 0 | Track Select: Reverse (offered when this is on, at Unlock Level 2); `TNFS_REVERSE=0\|1` overrides | circuits run the other way round; the tunnel/LOD byte and the models are handled in `tri_reverse` | not set |
 | `unlock_level` | 0 | config.dat's word | Customize Game: Unlock Level, in Restomod only | Restomod's own unlock level, 0..2; Stock and Restored use config.dat's (as the exe) and never read this key | 0 / 0 / 2 |
 | `rally_gravel` | 0 | 0 | none | gravel noise all along the rally and dust from the desert's tyres | 0 / 0 / 1 |
-| `movies_wide` | 1 | 0 (the 4:3 frame in the middle) | none | on a wide screen a movie fills the width, top and bottom cropped | 0 / 0 / 1 |
+| `movies_wide` | 1 | 0 (the 4:3 frame in the middle) | none | on a wide screen a movie fills the width, top and bottom cropped | 0 / 1 / 1 |
 | `car_paint` | all 0 | all 0 | the car showcase's SETUP panel (Color row) | one hex digit a car (cars 0..11): 0 own, 1 console livery, 2+ the catalogue's paints | not set |
 | `car`, `opponent` | none | none | Control Central's car and head to head rival arrows | the added car picked, by its mod's id (`car=test-car`); an original's is config.dat's and takes the line out. One whose mod is gone opens Control Central with car 0, and the line stays until another car is picked. Restomod's file only | not set |
 | `look.<id>` | none | none | an added car's gallery: Skin and Color | `<skin>,<paint>` by name, `-` for the skin as it comes or the car's own colour (`look.test-car=stripes,Blue`); kept when the car's mod is gone. Restomod's file only | not set |
 
 ## Stock and Restored keep the original's screens
 
-In Stock and Restored the front end shows the original's screens: nothing of the port is drawn on them (no SETUP tile, no RECORDS face of the Video tile, no variant switches, no added cars, tracks or content; the movies keep the 4:3 frame in the middle of a wide screen, `movies_wide` 0). The menus that make the game run on a modern machine (Graphics, Controls, Online...) are in every mode. `tests/stock_screens_golden.sh` (ctest `stock_screens_golden`) holds that: it walks Game Mode, Control Central, the showcase of the player's car and of a rival's, and the track screen in each profile and compares every picture with its golden in `tests/golden/screens/<profile>/`. The goldens are the pictures of `main` (no capture of the original exe exists), looked at one by one; `UPDATE=1` makes them again.
+In Stock and Restored the front end shows the original's screens: nothing of the port is drawn on them (no SETUP tile, no RECORDS face of the Video tile, no variant switches, no added cars, tracks or content). The menus that make the game run on a modern machine (Graphics, Controls, Online...) are in every mode, and on a wide screen the movies fill the width in Restored and Restomod (`movies_wide` 1; Stock keeps the 4:3 frame; owner, 2026-11-26). `tests/stock_screens_golden.sh` (ctest `stock_screens_golden`) holds that: it walks Game Mode, Control Central, the showcase of the player's car and of a rival's, and the track screen in each profile and compares every picture with its golden in `tests/golden/screens/<profile>/`. The goldens are the pictures of `main` (no capture of the original exe exists), looked at one by one; `UPDATE=1` makes them again.
 
 Three screens are exceptions (owner, 2026-11-23): they carry the port's own elements in Stock and Restored too.
 - **Game Mode**: the mode selector (Stock '96 / Restored '96 / Restomod), the version text (the Manage content row is hidden in every mode, Exit is the third big row).
@@ -204,7 +204,7 @@ All 62 columns of the table. A column that is not here is not touched by any pro
 | `car_colours` | settings | 0 | 0 | 1 |
 | `fog_sample` | settings | 0 | 0 | 1 |
 | `sky_fill` | settings | 0 | 0 | 1 |
-| `movies_wide` | switches | 0 | 0 | 1 |
+| `movies_wide` | switches | 0 | 1 | 1 |
 | `extra_liveries` | switches | 0 | 0 | 1 |
 | `rally_gravel` | switches | 0 | 0 | 1 |
 | `bumper_mirror` | switches | 0 | 0 | 1 |

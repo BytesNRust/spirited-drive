@@ -201,7 +201,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.sign_glow, 1);   /* the owner OKs the lit matrix sign */
     PortExtras e = port_profile_extras(PROFILE_STOCK, port_extras_defaults());
     CHECK_EQ_INT(e.movies_wide, 0);
-    CHECK_EQ_INT(port_profile_extras(PROFILE_RESTORED, port_extras_defaults()).movies_wide, 0);   /* Restored's movies keep the 4:3 frame, as Stock's (owner 2026-11-24) */
+    CHECK_EQ_INT(port_profile_extras(PROFILE_RESTORED, port_extras_defaults()).movies_wide, 1);   /* Restored's movies fill a wide screen, Stock's keep the 4:3 frame (owner 2026-11-26) */
     CHECK_EQ_INT(port_profile_extras(PROFILE_RESTOMOD, port_extras_defaults()).movies_wide, 1);
     CHECK(!port_profile_key_free(PROFILE_RESTORED, "stats_overlay"));   /* the F12 stats overlay is Restomod's */
     CHECK(port_profile_key_free(PROFILE_RESTORED, "format"));
