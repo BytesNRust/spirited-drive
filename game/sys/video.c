@@ -104,6 +104,7 @@ void video_set_wide_picture(const uint8_t *picture, int width)
 
 static void show(void)
 {
+    if (front == NULL) return;   /* port: no frame (before video_init, after video_shutdown): a late EXPOSED has nothing to present */
     PlatformColor colors[PALETTE_COLORS];
     for (int i = 0; i < PALETTE_COLORS; i++) {
         colors[i] = (PlatformColor){ palette[3 * i], palette[3 * i + 1], palette[3 * i + 2] };
