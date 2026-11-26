@@ -1,21 +1,5 @@
-<!-- DRAFT: the next version's notes from notes/textos-anuncio-2026-11-25.md (section 4), not approved as final. [X.Y.Z] is the owner's to set; [WIN] waits for the Windows package. Do not release with these marks in. -->
 **Spirited Drive** 0.9.2: *The Need for Speed* Special Edition (1996), rebuilt from scratch
-to run natively on today's computers. Now on Windows as well as macOS.
-
-You need your own copy of the game: the PC Special Edition CD, a folder with its files, or an
-ISO image of your own disc. Spirited Drive contains no EA content.
-
-## Three ways to play
-
-- **Stock '96**: the 1996 game as it shipped. 4:3, original menus, only its bugs fixed.
-- **Restored '96**: the same game on a modern screen. Widescreen, up to 144 fps.
-- **Restomod '26**: the game it could have been with a few more years of development. Weather,
-  four times of day, night lighting, a full 360° camera, cars that shine and change colour, a dashboard that lights
-  up, mirror, reverse and rally versions of the tracks, the lost moon track, and dozens of
-  smaller touches. All of it still 8-bit, palette-indexed art.
-
-The first start asks which one you want. Not sure? Take Restored '96. You can change it at any
-time on the Game Mode screen.
+to run natively on today's computers. Now on Windows as well as macOS. This release also brings the 1996 look back in Stock and Restored, and much better light in Restomod: sun shadows, softer tunnels and touched-up car lights and shine.
 
 ## Install
 
@@ -29,27 +13,19 @@ time on the Game Mode screen.
 2. The first time, Windows will warn that the app is from an unknown publisher: **More info**,
    then **Run anyway**.
 
-On first start, point the game at your CD, folder or ISO. It copies what it needs.
+On first start, point the game at your CD, folder or ISO. It copies what it needs. You need your own copy of the game: the PC Special Edition CD, a folder with its files, or an ISO image of your own disc. Spirited Drive contains no EA content.
 
 **Updating?** On macOS, replace the old app. On Windows, delete the old Spirited Drive folder and unzip the new one in its place; do not unzip over it, because files a version removed would stay. Your profile, settings, records, mods and copied game files are kept (on Windows they are in `%APPDATA%\Spirited Drive`, which is not touched).
 
 ## New in 0.9.2
 
-- **Windows.** Spirited Drive now runs on Windows 10 and 11 (64-bit): unzip it and run it. It works from a user folder with any name, in any alphabet. No console window opens beside the game. Leaving full screen gives you a window that fits above the taskbar. There are no network races on Windows yet: Multiplayer is dimmed and says why.
-- **First start**: the game asks which way you want to play, Stock '96, Restored '96 or Restomod '26, and says what each one changes. Restored '96 is the one it suggests. You can change it at any time on the Game Mode screen, and your answer is now kept on a machine that never had the game before.
-- **Stock '96 and Restored '96 look like the original again**: Stock keeps the black band under the outside view, as in 1996. Restored's movies keep their 4:3 frame. The things we added (the SETUP and RECORDS tiles of the car showcase, the variant's name on the track screen, the stats overlay) now show in Restomod only.
-- **Game Mode screen**: Single Player and Multiplayer on top, the mode below them, Exit at the foot, and the update notice on the version's line. The picture now fills the screen by default (Scaling: Fill); a choice you saved stays.
-- **Full screen with a key**: Alt+Enter on Windows, Cmd+Ctrl+F on macOS, in a menu or in a race.
-- **Shadows cast by the sun** (Restomod): on by default at dawn, by day and at dusk, with the sun where each track's sky has it. A circuit run in reverse is lit the way it runs: its tunnels, lamps and shadows are where the road is.
-- **Tunnels** (Restomod): the light fades in and out at a tunnel's mouth instead of changing in one step, by day and at night. Your headlights light a tunnel that has no lamps of its own. The tunnel lamps' halos no longer blink, the car no longer flickers under them, and Lost Vegas' lamps stay on.
-- **Lights at dawn and dusk** (Restomod): the reflectors catch your beams in low light, in tunnels and in fog, not only at night. The traffic's headlight halos show at dawn and dusk as the racers' do, and the dashboard follows the track's light at those hours as the bodywork does.
-- **Brake lights and shine, painted car by car** (Restomod): a car with hand-painted masks lights only its real brake lamps, and its shine has soft edges and no bright seams. New masks for eight more cars, traffic and police included, and a fifth colour for the Corvette ZR-1: Torch Red.
-- **Paint** (Restomod): the 911 Carrera takes its whole colour instead of patches of it, and a few stray pixels no longer shift the paint of a whole body (the 512TR in white). The 512TR's rear strip takes the colour you pick.
-- **Turn around: the world is all there** (Restomod): the 360 camera follows the car all the way round, with the road behind you drawn, and **Look back** (B, or LB on a pad) shows who is on your tail.
-- **Lunar Springs is a track of its own** (Restomod): its own card in Control Central, its own track screen and Best Times with the moon's art, and its own records. A replay plays back with the moon and the gravity its race had.
-- **Records per car** (Restomod): every race keeps its records by car too. The showcase's Video tile turns to **RECORDS**: that car's best times and top speed on every track. A circuit's best time now says what it is, one lap or the laps of a race. CAR SETUP is laid out in two columns, a click lands on the row you see, and ABS and traction control are offered only on the cars that have them.
-- **Mouse and pads**: a quick tap on a touchpad counts as a click, a gamepad plugged in or pulled out mid-game is picked up.
-- **Fixes**: a short circuit race no longer shows an absurd average speed on the results (884 mph); menu text blends into the picture behind it instead of showing hard edges; the network screen leaves cleanly when the network service does not start; a guest in a network race runs the host's Lunar Springs choice.
+- **Windows 10 and 11 (64-bit)**: unzip it and play. There are no network races on Windows yet: Multiplayer is dimmed and says why.
+- **Choose how to play**: the first start asks for Stock '96, Restored '96 or Restomod '26 and says what each one changes; change it any time on the Game Mode screen. The picture fills the screen by default, and Alt+Enter (Windows) or Cmd+Ctrl+F (macOS) switches full screen.
+- **Stock '96 and Restored '96 look like 1996 again**: the black band under the outside view, movies in 4:3, and the things we added only in Restomod.
+- **Light** (Restomod): the sun casts shadows at dawn, by day and at dusk; tunnels fade in and out and your headlights light the dark ones; reflectors and headlight halos work at dawn and dusk too; several cars' detail masks for lights and shine have been adjusted.
+- **Cars** (Restomod): Torch Red for the Corvette ZR-1, paint that takes the whole body (911 Carrera, 512TR), and records per car: the showcase's RECORDS tile shows each car's best times and top speed on every track.
+- **Mouse and pads**: a quick touchpad tap counts as a click, and a pad plugged in or pulled out mid-game is picked up.
+- **Fixes**: no more absurd average speed after a short circuit race (884 mph), menu text without hard edges, and a network screen that leaves cleanly.
 
 ## Always in the workshop
 

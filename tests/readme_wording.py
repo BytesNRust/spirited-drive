@@ -11,7 +11,7 @@ MUST = ("Factory spec, recalls done.", "Original paint, new bearings.", "Origina
         "the only way to see behind you was the mirror of the cockpit view")
 
 
-NOTES_MUST = ("a full 360° camera", "All of it still 8-bit", "very beta", "Always in the workshop", "[X.Y.Z]", "Three ways to play")
+NOTES_MUST = ("very beta", "Always in the workshop", "on macOS only for now")   # the owner approved the 0.9.2 notes (2026-11-26): no DRAFT mark, the release guard refuses one
 
 
 WINDOWS_MUST = ("unknown publisher", "More info", "Run anyway", "Bring your own CD", "Network races are not in the Windows version yet", "%APPDATA%",
@@ -36,7 +36,7 @@ def problems(text, must=MUST, draft=True):
 
 def main(repo):
     found = problems(open(f"{repo}/README.md", encoding="utf-8").read())
-    found += [f"RELEASE_NOTES.md: {p}" for p in problems(open(f"{repo}/RELEASE_NOTES.md", encoding="utf-8").read(), NOTES_MUST)]
+    found += [f"RELEASE_NOTES.md: {p}" for p in problems(open(f"{repo}/RELEASE_NOTES.md", encoding="utf-8").read(), NOTES_MUST, draft=False)]
     win = windows_readme(open(f"{repo}/tools/package_windows.sh", encoding="utf-8").read())
     if not win:
         found.append("package_windows.sh: no README.txt text found")
