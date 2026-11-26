@@ -23,6 +23,7 @@
 #include "game/sys/car_pieces.h"
 #include "game/sys/track_pieces.h"
 #include "game/sys/track_registry.h"
+#include "game/frontend/boot_screen.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/link_game.h"
 #include "game/frontend/menu_audio.h"
@@ -289,14 +290,20 @@ static int run_drive(const Options *opt)
 }
 
 /* 00437540: the game's main(). */
+/* port: where the first seconds go, in the log: milliseconds since SDL started, at each step of the start (a new install's first start once sat black for eight seconds) */
+static void startup_note(const char *step) { port_log("startup: %s at %u ms\n", step, (unsigned)platform_ticks_ms()); }
+
 static int run_game(const Options *opt)
 {
     const PlatformConfig config = port_platform_config(GAME_NAME);
+    startup_note("start");
     if (!platform_init(&config)) return 0;
+    startup_note("window");
     if (!video_init()) {
         platform_shutdown();
         return 0;
     }
+    startup_note("video");
     resource_init(opt->data_root, opt->german);
     port_icon_apply();   /* port: our icon on the window (the CD's NFSICONN.ICO without it) */
     /* port: the speed's units from the mode's file from the first screen (run_drive and the headless frame set them; the menus' game never did, so km/h in the file
@@ -305,17 +312,23 @@ static int run_game(const Options *opt)
     port_log("units: %s\n", resource_kmh() ? "km/h" : "mph");
     timer_init();
     config_dat_startup_volume(config_current());
+    startup_note("resources");
+    text_init();
+    boot_screen_prepare();   /* port: the first seconds' work (the link, the pads, the audio, the menus' files; a new install's first start asks the system for more) happens behind the boot picture, not a black window */
+    startup_note("boot picture");
     /* 004322f8 loads the pointer; port: its CD and memory checks have nothing to check here, the fonts are
      * text_init's and config.dat is the menus' (0042a010, config_load). The network: the link game over UDP
      * (link_game.c) */
     link_game_init((uint16_t)opt->net_port, opt->net_hosts);
+    startup_note("link");
     pointer_load(0);
-    text_init();
     pointer_start();
     pointer_on_wait(menu_audio_music_service);
     joy_start_up(opt->german);
+    startup_note("pads");
     if (port_extras_load().update_check) platform_update_check_start(TNFS_VERSION);   /* port: one background question to our API (it counts the start), never blocking */
     port_stats_event(STATS_FIRST_START);   /* port: once per install, only with the same switch On; a dev build sends nothing */
+    startup_note("menus");
     frontend_run();
     text_free();
     pointer_free();
