@@ -3,6 +3,8 @@
 # DMG, from the branch you pick, as a downloadable artifact. Nothing is released or tagged. The version is the usual
 # <version>-dev+<hash>, so the game's update check stays off in these builds. The DMG holds the game only (Spirited Drive.app);
 # the `studio` input adds Spirited Drive Studio.app for the owner's internal test apps.
+# CACHES: SDL's build on macOS (keyed by SDL_COMMIT) and ccache on Windows (the universal macOS build has several -arch per compile, which ccache cannot keep), so a test build is quick. A run is never cancelled by a newer one (no concurrency group): a build the
+# owner asked for is never cut. The release workflows use NO caches: clean builds, nothing that a poisoned cache could reach.
 # update_test: the UPDATE NOTICE test. The build is the release configuration but stamps an OLD version (-updatetest), so the game's real update check,
 # which release builds do, runs against the live latest release and must show the notice; a step runs that check headless and fails if it does not say
 # "newer version available" (the same check runs weekly in check-app-update-infra.yml, its local part nightly in nightly-checks.yml). The artifact is named UPDATE-TEST and its version reads 0.0.1-updatetest: not for players. A release workflow never sets it.
@@ -45,7 +47,15 @@ jobs:
       - name: Install tools
         run: brew install ninja
 
+      - name: Restore SDL 3 (universal), built before
+        id: sdl
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: ${{ runner.temp }}/sdl3
+          key: sdl3-universal-macos-15-${{ env.SDL_COMMIT }}
+
       - name: Build SDL 3 (universal)
+        if: steps.sdl.outputs.cache-hit != 'true'
         run: |
           git init -q "$RUNNER_TEMP/SDL"
           git -C "$RUNNER_TEMP/SDL" fetch -q --depth 1 https://github.com/libsdl-org/SDL.git "$SDL_COMMIT"
@@ -56,6 +66,14 @@ jobs:
           cmake --build "$RUNNER_TEMP/SDL/build"
           cmake --install "$RUNNER_TEMP/SDL/build"
 
+      - name: Save SDL 3
+        if: steps.sdl.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: ${{ runner.temp }}/sdl3
+          key: sdl3-universal-macos-15-${{ env.SDL_COMMIT }}
+
+
       - name: Build the game (universal, release)
         env:
           UPDATE_TEST_FLAG: ${{ inputs.update_test && format('-DTNFS_UPDATE_TEST_VERSION={0}', inputs.update_test_version) || '' }}
@@ -64,6 +82,7 @@ jobs:
                 -DTNFS_EDITOR=${{ inputs.studio && 'ON' || 'OFF' }} \
                 -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3" $UPDATE_TEST_FLAG
           cmake --build build/rel
+
 
       - name: Test (Apple Silicon)
         run: ctest --test-dir build/rel --output-on-failure
@@ -107,6 +126,10 @@ jobs:
     defaults:
       run:
         shell: msys2 {0}
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
         with:
@@ -117,20 +140,36 @@ jobs:
         with:
           msystem: UCRT64
           update: false
+          cache: true   # the MSYS2 install and its packages (pinned action)
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-sdl3
             mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-ccache
             git
+
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-windows-ucrt64-release-${{ github.sha }}
+          restore-keys: ccache-windows-ucrt64-release-
 
       - name: Build the game (release)
         env:
           UPDATE_TEST_FLAG: ${{ inputs.update_test && format('-DTNFS_UPDATE_TEST_VERSION={0}', inputs.update_test_version) || '' }}
         run: |
-          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF $UPDATE_TEST_FLAG
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache $UPDATE_TEST_FLAG
           cmake --build build/rel --target tnfs
+
+      - name: Save the ccache
+        if: always()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-windows-ucrt64-release-${{ github.sha }}
 
       - name: Update notice, the real check against the live API (Windows' own curl first on the PATH)
         if: inputs.update_test

@@ -22,7 +22,8 @@ permissions:
 
 concurrency:
   group: checks-${{ github.ref }}
-  cancel-in-progress: true
+  # a newer push to a branch cancels the older run; on main every commit's run stays (main saves the caches)
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # Apple Silicon, Release, Studio built (TNFS_EDITOR is ON by default): every test of the game and of Studio.
@@ -76,6 +77,9 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 90
     env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
       SDL_VIDEO_DRIVER: dummy
       SDL_AUDIO_DRIVER: dummy
       SDL_AUDIODRIVER: dummy
@@ -90,6 +94,7 @@ jobs:
         with:
           msystem: UCRT64
           update: false
+          cache: true   # the MSYS2 install and its packages (setup-msys2's own cache, pinned)
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
@@ -99,12 +104,19 @@ jobs:
             mingw-w64-ucrt-x86_64-ccache
             git
             diffutils
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-windows-ucrt64-${{ github.sha }}
+          restore-keys: ccache-windows-ucrt64-
       - name: A /tmp for the programs that name one (the native programs read it as D:\tmp)
         run: mkdir -p /d/tmp
       - name: Configure
         run: |
           mkdir -p out
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_EDITOR=OFF 2>&1 | tee out/configure.log
+          ccache -z
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_EDITOR=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache 2>&1 | tee out/configure.log
           test "${PIPESTATUS[0]}" -eq 0
       - name: Build (keeps going)
         id: build
@@ -112,6 +124,12 @@ jobs:
         run: |
           cmake --build build -- -k 0 2>&1 | tee out/build.log
           test "${PIPESTATUS[0]}" -eq 0
+      - name: Save the ccache (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-windows-ucrt64-${{ github.sha }}
       - name: Test (all of them)
         id: test
         continue-on-error: true

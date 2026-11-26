@@ -19,7 +19,8 @@ permissions:
 
 concurrency:
   group: nightly-checks-${{ github.ref }}
-  cancel-in-progress: true
+  # a newer run on the same ref cancels the older one, except on a tag: called by the Release workflow it must never be cut
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   macos:
@@ -139,6 +140,9 @@ jobs:
       run:
         shell: msys2 {0}
     env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
       SDL_VIDEO_DRIVER: dummy
       SDL_AUDIO_DRIVER: dummy
       SDL_AUDIODRIVER: dummy
@@ -151,19 +155,35 @@ jobs:
         with:
           msystem: UCRT64
           update: false
+          cache: true   # the MSYS2 install and its packages (setup-msys2's own cache, pinned)
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-sdl3
             mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-ccache
             git
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-windows-ucrt64-downloads-${{ github.sha }}
+          restore-keys: ccache-windows-ucrt64-downloads-
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF
+        run: |
+          ccache -z
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           set -o pipefail
           cmake --build build 2>&1 | tee build.log
+      - name: Save the ccache (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-windows-ucrt64-downloads-${{ github.sha }}
       - name: No compiler warnings
         run: |
           if grep 'warning:' build.log | sort -u | grep .; then
@@ -236,6 +256,7 @@ jobs:
         with:
           msystem: UCRT64
           update: false
+          cache: true   # the MSYS2 install and its packages (setup-msys2's own cache, pinned)
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake

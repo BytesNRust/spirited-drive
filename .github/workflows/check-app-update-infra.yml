@@ -64,6 +64,7 @@ jobs:
         with:
           msystem: UCRT64
           update: false
+          cache: true   # the MSYS2 install and its packages (setup-msys2's own cache, pinned)
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
