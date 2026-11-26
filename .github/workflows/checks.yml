@@ -2,7 +2,7 @@
 # The checks of every push to any branch and every pull request, two jobs side by side:
 #   macos    Apple Silicon (macos-15), Release with Studio (the editor, the default configuration): every test; a compiler warning fails.
 #   windows  MSYS2 UCRT64 gcc: everything the Windows version builds, every test, the exe's smoke; a compiler warning fails (plan W1).
-# The rest (AddressSanitizer + UndefinedBehaviorSanitizer, Intel, and the game-only release configuration of the downloads) runs every night: checks-nightly.yml.
+# The rest (AddressSanitizer + UndefinedBehaviorSanitizer, Intel, and the game-only release configuration of the downloads) runs every night: nightly-checks.yml.
 # Pushes that touch only docs or notes (*.md, docs/, notes/) run nothing. By hand too (Actions > Checks > Run workflow).
 # The Windows job keeps going past a broken target (ninja -k 0) and runs ctest on all, so its summary lists everything that fails, not the first thing; the logs go up as an artifact.
 # Studio (the editor, TNFS_EDITOR) is built on macOS only: it is not part of the Windows version. ccache keeps the objects between runs: main saves the cache, every branch restores it.

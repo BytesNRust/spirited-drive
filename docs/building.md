@@ -86,7 +86,8 @@ The workflows are in `.github/workflows/`:
 | Workflow | When | What |
 |----------|------|------|
 | `checks.yml` (Checks) | every push to any branch and every pull request (not when only `*.md`, `docs/` or `notes/` change), and by hand | two jobs in parallel: macOS Apple Silicon in Release with Studio (every test) and Windows (MSYS2 UCRT64 gcc: every test, the exe's smoke); a compiler warning fails either; the tests that need the CD's data skip themselves |
-| `checks-nightly.yml` (Checks nightly) | every night on `main`, and by hand | what the checks of a push leave out: macOS Apple Silicon and Intel, each in Release (with Studio) and with AddressSanitizer + UndefinedBehaviorSanitizer, and the game-only release configuration of the downloads |
+| `nightly-checks.yml` (Nightly Checks) | every night on `main`, by hand, and called by the release workflow on the tagged commit | what the checks of a push leave out, every job read-only: macOS Apple Silicon and Intel, each in Release (with Studio) and with AddressSanitizer + UndefinedBehaviorSanitizer; the game-only release configuration of the downloads on macOS and on Windows (every test, and the Windows zip runs by itself); and the update notice's local part (fake servers: silence, no hang, proxy) on macOS and Windows |
+| `check-app-update-infra.yml` (Check app update infra) | once a week, by hand, and on `ci/update-**` branches | the update notice end to end against the live API (counts a start in its totals, so never on every push); the local part is in Nightly Checks |
 | `build-test.yml` (Build Test) | by hand (Actions > Build Test > Run workflow) | the universal macOS app and its DMG from the branch you pick, as a downloadable artifact; nothing is released |
 | `release-macos.yml` (Release macOS) | a pushed tag `vX.Y.Z` or `vX.Y.Z-beta.N` | the universal macOS app and its DMG, in a draft GitHub Release that a maintainer publishes by hand |
 

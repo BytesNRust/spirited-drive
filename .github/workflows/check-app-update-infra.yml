@@ -1,13 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The update notice end to end, on macOS and on Windows: a RELEASE configuration that stamps an OLD version (TNFS_UPDATE_TEST_VERSION, +updatetest) runs the
 # game's real update check headless (`tnfs --update-check`: the system's curl, our API's answer, the version order) and the job fails if it does not say
-# "newer version available". Two parts (tests/update_check_e2e.py):
-#   live   against the live API (api.bytesnrust.com): the old version must be told a newer release exists. THIS COUNTS A START in the API's totals, as every
-#          check does, so it runs only by hand, on ci/update-** branches and once a week: never on every push.
-#   local  against servers of the script's own: the notice, and silence (no notice, no hang) for up to date, {"latest":null}, a 403 rate limit, 429, 5xx,
-#          HTML, garbage, nothing listening, a server that never answers, a proxy (http_proxy) and a dead one.
+# "newer version available". Only the LIVE part is here (tests/update_check_e2e.py live): against the live API (api.bytesnrust.com) the old version must be told
+# a newer release exists. THIS COUNTS A START in the API's totals, as every check does, so it runs only by hand, on ci/update-** branches and once a week:
+# never on every push. The "local" part (servers of the script's own: silence, no hang, proxy) is in Nightly Checks (nightly-checks.yml).
 # Build Test's update_test input builds the same thing as downloadable apps. A release workflow never sets TNFS_UPDATE_TEST_VERSION, and refuses a cache that has it.
-name: Update check
+name: Check app update infra
 
 on:
   push:
@@ -21,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: update-check-${{ github.ref }}
+  group: check-app-update-infra-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -50,8 +48,6 @@ jobs:
           ctest --test-dir build --output-on-failure -R update_check
       - name: The notice against the live API
         run: python3 tests/update_check_e2e.py live build/tnfs
-      - name: Silence and no hang (a server of our own)
-        run: python3 tests/update_check_e2e.py local build/tnfs
 
   windows:
     runs-on: windows-2025
@@ -87,7 +83,3 @@ jobs:
         run: |
           export PATH="/c/Windows/System32:$PATH"
           python tests/update_check_e2e.py live build/tnfs.exe
-      - name: Silence and no hang (a server of our own)
-        run: |
-          export PATH="/c/Windows/System32:$PATH"
-          python tests/update_check_e2e.py local build/tnfs.exe
