@@ -251,6 +251,21 @@ static void present_picture(void)
     video_flip();
 }
 
+/* the window's size settles before the first picture: the events are pumped (the renderer takes its presentation rect from them) until two looks, a tick apart, see the same
+ * size, after BOOT_SETTLE_TICKS (3 s) at the most; a picture drawn for the size the window was created with jumped to the final one a moment later */
+static void wait_settled(void)
+{
+    enum { BOOT_SETTLE_TICKS = 300 };
+    const uint32_t start = timer_ticks();
+    (void)platform_window_settled();
+    do {
+        if (!platform_poll_events()) break;
+        video_wait_vblank();
+    } while (!platform_window_settled() && timer_ticks() - start < BOOT_SETTLE_TICKS);
+    port_log("boot: window size settled after %u ticks\n", (unsigned)(timer_ticks() - start));
+    platform_log_window("at the first boot picture");
+}
+
 int boot_screen_prepare(void)
 {
     if (prepared) return 1;
@@ -262,6 +277,7 @@ int boot_screen_prepare(void)
         return 0;
     }
     kept_banner = compose(kept_picture, kept_palette);
+    wait_settled();
     ea_select_default();
     video_set_palette(0, PALETTE_COLOURS, black);
     text_build_styles_from(kept_palette);

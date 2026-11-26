@@ -15,9 +15,11 @@ line() { grep -an "$1" "$log" | head -1 | cut -d: -f1; }
 status=0
 fail() { echo "FAIL: $1"; status=1; }
 picture=$(line 'startup: boot picture at'); link=$(line 'startup: link at'); pads=$(line 'startup: pads at'); intro=$(line 'mark:screen=intro'); boot=$(line 'mark:screen=boot'); hold=$(line 'mark:hold screen=boot')
-for n in picture link pads intro boot hold; do eval "v=\$$n"; [ -n "$v" ] || fail "the log has no line for $n"; done
+settled=$(line 'boot: window size settled'); firstwin=$(line 'platform: window at the first boot picture')
+for n in picture link pads intro boot hold settled firstwin; do eval "v=\$$n"; [ -n "$v" ] || fail "the log has no line for $n"; done
 [ "$status" = 0 ] || { tail -20 "$log"; rm -rf "$work"; exit 1; }
 [ "$picture" -lt "$link" ] || fail "the boot picture came after the link's start (the work of the first seconds runs behind a black window)"
+[ "$settled" -lt "$picture" ] && [ "$firstwin" -lt "$picture" ] || fail "the first picture did not wait for the window's size (settled, sizes logged, then the picture)"
 [ "$link" -lt "$pads" ] || fail "the start's steps are out of order"
 [ "$pads" -lt "$intro" ] && [ "$intro" -lt "$boot" ] && [ "$boot" -lt "$hold" ] || fail "the marks are out of order (intro, boot, hold)"
 [ "$(grep -ac 'mark:screen=boot' "$log")" = 1 ] || fail "the boot screen was marked more than once"

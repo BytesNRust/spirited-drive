@@ -152,6 +152,11 @@ static void fit_windowed_window(void)
     if (fit.x != x || fit.y != y) SDL_SetWindowPosition(sdl3_window, fit.x, fit.y);
 }
 
+void platform_log_window(const char *when)
+{
+    if (sdl3_window != NULL && sdl3_renderer != NULL) log_window_sizes(when);
+}
+
 bool platform_reconfigure(const PlatformConfig *config)
 {
     if (sdl3_window == NULL || sdl3_renderer == NULL || config->width <= 0 || config->height <= 0) return false;
