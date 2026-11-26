@@ -58,6 +58,9 @@ typedef enum {
 /* Pumps OS events. Returns false once the user asked to quit. */
 bool platform_poll_events(void);
 
+/* port: the window is on screen (not hidden, minimised or covered): a window that is not shown draws nothing the player sees. True with no window and on a headless driver. */
+bool platform_window_shown(void);
+
 /* port (dep59 step 4b): the files dropped on the window, oldest first (the CONTENT screen installs them). The next one's path into `out`
  * and true; false when none is waiting. The queue keeps PLATFORM_DROPPED_MAX; one more is left out, as is one whose path does not fit
  * `out`, each with a line in the log. The input script's ms:DROP:name drops TNFS_DROP_DIR/name (input_script.c). */

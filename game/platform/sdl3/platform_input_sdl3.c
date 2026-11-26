@@ -103,6 +103,14 @@ void sdl3_cursor_apply(void)
     else SDL_ShowCursor();
 }
 
+bool platform_window_shown(void)
+{
+    if (sdl3_window == NULL) return true;
+    const char *const driver = SDL_GetCurrentVideoDriver();
+    if (driver == NULL || SDL_strcmp(driver, "dummy") == 0) return true;
+    return (SDL_GetWindowFlags(sdl3_window) & (SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED | SDL_WINDOW_OCCLUDED)) == 0;
+}
+
 bool platform_cursor_hidden(void)
 {
     return sdl3_window != NULL && !SDL_CursorVisible();

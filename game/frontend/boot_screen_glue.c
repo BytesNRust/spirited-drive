@@ -257,6 +257,19 @@ int boot_screen_prepare(void)
     return 1;
 }
 
+/* a window that is not on screen yet draws nothing the player sees (a new install's window took seconds to be exposed on a big external display, and the hold ran out in the
+ * dark): the hold starts when the window is shown, after BOOT_SHOWN_WAIT_TICKS at the most; the events keep coming, a press stays latched for the hold */
+static uint32_t wait_shown(void)
+{
+    enum { BOOT_SHOWN_WAIT_TICKS = 300 };
+    const uint32_t start = timer_ticks();
+    while (!platform_window_shown() && timer_ticks() - start < BOOT_SHOWN_WAIT_TICKS) {
+        if (!platform_poll_events()) break;
+        video_wait_vblank();
+    }
+    return timer_ticks() - start;
+}
+
 void boot_screen_show(void)
 {
     static int shown;
@@ -266,6 +279,8 @@ void boot_screen_show(void)
     if (!early) port_log("mark:screen=boot\n");   /* port: a headless walk can wait for it */
     if (!boot_screen_prepare()) return;
     if (early) port_log("mark:screen=boot\n");
+    const uint32_t dark = wait_shown();
+    if (dark > 1) port_log("boot: the window was not on screen for %u ticks; the hold begins now\n", (unsigned)dark);
     port_log("mark:hold screen=boot ticks=%u\n", (unsigned)hold());   /* port: what a headless walk measures it by */
     video_fade_out(0, PALETTE_COLOURS);
     ea_select_default();
