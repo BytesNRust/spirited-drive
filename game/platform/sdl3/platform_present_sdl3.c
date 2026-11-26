@@ -28,6 +28,21 @@
 #endif
 #include "platform/sdl3/platform_sdl3_private.h"
 
+/* port: one line in the log each time what a present goes to changes (the render output in pixels, the presentation rect): the first presents against the later ones */
+static void note_present_geometry(void)
+{
+    static int last_w = -1, last_h = -1, count;
+    static SDL_FRect last_rect;
+    int w = 0, h = 0;
+    SDL_FRect rect = { 0, 0, 0, 0 };
+    SDL_GetRenderOutputSize(sdl3_renderer, &w, &h);
+    SDL_GetRenderLogicalPresentationRect(sdl3_renderer, &rect);
+    count++;
+    if (w == last_w && h == last_h && rect.x == last_rect.x && rect.y == last_rect.y && rect.w == last_rect.w && rect.h == last_rect.h) return;
+    last_w = w, last_h = h, last_rect = rect;
+    port_log("platform: present %d goes to %dx%d, rect %.0f,%.0f %.0fx%.0f\n", count, w, h, (double)rect.x, (double)rect.y, (double)rect.w, (double)rect.h);
+}
+
 static uint64_t next_frontend_ns;
 
 bool sdl3_write_frame(const char *path)
@@ -194,6 +209,7 @@ static void present_frame(const uint8_t *pixels, const PlatformColor palette[256
         capture_frame();
         SDL_UpdateTexture(sdl3_texture, NULL, sdl3_rgb_buffer, sdl3_fb_width * (int)sizeof *sdl3_rgb_buffer);
     }
+    note_present_geometry();
     SDL_RenderClear(sdl3_renderer);
     SDL_RenderTexture(sdl3_renderer, sdl3_texture, NULL, NULL);
     SDL_RenderPresent(sdl3_renderer);
