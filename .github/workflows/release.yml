@@ -21,6 +21,25 @@ env:
   MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
+  on-main:
+    # the tagged commit must be in main's history: a release is cut from what main holds, never from a side branch (the tag's commit is an ancestor of origin/main)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The tagged commit is an ancestor of origin/main
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not in main's history: land it on main first, then tag"
+            exit 1
+          fi
+
   build-macos:
     runs-on: macos-15
     timeout-minutes: 45
@@ -191,7 +210,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [build-macos, build-windows]
+    needs: [on-main, build-macos, build-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
