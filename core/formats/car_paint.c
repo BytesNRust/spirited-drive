@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <string.h>
 #include <strings.h>
 
 enum { PALETTE_8BIT = 0x24, PALETTE_6BIT = 0x22 };

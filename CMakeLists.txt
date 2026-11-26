@@ -85,7 +85,8 @@ if(WIN32)   # MinGW's strict C99 hides M_PI and the POSIX calls the sources use:
     add_compile_options("$<$<COMPILE_LANGUAGE:C>:-include${CMAKE_SOURCE_DIR}/core/win_posix.h>")
 endif()
 if(UNIX AND NOT APPLE)   # glibc's strict C99 hides the POSIX and BSD calls the sources use (lstat, mkdtemp, strdup, setenv, nftw, PATH_MAX, M_PI): macOS shows them
-    add_compile_definitions(_DEFAULT_SOURCE _XOPEN_SOURCE=700)
+    add_compile_definitions(_DEFAULT_SOURCE _XOPEN_SOURCE=700 _ISOC11_SOURCE)   # (the last: timespec_get)
+    link_libraries(m)   # libm for every target (sqrt in the editor): macOS links it with libc
 endif()
 
 if(MSVC)

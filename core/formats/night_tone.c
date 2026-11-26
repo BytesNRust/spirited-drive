@@ -1,5 +1,6 @@
 #include "formats/night_tone.h"
 
+#include <stddef.h>
 #include <strings.h>
 
 static const float CITY_CEILING[2] = { 0.35f, 0.42f };   /* lifted: with the beams, the tunnels and the lamps standing out of it */
