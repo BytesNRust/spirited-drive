@@ -40,6 +40,13 @@ jobs:
             exit 1
           fi
 
+  nightly:
+    # what the nightly run checks (Release and sanitizer builds on both macOS machines, the game-only configuration, the Windows downloads' configuration, the update
+    # notice's local part), run on the tagged commit: no release from a commit the long checks have not passed. Read-only, never cancelled on a tag.
+    uses: ./.github/workflows/nightly-checks.yml
+    permissions:
+      contents: read
+
   build-macos:
     runs-on: macos-15
     timeout-minutes: 45
@@ -210,7 +217,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [on-main, build-macos, build-windows]
+    needs: [on-main, nightly, build-macos, build-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
