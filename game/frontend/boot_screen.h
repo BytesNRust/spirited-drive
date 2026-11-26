@@ -42,6 +42,10 @@ void boot_screen_sources(int key, int buttons, int pad, HoldSource out[HOLD_SOUR
  * that press to be let go (BOOT_RELEASE_TICKS at most) so EA's first movie does not take it. Once per run: later calls do nothing. */
 void boot_screen_show(void);
 
+/* port: draws it and fades it in now, once, and leaves it on the screen (the game calls this before the work of the first seconds; boot_screen_show then holds it and
+ * fades it out, and does not draw again). 1 when it is up. */
+int boot_screen_prepare(void);
+
 /* the port's own pages' text colours and their antialiasing ramps (the boot screen's, an added car's gallery's: added_gallery_glue.c),
  * kept out of a quantised picture's reach; [5] is black */
 enum { BOOT_TEXT_COLOURS = 18 };

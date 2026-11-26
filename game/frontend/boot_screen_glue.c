@@ -227,19 +227,21 @@ static uint32_t let_go(void)
     }
 }
 
-void boot_screen_show(void)
+/* port: the picture drawn and faded in, once, and left on the screen: the game starts it before the work of its first seconds (the first start's: the link, the pads, the audio, the
+ * menus' files, whatever a new install asks the system for) so that work is not a black window. Not marked; boot_screen_show does that, and the hold that follows. 0 when it
+ * cannot be drawn. */
+static int prepared;
+
+int boot_screen_prepare(void)
 {
-    static int shown;
-    if (shown) return;
-    shown = 1;
+    if (prepared) return 1;
     BootLine lines[BOOT_LINES_MAX];
     const int n = boot_screen_lines(TNFS_VERSION, lines);
     uint8_t *picture = malloc((size_t)SCREEN_W * SCREEN_H), palette[768], black[768] = { 0 };
     if (picture == NULL || !text_small_init()) {
         free(picture);
-        return;
+        return 0;
     }
-    port_log("mark:screen=boot\n");   /* port: a headless walk can wait for it */
     const int banner = compose(picture, palette);
     ea_select_default();
     video_set_palette(0, PALETTE_COLOURS, black);
@@ -251,6 +253,19 @@ void boot_screen_show(void)
     draw(lines, n, banner);
     video_flip();
     video_fade_in(0, PALETTE_COLOURS, palette);
+    prepared = 1;
+    return 1;
+}
+
+void boot_screen_show(void)
+{
+    static int shown;
+    if (shown) return;
+    shown = 1;
+    const int early = prepared;   /* already up (the game drew it before its first seconds' work): marked now, when its hold begins */
+    if (!early) port_log("mark:screen=boot\n");   /* port: a headless walk can wait for it */
+    if (!boot_screen_prepare()) return;
+    if (early) port_log("mark:screen=boot\n");
     port_log("mark:hold screen=boot ticks=%u\n", (unsigned)hold());   /* port: what a headless walk measures it by */
     video_fade_out(0, PALETTE_COLOURS);
     ea_select_default();
