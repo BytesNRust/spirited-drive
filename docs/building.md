@@ -91,7 +91,7 @@ The workflows are in `.github/workflows/`:
 
 Caches and cancelling: Checks and Nightly Checks cancel a run that a newer push to the same ref supersedes (on `main` every commit's Checks run stays, because main saves the ccache; a tag's run of Nightly Checks is never cancelled). Build Test and the release workflows are never cancelled. Caches: ccache (macOS and Windows, saved on `main` by Checks and Nightly Checks), the MSYS2 packages (setup-msys2's cache), and in Build Test SDL's universal build (keyed by `SDL_COMMIT`) and the Windows ccache. The release workflows use **no caches**: a release is a clean build that no poisoned cache can reach.
 | `build-test.yml` (Build Test) | by hand (Actions > Build Test > Run workflow) | the universal macOS app and its DMG from the branch you pick, as a downloadable artifact; nothing is released |
-| `release-macos.yml` (Release macOS) | a pushed tag `vX.Y.Z` or `vX.Y.Z-beta.N` | the universal macOS app and its DMG, in a draft GitHub Release that a maintainer publishes by hand |
+| `release.yml` (Release) | a pushed tag `vX.Y.Z` or `vX.Y.Z-beta.N` | the universal macOS app (DMG) and the Windows game (zip), each built and tested by its own job; when both pass, ONE draft GitHub Release with both downloads, their checksum lists and `RELEASE_NOTES.md`, that a maintainer publishes by hand |
 
 ## Layout
 

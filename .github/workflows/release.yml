@@ -1,0 +1,223 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Pushing a tag vX.Y.Z (or vX.Y.Z-beta.N) builds the game for macOS (universal, Apple Silicon + Intel) and Windows (x64), tests and packs each (the DMG, the zip, their
+# SHA-256s) and opens ONE DRAFT GitHub Release for the tag with all of them and RELEASE_NOTES.md; a maintainer reviews and publishes it by hand. ONE release holds every
+# platform's download because the game's update notice opens "the latest release" and a player must find his own file there. If either build fails there is no draft.
+# The game's update check reads /releases/latest, which skips releases marked "pre-release", so beta versions are published as normal releases (their version number
+# says beta).
+#
+# The build jobs only read the repo (their token is not kept in the checkout); only the publish job may write, and it runs only when both builds succeeded.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  SDL_TAG: release-3.4.10                                   # the SDL the game is developed against (macOS: built from this commit)
+  SDL_COMMIT: 8e37db5e797b6167f3a00d697d816a684bd259c7      # that tag's commit: a moved tag cannot change the build
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
+
+jobs:
+  build-macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check the tag is a version
+        run: |
+          echo "$GITHUB_REF_NAME" | grep -E -q '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || { echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-pre]"; exit 1; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0             # the version comes from the tag
+          persist-credentials: false
+
+      - name: Check the tag matches the project's version (before the long build)
+        run: tools/check_tag_version.sh "$GITHUB_REF_NAME"
+
+      - name: Check the release notes are not a draft (before the long build)
+        run: tools/check_release_notes.sh RELEASE_NOTES.md
+
+      - name: Install tools
+        run: brew install ninja
+
+      - name: Build SDL 3 (universal)
+        run: |
+          git init -q "$RUNNER_TEMP/SDL"
+          git -C "$RUNNER_TEMP/SDL" fetch -q --depth 1 https://github.com/libsdl-org/SDL.git "$SDL_COMMIT"
+          git -C "$RUNNER_TEMP/SDL" checkout -q FETCH_HEAD
+          cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL/build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF \
+                -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl3"
+          cmake --build "$RUNNER_TEMP/SDL/build"
+          cmake --install "$RUNNER_TEMP/SDL/build"
+
+      - name: Build the game (universal, release)
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3"
+          cmake --build build/rel
+
+      - name: Test (Apple Silicon)
+        run: ctest --test-dir build/rel --output-on-failure
+
+      - name: Check the version matches the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          got=$(sed -n 's/^const char tnfs_version\[\] = "\(.*\)";.*/\1/p' build/rel/generated/tnfs_version.c)
+          echo "tag $want, build $got"
+          [ "$want" = "$got" ]
+          # a release is never an update test build (CMakeLists.txt TNFS_UPDATE_TEST_VERSION: it stamps an old version and is refused on a tagged commit)
+          if grep -q '^TNFS_UPDATE_TEST_VERSION:STRING=.\+' build/rel/CMakeCache.txt; then echo "::error::this is an update test build"; exit 1; fi
+
+      - name: Package
+        run: |
+          export GAME_ONLY=1   # the download is the game only: Studio is in progress and stays in the source tree
+          icon=""
+          [ -f data/icon/tnfs.icns ] && icon=data/icon/tnfs.icns
+          tools/package_macos.sh build/rel dist $icon
+          lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q arm64
+          lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q x86_64
+          cd dist && shasum -a 256 *.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: The DMG holds the game only
+        run: tools/check_dmg_contents.sh dist/*.dmg 0
+
+      - name: The app from the DMG runs by itself
+        # mount the DMG that will be released and start the app in it (--mods-list opens no window and exits): a DMG whose app does not start is not released
+        run: |
+          mp="$RUNNER_TEMP/dmg-mount"
+          mkdir -p "$mp"
+          hdiutil attach dist/*.dmg -mountpoint "$mp" -nobrowse -readonly -quiet
+          trap 'hdiutil detach "$mp" -quiet' EXIT
+          SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy "$mp/Spirited Drive.app/Contents/MacOS/tnfs" --user "$RUNNER_TEMP/user-dmg" --mods-list
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        with:
+          name: macos-dmg
+          path: |
+            dist/*.dmg
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0             # the version comes from the tag
+          persist-credentials: false
+
+      - uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c   # v2.34.0
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-sdl3
+            git
+
+      - name: Check the tag is a version (after setup-msys2, the msys2 shell is not there before it)
+        run: |
+          echo "$GITHUB_REF_NAME" | grep -E -q '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || { echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-pre]"; exit 1; }
+
+      - name: Check the tag matches the project's version (before the long build)
+        run: tools/check_tag_version.sh "$GITHUB_REF_NAME"
+
+      - name: Check the release notes are not a draft (before the long build)
+        run: tools/check_release_notes.sh RELEASE_NOTES.md
+
+      - name: A /tmp for the programs that name one (the native programs read it as D:\tmp)
+        run: mkdir -p /d/tmp
+
+      - name: Build everything (release)
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF
+          cmake --build build/rel
+
+      - name: Test (all of them, as the Windows workflow runs them; the tests that need the CD's data skip themselves)
+        env:
+          SDL_VIDEO_DRIVER: dummy
+          SDL_AUDIO_DRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build/rel --output-on-failure --timeout 300 -j "$(nproc)"
+
+      - name: Check the version matches the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          got=$(sed -n 's/^const char tnfs_version\[\] = "\(.*\)";.*/\1/p' build/rel/generated/tnfs_version.c)
+          echo "tag $want, build $got"
+          [ "$want" = "$got" ]
+          # a release is never an update test build (CMakeLists.txt TNFS_UPDATE_TEST_VERSION: it stamps an old version and is refused on a tagged commit)
+          if grep -q '^TNFS_UPDATE_TEST_VERSION:STRING=.\+' build/rel/CMakeCache.txt; then echo "::error::this is an update test build"; exit 1; fi
+
+      - name: Package
+        run: |
+          tools/package_windows.sh build/rel dist
+          cd dist && sha256sum *.zip > SHA256SUMS-windows.txt && cat SHA256SUMS-windows.txt
+          cmake -E tar tf *.zip | grep -E 'Spirited Drive\.exe|SDL3\.dll|data/car_masks' | head -5
+
+      - name: The package runs by itself
+        # a clean Windows has none of MSYS2's folders: unpack into a new folder and start the exe with only Windows' own on PATH (--mods-list opens no window and
+        # exits); a DLL missing from the zip makes the load fail (exit 0xC0000135) here and not on the runner's PATH
+        run: |
+          rm -rf unpacked && mkdir unpacked
+          (cd unpacked && cmake -E tar xf ../dist/*.zip)
+          ls unpacked/*/ | grep -q 'SDL3.dll'
+          ls "unpacked/Spirited Drive/LICENSES/third-party"/*/* | grep -q . || { echo "no DLL licence texts in the package" >&2; exit 1; }
+          mkdir user-clean
+          env PATH=/c/Windows/System32:/c/Windows "unpacked/Spirited Drive/Spirited Drive.exe" --user "$PWD/user-clean" --mods-list
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        with:
+          name: windows-zip
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS-windows.txt
+          if-no-files-found: error
+
+  publish:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4 (RELEASE_NOTES.md)
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4
+        with:
+          name: macos-dmg
+          path: dist
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4
+        with:
+          name: windows-zip
+          path: dist
+
+      - name: Open the draft release (the DMG, the zip and both checksum lists)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -l dist
+          notes="--generate-notes"
+          [ -f RELEASE_NOTES.md ] && notes="--notes-file RELEASE_NOTES.md"
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/SHA256SUMS.txt dist/SHA256SUMS-windows.txt --draft --verify-tag \
+             --title "Spirited Drive ${GITHUB_REF_NAME#v}" $notes

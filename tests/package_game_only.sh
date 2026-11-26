@@ -8,7 +8,7 @@ set -u
 repo=$1
 fails=0
 fail() { echo "FAIL: $*" >&2; fails=$((fails + 1)); }
-rel=$repo/.github/workflows/release-macos.yml
+rel=$repo/.github/workflows/release.yml
 bt=$repo/.github/workflows/build-test.yml
 pk=$repo/tools/package_macos.sh
 grep -q -- '-DTNFS_EDITOR=OFF' "$rel" || fail "the release workflow does not configure with -DTNFS_EDITOR=OFF"
