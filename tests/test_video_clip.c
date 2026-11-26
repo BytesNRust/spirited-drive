@@ -205,5 +205,11 @@ int main(void)
     test_the_quick_fades();
     video_select_target(NULL, 0, 0);
     video_shutdown();
+    {   /* a late EXPOSED after the video is gone: nothing to present, no crash */
+        const int before = presents;
+        redraw_flag = 1;
+        video_wait_vblank();
+        CHECK_EQ_INT(presents, before);
+    }
     return TEST_REPORT();
 }
