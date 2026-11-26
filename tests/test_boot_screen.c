@@ -98,5 +98,18 @@ int main(void)
     the_places_are_the_mockups();
     the_version_line_is_optional();
     every_line_ends_and_fits();
+    {   /* the held picture is presented again: when the window comes on screen, and every BOOT_REDRAW_TICKS */
+        BootRedraw r;
+        boot_redraw_start(&r, 1000, 0);
+        CHECK_EQ_INT(boot_redraw_due(&r, 1003, 0), 0);                    /* in the dark, inside the interval: nothing */
+        CHECK_EQ_INT(boot_redraw_due(&r, 1004, 1), 1);                    /* the window is exposed in the middle of the hold: at once */
+        CHECK_EQ_INT(boot_redraw_due(&r, 1005, 1), 0);                    /* shown and drawn: not again for a moment */
+        CHECK_EQ_INT(boot_redraw_due(&r, 1004 + BOOT_REDRAW_TICKS - 1, 1), 0);
+        CHECK_EQ_INT(boot_redraw_due(&r, 1004 + BOOT_REDRAW_TICKS, 1), 1);   /* the periodic one (a dropped drawable) */
+        CHECK_EQ_INT(boot_redraw_due(&r, 1004 + BOOT_REDRAW_TICKS, 0), 0);   /* covered again: the clock was just reset */
+        CHECK_EQ_INT(boot_redraw_due(&r, 1004 + BOOT_REDRAW_TICKS + 2, 1), 1);   /* and exposed again: at once */
+        boot_redraw_start(&r, 0xfffffff0u, 1);
+        CHECK_EQ_INT(boot_redraw_due(&r, 0x00000003u, 1), 1);             /* the timer's wrap does not stall it */
+    }
     return TEST_REPORT();
 }
