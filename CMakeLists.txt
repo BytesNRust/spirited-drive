@@ -84,6 +84,9 @@ if(WIN32)   # MinGW's strict C99 hides M_PI and the POSIX calls the sources use:
     add_compile_definitions(_USE_MATH_DEFINES __USE_MINGW_ANSI_STDIO=1)   # (the latter: printf with %zu, as the C99 the code is)
     add_compile_options("$<$<COMPILE_LANGUAGE:C>:-include${CMAKE_SOURCE_DIR}/core/win_posix.h>")
 endif()
+if(UNIX AND NOT APPLE)   # glibc's strict C99 hides the POSIX and BSD calls the sources use (lstat, mkdtemp, strdup, setenv, nftw, PATH_MAX, M_PI): macOS shows them
+    add_compile_definitions(_DEFAULT_SOURCE _XOPEN_SOURCE=700)
+endif()
 
 if(MSVC)
     set(TNFS_WARNINGS /W4)
