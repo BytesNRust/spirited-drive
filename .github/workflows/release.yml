@@ -194,8 +194,24 @@ jobs:
       - name: Package
         run: |
           tools/package_windows.sh build/rel dist
-          cd dist && sha256sum *.zip > SHA256SUMS-windows.txt && cat SHA256SUMS-windows.txt
-          cmake -E tar tf *.zip | grep -E 'Spirited Drive\.exe|SDL3\.dll|data/car_masks' | head -5
+          cmake -E tar tf dist/*.zip | grep -E 'Spirited Drive\.exe|SDL3\.dll|data/car_masks' | head -5
+
+      - name: Inno Setup (a fixed version, its SHA256 checked; the runner's own is used when it has one)
+        # 6.7.4 from the project's GitHub release; the hash is the one in the publisher's signed innosetup-6.7.4.exe.issig (file-hash)
+        run: |
+          if ! command -v ISCC >/dev/null 2>&1 && [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/innosetup.exe" https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe
+            echo "a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c  $RUNNER_TEMP/innosetup.exe" | sha256sum -c -
+            MSYS2_ARG_CONV_EXCL='*' "$RUNNER_TEMP/innosetup.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER /SP-
+          fi
+
+      - name: The installer (built from the zip, so it cannot differ from it)
+        run: |
+          tools/package_windows_installer.sh dist/*.zip dist
+          cd dist && sha256sum *.zip *-setup.exe > SHA256SUMS-windows.txt && cat SHA256SUMS-windows.txt
+
+      - name: The installer installs, updates and uninstalls (the player's folder is kept)
+        run: tools/installer_smoke.sh dist/*-setup.exe
 
       - name: The package runs by itself
         # a clean Windows has none of MSYS2's folders: unpack into a new folder and start the exe with only Windows' own on PATH (--mods-list opens no window and
@@ -213,6 +229,7 @@ jobs:
           name: windows-zip
           path: |
             dist/*.zip
+            dist/*-setup.exe
             dist/SHA256SUMS-windows.txt
           if-no-files-found: error
 
@@ -237,7 +254,7 @@ jobs:
           name: windows-zip
           path: dist
 
-      - name: Open the draft release (the DMG, the zip and both checksum lists)
+      - name: Open the draft release (the DMG, the zip, the installer and both checksum lists)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -245,5 +262,5 @@ jobs:
           ls -l dist
           notes="--generate-notes"
           [ -f RELEASE_NOTES.md ] && notes="--notes-file RELEASE_NOTES.md"
-          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/SHA256SUMS.txt dist/SHA256SUMS-windows.txt --draft --verify-tag \
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/*-setup.exe dist/SHA256SUMS.txt dist/SHA256SUMS-windows.txt --draft --verify-tag \
              --title "Spirited Drive ${GITHUB_REF_NAME#v}" $notes

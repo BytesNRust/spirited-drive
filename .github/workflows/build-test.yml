@@ -195,11 +195,29 @@ jobs:
           mkdir user-clean
           env PATH=/c/Windows/System32:/c/Windows "unpacked/Spirited Drive/Spirited Drive.exe" --user "$PWD/user-clean" --mods-list
 
+      - name: Inno Setup (a fixed version, its SHA256 checked; the runner's own is used when it has one)
+        # 6.7.4 from the project's GitHub release; the hash is the one in the publisher's signed innosetup-6.7.4.exe.issig (file-hash)
+        run: |
+          if ! command -v ISCC >/dev/null 2>&1 && [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/innosetup.exe" https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe
+            echo "a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c  $RUNNER_TEMP/innosetup.exe" | sha256sum -c -
+            MSYS2_ARG_CONV_EXCL='*' "$RUNNER_TEMP/innosetup.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER /SP-
+          fi
+
+      - name: The installer (built from the zip, so it cannot differ from it) (and its sums)
+        run: |
+          tools/package_windows_installer.sh dist/*.zip dist
+          cd dist && sha256sum *.zip *-setup.exe > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: The installer installs, updates and uninstalls (the player's folder is kept)
+        run: tools/installer_smoke.sh dist/*-setup.exe
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
         with:
           name: spirited-drive-windows-${{ inputs.update_test && 'UPDATE-TEST-' || '' }}${{ github.sha }}
           path: |
             dist/*.zip
+            dist/*-setup.exe
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14

@@ -29,6 +29,7 @@ grep -q 'uses: ./.github/workflows/nightly-checks.yml' "$rel" || bad "the releas
 grep -q 'merge-base --is-ancestor "\$GITHUB_SHA" origin/main' "$rel" || bad "the release does not check the tagged commit is an ancestor of origin/main"
 [ "$(grep -c 'contents: write' "$rel")" = 1 ] || bad "more than one job (or none) may write to the repository: only publish may"
 grep -q 'dist/\*.dmg' "$rel" && grep -q 'dist/\*.zip' "$rel" || bad "the release does not offer the DMG and the zip"
+grep -q 'dist/\*-setup.exe' "$rel" || bad "the installer is not offered by the release (the installer commit is the one to take out, with this line)"
 grep -q 'SHA256SUMS-windows.txt' "$rel" || bad "the Windows checksums are not in a file of their own"
 grep -q 'SHA256SUMS.txt' "$rel" || bad "the macOS checksums are missing"
 [ "$(grep -c 'tnfs_version' "$rel")" -ge 2 ] && grep -q 'GITHUB_REF_NAME#v' "$rel" || bad "the release workflow does not check each build's version against the tag"
