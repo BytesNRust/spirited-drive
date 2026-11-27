@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Pushing a tag vX.Y.Z (or vX.Y.Z-beta.N) builds the game for macOS (universal, Apple Silicon + Intel) and Windows (x64), tests and packs each (the DMG, the zip, their
+# Pushing a tag vX.Y.Z (or vX.Y.Z-beta.N) builds the game for macOS (universal, Apple Silicon + Intel), Windows (x64) and Linux (x86_64), tests and packs each (the DMG, the zip, the AppImage, their
 # SHA-256s) and opens ONE DRAFT GitHub Release for the tag with all of them and RELEASE_NOTES.md; a maintainer reviews and publishes it by hand. ONE release holds every
-# platform's download because the game's update notice opens "the latest release" and a player must find his own file there. If either build fails there is no draft.
+# platform's download because the game's update notice opens "the latest release" and a player must find his own file there. If any build fails there is no draft.
 # The game's update check reads /releases/latest, which skips releases marked "pre-release", so beta versions are published as normal releases (their version number
 # says beta).
 #
-# The build jobs only read the repo (their token is not kept in the checkout); only the publish job may write, and it runs only when both builds succeeded.
+# The build jobs only read the repo (their token is not kept in the checkout); only the publish job may write, and it runs only when every build succeeded.
 name: Release
 
 on:
@@ -233,8 +233,97 @@ jobs:
             dist/SHA256SUMS-windows.txt
           if-no-files-found: error
 
+  build-linux:
+    # built on the oldest Ubuntu the AppImage is for: its glibc (2.35) is the oldest it runs with. No nix here: a nix build wants nix's own libraries. The same
+    # pieces as Build Test's linux job.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - name: Check the tag is a version
+        run: |
+          echo "$GITHUB_REF_NAME" | grep -E -q '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || { echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-pre]"; exit 1; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0             # the version comes from the tag
+          persist-credentials: false
+
+      - name: Check the tag matches the project's version (before the long build)
+        run: tools/check_tag_version.sh "$GITHUB_REF_NAME"
+
+      - name: Check the release notes are not a draft (before the long build)
+        run: tools/check_release_notes.sh RELEASE_NOTES.md
+
+      - name: Install tools and the headers SDL3 is built with
+        # SDL opens these libraries itself when it runs (nothing of them travels in the AppImage); what has no header here is left out of the build
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build pkg-config libasound2-dev libpulse-dev libpipewire-0.3-dev libx11-dev libxext-dev libxrandr-dev \
+              libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
+              libdrm-dev libgbm-dev libegl1-mesa-dev libgl1-mesa-dev libgles2-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev
+
+      - name: SDL 3 (static)
+        run: |
+          git init -q "$RUNNER_TEMP/SDL"
+          git -C "$RUNNER_TEMP/SDL" fetch -q --depth 1 https://github.com/libsdl-org/SDL.git "$SDL_COMMIT"
+          git -C "$RUNNER_TEMP/SDL" checkout -q FETCH_HEAD
+          cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=OFF -DSDL_STATIC=ON \
+                -DSDL_TEST_LIBRARY=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl3"
+          cmake --build "$RUNNER_TEMP/SDL/build"
+          cmake --install "$RUNNER_TEMP/SDL/build"
+          # a build without one of these would still compile, and then show no window or play no sound on a player's machine
+          for driver in VIDEO_DRIVER_X11 VIDEO_DRIVER_WAYLAND AUDIO_DRIVER_PULSEAUDIO AUDIO_DRIVER_PIPEWIRE AUDIO_DRIVER_ALSA; do
+            grep -rqE "^#define SDL_$driver 1" "$RUNNER_TEMP/SDL/build" || { echo "SDL was built without $driver" >&2; exit 1; }
+          done
+
+      - name: Build everything (release)
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3"
+          cmake --build build/rel
+
+      - name: Test (all of them; the tests that need the CD's data skip themselves)
+        run: ctest --test-dir build/rel --output-on-failure --timeout 300 -j "$(nproc)"
+
+      - name: Check the version matches the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          got=$(sed -n 's/^const char tnfs_version\[\] = "\(.*\)";.*/\1/p' build/rel/generated/tnfs_version.c)
+          echo "tag $want, build $got"
+          [ "$want" = "$got" ]
+          # a release is never an update test build (CMakeLists.txt TNFS_UPDATE_TEST_VERSION: it stamps an old version and is refused on a tagged commit)
+          if grep -q '^TNFS_UPDATE_TEST_VERSION:STRING=.\+' build/rel/CMakeCache.txt; then echo "::error::this is an update test build"; exit 1; fi
+
+      - name: Package (appimagetool and its runtime at fixed versions, their SHA256 checked)
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/appimagetool" https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/runtime" https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  $RUNNER_TEMP/appimagetool" | sha256sum -c -
+          echo "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d  $RUNNER_TEMP/runtime" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          APPIMAGETOOL="$RUNNER_TEMP/appimagetool" APPIMAGE_RUNTIME="$RUNNER_TEMP/runtime" SDL_LICENSE="$RUNNER_TEMP/SDL/LICENSE.txt" \
+              tools/package_appimage.sh build/rel dist
+          cd dist && sha256sum *.AppImage > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt
+
+      - name: The AppImage runs by itself on clean systems
+        run: tools/appimage_smoke.sh dist/*.AppImage ubuntu:22.04 ubuntu:24.04
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        with:
+          name: linux-appimage
+          path: |
+            dist/*.AppImage
+            dist/SHA256SUMS-linux.txt
+          if-no-files-found: error
+
   publish:
-    needs: [on-main, nightly, build-macos, build-windows]
+    needs: [on-main, nightly, build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -254,7 +343,12 @@ jobs:
           name: windows-zip
           path: dist
 
-      - name: Open the draft release (the DMG, the zip, the installer and both checksum lists)
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4
+        with:
+          name: linux-appimage
+          path: dist
+
+      - name: Open the draft release (the DMG, the zip, the installer, the AppImage and the checksum lists)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -262,5 +356,5 @@ jobs:
           ls -l dist
           notes="--generate-notes"
           [ -f RELEASE_NOTES.md ] && notes="--notes-file RELEASE_NOTES.md"
-          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/*-setup.exe dist/SHA256SUMS.txt dist/SHA256SUMS-windows.txt --draft --verify-tag \
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/*-setup.exe dist/*.AppImage dist/SHA256SUMS.txt dist/SHA256SUMS-windows.txt dist/SHA256SUMS-linux.txt --draft --verify-tag \
              --title "Spirited Drive ${GITHUB_REF_NAME#v}" $notes
