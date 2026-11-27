@@ -95,8 +95,10 @@ jobs:
         include:
           - build: release
             cmake: -DCMAKE_BUILD_TYPE=Release
+          # gcc's -Wstringop-overflow/-overread report "a region of size 0" at plain memcpy/memset/memmove calls once the sanitizers instrument the code (gcc's own
+          # false positives; the release build of the same code has none): off in this job only, the sanitizers themselves check those accesses at run time
           - build: sanitizers
-            cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer"
+            cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-stringop-overread"
     name: ubuntu-24.04 ${{ matrix.build }} (nix flake)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
