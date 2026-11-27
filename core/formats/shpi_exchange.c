@@ -284,7 +284,7 @@ static void to_indices(const PngImage *img, const uint8_t rgb[PALETTE_BYTES], ui
             if (img->pixels[4 * i + 3] < 128) { indices[i] = 0; continue; }   /* transparent */
             memcpy(c, img->pixels + 4 * i, 3);
         }
-        int index, exact;
+        int index = 0, exact;
         quantizer_exact(rgb, c, &index, &exact);
         indices[i] = (uint8_t)index;
         if (!exact) stats->reassigned++;

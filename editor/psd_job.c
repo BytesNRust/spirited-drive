@@ -124,6 +124,17 @@ static int kept_by_hand(const Manifest *known, const char *dest, const char *nam
 }
 
 /* every PNG written below `from` (one folder a car, PNG files) copied beside its place in `dest`; the count, -1 on a failure */
+/* `to` with ".psdtmp" after it, into `tmp`; 0 when it does not fit (not snprintf: gcc's -Wrestrict takes two members of one struct for overlapping) */
+static int with_tmp_suffix(char *tmp, size_t size, const char *to)
+{
+    static const char suffix[] = ".psdtmp";
+    const size_t n = strlen(to);
+    if (n + sizeof suffix > size) return 0;
+    memcpy(tmp, to, n);
+    memcpy(tmp + n, suffix, sizeof suffix);
+    return 1;
+}
+
 static int stage_pngs(PsdJob *job, const Manifest *known, const char *from, const char *dest, Staged *st)
 {
     DIR *d = opendir(from);
@@ -145,7 +156,7 @@ static int stage_pngs(PsdJob *job, const Manifest *known, const char *from, cons
             }
             const int slot = st->count;
             if (slot >= STAGE_MAX || !make_dirs(dest) || !join(st->to[slot], sizeof st->to[slot], dest, f->d_name) ||
-                snprintf(st->tmp[slot], sizeof st->tmp[slot], "%s.psdtmp", st->to[slot]) >= (int)sizeof st->tmp[slot])
+                !with_tmp_suffix(st->tmp[slot], sizeof st->tmp[slot], st->to[slot]))
                 count = -1;
             else {
                 st->count++;

@@ -93,10 +93,12 @@ if(MSVC)
     set(TNFS_WARNINGS /W4)
 else()
     set(TNFS_WARNINGS -Wall -Wextra -Wpedantic)
-    if(WIN32)   # MinGW's gcc: checks that clang (the macOS gate) does not have or reads differently, and that flag correct code: its printf attribute is the msvcrt's (%zu), its snprintf truncation guesses, its pointer-to-array qualifier rule
-        list(APPEND TNFS_WARNINGS -Wno-format -Wno-format-extra-args -Wno-format-truncation -Wno-pedantic
-                -Wno-enum-compare -Wno-missing-braces -Wno-maybe-uninitialized -Wno-stringop-truncation -Wno-array-bounds -Wno-dangling-pointer
-                -Wno-type-limits -Wno-sign-compare -Wno-unused-but-set-variable)   # (and the optimizer-based ones: each site read, none found wrong)
+    if(CMAKE_C_COMPILER_ID STREQUAL "GNU")   # gcc (Linux, MinGW): checks that clang (the macOS gate) does not have or reads differently, and that flag correct code: snprintf truncation guesses (cut names are handled or harmless), the pointer-to-array qualifier rule of C before C23 and function pointers to void* (SDL, dlsym), and the optimizer-based ones; each site read on Linux and Windows, none found wrong. -Wrestrict stays on
+        list(APPEND TNFS_WARNINGS -Wno-format-truncation -Wno-pedantic -Wno-enum-compare -Wno-missing-braces -Wno-maybe-uninitialized
+                -Wno-stringop-truncation -Wno-array-bounds -Wno-dangling-pointer -Wno-type-limits -Wno-sign-compare)
+    endif()
+    if(WIN32)   # MinGW only: its printf attribute is the msvcrt's (%zu), and variables only the POSIX code reads
+        list(APPEND TNFS_WARNINGS -Wno-format -Wno-format-extra-args -Wno-unused-but-set-variable)
     endif()
 endif()
 

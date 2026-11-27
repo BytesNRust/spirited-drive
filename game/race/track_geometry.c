@@ -79,7 +79,7 @@ void track_segment_record(const TrackSegmentSource *src, uint32_t segment, uint8
         const uint8_t *node = src->nodes + (ptrdiff_t)n * NODE_SIZE + NODE_POSITION;
         const uint8_t *d = data + RECORD_HEAD + row * CHUNK_ROW;
         uint8_t *out = record + RECORD_HEAD + row * RECORD_ROW;
-        int32_t centre[3], p[3];
+        int32_t centre[3], p[3] = { 0, 0, 0 };
         for (int k = 0; k < 3; k++) {
             centre[k] = x_add(rd32(node + 4 * k), delta(d + 2 * k));
             wr32(out + 4 * k, centre[k]);

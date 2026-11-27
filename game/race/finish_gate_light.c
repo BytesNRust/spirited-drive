@@ -18,5 +18,5 @@ int finish_gate_board(const char *track)
 uint8_t finish_gate_light_level(int gate_board1, int32_t resource, uint8_t node_light)
 {
     if (gate_board1 <= 0 || resource < 0 || resource / 4 != gate_board1 - 1) return node_light;
-    return node_light > FINISH_GATE_LIGHT ? node_light : FINISH_GATE_LIGHT;
+    return FINISH_GATE_LIGHT;   /* the full 255: no node light is brighter */
 }

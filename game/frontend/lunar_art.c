@@ -204,7 +204,8 @@ static void title_letters(const uint8_t *g, uint8_t *letter)
 static int build(Bank *b, const uint8_t *g, const uint8_t *red, const uint8_t *letter, const Palette *p, uint8_t **out, size_t *out_size,
                  char *why, size_t why_size)
 {
-    uint8_t *made[ENTRIES_MAX] = { NULL }, pal[768];
+    uint8_t *made[ENTRIES_MAX] = { NULL };
+    static uint8_t pal[768];   /* the bank (static in the caller) keeps pointing at it */
     int ok = 1;
     const ShpiDescEntry *pe = &b->e[b->pal];
     for (int k = 0; k < 768; k++) pal[k] = (uint8_t)(pe->type == 0x22 ? p->out[k] >> 2 : p->out[k]);
