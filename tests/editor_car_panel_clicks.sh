@@ -10,7 +10,9 @@ clicked() { "$editor" "$@" --workspace "$work/ws" --window 1280x800 --frames 30;
 
 make_kit() {   # STEM PAINTS: the kit, a repo with the car_paint.c as it is
     stem=$1 kit=$work/kit-$1 repo=$work/repo-$1 table=$work/repo-$1/core/formats/car_paint.c
-    mkdir -p "$kit/art-generated/car_masks" "$kit/model/near/bank" "$repo/data/car_masks/$stem" "$repo/core/formats"
+    masks=$stem
+    [ "$stem" = LDIABL ] && masks=LDiabl   # the masks folder is spelt as the table's row (a case-sensitive file system tells them apart)
+    mkdir -p "$kit/art-generated/car_masks" "$kit/model/near/bank" "$repo/data/car_masks/$masks" "$repo/core/formats"
     cp "$repo_src/core/formats/car_paint.c" "$table"
     printf 'id=orig\nname=Orig\nversion=1\ntype=car\nstem=%s\nsound_from=911\npaints=%s\n' "$stem" "$2" > "$kit/mod.ini"
 }

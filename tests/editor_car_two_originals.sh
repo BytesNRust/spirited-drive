@@ -7,11 +7,15 @@
 repo_src="$(cd "$(dirname "$0")/.." && pwd)"
 studio() { "$editor" "$@" --frames 2; }
 
+# the car's masks folder in the game repo is spelt as the table's row, which a case-sensitive file system tells apart from the car file's stem
+masks_folder() { [ "$1" = LDIABL ] && echo LDiabl || echo "$1"; }
+
 # one car: STEM, the paints= text of its card (the table's own), the index of the colour to change, the old and new colour as the window lists them, the mask folder's name
 one_car() {
     stem=$1 paints=$2 index=$3 old=$4 new=$5
     kit=$work/kit-$stem repo=$work/repo-$stem table=$repo/core/formats/car_paint.c
-    mkdir -p "$kit/art-generated/car_masks" "$kit/model/near/bank" "$repo/data/car_masks/$stem" "$repo/core/formats"
+    masks=$(masks_folder "$stem")
+    mkdir -p "$kit/art-generated/car_masks" "$kit/model/near/bank" "$repo/data/car_masks/$masks" "$repo/core/formats"
     cp "$repo_src/core/formats/car_paint.c" "$table"
     printf 'id=orig\nname=Orig\nversion=1\ntype=car\nstem=%s\nsound_from=911\npaints=%s\n' "$stem" "$paints" > "$kit/mod.ini"
     studio "$kit" --port-data "$repo/data" --steps repo-ask,status > "$work/log" 2>&1 && fail "$stem: Copy with the game's own colors went on: $(cat "$work/log")"
@@ -31,12 +35,12 @@ one_car() {
     count=$(( $(printf '%s' "$paints" | tr ',' '\n' | wc -l | tr -d ' ') + 1 ))
     studio "$kit" --port-data "$repo/data" --steps paint-rgb:"$count",9,9,9 > "$work/log" 2>&1 && fail "$stem: a colour past the card's list was taken"
     # a mask changed beside the game's own: listed, copied byte for byte
-    printf 'game-mask' > "$repo/data/car_masks/$stem/rsid_mask.png"
+    printf 'game-mask' > "$repo/data/car_masks/$masks/rsid_mask.png"
     printf 'new-mask' > "$kit/art-generated/car_masks/rsid_mask.png"
     studio "$kit" --port-data "$repo/data" --steps repo-ask,print-publish > "$work/log" 2>&1 || fail "$stem: the mask change: $(cat "$work/log")"
     grep -q "rsid_mask.png" "$work/log" || fail "$stem: the changed mask is not listed: $(cat "$work/log")"
     studio "$kit" --port-data "$repo/data" --steps repo-ask,repo-copy,status > "$work/log" 2>&1 || fail "$stem: copying the mask: $(cat "$work/log")"
-    [ "$(cat "$repo/data/car_masks/$stem/rsid_mask.png")" = new-mask ] || fail "$stem: the mask was not copied: $(cat "$work/log")"
+    [ "$(cat "$repo/data/car_masks/$masks/rsid_mask.png")" = new-mask ] || fail "$stem: the mask was not copied: $(cat "$work/log")"
     # the dash masks: the folder is spelt as the car file's stem (LDIABL), the car's masks as the table's row (LDiabl)
     mkdir -p "$kit/art-generated/dash_masks" "$repo/data/dash_masks/$stem"
     printf 'game-dash' > "$repo/data/dash_masks/$stem/dash_mask.png"

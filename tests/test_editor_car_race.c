@@ -5,6 +5,7 @@
 #include "formats/car_paint.h"
 #include "test.h"
 
+#include <limits.h>
 #include <ftw.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -785,7 +786,7 @@ int main(void)
 {
     snprintf(base, sizeof base, "%s/car_race_test_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
     if (mkdtemp(base) == NULL) return 2;
-    char real[512];
+    char real[PATH_MAX];   /* realpath wants PATH_MAX bytes (Linux: 4096; glibc stops the program otherwise) */
     if (realpath(base, real) != NULL) snprintf(base, sizeof base, "%s", real);
     setenv("TMPDIR", base, 1);   /* the scratch folders of the jobs are made here, and counted */
     test_command();

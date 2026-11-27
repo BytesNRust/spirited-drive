@@ -9,6 +9,7 @@
 #include "game/race/car_paint.h"
 #include "test.h"
 
+#include <limits.h>
 #include <dirent.h>
 #include <ftw.h>
 #include <stdint.h>
@@ -496,7 +497,7 @@ int main(int argc, char **argv)
     }
     snprintf(base, sizeof base, "%s/car_export_test_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
     if (mkdtemp(base) == NULL) return 2;
-    char real[512];
+    char real[PATH_MAX];   /* realpath wants PATH_MAX bytes (Linux: 4096; glibc stops the program otherwise) */
     if (realpath(base, real) != NULL) snprintf(base, sizeof base, "%s", real);
     test_table(argv[1]);
     test_cut_names();

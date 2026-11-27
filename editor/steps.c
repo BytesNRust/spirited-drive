@@ -155,12 +155,21 @@ static int key_event(SDL_Window *win, SDL_Keycode code, int down, SDL_Keymod mod
     return 1;
 }
 
+/* "Cmd" in a step is the system's command key: Cmd on macOS (which ImGui reads as Ctrl there), Ctrl on Linux and Windows */
+#ifdef __APPLE__
+#define SDLK_COMMAND SDLK_LGUI
+#define SDL_KMOD_COMMAND SDL_KMOD_LGUI
+#else
+#define SDLK_COMMAND SDLK_LCTRL
+#define SDL_KMOD_COMMAND SDL_KMOD_LCTRL
+#endif
+
 /* the modifier a step holds: "Shift+" or "Cmd+" before a key's name, or a shift- / cmd- step; *rest the key's name after it */
 static void held(const char *name, SDL_Keycode *code, SDL_Keymod *mod, const char **rest)
 {
     *code = SDLK_UNKNOWN, *mod = SDL_KMOD_NONE, *rest = name;
     if (strncmp(name, "Shift+", 6) == 0 || strncmp(name, "shift-", 6) == 0) *code = SDLK_LSHIFT, *mod = SDL_KMOD_LSHIFT, *rest = name + 6;
-    else if (strncmp(name, "Cmd+", 4) == 0 || strncmp(name, "cmd-", 4) == 0) *code = SDLK_LGUI, *mod = SDL_KMOD_LGUI, *rest = name + 4;
+    else if (strncmp(name, "Cmd+", 4) == 0 || strncmp(name, "cmd-", 4) == 0) *code = SDLK_COMMAND, *mod = SDL_KMOD_COMMAND, *rest = name + 4;
 }
 
 /* key:NAME with its modifier: the modifier down, the key down and up with it held, the modifier up; a frame each */

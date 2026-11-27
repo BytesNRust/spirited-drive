@@ -4,6 +4,7 @@
 #include "car_project.h"
 #include "test.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -252,7 +253,7 @@ int main(void)
         perror("mkdtemp");
         return 1;
     }
-    char real[512];
+    char real[PATH_MAX];   /* realpath wants PATH_MAX bytes (Linux: 4096; glibc stops the program otherwise) */
     if (realpath(base, real) != NULL) snprintf(base, sizeof base, "%s", real);   /* the name detect gives: a symlinked TMPDIR is another name */
     make_kit("kit", 1);
     check_kit();
