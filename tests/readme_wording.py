@@ -18,7 +18,7 @@ WINDOWS_MUST = ("unknown publisher", "More info", "Run anyway", "Bring your own 
                 "spirited-drive.log", "Open the log folder", "Do not unzip over the old one", "Restored '96", "Windows 10 version 1803")
 
 
-LINUX_MUST = ("Bring your own CD", "chmod +x", "--appimage-extract-and-run", "~/.local/share/Spirited Drive", "spirited-drive.log", "Open the log folder", "Restored '96", "first test build")
+LINUX_MUST = ("Bring your own CD", "chmod +x", "--appimage-extract-and-run", "libfuse2t64", "fuse3", "~/.local/share/Spirited Drive", "spirited-drive.log", "Open the log folder", "Restored '96", "first test build")
 
 
 def package_readme(script, target):

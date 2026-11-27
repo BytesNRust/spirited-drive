@@ -69,6 +69,7 @@ Exec=tnfs
 Icon=spirited-drive
 Categories=Game;
 Terminal=false
+StartupWMClass=tnfs
 X-AppImage-Version=$VERSION
 EOF
 cp "$APP/spirited-drive.desktop" "$APP/usr/share/applications/"
@@ -92,8 +93,10 @@ The Need for Speed SE (1996), rebuilt to run natively on today's computers. Free
 How to start
 1. Put $APPIMAGE_NAME in any folder.
 2. Make it executable: in the file manager, Properties, allow running it as a program; or in a terminal: chmod +x $APPIMAGE_NAME
-3. Run it. If it says it needs FUSE, run it with --appimage-extract-and-run, or install your system's FUSE package.
+3. Run it: double click, or ./$APPIMAGE_NAME in a terminal. You do not need libfuse2 (libfuse2t64). If it stops with a FUSE message, run it with ./$APPIMAGE_NAME --appimage-extract-and-run, or install your system's fuse3 package (sudo apt install fuse3).
 4. On the first start, point the game at your own CD, a folder with its files, or an ISO image of your own disc. It copies what it needs, and you can put the CD away.
+
+To have it in your applications menu with its icon, add it with an AppImage manager (Gear Lever or AppImageLauncher, for example); on its own an AppImage does not add itself there.
 
 Bring your own CD. Spirited Drive contains no game data: you need your own copy of The Need for Speed Special Edition for PC (1996).
 

@@ -22,6 +22,10 @@ for image in "$@"; do
         ./sd.AppImage --appimage-extract >/dev/null
         test -x squashfs-root/AppRun
         test -d squashfs-root/usr/bin/data/car_masks
+        grep -qx "Icon=spirited-drive" squashfs-root/spirited-drive.desktop
+        test -s squashfs-root/.DirIcon
+        test -s squashfs-root/usr/share/applications/spirited-drive.desktop
+        test -s squashfs-root/usr/share/icons/hicolor/256x256/apps/spirited-drive.png
         test -f squashfs-root/usr/share/doc/spirited-drive/LICENSE
         test -f squashfs-root/usr/share/doc/spirited-drive/LICENSES/third-party/SDL3/LICENSE.txt
         ldd squashfs-root/usr/bin/tnfs > libs.txt
