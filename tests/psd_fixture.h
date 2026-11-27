@@ -23,7 +23,7 @@ typedef struct {
 static void fx_put(FxBuf *b, const void *d, size_t n)
 {
     if (b->n + n > b->cap) { b->cap = (b->n + n) * 2; b->p = realloc(b->p, b->cap); }
-    memcpy(b->p + b->n, d, n);
+    if (n != 0) memcpy(b->p + b->n, d, n);   /* a layer with no pixels puts nothing: d is NULL */
     b->n += n;
 }
 static void fx_u8(FxBuf *b, unsigned v) { const uint8_t x = (uint8_t)v; fx_put(b, &x, 1); }

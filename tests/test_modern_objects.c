@@ -326,6 +326,7 @@ static void test_scenery_boards(void)
 typedef struct {
     int alt, camera, subdivide;
     const int32_t *cam[4];
+    int32_t top[2][3];   /* the two raised tops' values: they live in track_fence_draw's frame, gone after it returns */
 } Fence;
 
 static FshEntry fence_entry;
@@ -349,6 +350,7 @@ static void f_camera(void *c, const FshEntry *t, const int32_t *const cam[4])
     Fence *f = c;
     f->camera++;
     for (int i = 0; i < 4; i++) f->cam[i] = cam[i];
+    for (int i = 0; i < 2; i++) memcpy(f->top[i], cam[i], sizeof f->top[i]);
 }
 
 static void test_fences(void)
@@ -370,8 +372,8 @@ static void test_fences(void)
             CHECK_EQ_INT(f.alt, variant != 0 && !modern);
             if (f.camera) {
                 CHECK(f.cam[2] == camera[0] && f.cam[3] == camera[1]);   /* a, b: the points' own rows */
-                CHECK(f.cam[0][1] > 0 && f.cam[1][1] > 0);               /* the tops, raised by the fence's height */
-                CHECK(f.cam[0][0] == 200 && f.cam[1][0] == -200);        /* b's top first, then a's */
+                CHECK(f.top[0][1] > 0 && f.top[1][1] > 0);               /* the tops, raised by the fence's height */
+                CHECK(f.top[0][0] == 200 && f.top[1][0] == -200);        /* b's top first, then a's */
             }
         }
     }
