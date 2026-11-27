@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Every night (and by hand: Actions > Nightly Checks > Run workflow), on main: what the checks of a push (checks.yml) leave out. The tests run on macOS Apple Silicon and
-# Intel (macos-15-intel), each in Release (Studio built) and with AddressSanitizer + UndefinedBehaviorSanitizer, and the game-only release configuration of the downloads. A compiler
+# Intel (macos-15-intel) in Release (Studio built), on Apple Silicon also with AddressSanitizer + UndefinedBehaviorSanitizer; on Linux (the flake's toolchain) in Release and with the sanitizers; and the game-only release configuration of the downloads. A compiler
 # warning fails the build. ccache keeps the objects between runs: this job saves the cache on main, and the branches' checks restore it.
 # Tests that need the CD's data skip themselves (there is no game data in CI).
 # Also callable (workflow_call): the Release workflow runs it on the tagged commit. Every job is read-only (permissions: contents: read; the ccache is saved only on main).
-# Jobs: macos (the matrix above), game-only, windows-downloads (the Windows downloads' configuration: every test and the zip runs by itself), and the update notice's
+# Jobs: macos (the matrix above), linux (release and sanitizers), game-only, windows-downloads (the Windows downloads' configuration: every test and the zip runs by itself), and the update notice's
 # "local" part on macOS and Windows (update-infra-local-*; the live part is check-app-update-infra.yml).
 name: Nightly Checks
 
@@ -29,6 +29,9 @@ jobs:
       matrix:
         runner: [macos-15, macos-15-intel]
         build: [release, sanitizers]
+        exclude:   # Intel runs the release build only: the sanitizers run on Apple Silicon (and on Linux, below)
+          - runner: macos-15-intel
+            build: sanitizers
         include:
           - build: release
             cmake: -DCMAKE_BUILD_TYPE=Release
@@ -81,6 +84,46 @@ jobs:
           fi
       - name: Test
         run: ctest --test-dir build --output-on-failure -j "$(sysctl -n hw.ncpu)"
+
+  # Linux, with the flake's own toolchain (nix develop: cmake, ninja, SDL3, gcc), in Release (every target and test) and with AddressSanitizer +
+  # UndefinedBehaviorSanitizer. A compiler warning fails the build, as on the others.
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [release, sanitizers]
+        include:
+          - build: release
+            cmake: -DCMAKE_BUILD_TYPE=Release
+          - build: sanitizers
+            cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer"
+    name: ubuntu-24.04 ${{ matrix.build }} (nix flake)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      ASAN_OPTIONS: detect_leaks=0
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
+      - name: Configure
+        run: nix develop -c cmake -S . -B build -G Ninja ${{ matrix.cmake }}
+      - name: Build
+        run: |
+          set -o pipefail
+          nix develop -c cmake --build build 2>&1 | tee build.log
+      - name: No compiler warnings
+        run: |
+          if grep 'warning:' build.log | sort -u | grep .; then
+            echo "::error::the build has compiler warnings"; exit 1
+          fi
+      - name: Test
+        run: nix develop -c ctest --test-dir build --output-on-failure --timeout 600 -j "$(nproc)"
 
   # The release's own configuration, tested every night: the downloads are the game only (-DTNFS_EDITOR=OFF) and a release build keeps no source-tree
   # data fallbacks (-DTNFS_RELEASE=ON); the tag workflows build and test exactly so, and nothing else here does, so a test that assumed Studio or the
