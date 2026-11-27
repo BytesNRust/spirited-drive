@@ -1,7 +1,7 @@
 #!/bin/sh
 # The files a release offers, and where the game's update notice sends a player: the notice opens UPDATE_RELEASES_PAGE ("the latest release"), so every platform's download has to be on the SAME release and a player has to
 # find his file there by its name. Checks the release workflow and the Windows packer (pure text, no build): one workflow on the v* tags, ONE `gh release create` (a draft, with the tag verified) in the one job that may
-# write, which needs both builds (no wait loop, no draft when one build fails), the names of the files do not collide (one checksum list a platform), the zip is named Spirited-Drive-<version>-windows-x64.zip by the packer
+# write, which needs every build (no wait loop, no draft when one build fails), the names of the files do not collide (one checksum list a platform), the zip is named Spirited-Drive-<version>-windows-x64.zip by the packer
 # and the workflow checks the build's version against the tag.
 # usage: tests/release_assets.sh      (run from the repo's root)
 set -u
@@ -24,7 +24,7 @@ grep -q 'gh release create "\$GITHUB_REF_NAME"' "$rel" || bad "the release workf
 grep -q -- '--draft' "$rel" || bad "the release is not a draft"
 grep -q -- '--verify-tag' "$rel" || bad "the release does not verify the tag exists"
 grep -q 'gh release upload' "$rel" && bad "something uploads into a release after it was created: the wait loop is gone, the one publish job creates it whole"
-grep -q 'needs: \[on-main, nightly, build-macos, build-windows\]' "$rel" || bad "the publish job does not need the on-main check, the nightly checks and both builds"
+grep -q 'needs: \[on-main, nightly, build-macos, build-windows, build-linux\]' "$rel" || bad "the publish job does not need the on-main check, the nightly checks and every build"
 grep -q 'uses: ./.github/workflows/nightly-checks.yml' "$rel" || bad "the release does not run the nightly checks on the tagged commit"
 grep -q 'merge-base --is-ancestor "\$GITHUB_SHA" origin/main' "$rel" || bad "the release does not check the tagged commit is an ancestor of origin/main"
 [ "$(grep -c 'contents: write' "$rel")" = 1 ] || bad "more than one job (or none) may write to the repository: only publish may"
@@ -32,6 +32,9 @@ grep -q 'dist/\*.dmg' "$rel" && grep -q 'dist/\*.zip' "$rel" || bad "the release
 grep -q 'dist/\*-setup.exe' "$rel" || bad "the installer is not offered by the release (the installer commit is the one to take out, with this line)"
 grep -q 'SHA256SUMS-windows.txt' "$rel" || bad "the Windows checksums are not in a file of their own"
 grep -q 'SHA256SUMS.txt' "$rel" || bad "the macOS checksums are missing"
+grep -q 'dist/\*\.AppImage dist/SHA256SUMS.txt' "$rel" || bad "the release does not offer the AppImage"
+grep -q 'SHA256SUMS-linux.txt --draft' "$rel" || bad "the Linux checksums are not in the release, in a file of their own"
+grep -q 'Spirited-Drive-\$VERSION-linux-x86_64.AppImage' tools/package_appimage.sh || bad "the AppImage is not named Spirited-Drive-<version>-linux-x86_64.AppImage"
 [ "$(grep -c 'tnfs_version' "$rel")" -ge 2 ] && grep -q 'GITHUB_REF_NAME#v' "$rel" || bad "the release workflow does not check each build's version against the tag"
 grep -q 'Spirited-Drive-\$VERSION-windows-x64.zip' "$pack" || bad "the Windows zip is not named Spirited-Drive-<version>-windows-x64.zip"
 grep -q 'windows-zip' "$rel" || bad "the release workflow does not carry the Windows zip"
