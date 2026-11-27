@@ -37,7 +37,7 @@ jobs:
             cmake: -DCMAKE_BUILD_TYPE=Release
           - build: sanitizers
             cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer"
-    name: ${{ matrix.runner }} ${{ matrix.build }}
+    name: macos (${{ matrix.runner == 'macos-15-intel' && 'Intel' || 'Apple Silicon' }}) · ${{ matrix.build == 'release' && 'tests' || 'sanitizers' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -99,7 +99,7 @@ jobs:
           # false positives; the release build of the same code has none): off in this job only, the sanitizers themselves check those accesses at run time
           - build: sanitizers
             cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-stringop-overread"
-    name: ubuntu-24.04 ${{ matrix.build }} (nix flake)
+    name: linux · ${{ matrix.build == 'release' && 'tests' || 'sanitizers' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -152,7 +152,7 @@ jobs:
   # data fallbacks (-DTNFS_RELEASE=ON); the tag workflows build and test exactly so, and nothing else here does, so a test that assumed Studio or the
   # source tree would show only on a tag. Apple Silicon alone, one job. (The tag workflows build it too.)
   game-only:
-    name: macos-15 game only (release configuration)
+    name: macos · downloads build
     runs-on: macos-15
     timeout-minutes: 45
     env:
@@ -199,7 +199,7 @@ jobs:
   # The Windows downloads' own configuration (-DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF, MSYS2 UCRT64): every test, then the zip tools/package_windows.sh makes, unpacked
   # and started with only Windows' own folders on the PATH.
   windows-downloads:
-    name: windows ucrt64 downloads (release configuration)
+    name: windows · downloads build
     runs-on: windows-2025
     timeout-minutes: 60
     defaults:
@@ -280,7 +280,7 @@ jobs:
   # no hang for up to date, {"latest":null}, 403, 429, 5xx, HTML, garbage, nothing listening, a server that never answers, a proxy and a dead one). No network
   # to ours: it counts no start in the API's totals. The live part is check-app-update-infra.yml.
   update-infra-local-macos:
-    name: update infra, local servers (macos-15)
+    name: update notice · local servers (macos)
     # not on a tag: CMakeLists.txt refuses an update test build on a tagged commit (a tag is a release); Release's own call skips these
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: macos-15
@@ -308,7 +308,7 @@ jobs:
         run: python3 tests/update_check_e2e.py local build/tnfs
 
   update-infra-local-windows:
-    name: update infra, local servers (windows ucrt64)
+    name: update notice · local servers (windows)
     # not on a tag: CMakeLists.txt refuses an update test build on a tagged commit (a tag is a release); Release's own call skips these
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: windows-2025
@@ -347,7 +347,7 @@ jobs:
           python tests/update_check_e2e.py local build/tnfs.exe
 
   update-infra-local-linux:
-    name: update infra, local servers (ubuntu-24.04)
+    name: update notice · local servers (linux)
     # not on a tag: CMakeLists.txt refuses an update test build on a tagged commit (a tag is a release); Release's own call skips these
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     env:

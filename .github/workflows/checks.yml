@@ -30,7 +30,7 @@ concurrency:
 jobs:
   # Linux, Release, Studio built: every test of the game and of Studio. The same ccache as Nightly Checks' Linux release job.
   linux:
-    name: ubuntu-24.04 release (with Studio)
+    name: linux · build + tests
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -79,7 +79,7 @@ jobs:
 
   # Apple Silicon, Release, Studio built (TNFS_EDITOR is ON by default): every test of the game and of Studio. Main and runs by hand only.
   macos:
-    name: macos-15 release (with Studio)
+    name: macos · build + tests
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 45
@@ -125,7 +125,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -j "$(sysctl -n hw.ncpu)"
 
   windows:
-    name: windows ucrt64 gcc
+    name: windows · build + tests
     runs-on: windows-2025
     timeout-minutes: 90
     env:
