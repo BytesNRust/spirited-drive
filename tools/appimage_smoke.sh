@@ -30,7 +30,7 @@ for image in "$@"; do
         test -f squashfs-root/usr/share/doc/spirited-drive/LICENSES/third-party/SDL3/LICENSE.txt
         ldd squashfs-root/usr/bin/tnfs > libs.txt
         cat libs.txt
-        ! grep -q "not found" libs.txt
+        if grep -q "not found" libs.txt; then echo "the program wants a library a clean system lacks" >&2; exit 1; fi
         squashfs-root/AppRun --user user --mods-list
     '
 done
