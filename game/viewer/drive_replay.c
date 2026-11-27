@@ -13,6 +13,7 @@
 #include "game/sys/reverse_track.h"
 #include "game/race/race_sound.h"
 #include "game/race/dash_controls.h"
+#include "game/race/replay_bare.h"
 #include "game/race/replay_controls.h"
 #include "game/race/race_view_pick.h"
 #include "game/sys/menu_key.h"
@@ -32,7 +33,8 @@ enum {
     REQUEST_DIRECTED = 2,   /* 00513738: 0044f188 with 2, the director's cuts */
     REQUEST_RACE_ON = 7,    /* 00513738: 0044f090, the race on from where it stood */
     PHASE_RACING = 1,       /* 004c5390 */
-    CAMERA_KEYS_NONE = 0    /* 004fb7b4: the camera keys (004381f8), none here */
+    CAMERA_KEYS_NONE = 0,   /* 004fb7b4: the camera keys (004381f8), none here */
+    CONTROLS_TOP = 448      /* the top row of the controls' strip (00471364's clip, replay_panel.c STRIP_TOP_HIGH) */
 };
 
 static RaceState *race_of(void *ctx) { return &((DriveReplay *)ctx)->sim->race; }
@@ -227,10 +229,17 @@ static void any_window(void *ctx, int32_t a, int32_t b, int32_t c, int32_t d)
     (void)ctx, (void)a, (void)b, (void)c, (void)d;
     pointer_range(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
 }
-static int16_t mouse_buttons(void *ctx) { return (void)ctx, (int16_t)pointer_buttons_unseen(); }
+/* port (replay bare): the controls hidden by a double click on the picture (replay_bare.h). Kept for the whole run, not
+ * for one replay, so a replay can be bare from its first frame; never written to a file. */
+static ReplayBare replay_bare;
+
+int drive_replay_bare(void) { return replay_bare.bare; }
+
+/* bare, the mouse presses nothing and is over nothing: the buttons are not there to see */
+static int16_t mouse_buttons(void *ctx) { return (void)ctx, (int16_t)(replay_bare.bare ? 0 : pointer_buttons_unseen()); }
 static int32_t in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
-    return (void)ctx, pointer_in_rect(x0, x1, y0, y1);
+    return (void)ctx, replay_bare.bare ? 0 : pointer_in_rect(x0, x1, y0, y1);
 }
 static int32_t no_joy(void *ctx, int32_t device, uint32_t *buttons, int32_t axis[JOY_AXES])
 {
@@ -304,11 +313,22 @@ static void panel_draw(void *ctx)
     race->viewed = w.viewed, race->dropped = w.done;
 }
 
+/* port (replay bare): the double click, read where the replay reads its controls */
+static void bare_input(void)
+{
+    int x, y;
+    pointer_now(&x, &y);
+    const int down = (pointer_buttons_unseen() & POINTER_BUTTON_SELECT) != 0;
+    if (replay_bare_frame(&replay_bare, down, y >= CONTROLS_TOP, platform_ticks_ms()))
+        port_log("replay: the controls are %s (double click)\n", replay_bare.bare ? "hidden" : "shown");
+}
+
 /* 0044f55c on the dash's words and the director's */
 static void panel_input(void *ctx)
 {
     DriveReplay *r = ctx;
     if (r->key_flags == NULL || r->dash == NULL) return;
+    bare_input();
     DashArt *d = r->dash;
     int32_t *w = d->unknown_513888;
     int px, py;

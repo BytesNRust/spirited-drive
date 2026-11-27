@@ -1,6 +1,7 @@
 #include "viewer/drive_hud.h"
 #include "viewer/drive_hud_mask.h"
 #include "viewer/dash_box.h"
+#include "viewer/drive_replay.h"
 #include "viewer/drive_session.h"
 
 #include "game/platform/platform.h"
@@ -573,6 +574,10 @@ static void panel_replay(void *ctx) { PanelCalls *c = ctx; drive_panel_replay(&c
 /* 0044d640 over the race's words; the views kept where the original keeps them (00513898 is the director's). */
 static void draw_panel(DriveHud *h, RaceState *race, const QuadTarget *screen)
 {
+    if (race->replay != 0 && drive_replay_bare()) {   /* port (replay bare): no controls and no pointer over the replay */
+        race->view_taken = 0;                          /* as drawing the panel leaves it (drive_panel_replay) */
+        return;
+    }
     PanelCalls c = { h, { screen, DRIVE_VIEW_W, DRIVE_VIEW_H, &h->art, &h->replay, &h->hud, race, h->director,
                           h->car_colours, h->mirror.property8_colour, h->strip_colour } };
     const RacePanelOps ops = { &c, panel_dash, panel_replay };

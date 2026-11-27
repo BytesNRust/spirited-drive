@@ -62,6 +62,9 @@ and the rest is greyed out. Each addition below says which modes have it:
 - **Keys in a race**: F1 / F2 the bumper view's mirror and radar, F3 view distance, F5 sound, F6 rival car markers,
   F7 / F8 HUD, F9 replay, F12 the 3D render stats overlay (Restomod only). With the Nitro cheat, hold N (or the pad's Nitro button)
   at the start for the launch.
+- **A replay with nothing over it**: a double click on the picture while a replay plays hides the replay's controls and the
+  pointer, and another shows them again (every mode). Hidden, the mouse presses nothing; the keys and Esc work as before. It
+  stays as it is until the game is closed and is not saved.
 
 Every setting, its range and what each mode sets is in [settings.md](settings.md). Network races are in
 [online.md](online.md), mods in [modding.md](modding.md).

@@ -54,6 +54,10 @@ int drive_replay_start(DriveReplay *r, RaceSim *sim, RaceViews *views);
  * stood (request 7, 0044f090). `down` is the key's state this frame. */
 void drive_replay_key(DriveReplay *r, int down);
 
+/* port (replay bare): 1 while the replay's controls and pointer are hidden (a double click on the picture during a
+ * replay hides and shows them, game/race/replay_bare.h); drive_hud does not draw them then */
+int drive_replay_bare(void);
+
 /* A replay control pressed once (test harness: TNFS_REPLAY_BUTTONS): 1..4 the scrub buttons (to the start, to the end,
  * back, forward), 5..9 the transport's (pause, play, slow, slower, slowest) */
 void drive_replay_press(DriveReplay *r, int which);
