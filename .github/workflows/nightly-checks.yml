@@ -5,7 +5,7 @@
 # Tests that need the CD's data skip themselves (there is no game data in CI).
 # Also callable (workflow_call): the Release workflow runs it on the tagged commit. Every job is read-only (permissions: contents: read; the ccache is saved only on main).
 # Jobs: macos (the matrix above), linux (release and sanitizers), game-only, windows-downloads (the Windows downloads' configuration: every test and the zip runs by itself), and the update notice's
-# "local" part on macOS and Windows (update-infra-local-*; the live part is check-app-update-infra.yml).
+# "local" part on macOS, Windows and Linux (update-infra-local-*; the live part is check-app-update-infra.yml).
 name: Nightly Checks
 
 on:
@@ -281,7 +281,7 @@ jobs:
   # to ours: it counts no start in the API's totals. The live part is check-app-update-infra.yml.
   update-infra-local-macos:
     name: update infra, local servers (macos-15)
-    # not on a tag: CMakeLists.txt refuses an update test build on a tagged commit (a tag is a release); Release's own call skips these two
+    # not on a tag: CMakeLists.txt refuses an update test build on a tagged commit (a tag is a release); Release's own call skips these
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: macos-15
     timeout-minutes: 30
@@ -309,7 +309,7 @@ jobs:
 
   update-infra-local-windows:
     name: update infra, local servers (windows ucrt64)
-    # not on a tag: CMakeLists.txt refuses an update test build on a tagged commit (a tag is a release); Release's own call skips these two
+    # not on a tag: CMakeLists.txt refuses an update test build on a tagged commit (a tag is a release); Release's own call skips these
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: windows-2025
     timeout-minutes: 40
@@ -345,3 +345,35 @@ jobs:
         run: |
           export PATH="/c/Windows/System32:$PATH"   # a player's machine has Windows' own curl.exe; MSYS2's would otherwise come first
           python tests/update_check_e2e.py local build/tnfs.exe
+
+  update-infra-local-linux:
+    name: update infra, local servers (ubuntu-24.04)
+    # not on a tag: CMakeLists.txt refuses an update test build on a tagged commit (a tag is a release); Release's own call skips these
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    env:
+      UPDATE_TEST_VERSION: "0.0.1"
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
+      - name: Build the update test (release configuration, old version)
+        run: |
+          nix develop -c cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DTNFS_UPDATE_TEST_VERSION="$UPDATE_TEST_VERSION"
+          nix develop -c cmake --build build --target tnfs
+      - name: The curl the game runs
+        # the game names it by its full path (core/update/update_check.h), as on a player's Ubuntu-based system
+        run: |
+          ls -l /usr/bin/curl
+          /usr/bin/curl --version
+      - name: Unit tests of the check (no network)
+        run: |
+          nix develop -c cmake --build build --target test_update_check
+          nix develop -c ctest --test-dir build --output-on-failure -R update_check
+      - name: Silence and no hang (a server of our own)
+        run: python3 tests/update_check_e2e.py local build/tnfs

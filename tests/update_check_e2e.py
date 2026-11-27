@@ -18,6 +18,7 @@ import time
 NEWER = "update check: newer version available: "
 NONE = "update check: no newer version"
 OLD = "0.0.1-updatetest"   # what an update test build stamps (CMakeLists.txt): a pre-release, so 0.0.1 itself is newer than it
+PLATFORM = {"darwin": "macos", "win32": "windows"}.get(sys.platform, "linux")   # the p= of each request (UPDATE_API_PLATFORM)
 failures = []
 
 
@@ -101,7 +102,8 @@ def local(exe):
     answer(200, b'{"latest":"9.9.9","page":"https://example.invalid"}')
     rc, out, _ = run(exe, env, 30)
     check(rc == 0 and NEWER + "9.9.9" in out, "a newer latest gave no notice: %s" % out.strip())
-    check(any("/latest?v=" + OLD + "&p=" in p for p in Answer.seen), "the request was not GET /latest?v=%s&p=...: %s" % (OLD, Answer.seen))
+    want = "/latest?v=%s&p=%s" % (OLD, PLATFORM)
+    check(any(p.endswith(want) for p in Answer.seen), "the request was not GET %s: %s" % (want, Answer.seen))
 
     for what, status, body, ctype in (
         ("an up-to-date latest (the same version)", 200, b'{"latest":"0.0.1-updatetest"}', "application/json"),
@@ -140,7 +142,7 @@ def local(exe):
     check(rc == 0 and NONE in out and took < 8, "a dead proxy: no silent end in time (%.1f s): %s" % (took, out.strip()))
     proxy.shutdown()
     if not failures:
-        print("local: ok")
+        print("local: ok (asked with p=%s)" % PLATFORM)
 
 
 def main():

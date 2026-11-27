@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The update notice end to end, on macOS and on Windows: a RELEASE configuration that stamps an OLD version (TNFS_UPDATE_TEST_VERSION, +updatetest) runs the
+# The update notice end to end, on macOS, Windows and Linux: a RELEASE configuration that stamps an OLD version (TNFS_UPDATE_TEST_VERSION, +updatetest) runs the
 # game's real update check headless (`tnfs --update-check`: the system's curl, our API's answer, the version order) and the job fails if it does not say
 # "newer version available". Only the LIVE part is here (tests/update_check_e2e.py live): against the live API (api.bytesnrust.com) the old version must be told
 # a newer release exists. THIS COUNTS A START in the API's totals, as every check does, so it runs only by hand, on ci/update-** branches and once a week:
@@ -84,3 +84,28 @@ jobs:
         run: |
           export PATH="/c/Windows/System32:$PATH"
           python tests/update_check_e2e.py live build/tnfs.exe
+
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
+      - name: Build the update test (release configuration, old version)
+        run: |
+          nix develop -c cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DTNFS_UPDATE_TEST_VERSION="$UPDATE_TEST_VERSION"
+          nix develop -c cmake --build build --target tnfs
+      - name: The curl the game runs
+        # the game names it by its full path (core/update/update_check.h), as on a player's Ubuntu-based system
+        run: |
+          ls -l /usr/bin/curl
+          /usr/bin/curl --version
+      - name: Unit tests of the check (no network)
+        run: |
+          nix develop -c cmake --build build --target test_update_check
+          nix develop -c ctest --test-dir build --output-on-failure -R update_check
+      - name: The notice against the live API
+        run: python3 tests/update_check_e2e.py live build/tnfs
