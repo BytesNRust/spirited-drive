@@ -1,4 +1,4 @@
-"""README.md, RELEASE_NOTES.md and the README.txt that tools/package_windows.sh writes into the Windows zip: wording from the announcement texts: the phrases the analyst's notes say never to use (a claim about the palette or the filter that is not true of
+"""README.md, RELEASE_NOTES.md the README.txt that tools/package_windows.sh writes into the Windows zip and the one tools/package_appimage.sh ships with the AppImage: wording from the announcement texts: the phrases the analyst's notes say never to use (a claim about the palette or the filter that is not true of
 Restomod), and the lines that must be there (per-mode text, network, Lunar Springs, the 8-bit palette). Stdlib only; usage: readme_wording.py REPO"""
 import re
 import sys
@@ -18,9 +18,12 @@ WINDOWS_MUST = ("unknown publisher", "More info", "Run anyway", "Bring your own 
                 "spirited-drive.log", "Open the log folder", "Do not unzip over the old one", "Restored '96", "Windows 10 version 1803")
 
 
-def windows_readme(script):
-    """the text between cat > "$DIR/README.txt" <<EOF and the closing EOF"""
-    m = re.search(r'cat > "\$DIR/README\.txt" <<EOF\n(.*?)\nEOF\n', script, re.S)
+LINUX_MUST = ("Bring your own CD", "chmod +x", "--appimage-extract-and-run", "~/.local/share/Spirited Drive", "spirited-drive.log", "Open the log folder", "Restored '96", "first test build")
+
+
+def package_readme(script, target):
+    """the text between cat > "<target>" <<EOF and the closing EOF"""
+    m = re.search(r'cat > "' + re.escape(target) + r'" <<EOF\n(.*?)\nEOF\n', script, re.S)
     return m.group(1) if m else ""
 
 
@@ -37,12 +40,16 @@ def problems(text, must=MUST, draft=True):
 def main(repo):
     found = problems(open(f"{repo}/README.md", encoding="utf-8").read())
     found += [f"RELEASE_NOTES.md: {p}" for p in problems(open(f"{repo}/RELEASE_NOTES.md", encoding="utf-8").read(), NOTES_MUST, draft=False)]
-    win = windows_readme(open(f"{repo}/tools/package_windows.sh", encoding="utf-8").read())
+    win = package_readme(open(f"{repo}/tools/package_windows.sh", encoding="utf-8").read(), "$DIR/README.txt")
     if not win:
         found.append("package_windows.sh: no README.txt text found")
     found += [f"package_windows.sh README.txt: {p}" for p in problems(win, WINDOWS_MUST, draft=False)] if win else []
     if "DRAFT" in win:
         found.append("package_windows.sh README.txt: a DRAFT mark would ship in the zip")
+    linux = package_readme(open(f"{repo}/tools/package_appimage.sh", encoding="utf-8").read(), "$README")
+    if not linux:
+        found.append("package_appimage.sh: no README text found")
+    found += [f"package_appimage.sh README: {p}" for p in problems(linux, LINUX_MUST, draft=False)] if linux else []
     for p in found:
         print("FAIL:", p)
     planted = problems("Nothing is smoothed over. In the original 256 colours. DRAFT")

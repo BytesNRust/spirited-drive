@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # A test build on demand (Actions > Build Test > Run workflow): the universal macOS app (Apple Silicon + Intel) and its
-# DMG, from the branch you pick, as a downloadable artifact. Nothing is released or tagged. The version is the usual
+# DMG, the Windows zip and installer, and the Linux AppImage, from the branch you pick, as a downloadable artifact. Nothing is released or tagged. The version is the usual
 # <version>-dev+<hash>, so the game's update check stays off in these builds. The DMG holds the game only (Spirited Drive.app);
 # the `studio` input adds Spirited Drive Studio.app for the owner's internal test apps.
 # CACHES: SDL's build on macOS (keyed by SDL_COMMIT) and ccache on Windows (the universal macOS build has several -arch per compile, which ccache cannot keep), so a test build is quick. A run is never cancelled by a newer one (no concurrency group): a build the
@@ -218,6 +218,80 @@ jobs:
           path: |
             dist/*.zip
             dist/*-setup.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    # built on the oldest Ubuntu the AppImage is for: its glibc (2.35) is the oldest it runs with. No nix here: a nix build wants nix's own libraries.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0             # the version's hash comes from the history
+          persist-credentials: false
+
+      - name: Install tools and the headers SDL3 is built with
+        # SDL opens these libraries itself when it runs (nothing of them travels in the AppImage); what has no header here is left out of the build
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build pkg-config libasound2-dev libpulse-dev libpipewire-0.3-dev libx11-dev libxext-dev libxrandr-dev \
+              libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
+              libdrm-dev libgbm-dev libegl1-mesa-dev libgl1-mesa-dev libgles2-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev
+
+      - name: SDL 3 (static)
+        run: |
+          git init -q "$RUNNER_TEMP/SDL"
+          git -C "$RUNNER_TEMP/SDL" fetch -q --depth 1 https://github.com/libsdl-org/SDL.git "$SDL_COMMIT"
+          git -C "$RUNNER_TEMP/SDL" checkout -q FETCH_HEAD
+          cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=OFF -DSDL_STATIC=ON \
+                -DSDL_TEST_LIBRARY=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl3"
+          cmake --build "$RUNNER_TEMP/SDL/build"
+          cmake --install "$RUNNER_TEMP/SDL/build"
+          # a build without one of these would still compile, and then show no window or play no sound on a player's machine
+          for driver in VIDEO_DRIVER_X11 VIDEO_DRIVER_WAYLAND AUDIO_DRIVER_PULSEAUDIO AUDIO_DRIVER_PIPEWIRE AUDIO_DRIVER_ALSA; do
+            grep -rqE "^#define SDL_$driver 1" "$RUNNER_TEMP/SDL/build" || { echo "SDL was built without $driver" >&2; exit 1; }
+          done
+
+      - name: Build the game (release)
+        env:
+          UPDATE_TEST_FLAG: ${{ inputs.update_test && format('-DTNFS_UPDATE_TEST_VERSION={0}', inputs.update_test_version) || '' }}
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3" $UPDATE_TEST_FLAG
+          set -o pipefail
+          cmake --build build/rel --target tnfs 2>&1 | tee build.log
+          if grep 'warning:' build.log | sort -u | grep .; then
+            echo "the build has compiler warnings" >&2
+            exit 1
+          fi
+
+      - name: Update notice, the real check against the live API
+        if: inputs.update_test
+        run: |
+          python3 tests/update_check_e2e.py live build/rel/tnfs
+          python3 tests/update_check_e2e.py local build/rel/tnfs
+
+      - name: Package (appimagetool and its runtime at fixed versions, their SHA256 checked)
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/appimagetool" https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/runtime" https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  $RUNNER_TEMP/appimagetool" | sha256sum -c -
+          echo "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d  $RUNNER_TEMP/runtime" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          APPIMAGETOOL="$RUNNER_TEMP/appimagetool" APPIMAGE_RUNTIME="$RUNNER_TEMP/runtime" SDL_LICENSE="$RUNNER_TEMP/SDL/LICENSE.txt" \
+              tools/package_appimage.sh build/rel dist
+          cd dist && sha256sum *.AppImage > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: The AppImage runs by itself on clean systems
+        run: tools/appimage_smoke.sh dist/*.AppImage ubuntu:22.04 ubuntu:24.04
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        with:
+          name: spirited-drive-linux-${{ inputs.update_test && 'UPDATE-TEST-' || '' }}${{ github.sha }}
+          path: |
+            dist/*.AppImage
+            dist/README-linux.txt
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
