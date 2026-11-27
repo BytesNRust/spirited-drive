@@ -8,6 +8,12 @@
 </p>
 
 <p align="center">
+  <a href="https://bytesnrust.com/spirited-drive/"><strong>Website</strong></a> ·
+  <a href="https://github.com/BytesNRust/spirited-drive/releases/latest"><strong>Download</strong></a> ·
+  <a href="https://github.com/BytesNRust/spirited-drive/discussions"><strong>Discussions</strong></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/BytesNRust/spirited-drive/releases/latest"><img src="https://img.shields.io/github/v/release/BytesNRust/spirited-drive?include_prereleases" alt="Latest release" /></a>
   &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3" /></a>
