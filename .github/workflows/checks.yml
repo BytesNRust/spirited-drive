@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The checks of every push to any branch and every pull request, two jobs side by side:
-#   macos    Apple Silicon (macos-15), Release with Studio (the editor, the default configuration): every test; a compiler warning fails.
+# The checks of every push to any branch and every pull request, side by side; a push to main (or a run by hand) adds the Mac:
+#   linux    Ubuntu with the flake's own toolchain (nix develop), Release with Studio: every test; a compiler warning fails.
 #   windows  MSYS2 UCRT64 gcc: everything the Windows version builds, every test, the exe's smoke; a compiler warning fails (plan W1).
+#   macos    Apple Silicon (macos-15), Release with Studio (the editor, the default configuration): every test; a compiler warning fails. On main only: a green
+#            branch says nothing about the Mac (the Apple SDK's warnings, GitHub's macOS without `timeout`); the gate and main's own run do.
 # The rest (AddressSanitizer + UndefinedBehaviorSanitizer, Intel, and the game-only release configuration of the downloads) runs every night: nightly-checks.yml.
 # Pushes that touch only docs or notes (*.md, docs/, notes/) run nothing. By hand too (Actions > Checks > Run workflow).
 # The Windows job keeps going past a broken target (ninja -k 0) and runs ctest on all, so its summary lists everything that fails, not the first thing; the logs go up as an artifact.
-# Studio (the editor, TNFS_EDITOR) is built on macOS only: it is not part of the Windows version. ccache keeps the objects between runs: main saves the cache, every branch restores it.
+# Studio (the editor, TNFS_EDITOR) is built on Linux and macOS: it is not part of the Windows version. ccache keeps the objects between runs: main saves the cache, every branch restores it.
 # Tests that need the CD's data skip themselves (there is no game data in CI). tests/exe_smoke.sh is the smoke of the exe (not a ctest: CI's macOS has no `timeout`).
 name: Checks
 
@@ -26,9 +28,59 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # Apple Silicon, Release, Studio built (TNFS_EDITOR is ON by default): every test of the game and of Studio.
+  # Linux, Release, Studio built: every test of the game and of Studio. The same ccache as Nightly Checks' Linux release job.
+  linux:
+    name: ubuntu-24.04 release (with Studio)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
+      - name: Install ccache
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ccache
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-ubuntu-24.04-release-${{ github.sha }}
+          restore-keys: ccache-ubuntu-24.04-release-
+      - name: Configure
+        run: |
+          ccache -z
+          nix develop -c cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache
+      - name: Build
+        run: |
+          set -o pipefail
+          nix develop -c cmake --build build 2>&1 | tee build.log
+      - name: ccache statistics
+        run: ccache -s
+      - name: Save the ccache (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-ubuntu-24.04-release-${{ github.sha }}
+      - name: No compiler warnings
+        run: |
+          if grep 'warning:' build.log | sort -u | grep .; then
+            echo "::error::the build has compiler warnings"; exit 1
+          fi
+      - name: Test
+        run: nix develop -c ctest --test-dir build --output-on-failure --timeout 600 -j "$(nproc)"
+
+  # Apple Silicon, Release, Studio built (TNFS_EDITOR is ON by default): every test of the game and of Studio. Main and runs by hand only.
   macos:
     name: macos-15 release (with Studio)
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 45
     env:
