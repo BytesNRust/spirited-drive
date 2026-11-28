@@ -1977,7 +1977,7 @@ if(NOT EMSCRIPTEN)
         foreach(part quick giveup finish replay refusals stock)
             add_test(NAME car_piece_race_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_piece_race.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                      ${CMAKE_SOURCE_DIR}/original $<TARGET_FILE:tnfs-studio> ${part} ${CMAKE_CURRENT_BINARY_DIR}/car_piece_race_fixture)
-            set_tests_properties(car_piece_race_${part} PROPERTIES TIMEOUT 600)
+            set_tests_properties(car_piece_race_${part} PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         endforeach()
         set_tests_properties(car_piece_race_giveup PROPERTIES FIXTURES_SETUP car_piece_giveup)
         set_tests_properties(car_piece_race_finish PROPERTIES FIXTURES_REQUIRED car_piece_giveup FIXTURES_SETUP car_piece_finish)

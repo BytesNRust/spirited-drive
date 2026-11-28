@@ -12,14 +12,15 @@
 #   refusals  10-12: from finish's, without the piece, with it changed, or named .RPL, the replay does not play and says why
 #   stock     13: from finish's, a race in Stock leaves the new files alone
 # Every part checks at its end that nothing was written below the data root.
-# usage: car_piece_race.sh TNFS REPO ORIGINAL_DIR STUDIO [PART FIXTURE] (no PART: all of them in turn, the fixture a scratch folder)
+# usage: car_piece_race.sh TNFS REPO ORIGINAL_DIR STUDIO [PART FIXTURE] (no PART: all of them in turn, the fixture a scratch folder). Exit 77 (skipped)
+# without the CD's data.
 set -u
 tnfs=$1
 repo=$2
 orig=$3
 studio=$4
 parts=${5:-quick giveup finish replay refusals stock}
-[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 77; }
 work=$(mktemp -d)
 fixture=${6:-$work/fixture}
 trap 'find "$work" -delete' EXIT
