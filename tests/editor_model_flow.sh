@@ -116,7 +116,7 @@ xs, ys = [], []
 for y in range(h):
     f, line = raw[p], bytearray(raw[p + 1:p + 1 + stride])
     p += 1 + stride
-    for x in range(stride):
+    for x in range(stride) if f else ():   # filter 0 (the model shot's writer): nothing to undo
         a = line[x - 4] if x >= 4 else 0; b = prev[x]; c = prev[x - 4] if x >= 4 else 0
         if f == 1: line[x] = (line[x] + a) & 255
         elif f == 2: line[x] = (line[x] + b) & 255

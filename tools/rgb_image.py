@@ -64,7 +64,7 @@ def _read_png(d):
     for y in range(h):
         f = raw[y * (stride + 1)]
         cur = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
-        for i in range(stride):
+        for i in range(stride) if f else ():   # filter 0 (our own writers): nothing to undo
             a = cur[i - chans] if i >= chans else 0
             b = prev[i]
             c = prev[i - chans] if i >= chans else 0
