@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The CD data for a job of the environment cd-data (notes: only main and the merge queue get its secrets): fetch.sh downloads and decrypts it into the runner's temp folder and
+# links it as original/ in the checkout. This step alone sees the key and the token; the later steps have neither.
+name: CD data
+description: Download and decrypt the CD data, and link it as original/
+inputs:
+  age-key:
+    description: secrets.CD_AGE_KEY
+    required: true
+  repo-token:
+    description: secrets.CD_REPO_TOKEN
+    required: true
+  asset:
+    description: the release asset's name
+    required: true
+  sha256:
+    description: sha256 of the decrypted tar.zst
+    required: true
+  repo:
+    description: the private data repository
+    default: BytesNRust/spirited-drive-cd
+  tag:
+    description: the release that holds the asset
+    default: cd-data
+runs:
+  using: composite
+  steps:
+    - name: Install age
+      shell: bash
+      run: command -v age >/dev/null || sudo apt-get install -y -qq age || { sudo apt-get update -qq && sudo apt-get install -y -qq age; }
+    - name: Fetch, decrypt and link the data
+      shell: bash
+      env:
+        CD_AGE_KEY: ${{ inputs.age-key }}
+        CD_REPO_TOKEN: ${{ inputs.repo-token }}
+        CD_REPO: ${{ inputs.repo }}
+        CD_TAG: ${{ inputs.tag }}
+        CD_ASSET: ${{ inputs.asset }}
+        CD_SHA256: ${{ inputs.sha256 }}
+      run: |
+        sh "$GITHUB_ACTION_PATH/fetch.sh" "${RUNNER_TEMP:?}/cd"
+        ln -s "$RUNNER_TEMP/cd/original" "${GITHUB_WORKSPACE:?}/original"

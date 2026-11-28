@@ -2783,6 +2783,14 @@ set_tests_properties(check_tag_version PROPERTIES TIMEOUT 60)
 # a release does not go out with the notes' draft markers (tools/check_release_notes.sh, the next step after the tag check)
 add_test(NAME check_release_notes COMMAND sh ${CMAKE_SOURCE_DIR}/tests/check_release_notes.sh ${CMAKE_SOURCE_DIR})
 set_tests_properties(check_release_notes PROPERTIES TIMEOUT 60)
+# the gate in CI (.github/workflows/gate.yml): its shards run every test once, and its data step fails clearly without its secrets
+find_package(Python3 COMPONENTS Interpreter)
+if(UNIX AND Python3_FOUND)
+    add_test(NAME ci_shards COMMAND sh ${CMAKE_SOURCE_DIR}/tests/ci_shards.sh ${CMAKE_CTEST_COMMAND} ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR} ${Python3_EXECUTABLE})
+    set_tests_properties(ci_shards PROPERTIES TIMEOUT 120)
+    add_test(NAME cd_data_fetch COMMAND sh ${CMAKE_SOURCE_DIR}/tests/cd_data_fetch.sh ${CMAKE_SOURCE_DIR})
+    set_tests_properties(cd_data_fetch PROPERTIES TIMEOUT 60)
+endif()
 # tools/menu_walk.sh fails a walk whose WAIT timed out (a stand-in for the game, no game data; skipped without zsh or timeout)
 if(UNIX)
     add_test(NAME menu_walk_marks COMMAND sh ${CMAKE_SOURCE_DIR}/tests/menu_walk_marks.sh ${CMAKE_SOURCE_DIR})
@@ -2871,7 +2879,7 @@ endif()
 set(TNFS_STATIC_CHECKS
     readme_wording text_binarized_lint car_mask_class_table car_mask_psd masks_status track_mask_psd dash_mask_psd dash_psd_update
     frame_pick free_udp_ports spirited_logo spirited_icon profile_tables profile_tables_sabotage editor_ui_words
-    editor_loose_text track_groups skip_codes)
+    editor_loose_text track_groups skip_codes ci_shards cd_data_fetch)
 set(TNFS_E2E_TESTS
     car_lamps_by_mask_game    editor_headless_track_a
     editor_headless_track_b editor_headless_track_c editor_headless_track_d
