@@ -51,6 +51,7 @@ enum {
     WINDOW_MIN_W = 640, WINDOW_MIN_H = 400, WINDOW_MAX_W = 3840, WINDOW_MAX_H = 2160,   /* --window's range */
     FRAME_MS = 16,
     SCAN_DRAWN = 20,
+    STEPS_AFTER = 2,   /* a headless run goes this many frames past its last step: what a click asks for (reveal, go, a dialog) is done on the frame after it */
     LIGHT_WAIT_FRAMES = 20000,   /* a headless Track light run waits this many frames at most for its pictures (5 minutes) */
     TEST_DRIVE_WAIT_MS = 60000   /* --test-drive waits this long for the game's line on the track */
 };
@@ -778,6 +779,7 @@ static int run(App *a, const Options *o)
     static Steps steps;   /* --steps: after what the command line asked for, on what it opened (the mask --mask opened, the card --set changed) */
     if (o->steps != NULL && !steps_read(&steps, o->steps)) ok = 0, steps.failed = 1;
     Idle idle = { 0, 0, 0 };
+    int after_steps = 0;   /* frames drawn since the last step was done */
     while (!quit) {
         int events = 0;
         for (SDL_Event ev; SDL_PollEvent(&ev);) {
@@ -842,7 +844,9 @@ static int run(App *a, const Options *o)
         ++frame;
         /* a headless run waits for its steps, and for the Track light pictures in the making (bounded: a game that never ends cannot hold it); one that takes a picture also for the photo still to be started */
         const int light_waits = light_busy || (o->shot != NULL && app_light_photo_due(a));
-        if (headless && frame >= o->frames && !steps_running(&steps) && !(light_waits && frame < o->frames + LIGHT_WAIT_FRAMES)) {
+        if (o->steps != NULL && !steps_running(&steps)) after_steps++;
+        if (headless && frame >= o->frames && !steps_running(&steps) && (o->steps == NULL || steps.failed || after_steps > STEPS_AFTER) &&
+            !(light_waits && frame < o->frames + LIGHT_WAIT_FRAMES)) {
             if (o->model_shot != NULL && !ui_model_save_picture(o->model_shot)) {
                 fprintf(stderr, "--model-shot: the Model has no picture to write\n");
                 ok = 0;
