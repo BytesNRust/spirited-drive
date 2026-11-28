@@ -21,12 +21,20 @@ fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
 # the file with a tunnel fact: the repo's own light for TR1 and a tunnel over the first 500 of its 512 nodes
 tunnel_file() { (head -2 "$repo/data/track_light/TR1.txt"; echo "tunnel 1 500"; tail -n +3 "$repo/data/track_light/TR1.txt") > "$1"; }
-mkdir -p "$work/ua" "$work/uc" "$work/ub/mods/twk/track_light" "$work/ub/editions" "$work/cli/track_light"
-printf 'profile=restomod\n' | tee "$work/ua/port.cfg" "$work/uc/port.cfg" > "$work/ub/port.cfg"
-tunnel_file "$work/ub/mods/twk/track_light/TR1.txt"
-tunnel_file "$work/cli/track_light/TR1.txt"
-printf 'name=Test\ncars=rx7\ntracks=city\ntweaks=twk\n' > "$work/ub/editions/ed.ini"
-printf 'edition=ed\n' > "$work/ub/restomod.cfg"
+# each part writes only its own files: the three run side by side in one WORK
+case $part in all | A) mkdir -p "$work/ua" && printf 'profile=restomod\n' > "$work/ua/port.cfg" ;; esac
+case $part in all | B)
+    mkdir -p "$work/ub/mods/twk/track_light" "$work/ub/editions"
+    printf 'profile=restomod\n' > "$work/ub/port.cfg"
+    tunnel_file "$work/ub/mods/twk/track_light/TR1.txt"
+    printf 'name=Test\ncars=rx7\ntracks=city\ntweaks=twk\n' > "$work/ub/editions/ed.ini"
+    printf 'edition=ed\n' > "$work/ub/restomod.cfg" ;;
+esac
+case $part in all | C)
+    mkdir -p "$work/uc" "$work/cli/track_light"
+    printf 'profile=restomod\n' > "$work/uc/port.cfg"
+    tunnel_file "$work/cli/track_light/TR1.txt" ;;
+esac
 
 # race NAME USER [args]: the race, its output in $work/NAME.out; the trace lines that came out whole (the log's own lines may cut into one)
 race() {
