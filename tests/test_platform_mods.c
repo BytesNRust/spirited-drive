@@ -4,6 +4,7 @@
  * root), which --user moves and the older folders feed once. No window is opened. */
 #include "platform/platform.h"
 #include "sys/resource.h"
+#include "game/sys/data_path.h"
 #include "test.h"
 #include "rmtree.h"
 
@@ -141,6 +142,41 @@ static void test_any_case(const char *base)
     snprintf(asked, sizeof asked, "%s/GAMEDATA/NONE", cd);
     CHECK(platform_list_files(asked, "*", &count) == NULL && count == 0);
     CHECK(platform_set_mods(cd, NULL, 0));
+}
+
+/* the same in a piece's folder, outside the data root: its card's files, its listings, and the port's data it brings (car_masks/<CAR> and the like: data_path.h) */
+static void test_any_case_in_a_piece(const char *base)
+{
+    char piece[300], sub[400], asked[400];
+    snprintf(piece, sizeof piece, "%s/piece", base);
+    snprintf(sub, sizeof sub, "%s/Car_Masks/p911", piece);
+    write_file(sub, "Rsid_Mask.PNG", "mask", 4);
+    snprintf(asked, sizeof asked, "%s/car_masks/P911/rsid_mask.png", piece);
+    size_t size = 0;
+    CHECK(data_path_exists(asked));
+    CHECK(data_path_file_size(asked, &size) == 1 && size == 4);
+    uint8_t *d = platform_read_file(asked, &size);
+    CHECK(same(d, size, "mask"));
+    platform_free_file(d);
+    int count = 0;
+    snprintf(asked, sizeof asked, "%s/car_masks/P911", piece);
+    char **names = platform_list_files(asked, "*_mask.png", &count);
+    CHECK(names != NULL && count == 1 && strcmp(names[0], "Rsid_Mask.PNG") == 0);
+    platform_free_names(names);
+    snprintf(asked, sizeof asked, "%s/car_masks/P911/none_mask.png", piece);
+    CHECK(!data_path_exists(asked));
+    CHECK(data_path_file_size(asked, &size) == 0);
+    const char *dirs[] = { piece };
+    char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    data_path_set_mods(dirs, 1);
+    data_path_candidates("car_masks/P911/rsid_mask.png", found);
+    CHECK(data_path_exists(found[0]));
+    d = found[0][0] != '\0' ? platform_read_file(found[0], &size) : NULL;
+    CHECK(d != NULL && same(d, size, "mask"));
+    platform_free_file(d);
+    data_path_candidates("car_masks/P911/none_mask.png", found);
+    CHECK(found[0][0] == '\0');
+    data_path_set_mods(NULL, 0);
 }
 
 static char served_rel[512];
@@ -363,6 +399,7 @@ int main(void)
     platform_free_file(d);
 
     test_any_case(base);
+    test_any_case_in_a_piece(base);
 
     test_rmtree(base);
     return TEST_REPORT();
