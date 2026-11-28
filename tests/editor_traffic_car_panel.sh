@@ -1,6 +1,6 @@
 #!/bin/sh
 # A traffic car (Axxess) and the police Mustang opened as the game's own cars: the Car panel offers the masks only (no card, Add color, Physics from or photos: the game uses only the
-# masks of these cars), the status says so, Check and the Tweak panel's Apply to game repo are there, and Test drive is in Drive. A driven car (the Diablo) keeps its Add color. Needs the game's files.
+# masks of these cars), the status says so, Check and the Tweak panel's Apply to game repo are there, and Test drive in Drive starts a race (the game's own log says so). A driven car (the Diablo) keeps its Add color. Needs the game's files.
 # usage: editor_traffic_car_panel.sh EDITOR TNFS ORIGINAL_DIR PORT_DATA    Exit 77 (skipped) without the game's files.
 # PART=axxess (and the Diablo) or copmust runs that one alone (ctest runs both side by side); unset, all.
 . "$(dirname "$0")/editor_headless_common.sh"
@@ -23,7 +23,9 @@ for car in $cars; do
     grep -q "ui-click:add_color: no such widget drawn" "$work/log" || fail "$car: the run did not end at the missing Add color: $(cat "$work/log")"
     studio "$kit" --port-data "$data" --steps ui-click:check || fail "$car: Check is gone: $(cat "$work/log")"
     studio "$kit" --port-data "$data" --steps ui-click:tweak_apply || fail "$car: Apply to game repo is gone: $(cat "$work/log")"
-    studio "$kit" --port-data "$data" --steps ui-focus:Drive###Race,ui-click:test_drive,drive-stop || fail "$car: Test drive is not in Drive: $(cat "$work/log")"
+    # the click starts a race: the game's own log names the player's car (race-log fails when the game ends first), then Stop
+    studio "$kit" --port-data "$data" --steps ui-focus:Drive###Race,ui-click:test_drive,race-log,race-stop || fail "$car: Test drive did not start a race: $(grep -v '^ui rect' "$work/log" | tail -3)"
+    grep -q "^race log: race car: slot 0 is " "$work/log" || fail "$car: no race in the game's log: $(tail -3 "$work/log")"
 done
 # a driven car keeps its card and colors
 if [ "$part" != copmust ]; then
