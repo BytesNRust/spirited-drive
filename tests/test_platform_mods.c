@@ -105,6 +105,44 @@ static void test_older_folders(const char *base)
     CHECK_EQ_INT(platform_migrate_user_folders(lone), 0);   /* no old folders: nothing, and nothing made */
 }
 
+/* a game folder and a mod whose names are in neither the case the game asks nor all in one (a mounted CD gives lower case, a copy or a hand-made mod anything): read and
+ * listed as on a file system that ignores case. Only a case-sensitive one (Linux) can fail it. */
+static void test_any_case(const char *base)
+{
+    char cd[300], mod[300], sub[400], asked[400];
+    snprintf(cd, sizeof cd, "%s/mixed", base);
+    snprintf(mod, sizeof mod, "%s/mixedmod", base);
+    snprintf(sub, sizeof sub, "%s/SimData/Misc", cd);
+    write_file(sub, "Note.Txt", "mixed note", 10);
+    snprintf(sub, sizeof sub, "%s/frontend/art", cd);
+    write_file(sub, "credits.txt", "lower case", 10);
+    snprintf(sub, sizeof sub, "%s/GameData/Replay", cd);
+    write_file(sub, "Race1.Rpl", "replay", 6);
+    snprintf(sub, sizeof sub, "%s/Simdata/misc", mod);
+    write_file(sub, "Only.Txt", "mixed mod", 9);
+    const char *dirs[] = { mod };
+    CHECK(platform_set_mods(cd, dirs, 1));
+    static const char *const ASKED[][2] = { { "SIMDATA/MISC/NOTE.TXT", "mixed note" }, { "simdata/misc/note.txt", "mixed note" },
+                                            { "FRONTEND/ART/CREDITS.TXT", "lower case" }, { "SIMDATA/MISC/ONLY.TXT", "mixed mod" } };
+    size_t size = 0;
+    for (size_t i = 0; i < sizeof ASKED / sizeof ASKED[0]; i++) {
+        snprintf(asked, sizeof asked, "%s/%s", cd, ASKED[i][0]);
+        uint8_t *d = platform_read_file(asked, &size);
+        CHECK(same(d, size, ASKED[i][1]));
+        platform_free_file(d);
+    }
+    snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/NONE.TXT", cd);
+    CHECK(platform_read_file(asked, &size) == NULL);
+    int count = 0;
+    snprintf(asked, sizeof asked, "%s/GAMEDATA/REPLAY", cd);
+    char **names = platform_list_files(asked, "*.rpl", &count);
+    CHECK(names != NULL && count == 1 && strcmp(names[0], "Race1.Rpl") == 0);
+    platform_free_names(names);
+    snprintf(asked, sizeof asked, "%s/GAMEDATA/NONE", cd);
+    CHECK(platform_list_files(asked, "*", &count) == NULL && count == 0);
+    CHECK(platform_set_mods(cd, NULL, 0));
+}
+
 static char served_rel[512];
 static bool not_the_first(int index, const char *rel)
 {
@@ -323,6 +361,8 @@ int main(void)
     d = platform_read_file(asked, &size);
     CHECK(same(d, size, "from the cd"));                                                       /* overlay off again */
     platform_free_file(d);
+
+    test_any_case(base);
 
     test_rmtree(base);
     return TEST_REPORT();
