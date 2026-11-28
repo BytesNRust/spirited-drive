@@ -83,6 +83,7 @@ EOF
 chmod +x "$APP/AppRun"
 
 APPIMAGE_NAME="Spirited-Drive-$VERSION-linux-x86_64.AppImage"
+DEB_NAME="Spirited-Drive-$VERSION-linux-amd64.deb"   # tools/package_deb.sh's, told first in the README beside the downloads
 README="$OUT_DIR/README-linux.txt"
 # the text follows the approved wording of the README and the release notes (tests/readme_wording.py checks this file too)
 cat > "$README" <<EOF
@@ -90,13 +91,19 @@ Spirited Drive $VERSION (Linux, x86_64)
 
 The Need for Speed SE (1996), rebuilt to run natively on today's computers. Free and open source.
 
-How to start
+How to start on Ubuntu, Linux Mint, Zorin OS or elementary OS: the .deb
+1. Download $DEB_NAME.
+2. Install it: double click it and your software installer opens; or in a terminal, in the folder where it is: sudo apt install ./$DEB_NAME
+3. Start Spirited Drive from the applications menu (or type spirited-drive). The first start is step 4 below.
+To update, install the new .deb over the old one. To remove it: sudo apt remove spirited-drive (your player folder stays).
+
+How to start on other distributions: the AppImage
 1. Put $APPIMAGE_NAME in any folder.
 2. Make it executable: in the file manager, Properties, allow running it as a program; or in a terminal: chmod +x $APPIMAGE_NAME
 3. Run it: double click, or ./$APPIMAGE_NAME in a terminal. You do not need libfuse2 (libfuse2t64). If it stops with a FUSE message, run it with ./$APPIMAGE_NAME --appimage-extract-and-run, or install your system's fuse3 package (sudo apt install fuse3).
 4. On the first start, point the game at your own CD, a folder with its files, or an ISO image of your own disc. It copies what it needs, and you can put the CD away.
 
-The first start's windows are your system's: the file chooser needs your desktop's portal (xdg-desktop-portal) or zenity. Desktops normally have one of them. If no window appears or no file chooser opens, install zenity with your package manager (sudo apt install zenity on Ubuntu, Mint, Zorin or elementary; sudo dnf install zenity on Fedora) and start again, or give the folder yourself: ./$APPIMAGE_NAME --data /path/to/the/game/files
+The first start's windows are your system's: the file chooser needs your desktop's portal (xdg-desktop-portal) or zenity. Desktops normally have one of them. If no window appears or no file chooser opens, install zenity with your package manager (sudo apt install zenity on Ubuntu, Mint, Zorin or elementary; sudo dnf install zenity on Fedora) and start again, or give the folder yourself: ./$APPIMAGE_NAME --data /path/to/the/game/files (with the .deb: spirited-drive --data /path/to/the/game/files)
 
 Pads and wheels. Xbox, PlayStation and Switch pads normally work with nothing to install, plugged in before or while the game runs. Set the buttons in Options, Controls setup. If Steam is running, it may also turn the pad into keys or mouse moves: close Steam, or add the AppImage to Steam as a non-Steam game and start it from there. Rumble and force feedback need write access to the device; the log says "no write access" when it is missing.
 Logitech G25, G27, G29 and Driving Force wheels: without access to the wheel's raw device, the system's own driver gives the knocks and the steady push but no vibrations. To give access, make the file /etc/udev/rules.d/70-spirited-drive-wheel.rules (as root) with this one line, then unplug the wheel and plug it again. The line is for a G29 (c24f); for another wheel put its own number, which lsusb shows (G27 c29b, G25 c299, Driving Force GT c29a):
@@ -105,7 +112,7 @@ Thrustmaster and Fanatec wheels may need a driver your distribution does not inc
 
 Sound goes through your system's PipeWire or PulseAudio, or ALSA when neither answers. The log's "audio driver" line says which one. To choose another: SDL_AUDIO_DRIVER=pulseaudio ./$APPIMAGE_NAME (or pipewire, or alsa).
 
-To have it in your applications menu with its icon, add it with an AppImage manager (Gear Lever or AppImageLauncher, for example); on its own an AppImage does not add itself there.
+To have the AppImage in your applications menu with its icon, add it with an AppImage manager (Gear Lever or AppImageLauncher, for example); on its own an AppImage does not add itself there.
 
 Bring your own CD. Spirited Drive contains no game data: you need your own copy of The Need for Speed Special Edition for PC (1996).
 
@@ -113,11 +120,11 @@ Three ways to play: Stock '96 (the 1996 game as it shipped), Restored '96 (the s
 
 This Linux version is a first test build. It needs a 64-bit PC and a distribution from 2022 or newer (glibc 2.35, as in Ubuntu 22.04).
 
-Your player folder is ~/.local/share/Spirited Drive/ (\$XDG_DATA_HOME/Spirited Drive/ if you set that variable). It keeps your settings, your records and your copy of the game's files, and they stay when you replace the AppImage with a newer one. To keep them somewhere else, a portable install for instance, start the game with --user and a folder: ./$APPIMAGE_NAME --user /path/to/folder
+Your player folder is ~/.local/share/Spirited Drive/ (\$XDG_DATA_HOME/Spirited Drive/ if you set that variable). It keeps your settings, your records and your copy of the game's files, and they stay when you install or download a newer version. To keep them somewhere else, a portable install for instance, start the game with --user and a folder: ./$APPIMAGE_NAME --user /path/to/folder
 The update notice uses your system's curl; without it, or without internet, the game starts as usual and shows no notice.
 The log, spirited-drive.log, is in that folder too. In the game: Customize Game, page 3, Open the log folder. Attach it when you report a bug, with the name and version of your distribution: https://github.com/BytesNRust/spirited-drive/issues (please do not attach files from the original game).
 
-Licences are inside the AppImage, under usr/share/doc/spirited-drive/ (see them with --appimage-extract).
+Licences are inside the AppImage, under usr/share/doc/spirited-drive/ (see them with --appimage-extract); the .deb puts them in /usr/share/doc/spirited-drive/.
 
 This game is not finished and is not meant to be: what you find shapes what comes next.
 EOF

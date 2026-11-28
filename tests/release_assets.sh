@@ -57,6 +57,12 @@ sums=$(mktemp -d)
 printf 'a\n' > "$sums/a.dmg"
 (cd "$sums" && sha a.dmg > SHA256SUMS-macos.txt)
 sh tools/release_checksums.sh "$sums" >/dev/null 2>&1 && bad "a release without some system's files gets a list"
+grep -q '^Recommends: zenity, curl$' tools/package_deb.sh 2>/dev/null || bad "the .deb does not recommend zenity and curl (the file chooser and the update notice)"
+readme=$(sed -n '/^cat > "\$README" <<EOF/,/^EOF/p' tools/package_appimage.sh)
+deb_line=$(printf '%s\n' "$readme" | grep -n 'apt install \./\$DEB_NAME' | head -1 | cut -d: -f1)
+app_line=$(printf '%s\n' "$readme" | grep -n 'Put \$APPIMAGE_NAME' | head -1 | cut -d: -f1)
+[ -n "$deb_line" ] && [ -n "$app_line" ] && [ "$deb_line" -lt "$app_line" ] || bad "README-linux does not tell the .deb way first and the AppImage second"
+printf '%s\n' "$readme" | grep -q 'apt remove spirited-drive' || bad "README-linux does not say how to remove the .deb"
 grep -q 'Spirited-Drive-\$VERSION-linux-x86_64.AppImage' tools/package_appimage.sh || bad "the AppImage is not named Spirited-Drive-<version>-linux-x86_64.AppImage"
 [ "$(grep -c 'tnfs_version' "$rel")" -ge 2 ] && grep -q 'GITHUB_REF_NAME#v' "$rel" || bad "the release workflow does not check each build's version against the tag"
 grep -q 'Spirited-Drive-\$VERSION-windows-x64.zip' "$pack" || bad "the Windows zip is not named Spirited-Drive-<version>-windows-x64.zip"

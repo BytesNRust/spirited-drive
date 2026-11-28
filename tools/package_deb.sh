@@ -150,7 +150,7 @@ Architecture: amd64
 Maintainer: $MAINTAINER
 Installed-Size: $SIZE
 Depends: libc6 (>= 2.35)
-Recommends: zenity
+Recommends: zenity, curl
 Section: games
 Priority: optional
 Homepage: https://bytesnrust.com

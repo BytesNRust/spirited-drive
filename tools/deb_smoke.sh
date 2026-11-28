@@ -25,6 +25,7 @@ for image in "$@"; do
         dpkg-deb --root-owner-group -Zxz --build /tmp/older /tmp/older.deb >/dev/null
         apt-get install -y -qq /tmp/older.deb >/tmp/apt.log 2>&1 || { tail -20 /tmp/apt.log; exit 1; }
         command -v zenity >/dev/null || { echo "apt did not bring zenity" >&2; exit 1; }
+        command -v curl >/dev/null || { echo "apt did not bring curl" >&2; exit 1; }
         spirited-drive --user /tmp/u0 --mods-list
         apt-get install -y -qq /tmp/new.deb >/tmp/apt.log 2>&1 || { tail -20 /tmp/apt.log; exit 1; }
         want=$(dpkg-deb -f /tmp/new.deb Version)
