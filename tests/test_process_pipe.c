@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* process_pipe: a program started and its standard output read (on Windows with CreateProcess and no shell, no window): this test program is its own child ("--child WORD" writes WORD and some error text; "--exit N" exits N). */
+/* process_pipe: a program started and its standard output read (on Windows with CreateProcess and no shell, no window): this test program is its own child ("--child WORD" writes WORD and some error text; "--exit N" exits N, "--killed x" ends by a signal). */
 #include "game/platform/sdl3/process_pipe.h"
 #include "test.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -29,6 +30,9 @@ int main(int argc, char **argv)
         return 0;
     }
     if (argc >= 3 && strcmp(argv[1], "--exit") == 0) return argv[2][0] - '0';
+#if !defined(_WIN32)
+    if (argc >= 2 && strcmp(argv[1], "--killed") == 0) raise(SIGKILL);
+#endif
     self = argv[0];
     char out[256];
     int status = -2;
@@ -38,12 +42,16 @@ int main(int argc, char **argv)
     CHECK(run("--child \"two words\"", out, sizeof out, &status) == 9);   /* the quoting survives */
     CHECK(strcmp(out, "two words") == 0);
     CHECK(run("--exit 3", out, sizeof out, &status) == 0);
-    CHECK_EQ_INT(status, -1);   /* a failing exit */
+    CHECK_EQ_INT(status, 3);   /* a failing exit: its own status, for the log's reason */
+#if !defined(_WIN32)
+    CHECK(run("--killed x", out, sizeof out, &status) == 0);
+    CHECK(status == -1 || status > 128);   /* ended by a signal: no exit of its own (a shell that waited for it says 128 + the signal) */
+#endif
     ProcessPipe *none = process_pipe_open("\"/no/such/program-for-tnfs\" x");
     if (none != NULL) {   /* popen runs a shell: the failure is its exit status */
         char buf[16];
         CHECK_EQ_INT((int)process_pipe_read(none, buf, sizeof buf), 0);
-        CHECK_EQ_INT(process_pipe_close(none), -1);
+        CHECK_EQ_INT(process_pipe_close(none), 127);   /* the shell's "not found" */
     }
     CHECK_EQ_INT((int)process_pipe_read(NULL, out, sizeof out), 0);
     CHECK_EQ_INT(process_pipe_close(NULL), -1);

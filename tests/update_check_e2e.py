@@ -120,15 +120,19 @@ def local(exe):
         answer(status, body, ctype)
         rc, out, took = run(exe, env, 30)
         check(rc == 0 and NONE in out and NEWER not in out, "%s must stay silent, got: %s" % (what, out.strip()))
+        if status >= 400:
+            check("curl failed, exit 22: an HTTP error" in out, "%s: the log does not say why: %s" % (what, out.strip()))
 
     # offline: nothing listens at the address; the check ends at once, silently
     rc, out, took = run(exe, {"TNFS_UPDATE_API_BASE": "http://127.0.0.1:%d/spirited-drive/v1" % free_port()}, 30)
     check(rc == 0 and NONE in out and took < 8, "nothing listening: no silent end in time (%.1f s): %s" % (took, out.strip()))
+    check("curl failed, exit 7: no connection" in out, "nothing listening: the log does not say why: %s" % out.strip())
 
     # a server that takes the connection and never answers: curl's --max-time 5 ends it; the game never waits on it anyway
     answer(200, b"{}", stall=40)
     rc, out, took = run(exe, env, 30)
     check(rc == 0 and NONE in out and took < 12, "a server that never answers: not ended in time (%.1f s, status %s): %s" % (took, rc, out.strip()))
+    check("curl failed, exit 28: timed out" in out, "a server that never answers: the log does not say why: %s" % out.strip())
     server.shutdown()
 
     # a proxy: the address does not exist, only http_proxy reaches the answer

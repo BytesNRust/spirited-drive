@@ -76,7 +76,11 @@ static int fetch_latest_json(char *buf, size_t cap)
     while (process_pipe_read(pipe, drain, sizeof drain) > 0) {
     }
     int status = process_pipe_close(pipe);
-    if (status != 0) return say("curl ended with status %d (offline, a refused or limited request, a timeout)", status), 0;
+    if (status != 0) {
+        char why[112];
+        update_curl_reason(status, why, sizeof why);
+        return say("%s", why), 0;
+    }
     if (n == 0) return say("curl answered nothing"), 0;
     return 1;
 }

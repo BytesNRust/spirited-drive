@@ -7,6 +7,7 @@
 #include <string.h>
 
 #if defined(_WIN32)
+#include <limits.h>
 #include <windows.h>
 
 enum { LINE_MAX_BYTES = 2048, WAIT_MS = 15000 };
@@ -66,7 +67,7 @@ int process_pipe_close(ProcessPipe *pipe)
     else if (!GetExitCodeProcess(pipe->process, &code)) code = (DWORD)-1;
     CloseHandle(pipe->process);
     free(pipe);
-    return code == 0 ? 0 : -1;
+    return code <= INT_MAX ? (int)code : -1;   /* an NTSTATUS (a crash) is not an exit of its own */
 }
 
 #elif defined(__EMSCRIPTEN__)
@@ -76,6 +77,8 @@ size_t process_pipe_read(ProcessPipe *pipe, void *buf, size_t cap) { (void)pipe,
 int process_pipe_close(ProcessPipe *pipe) { (void)pipe; return -1; }
 
 #else
+
+#include <sys/wait.h>
 
 struct ProcessPipe {
     FILE *file;
@@ -103,7 +106,7 @@ int process_pipe_close(ProcessPipe *pipe)
     if (pipe == NULL) return -1;
     const int status = pclose(pipe->file);
     free(pipe);
-    return status == 0 ? 0 : -1;
+    return status != -1 && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
 #endif

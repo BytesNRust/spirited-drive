@@ -14,7 +14,7 @@ ProcessPipe *process_pipe_open(const char *command_line);
 /* up to `cap` bytes of the program's output; 0 at its end */
 size_t process_pipe_read(ProcessPipe *pipe, void *buf, size_t cap);
 
-/* the pipe closed and the program waited for (Windows: 15 s, then ended); 0 when it exited with 0, else -1. `pipe` is freed. */
+/* the pipe closed and the program waited for (Windows: 15 s, then ended); its exit status (0 when all went well; popen's shell says 127 for a program that is not there), or -1 when it did not end normally. `pipe` is freed. */
 int process_pipe_close(ProcessPipe *pipe);
 
 #endif

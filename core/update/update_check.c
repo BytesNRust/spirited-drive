@@ -222,6 +222,28 @@ int update_windows_command(const char *command, const char *system_dir, char *ou
     return 1;
 }
 
+void update_curl_reason(int status, char *out, size_t cap)
+{
+    static const struct {
+        int status;
+        const char *means;
+    } known[] = {
+        { 5, "the proxy's name was not resolved" }, { 6, "the server's name was not resolved: offline, or no DNS" }, { 7, "no connection to the server" },
+        { 22, "an HTTP error from the server: refused or rate limited" }, { 28, "timed out" }, { 35, "the TLS handshake failed" }, { 60, "the server's certificate was not accepted" },
+        { 126, UPDATE_CURL " could not be run" }, { 127, UPDATE_CURL " not found" },
+    };
+    if (status < 0) {
+        snprintf(out, cap, "curl did not end normally");
+        return;
+    }
+    for (size_t i = 0; i < sizeof known / sizeof known[0]; i++)
+        if (known[i].status == status) {
+            snprintf(out, cap, "curl failed, exit %d: %s", status, known[i].means);
+            return;
+        }
+    snprintf(out, cap, "curl failed, exit %d (see curl's manual)", status);
+}
+
 int update_api_command(char *out, size_t cap, const char *event, const char *version)
 {
     return update_api_command_at(out, cap, UPDATE_API_BASE, 0, event, version);

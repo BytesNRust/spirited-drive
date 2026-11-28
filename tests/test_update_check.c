@@ -164,8 +164,34 @@ static void windows_command_names_the_system_curl(void)
 #endif
 }
 
+/* the log's line for a curl that did not exit with 0 says what happened, not only a number */
+static void curl_reasons_are_named(void)
+{
+    static const struct {
+        int status;
+        const char *says;
+    } cases[] = {
+        { 127, "not found" }, { 126, "could not be run" }, { 5, "proxy" }, { 6, "offline" }, { 7, "no connection" }, { 22, "HTTP error" }, { 28, "timed out" }, { 35, "TLS" },
+        { 60, "certificate" }, { -1, "did not end normally" },
+    };
+    char out[128];
+    for (size_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        update_curl_reason(cases[i].status, out, sizeof out);
+        CHECK(strstr(out, cases[i].says) != NULL);
+        CHECK(strstr(out, "status -1") == NULL);
+    }
+    update_curl_reason(22, out, sizeof out);
+    CHECK(strstr(out, "22") != NULL);
+    update_curl_reason(92, out, sizeof out);   /* one with no words of its own keeps its number */
+    CHECK(strstr(out, "92") != NULL);
+    char small[8];
+    update_curl_reason(127, small, sizeof small);
+    CHECK(strlen(small) < sizeof small);
+}
+
 int main(void)
 {
+    curl_reasons_are_named();
     windows_command_names_the_system_curl();
     api_parse_reads_latest();
     api_parse_rejects_garbage();

@@ -27,7 +27,7 @@ void platform_update_check_start(const char *current_version);
 /* The check's state; with UPDATE_NEWER, `latest` (cap >= 32) receives the newer version, e.g. "0.9.1". */
 UpdateState platform_update_check_poll(char *latest, size_t cap);
 
-/* Why the check ended as it did, in a line ("latest 0.9.1 is newer than 0.9.0", "curl ended with status 22..."); "" while it is pending. Also in the log. */
+/* Why the check ended as it did, in a line ("latest 0.9.1 is newer than 0.9.0", "curl failed, exit 22: ..."); "" while it is pending. Also in the log. */
 const char *platform_update_check_why(void);
 
 /* Sends one anonymous event ("first_start", "data_ready" or "first_race") to our API on its own thread, never

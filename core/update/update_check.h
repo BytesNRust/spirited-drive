@@ -71,4 +71,7 @@ int update_is_dev_build(const char *version);
  * curl run is the system's and not one found beside the game, in the current folder or earlier on PATH. 1 when it fits `cap`; 0 when `command` does not start with curl.exe, `system_dir` is empty or has a quote, or it does not fit. */
 int update_windows_command(const char *command, const char *system_dir, char *out, size_t cap);
 
+/* what the log says of a curl that did not exit with 0: `status` as process_pipe_close gives it (its exit status, or -1 when it did not end normally) */
+void update_curl_reason(int status, char *out, size_t cap);
+
 #endif
