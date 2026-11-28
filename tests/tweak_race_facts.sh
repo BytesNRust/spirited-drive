@@ -6,6 +6,7 @@
 #   C  the same file as --mods (the developer's folder, which is served): the race differs from A. It shows that A and B being the same means something
 # The three races are independent: PART A, B or C runs one of them (each its own user folder) into WORK, and PART compare reads the three and makes the 7 checks, so the gate can run them side by side
 # (the CMake tests tweak_race_facts_A/_B/_C then _compare, which needs the three). With no PART (or `all`) the one script does the four as it did.
+# The three races run their clock four times faster (TNFS_CLOCK_RATE: the same steps and results; no key is sent while a race runs).
 # usage: tweak_race_facts.sh TNFS REPO ORIGINAL_DIR [PART [WORK]]
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }
@@ -40,7 +41,7 @@ esac
 race() {
     name=$1 user=$2
     shift 2
-    TNFS_WEATHER=rain TNFS_RAIN_GRIP=1 TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 \
+    TNFS_WEATHER=rain TNFS_RAIN_GRIP=1 TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 \
         TNFS_INPUT_SCRIPT="0:WAIT:mark:results=circuit:240,300:ENTER,300:ENTER,0:WAIT:mark:results=best_totals:120,300:ENTER" \
         timeout -k 5 400 "$tnfs" --data "$orig" --user "$user" "$@" --drive TR1 --type 0 > "$work/$name.out" 2>&1
     rc=$?

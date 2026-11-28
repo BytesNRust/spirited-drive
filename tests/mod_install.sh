@@ -150,7 +150,8 @@ part_tri() {
     find "$U" -delete && cp -R "$fixture/before/user" "$U"
     mkdir -p "$work/tri_dev/SIMDATA/MISC" && cp "$orig/SIMDATA/MISC/TR1.TRI" "$work/tri_dev/SIMDATA/MISC/TR1.TRI"
     script="0:WAIT:mark:results=circuit:240,300:ENTER,300:ENTER,0:WAIT:mark:results=best_totals:120,300:ENTER"   # its results, the best totals
-    TNFS_BANDS=0 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
+    # (the race's clock four times faster: no key is sent while it races; part_before sends one, so it keeps the clock)
+    TNFS_BANDS=0 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 300 "$tnfs" --data "$orig" --user "$U" --mods "$work/tri_dev" --drive TR1 --car 5 --type 0 >/dev/null 2>"$work/err" ||
         fail "the race with --mods ended badly: $(tail -3 "$work/err")"
     grep -q "finish: 0=" "$U/spirited-drive.log" || fail "the race with --mods did not finish"
