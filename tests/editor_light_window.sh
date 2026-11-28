@@ -115,6 +115,20 @@ time N
   tunnel_look 14 20 lamps 120
 TXT
 }
+fx_lall() { cat <<'TXT'
+# tnfs track light 2
+track AL1
+tunnel 12 20 gradient 8
+tunnel 60 71 gradient 0
+
+time B
+  sun 84 30 70
+  tunnel_look 85
+  tunnel_look 60 71 65 lamps 220 reach 3
+  brightness 0 50 100 p1,p3,p5
+  tunnel_look 12 20 lamps 120
+TXT
+}
 fixture() { "$1" > "$f"; }
 left() { "$1" | cmp -s - "$f" || fail "the flows no longer leave the file that $1 starts the next one from: $("$1" | diff - "$f" | head -8)"; }
 views_run() {
@@ -137,6 +151,31 @@ grep -q "^track AL1$" "$work/record" 2>/dev/null || fail "the game was not given
 [ -z "$(ls "$work/tmp")" ] || fail "the photo left its scratch folder behind: $(ls "$work/tmp")"
 
 views_run 0 1 0 2 3
+cp "$f" "$work/start.txt"
+fixture fx_f
+# the window's other widgets, clicked (ui_probe.h; light-state prints what the panel has): the View combo's item and the HUD box (the photo's camera and HUD), the Light compare radios, the Test drive button
+# (it starts a drive on this track, time and node), a brightness line's Remove, and the track combo: a file with changes is not left for another track ("Save or Revert"), and after Revert it is asked
+light_flow() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --steps "$1" > "$work/lout" 2>&1 || fail "the flow $1: $(tail -3 "$work/lout")"; }
+light_flow light-state,ui-click:node_p1,ui-click:view_combo,ui-click:view_4,light-state,ui-click:hud,light-state
+[ "$(grep -c '^light state: track AL1 view 0 hud 0 compare off' "$work/lout")" = 1 ] || fail "the window did not open on the Bumper view, no HUD, compare off: $(grep '^light state' "$work/lout")"
+grep -q '^light state: track AL1 view 4 hud 0 ' "$work/lout" || fail "the View combo's Chase far item did not set view 4: $(grep '^light state' "$work/lout")"
+grep -q '^light state: track AL1 view 4 hud 1 ' "$work/lout" || fail "the HUD box did not turn the HUD on: $(grep '^light state' "$work/lout")"
+light_flow ui-click:node_p1,ui-click:compare_1,light-state,ui-click:compare_2,light-state,ui-click:compare_0,light-state
+[ "$(grep '^light state' "$work/lout" | sed 's/.* compare \([a-z]*\) .*/\1/' | tr '\n' ' ')" = "before four off " ] || fail "the Light compare radios (Before, Four times, Off) did not set the mode: $(grep '^light state' "$work/lout")"
+# the Test drive button starts a drive on this track, time and node, and the same button, now Stop test drive, stops it: with a game that stays up (the fake one ends at once, and a second click then starts a new drive)
+# it stays up only as the drive (TNFS_LIGHT_EDIT); the window's photos are the fake game's, or each would be waited for 30 s
+printf '#!/bin/sh\n[ "$TNFS_LIGHT_EDIT" = 1 ] && exec sleep 30\nexec "%s" "$@"\n' "$work/fake_game" > "$work/slow_game"
+chmod +x "$work/slow_game"
+"$editor" --game "$work/slow_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --steps ui-click:node_p1,ui-click:drive,print-drive,light-state,ui-click:drive,light-state > "$work/lout2" 2>&1 || fail "the Test drive / Stop flow: $(tail -3 "$work/lout2")"
+grep -q '^drive: running AL1 B node ' "$work/lout2" || fail "the Test drive button did not start a drive on AL1's Day: $(grep '^drive' "$work/lout2")"
+[ "$(grep '^light state' "$work/lout2" | sed 's/.* drive \([a-z]*\) .*/\1/' | tr '\n' ' ')" = "running stopped " ] || fail "Test drive then Stop test drive did not start and stop the drive: $(grep '^light state' "$work/lout2")"
+light_flow ui-click:add_brightness,light-print,ui-click:brightness0_remove,light-print
+counts=$(grep '^light:' "$work/lout" | sed 's/.* brightness \([0-9]*\) .*/\1/' | tr '\n' ' ')
+[ "$(echo "$counts" | awk '{ print ($2 + 1 == $1) ? "yes" : "no" }')" = yes ] || fail "a brightness line's Remove did not take the line away (counts after Add, after Remove: $counts): $(grep '^light:' "$work/lout")"
+light_flow ui-click:add_brightness,ui-click:track_combo,ui-click:track_CY1,light-state,ui-click:revert,ui-click:track_combo,ui-click:track_CY1,light-state
+grep '^light state' "$work/lout" | sed -n 1p | grep -q 'track AL1 .* error: the file has unsaved changes: Save or Revert before another track$' || fail "a track chosen with unsaved changes was not refused with Save or Revert: $(grep '^light state' "$work/lout")"
+grep '^light state' "$work/lout" | sed -n 2p | grep -q 'Save or Revert' && fail "after Revert the track change was still refused for unsaved changes: $(grep '^light state' "$work/lout")"
+cp "$work/start.txt" "$f"
 fi
 if runs b; then
 views_run 4 4 12
@@ -160,6 +199,30 @@ grep -q "^LightHud=1$" "$work/huduser/track-editor.ini" 2>/dev/null || fail "the
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --steps print-panels > "$work/panels" 2>&1 ||
     fail "print-panels in the Track light window: $(tail -3 "$work/panels")"
 [ "$(grep -c '^panel [0-9]*: .*: open, drawn' "$work/panels")" = 3 ] && grep -q '^unlisted:$' "$work/panels" || fail "the Track light window's panels are not all in the Window menu: $(cat "$work/panels")"
+# Copy to...: a brightness line at Day copied to Dawn, where the same nodes have another percent: the menu (clicked) leads to the clash window; Replace changes Dawn's line, Skip leaves it, Cancel
+# touches nothing; the line says what was done
+for answer in replace skip cancel; do
+    rm -rf "$work/copyl"; mkdir -p "$work/copyl/track_light"
+    printf '# tnfs track light 2\ntrack AL1\n\ntime A\n  brightness 5 9 40\ntime B\n  brightness 5 9 60\n' > "$work/copyl/track_light/AL1.txt"
+    "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/copyl" --ask light --window 1280x800 --frames 4 \
+        --steps ui-click:brightness0_copy,ui-click:brightness0_copy_Dawn,light-note,ui-click:copy_$answer,light-note,light-print,ui-click:save > "$work/copy_$answer" 2>&1 || fail "the Copy to flow ($answer): $(tail -3 "$work/copy_$answer")"
+    grep -q "^light note:  | pending 1 " "$work/copy_$answer" || fail "a clashing copy did not wait for the window ($answer): $(grep '^light note' "$work/copy_$answer")"
+    grep '^light note' "$work/copy_$answer" | tail -1 | grep -q "pending 0 " || fail "the window's $answer left the copy waiting: $(grep '^light note' "$work/copy_$answer")"
+    case $answer in
+    replace) want="  brightness 5 9 60"; times=2; note="Replaced at Dawn" ;;   # both lines now say 60
+    skip) want="  brightness 5 9 40"; times=1; note="Dawn kept its own" ;;
+    cancel) want="  brightness 5 9 40"; times=1; note="" ;;
+    esac
+    [ "$(grep -c "^$want$" "$work/copyl/track_light/AL1.txt")" = "$times" ] && [ "$(grep -c '^  brightness 5 9 ' "$work/copyl/track_light/AL1.txt")" = 2 ] || fail "$answer: the file's Dawn line is not as it should be: $(cat "$work/copyl/track_light/AL1.txt")"
+    [ -z "$note" ] || grep '^light note' "$work/copy_$answer" | tail -1 | grep -q "$note" || fail "$answer: the note does not say '$note': $(grep '^light note' "$work/copy_$answer")"
+done
+# a copy that adds only (no clash) goes straight through: to Dusk, the menu's All others, then the file has the line at Dawn, Dusk and Night
+rm -rf "$work/copyl"; mkdir -p "$work/copyl/track_light"
+printf '# tnfs track light 2\ntrack AL1\n\ntime B\n  brightness 5 9 60\n' > "$work/copyl/track_light/AL1.txt"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/copyl" --ask light --window 1280x800 --frames 4 \
+    --steps ui-click:brightness0_copy,ui-click:brightness0_copy_all,light-note,ui-click:save > "$work/copy_all" 2>&1 || fail "the Copy to All others flow: $(tail -3 "$work/copy_all")"
+grep '^light note' "$work/copy_all" | tail -1 | grep -q "Copied to Dawn, Dusk, Night" || fail "All others did not copy to the three: $(grep '^light note' "$work/copy_all")"
+[ "$(grep -c '^  brightness 5 9 60$' "$work/copyl/track_light/AL1.txt")" = 4 ] || fail "the file does not have the line at the four times: $(cat "$work/copyl/track_light/AL1.txt")"
 fi
 if runs c; then
 # the Tunnels section: AL1's two tunnels (the facts) with the day's look of each; a lamps strength set on the second one rewrites only its tunnel_look line, Save writes the file
@@ -215,31 +278,31 @@ ys=$(sed -n 's/^ui rect: tunnels_header [0-9]* \([0-9]*\) .*/\1/p' "$work/fold" 
 ys=$(sed -n 's/^ui rect: add_brightness [0-9]* \([0-9]*\) .*/\1/p' "$work/fold" | tr '\n' ' '); set -- $ys
 [ $# = 3 ] && [ "$2" -lt "$1" ] && [ "$3" = "$1" ] || fail "folding Tunnels did not move Add brightness up and back (y: $ys)"
 grep '^light:' "$work/fold" | tail -1 | grep -q "sun 120 30 70$" || fail "the folded sections lost the sun: $(grep '^light:' "$work/fold")"
-# Copy to...: a brightness line at Day copied to Dawn, where the same nodes have another percent: the menu (clicked) leads to the clash window; Replace changes Dawn's line, Skip leaves it, Cancel
-# touches nothing; the line says what was done
-for answer in replace skip cancel; do
-    rm -rf "$work/copyl"; mkdir -p "$work/copyl/track_light"
-    printf '# tnfs track light 2\ntrack AL1\n\ntime A\n  brightness 5 9 40\ntime B\n  brightness 5 9 60\n' > "$work/copyl/track_light/AL1.txt"
-    "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/copyl" --ask light --window 1280x800 --frames 4 \
-        --steps ui-click:brightness0_copy,ui-click:brightness0_copy_Dawn,light-note,ui-click:copy_$answer,light-note,light-print,ui-click:save > "$work/copy_$answer" 2>&1 || fail "the Copy to flow ($answer): $(tail -3 "$work/copy_$answer")"
-    grep -q "^light note:  | pending 1 " "$work/copy_$answer" || fail "a clashing copy did not wait for the window ($answer): $(grep '^light note' "$work/copy_$answer")"
-    grep '^light note' "$work/copy_$answer" | tail -1 | grep -q "pending 0 " || fail "the window's $answer left the copy waiting: $(grep '^light note' "$work/copy_$answer")"
-    case $answer in
-    replace) want="  brightness 5 9 60"; times=2; note="Replaced at Dawn" ;;   # both lines now say 60
-    skip) want="  brightness 5 9 40"; times=1; note="Dawn kept its own" ;;
-    cancel) want="  brightness 5 9 40"; times=1; note="" ;;
-    esac
-    [ "$(grep -c "^$want$" "$work/copyl/track_light/AL1.txt")" = "$times" ] && [ "$(grep -c '^  brightness 5 9 ' "$work/copyl/track_light/AL1.txt")" = 2 ] || fail "$answer: the file's Dawn line is not as it should be: $(cat "$work/copyl/track_light/AL1.txt")"
-    [ -z "$note" ] || grep '^light note' "$work/copy_$answer" | tail -1 | grep -q "$note" || fail "$answer: the note does not say '$note': $(grep '^light note' "$work/copy_$answer")"
-done
-# a copy that adds only (no clash) goes straight through: to Dusk, the menu's All others, then the file has the line at Dawn, Dusk and Night
-rm -rf "$work/copyl"; mkdir -p "$work/copyl/track_light"
-printf '# tnfs track light 2\ntrack AL1\n\ntime B\n  brightness 5 9 60\n' > "$work/copyl/track_light/AL1.txt"
-"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/copyl" --ask light --window 1280x800 --frames 4 \
-    --steps ui-click:brightness0_copy,ui-click:brightness0_copy_all,light-note,ui-click:save > "$work/copy_all" 2>&1 || fail "the Copy to All others flow: $(tail -3 "$work/copy_all")"
-grep '^light note' "$work/copy_all" | tail -1 | grep -q "Copied to Dawn, Dusk, Night" || fail "All others did not copy to the three: $(grep '^light note' "$work/copy_all")"
-[ "$(grep -c '^  brightness 5 9 60$' "$work/copyl/track_light/AL1.txt")" = 4 ] || fail "the file does not have the line at the four times: $(cat "$work/copyl/track_light/AL1.txt")"
 left fx_d
+# the Colour column: a tunnel with no colour of its own shows the default row's (here written r/g/b, which a six-digit reading would turn white) and says so; a colour of its own has an x that gives it back
+mkdir -p "$work/light2/track_light"
+cat > "$work/light2/track_light/AL1.txt" <<'TXT'
+# tnfs track light 2
+track AL1
+tunnel 10 20
+tunnel 60 71
+
+time B
+  sun 150 50 55
+  tunnel_look 100 1/0.8/0.15
+  tunnel_look 60 71 90 336699
+TXT
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light2" --ask light --window 1280x800 --frames 4 \
+    --steps print-tunnels,ui-click:time_B,ui-click:show_colour,ui-click:tunnel1_day_x,print-tunnels,ui-click:save,light-print > "$work/tcol" 2>&1 || fail "the Colour column flow: $(tail -3 "$work/tcol")"
+grep -q '^tunnel 1: 60-71 own: light 90 lamps - 0 reach - 0 colour 336699' "$work/tcol" || fail "the tunnel's own colour is not listed before the x: $(grep '^tunnel ' "$work/tcol")"
+grep -q '^tunnel 1: 60-71 own: light 90 lamps - 0 reach - 0 colour -$' "$work/tcol" || fail "the x did not give the tunnel back the default colour: $(grep '^tunnel ' "$work/tcol")"
+grep -q '^default: light 100 lamps - 0 reach - 0 colour 1/0.8/0.15' "$work/tcol" || fail "the default row's r/g/b colour is not kept: $(grep '^default' "$work/tcol")"
+grep -q '^  tunnel_look 60 71 90$' "$work/light2/track_light/AL1.txt" || fail "Save did not write the tunnel's look without its colour: $(cat "$work/light2/track_light/AL1.txt")"
+grep -q '^  tunnel_look 100 1/0.8/0.15$' "$work/light2/track_light/AL1.txt" || fail "the default row's colour changed: $(cat "$work/light2/track_light/AL1.txt")"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --steps patience:30,ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
+grep -q "no such widget drawn" "$work/ui3" || fail "the click on a widget that is not there failed for another reason: $(tail -3 "$work/ui3")"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 4 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the new sections: $(tail -3 "$work/tunnels")"
 fi
 if runs d; then
 fixture fx_d
@@ -275,26 +338,6 @@ fixture fx_kind
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 \
     --steps ui-click:tunnel0_from,ui-click:tunnel0_kind,ui-click:tunnel0_kind_hall,ui-click:save,light-print > "$work/tkind" 2>&1 || fail "the clicked Kind combo: $(tail -3 "$work/tkind")"
 grep -q '^tunnel 12 20 lit' "$f" || fail "the Kind combo's hall is not in the saved file: $(grep '^tunnel' "$f")"
-# the Colour column: a tunnel with no colour of its own shows the default row's (here written r/g/b, which a six-digit reading would turn white) and says so; a colour of its own has an x that gives it back
-mkdir -p "$work/light2/track_light"
-cat > "$work/light2/track_light/AL1.txt" <<'TXT'
-# tnfs track light 2
-track AL1
-tunnel 10 20
-tunnel 60 71
-
-time B
-  sun 150 50 55
-  tunnel_look 100 1/0.8/0.15
-  tunnel_look 60 71 90 336699
-TXT
-"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light2" --ask light --window 1280x800 --frames 4 \
-    --steps print-tunnels,ui-click:time_B,ui-click:show_colour,ui-click:tunnel1_day_x,print-tunnels,ui-click:save,light-print > "$work/tcol" 2>&1 || fail "the Colour column flow: $(tail -3 "$work/tcol")"
-grep -q '^tunnel 1: 60-71 own: light 90 lamps - 0 reach - 0 colour 336699' "$work/tcol" || fail "the tunnel's own colour is not listed before the x: $(grep '^tunnel ' "$work/tcol")"
-grep -q '^tunnel 1: 60-71 own: light 90 lamps - 0 reach - 0 colour -$' "$work/tcol" || fail "the x did not give the tunnel back the default colour: $(grep '^tunnel ' "$work/tcol")"
-grep -q '^default: light 100 lamps - 0 reach - 0 colour 1/0.8/0.15' "$work/tcol" || fail "the default row's r/g/b colour is not kept: $(grep '^default' "$work/tcol")"
-grep -q '^  tunnel_look 60 71 90$' "$work/light2/track_light/AL1.txt" || fail "Save did not write the tunnel's look without its colour: $(cat "$work/light2/track_light/AL1.txt")"
-grep -q '^  tunnel_look 100 1/0.8/0.15$' "$work/light2/track_light/AL1.txt" || fail "the default row's colour changed: $(cat "$work/light2/track_light/AL1.txt")"
 # a tunnel moved takes its looks of the four moments with it, and Remove takes the tunnel and its four looks: From 12 typed as 14 (the hall's looks at Dawn..Night follow), then the second tunnel removed
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 \
     --steps ui-click:tunnel0_from,ui-text:14,key:Return,ui-click:tunnel1_remove,ui-click:save,light-print > "$work/tmove" 2>&1 || fail "the tunnel move and Remove flow: $(tail -3 "$work/tmove")"
@@ -326,6 +369,10 @@ grep -q '^tunnel 12 20$' "$f" || fail "the first tunnel gained a gradient it was
     --steps ui-click:time_C,ui-click:tunnel1_gradient,ui-text:0,key:Return,ui-click:tunnel0_gradient,ui-text:99,key:Return,ui-click:save,light-print > "$work/tgrad0" 2>&1 || fail "the clicked Gradient cell flow, 0 and 99: $(tail -3 "$work/tgrad0")"
 grep -q '^tunnel 60 71 gradient 0$' "$f" || fail "a Gradient of 0 (a straight cut) is not in the saved file: $(grep '^tunnel' "$f")"
 grep -q '^tunnel 12 20 gradient 8$' "$f" || fail "a Gradient past 8 was not held at 8: $(grep '^tunnel' "$f")"
+left fx_lall
+fi
+if runs f; then
+fixture fx_lall
 # the other moments' columns: the Lamps % typed in Dawn, Dusk and Night of both tunnels (copying a value is typing it there) gives the four lines of each in the saved file, and no other value goes with them
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 \
     --steps ui-click:show_lamps,ui-click:tunnel0_dawn,ui-text:120,key:Return,ui-click:tunnel0_dusk,ui-text:120,key:Return,ui-click:tunnel0_night,ui-text:120,key:Return,ui-click:tunnel1_dawn,ui-text:220,key:Return,ui-click:tunnel1_dusk,ui-text:220,key:Return,ui-click:tunnel1_night,ui-text:220,key:Return,ui-click:save,light-print > "$work/lall" 2>&1 || fail "the moments' columns flow: $(tail -3 "$work/lall")"
@@ -333,8 +380,6 @@ grep -q '^tunnel 12 20 gradient 8$' "$f" || fail "a Gradient past 8 was not held
 [ "$(grep -Ec '^  tunnel_look 60 71 .*lamps 220' "$f")" = 4 ] || fail "the second tunnel's lamps 220 is not in the four moments: $(grep -n 'time\|tunnel_look' "$f")"
 [ "$(grep -Ec '^  tunnel_look [0-9]+ [0-9]+ .*reach 3' "$f")" = 1 ] || fail "a value other than the lamps was written with them (the Reach 3 of the Day row): $(grep -n 'tunnel_look' "$f")"
 left fx_kind
-fi
-if runs f; then
 fixture fx_f
 # the Sun's other two sliders and the three "auto" ticks, clicked: Height and Shadow strength set (the slider's ends are +-76 and the click at 0.9 of its width 76), each part unticked in turn (a "-" in the
 # line: the generator's own), and a sun with every part auto is no line at all; the file is saved after each flow
@@ -350,32 +395,6 @@ grep -q '^  sun ' "$f" && fail "a sun with every part auto is still a line in th
 grep '^light:' "$work/sunout" | head -1 | grep -q ' sun ' && fail "the window's model still has a sun with every part auto: $(grep '^light:' "$work/sunout")"
 sun_flow ui-click:azimuth_tick,ui-click:shadow_tick,ui-click:save
 grep -Eq '^  sun 180 - 55$' "$f" || fail "ticking Direction and Shadow strength from no sun at Day did not start from the generator's own values (sun 180 - 55): $(grep '  sun' "$f")"
-# the window's other widgets, clicked (ui_probe.h; light-state prints what the panel has): the View combo's item and the HUD box (the photo's camera and HUD), the Light compare radios, the Test drive button
-# (it starts a drive on this track, time and node), a brightness line's Remove, and the track combo: a file with changes is not left for another track ("Save or Revert"), and after Revert it is asked
-light_flow() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --steps "$1" > "$work/lout" 2>&1 || fail "the flow $1: $(tail -3 "$work/lout")"; }
-light_flow light-state,ui-click:node_p1,ui-click:view_combo,ui-click:view_4,light-state,ui-click:hud,light-state
-[ "$(grep -c '^light state: track AL1 view 0 hud 0 compare off' "$work/lout")" = 1 ] || fail "the window did not open on the Bumper view, no HUD, compare off: $(grep '^light state' "$work/lout")"
-grep -q '^light state: track AL1 view 4 hud 0 ' "$work/lout" || fail "the View combo's Chase far item did not set view 4: $(grep '^light state' "$work/lout")"
-grep -q '^light state: track AL1 view 4 hud 1 ' "$work/lout" || fail "the HUD box did not turn the HUD on: $(grep '^light state' "$work/lout")"
-light_flow ui-click:node_p1,ui-click:compare_1,light-state,ui-click:compare_2,light-state,ui-click:compare_0,light-state
-[ "$(grep '^light state' "$work/lout" | sed 's/.* compare \([a-z]*\) .*/\1/' | tr '\n' ' ')" = "before four off " ] || fail "the Light compare radios (Before, Four times, Off) did not set the mode: $(grep '^light state' "$work/lout")"
-# the Test drive button starts a drive on this track, time and node, and the same button, now Stop test drive, stops it: with a game that stays up (the fake one ends at once, and a second click then starts a new drive)
-# it stays up only as the drive (TNFS_LIGHT_EDIT); the window's photos are the fake game's, or each would be waited for 30 s
-printf '#!/bin/sh\n[ "$TNFS_LIGHT_EDIT" = 1 ] && exec sleep 30\nexec "%s" "$@"\n' "$work/fake_game" > "$work/slow_game"
-chmod +x "$work/slow_game"
-"$editor" --game "$work/slow_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --steps ui-click:node_p1,ui-click:drive,print-drive,light-state,ui-click:drive,light-state > "$work/lout2" 2>&1 || fail "the Test drive / Stop flow: $(tail -3 "$work/lout2")"
-grep -q '^drive: running AL1 B node ' "$work/lout2" || fail "the Test drive button did not start a drive on AL1's Day: $(grep '^drive' "$work/lout2")"
-[ "$(grep '^light state' "$work/lout2" | sed 's/.* drive \([a-z]*\) .*/\1/' | tr '\n' ' ')" = "running stopped " ] || fail "Test drive then Stop test drive did not start and stop the drive: $(grep '^light state' "$work/lout2")"
-light_flow ui-click:add_brightness,light-print,ui-click:brightness0_remove,light-print
-counts=$(grep '^light:' "$work/lout" | sed 's/.* brightness \([0-9]*\) .*/\1/' | tr '\n' ' ')
-[ "$(echo "$counts" | awk '{ print ($2 + 1 == $1) ? "yes" : "no" }')" = yes ] || fail "a brightness line's Remove did not take the line away (counts after Add, after Remove: $counts): $(grep '^light:' "$work/lout")"
-light_flow ui-click:add_brightness,ui-click:track_combo,ui-click:track_CY1,light-state,ui-click:revert,ui-click:track_combo,ui-click:track_CY1,light-state
-grep '^light state' "$work/lout" | sed -n 1p | grep -q 'track AL1 .* error: the file has unsaved changes: Save or Revert before another track$' || fail "a track chosen with unsaved changes was not refused with Save or Revert: $(grep '^light state' "$work/lout")"
-grep '^light state' "$work/lout" | sed -n 2p | grep -q 'Save or Revert' && fail "after Revert the track change was still refused for unsaved changes: $(grep '^light state' "$work/lout")"
-"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --steps patience:30,ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
-grep -q "no such widget drawn" "$work/ui3" || fail "the click on a widget that is not there failed for another reason: $(tail -3 "$work/ui3")"
-"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 4 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"
-"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 4 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the new sections: $(tail -3 "$work/tunnels")"
 fi
 [ "$failures" = 0 ] && echo "ok"
 exit "$failures"

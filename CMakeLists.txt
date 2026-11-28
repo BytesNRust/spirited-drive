@@ -1387,7 +1387,7 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_headless_car_b PROPERTIES TIMEOUT 900)
         add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back
         set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)
-        foreach(part a b c d e f)   # the Track light window headless, six parts side by side (alone the one run took ten minutes: the editor paints a frame in software here): a window and views, more views and the HUD, tunnels/sun/clicks/copy, lamps and kinds, tunnel cells, sun sliders and the rest
+        foreach(part a b c d e f)   # the Track light window headless, six parts side by side (alone the one run took ten minutes: the editor paints a frame in software here): a window, views and the panel's other widgets; more views, the HUD and Copy to; tunnels/sun/clicks, colour and what is refused; lamps and kinds; tunnel cells; the moments' columns and the sun sliders
             add_test(NAME editor_light_window_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_light_window.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_fake_tri> ${part})
             set_tests_properties(editor_light_window_${part} PROPERTIES TIMEOUT 900)
         endforeach()
