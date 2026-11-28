@@ -4,7 +4,11 @@
 # files end with exit 1 and a message naming the file (never a crash), nothing is overwritten without
 # --force, and an edit made in a table reaches the packed file.
 # usage: studio_cli.sh STUDIO_BINARY ORIGINAL_DIR
+# PART=cd (sections 1 and 2), edit (3 to 6) or car (7, 8 and car view) runs those alone (ctest runs the three side by side); unset, all.
 set -u
+part=${PART:-all}
+case $part in all | cd | edit | car) ;; *) echo "FAIL: PART=$part is not cd, edit, car or all" >&2; exit 1 ;; esac
+runs() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 studio=$1
 orig=$2
 work=$(mktemp -d)
@@ -14,6 +18,7 @@ fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
 find_one() { find -L "$orig" -iname "$1" 2>/dev/null | head -1; }
 
+if runs cd; then
 # 1. a file of every kind goes out and comes back identical
 for name in DVIPER.CFM TR1.TRI VIPERSW.BNK DVIPER.PBS DVIPER.PDN TR1_001.FAM CARPAL.FSH; do
     f=$(find_one "$name")
@@ -75,6 +80,8 @@ if [ -n "$f" ]; then
     done
 fi
 
+fi
+if runs edit; then
 # 3. nothing is overwritten without --force
 f=$(find_one TR1.TRI)
 if [ -n "$f" ]; then
@@ -192,6 +199,8 @@ if [ -n "$pbs" ]; then
     grep -q "text inside the EXE" "$work/out" || fail "the car name limit is not mentioned"
 fi
 
+fi
+if runs car; then
 # 8. car import (dep59 tools B2): an OBJ on a piece of car new. No --obj is the usage; a folder with no mod.ini and an OBJ with no
 # wheels are refused and explained; the test car (tests/car_import, tests/test_car_import.c's) gives a piece validate passes, the
 # PDN's first three words the body's measured half sizes, and no high-detail masks left
@@ -277,5 +286,6 @@ if [ -n "$f" ]; then
     grep -q "not a car" "$work/err" || fail "car view: no message for a file that is not a car"
 fi
 
-[ "$failures" -eq 0 ] && echo "studio_cli: all checks passed"
+fi
+[ "$failures" -eq 0 ] && echo "studio_cli ($part): all checks passed"
 exit "$failures"

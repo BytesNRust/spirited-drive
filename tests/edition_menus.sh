@@ -142,15 +142,17 @@ part_modes() {
     log | grep -q "^mark:edition=\|^edition" && fail "modes: Stock or Restored read the edition: $(log | grep "^mark:edition=\|^edition" | head -1)"
 }
 
+# (both races run the race's clock four times faster, TNFS_CLOCK_RATE: the same steps and result, a quarter of the wait)
 # Rusty Springs alone in the edition: Control Central opens on it. One lap with the harness's autopilot; Enter on each results screen once
 # it has faded in (headless the pointer is not over Done at first: on the first screen one Enter wakes it there and a second takes Done)
 part_race() {
     user_in restomod 'solo=name=Solo\ncars=supra\ntracks=rusty\n'
     section race;    add "$to_game_mode,$single,$(wait_for card=3),$(click 56 453)"
     section results; add "0:WAIT:mark:results=circuit:300,300:ENTER,300:ENTER,$(wait_for results=best_totals),300:ENTER,$(wait_for car=2)"
-    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$nomods" || fail "race: a race of car 2 on Rusty Springs did not come back to Control Central"
+    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4" walk "$nomods" || fail "race: a race of car 2 on Rusty Springs did not come back to Control Central"
     [ "$(log | values car | cut -d' ' -f1)" = 2 ] || fail "race: the edition did not open on the supra (2): $(log | values car)"
     log | grep -q "^finish: 0=" || fail "race: the race did not finish"
+    log | grep -q "^clock: rate 4 " || fail "race: the race's clock was not sped up"
     grep -aq "supra" "$work/user/race_records_cars2.dat" 2>/dev/null || fail "race: race_records_cars2.dat has no table of the supra"
 }
 
@@ -163,8 +165,9 @@ part_trackrace() {
     user_in restomod 'solo=name=Solo\ncars=supra\ntracks=dune-run\n'
     section race;    add "$to_game_mode,$single,$(wait_for card=16),$(click 56 453)"
     section results; add "0:WAIT:mark:results=segment:300,300:ENTER,300:ENTER,0:WAIT:mark:results=track:300,300:ENTER,$(wait_for results=best_totals),300:ENTER,$(wait_for car=2)"
-    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$work/piece" || fail "trackrace: a race on an added track did not come back to Control Central"
+    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4" walk "$work/piece" || fail "trackrace: a race on an added track did not come back to Control Central"
     log | grep -q "^finish: 0=" || fail "trackrace: the race did not finish"
+    log | grep -q "^clock: rate 4 " || fail "trackrace: the race's clock was not sped up"
     log | grep -q "could not start" && fail "trackrace: the race did not start: $(log | grep "could not start")"
     [ -s "$work/user/race_records_tracks2.dat" ] || fail "trackrace: race_records_tracks2.dat was not made"
 }

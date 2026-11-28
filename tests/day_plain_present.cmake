@@ -1,4 +1,4 @@
-# usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P day_plain_present.cmake
+# usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> [-DPART=a|b|c] -P day_plain_present.cmake (no PART: every scene)
 # By day, with the tint neutral and the dash's ratio neutral, the present skips the baked light's split (drive_light_needs_split): the world, half and plain
 # palettes are the same. The frame must be the one the split makes (TNFS_FORCE_SPLIT=1), in the day, in the rain, at dusk and at night, and in a day
 # tunnel (TR6, where the car's light ratio is not 1 and the split must still run: its dash art is the half palette).
@@ -28,17 +28,29 @@ function(frame name track time weather node forced)
     set(${name}_md5 "${md5}" PARENT_SCOPE)
 endfunction()
 
-# name track time weather node
+# name track time weather node part
 set(scenes
-    "cy1_day CY1 day clear 70"
-    "tr1_rain TR1 day rain 70"
-    "tr6_tunnel_a TR6 day clear 220"
-    "tr6_tunnel_b TR6 day clear 260"
-    "tr6_tunnel_c TR6 day clear 300"
-    "cy1_dusk CY1 dusk clear 70"
-    "cy1_night CY1 night clear 70")
+    "cy1_day CY1 day clear 70 a"
+    "tr1_rain TR1 day rain 70 a"
+    "tr6_tunnel_a TR6 day clear 220 b"
+    "tr6_tunnel_b TR6 day clear 260 b"
+    "tr6_tunnel_c TR6 day clear 300 b"
+    "cy1_dusk CY1 dusk clear 70 c"
+    "cy1_night CY1 night clear 70 c")
+if(DEFINED PART AND NOT PART MATCHES "^[abc]$")
+    message(FATAL_ERROR "PART=${PART} is not a, b or c")
+endif()
+set(ran 0)
 foreach(scene IN LISTS scenes)
     separate_arguments(f UNIX_COMMAND "${scene}")
+    list(GET f 5 part)
+    if(NOT part MATCHES "^[abc]$")
+        message(FATAL_ERROR "${scene}: no test runs part ${part}")
+    endif()
+    if(DEFINED PART AND NOT part STREQUAL PART)
+        continue()
+    endif()
+    math(EXPR ran "${ran} + 1")
     list(GET f 0 name)
     list(GET f 1 track)
     list(GET f 2 time)
@@ -50,4 +62,7 @@ foreach(scene IN LISTS scenes)
         message(FATAL_ERROR "${name}: the frame differs from the split present's (${${name}_plain_md5} vs ${${name}_split_md5})")
     endif()
 endforeach()
+if(ran EQUAL 0)
+    message(FATAL_ERROR "no scene ran")
+endif()
 file(REMOVE_RECURSE "${WORK}")

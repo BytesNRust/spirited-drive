@@ -1931,7 +1931,26 @@ if(NOT EMSCRIPTEN)
     file(GLOB_RECURSE TNFS_ALL_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/*" "${CMAKE_SOURCE_DIR}/original/GAMEDATA/*"
         "${CMAKE_SOURCE_DIR}/original/FRONTEND/*")
     if(TNFS_ALL_FILES)
-        add_test(NAME resource_exchange_cd COMMAND test_resource_exchange ${TNFS_ALL_FILES})
+        # every game file round-trips, every fourth one in each of four tests side by side
+        set(rx_total 0)
+        foreach(part 1 2 3 4)
+            set(rx_files "")
+            set(rx_i 0)
+            foreach(file IN LISTS TNFS_ALL_FILES)
+                math(EXPR rx_of "${rx_i} % 4 + 1")
+                if(rx_of EQUAL part)
+                    list(APPEND rx_files "${file}")
+                endif()
+                math(EXPR rx_i "${rx_i} + 1")
+            endforeach()
+            list(LENGTH rx_files rx_n)
+            math(EXPR rx_total "${rx_total} + ${rx_n}")
+            add_test(NAME resource_exchange_cd_${part} COMMAND test_resource_exchange ${rx_files})
+        endforeach()
+        list(LENGTH TNFS_ALL_FILES rx_n)
+        if(NOT rx_total EQUAL rx_n)
+            message(FATAL_ERROR "resource_exchange_cd: the four parts hold ${rx_total} files of ${rx_n}")
+        endif()
     endif()
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_test(NAME fam_build_cd COMMAND test_fam_build ${CMAKE_SOURCE_DIR}/original/SIMDATA/ETRACKFM/AL1_001.FAM)
@@ -1946,7 +1965,10 @@ if(NOT EMSCRIPTEN)
     add_test(NAME track_new_generic COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new_generic.sh $<TARGET_FILE:tnfs-studio>)
     set_tests_properties(track_new_generic PROPERTIES TIMEOUT 300)
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
-        add_test(NAME studio_cli COMMAND sh ${CMAKE_SOURCE_DIR}/tests/studio_cli.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
+        foreach(part cd edit car)
+            add_test(NAME studio_cli_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/studio_cli.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
+            set_tests_properties(studio_cli_${part} PROPERTIES ENVIRONMENT "PART=${part}")
+        endforeach()
     endif()
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_test(NAME mods_overlay COMMAND sh ${CMAKE_SOURCE_DIR}/tests/mods_overlay.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
@@ -2679,8 +2701,10 @@ if(NOT EMSCRIPTEN)
         add_test(NAME shadow_without_light COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/shadow_without_light -P ${CMAKE_SOURCE_DIR}/tests/shadow_without_light.cmake)
         set_tests_properties(shadow_without_light PROPERTIES TIMEOUT 120)
         # the day's frame through the plain present (drive_light_needs_split) is the one the split present makes, in a day tunnel too
-        add_test(NAME day_plain_present COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/day_plain_present -P ${CMAKE_SOURCE_DIR}/tests/day_plain_present.cmake)
-        set_tests_properties(day_plain_present PROPERTIES TIMEOUT 600)
+        foreach(part a b c)
+            add_test(NAME day_plain_present_${part} COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/day_plain_present_${part} -DPART=${part} -P ${CMAKE_SOURCE_DIR}/tests/day_plain_present.cmake)
+            set_tests_properties(day_plain_present_${part} PROPERTIES TIMEOUT 600)
+        endforeach()
         # the light editor: saving the light file mid-race must not overrun the lines it draws
         add_test(NAME light_edit_reload COMMAND ${CMAKE_SOURCE_DIR}/tests/light_edit_reload.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_edit_reload)
         set_tests_properties(light_edit_reload PROPERTIES TIMEOUT 120)
@@ -2791,7 +2815,7 @@ if(CMAKE_C_FLAGS MATCHES "-fsanitize")
     set(TNFS_GAME_TEST_TIMEOUT 300)
 endif()
 foreach(name mods_overlay track_new track_piece_drive car_new model_build reference_mod two_tracks_reflectors trail_frame_skip rain_lamps_masked old_files_startup dev_data_default
-             rain_night_headlights hud_lights_view_change menu_music_kept variant_choice_kept shadow_without_light day_plain_present light_edit_reload light_edit_places wipers)
+             rain_night_headlights hud_lights_view_change menu_music_kept variant_choice_kept shadow_without_light day_plain_present_a day_plain_present_b day_plain_present_c light_edit_reload light_edit_places wipers)
     if(TEST ${name})
         set_tests_properties(${name} PROPERTIES TIMEOUT ${TNFS_GAME_TEST_TIMEOUT})
     endif()
@@ -2822,7 +2846,7 @@ set(TNFS_E2E_TESTS
     editor_light_window_a editor_light_window_b editor_light_window_c editor_light_window_d editor_light_window_e editor_light_window_f
     editor_original_track_flow_a
     editor_original_track_flow_b editor_original_track_flow_c
-    studio_cli
+    studio_cli_cd studio_cli_edit studio_cli_car
     car_piece_race_giveup
     car_piece_race_finish
     car_piece_race_replay
