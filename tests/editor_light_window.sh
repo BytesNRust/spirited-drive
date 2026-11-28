@@ -41,7 +41,82 @@ export FAKE_RECORD="$work/record"
 before=$(cksum < "$work/light/track_light/AL1.txt")
 
 f="$work/light/track_light/AL1.txt"
-fixture() { cat > "$f"; }   # the light file as the flows before this part left it
+# The starting files of the later flows: each is what an earlier flow leaves, byte for byte. fixture writes one; left checks, at the end of the flow that makes it, that it still does
+fx_d() { cat <<'TXT'
+# tnfs track light 2
+track AL1
+tunnel 10 20
+tunnel 60 71
+
+time B
+  sun 84 30 70
+  tunnel_look 100
+  tunnel_look 60 71 90 lamps 220
+  brightness 0 50 100 p1,p3,p5
+TXT
+}
+fx_kind() { cat <<'TXT'
+# tnfs track light 2
+track AL1
+tunnel 12 20 gradient 8
+tunnel 60 71 gradient 0
+
+time B
+  sun 84 30 70
+  tunnel_look 85
+  tunnel_look 60 71 65 lamps 220 reach 3
+  brightness 0 50 100 p1,p3,p5
+  tunnel_look 12 20 lamps 120
+
+time A
+  tunnel_look 12 20 lamps 120
+  tunnel_look 60 71 lamps 220
+
+time C
+  tunnel_look 12 20 lamps 120
+  tunnel_look 60 71 lamps 220
+
+time N
+  tunnel_look 12 20 lamps 120
+  tunnel_look 60 71 lamps 220
+TXT
+}
+fx_e() { cat <<'TXT'
+# tnfs track light 2
+track AL1
+tunnel 10 20
+tunnel 60 71
+
+time B
+  sun 84 30 70
+  tunnel_look 100
+  tunnel_look 60 71 90 lamps 220
+  brightness 0 50 100 p1,p3,p5
+TXT
+}
+fx_f() { cat <<'TXT'
+# tnfs track light 2
+track AL1
+tunnel 14 20 lit
+
+time B
+  sun 84 30 70
+  tunnel_look 85
+  brightness 0 50 100 p1,p3,p5
+  tunnel_look 14 20 lamps 120
+
+time A
+  tunnel_look 14 20 lamps 120
+
+time C
+  tunnel_look 14 20 lamps 120
+
+time N
+  tunnel_look 14 20 lamps 120
+TXT
+}
+fixture() { "$1" > "$f"; }
+left() { "$1" | cmp -s - "$f" || fail "the flows no longer leave the file that $1 starts the next one from: $("$1" | diff - "$f" | head -8)"; }
 views_run() {
     i=$1; shift
     for want in "$@"; do
@@ -164,20 +239,10 @@ printf '# tnfs track light 2\ntrack AL1\n\ntime B\n  brightness 5 9 60\n' > "$wo
     --steps ui-click:brightness0_copy,ui-click:brightness0_copy_all,light-note,ui-click:save > "$work/copy_all" 2>&1 || fail "the Copy to All others flow: $(tail -3 "$work/copy_all")"
 grep '^light note' "$work/copy_all" | tail -1 | grep -q "Copied to Dawn, Dusk, Night" || fail "All others did not copy to the three: $(grep '^light note' "$work/copy_all")"
 [ "$(grep -c '^  brightness 5 9 60$' "$work/copyl/track_light/AL1.txt")" = 4 ] || fail "the file does not have the line at the four times: $(cat "$work/copyl/track_light/AL1.txt")"
+left fx_d
 fi
 if runs d; then
-fixture <<'TXT'
-# tnfs track light 2
-track AL1
-tunnel 10 20
-tunnel 60 71
-
-time B
-  sun 84 30 70
-  tunnel_look 100
-  tunnel_look 60 71 90 lamps 220
-  brightness 0 50 100 p1,p3,p5
-TXT
+fixture fx_d
 cksum < "$f" > "$work/ui_cksum"
 # the window's other widgets, clicked: the node buttons move the photo's node, Add tunnel adds a tunnel, a moment's button keeps the one file's edits, Revert puts the file back as it was opened.
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 \
@@ -205,31 +270,8 @@ grep -q '^  lamp 80 60 left$' "$work/light/track_light/AL1.txt" || fail "the typ
 m1=$(grep '^light: ' "$work/lamps2" | sed -n 1p | sed 's/.* lamps \([0-9]*\) .*/\1/'); m2=$(grep '^light: ' "$work/lamps2" | sed -n 2p | sed 's/.* lamps \([0-9]*\) .*/\1/')
 [ "$((m1 - m2))" = 1 ] || fail "a lamp row's Remove did not take the lamp away: $m1 -> $m2"
 grep -q '^  lamp 80 60' "$work/light/track_light/AL1.txt" && fail "the removed lamp is still in the saved file"
-fixture <<'TXT'
-# tnfs track light 2
-track AL1
-tunnel 12 20 gradient 8
-tunnel 60 71 gradient 0
-
-time B
-  sun 84 30 70
-  tunnel_look 85
-  tunnel_look 60 71 65 lamps 220 reach 3
-  brightness 0 50 100 p1,p3,p5
-  tunnel_look 12 20 lamps 120
-
-time A
-  tunnel_look 12 20 lamps 120
-  tunnel_look 60 71 lamps 220
-
-time C
-  tunnel_look 12 20 lamps 120
-  tunnel_look 60 71 lamps 220
-
-time N
-  tunnel_look 12 20 lamps 120
-  tunnel_look 60 71 lamps 220
-TXT
+left fx_e
+fixture fx_kind
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 60 \
     --steps ui-click:tunnel0_from,ui-click:tunnel0_kind,ui-click:tunnel0_kind_hall,ui-click:save,light-print > "$work/tkind" 2>&1 || fail "the clicked Kind combo: $(tail -3 "$work/tkind")"
 grep -q '^tunnel 12 20 lit' "$f" || fail "the Kind combo's hall is not in the saved file: $(grep '^tunnel' "$f")"
@@ -259,20 +301,10 @@ grep -q '^  tunnel_look 100 1/0.8/0.15$' "$work/light2/track_light/AL1.txt" || f
 grep -q '^tunnel 14 20 lit' "$f" || fail "the moved tunnel is not at 14: $(grep '^tunnel' "$f")"
 [ "$(grep -Ec '^  tunnel_look 14 20 ' "$f")" = 4 ] && ! grep -q '^  tunnel_look 12 20 ' "$f" || fail "the looks did not move with the tunnel in the four moments: $(grep -n 'tunnel_look' "$f")"
 grep -q '60 71' "$f" && fail "Remove left the second tunnel or one of its looks: $(grep -n '60 71' "$f")"
+left fx_f
 fi
 if runs e; then
-fixture <<'TXT'
-# tnfs track light 2
-track AL1
-tunnel 10 20
-tunnel 60 71
-
-time B
-  sun 84 30 70
-  tunnel_look 100
-  tunnel_look 60 71 90 lamps 220
-  brightness 0 50 100 p1,p3,p5
-TXT
+fixture fx_e
 # the Tunnels table, clicked (its Show choice picks the value the four moment columns hold): the nodes typed into From, the default row's and a tunnel's Light %, Lamps % and Reach (a reach out of 0.5..4 is refused with its reason), the Kind combo; Save writes them
 sed -i.bak '/^  lamp /d' "$work/light/track_light/AL1.txt" && rm -f "$work/light/track_light/AL1.txt.bak"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 80 \
@@ -300,28 +332,10 @@ grep -q '^tunnel 12 20 gradient 8$' "$f" || fail "a Gradient past 8 was not held
 [ "$(grep -Ec '^  tunnel_look 12 20 .*lamps 120' "$f")" = 4 ] || fail "typing the Lamps % in the other columns did not write the tunnel's lamps 120 in the four moments: $(grep -n 'time\|tunnel_look' "$f")"
 [ "$(grep -Ec '^  tunnel_look 60 71 .*lamps 220' "$f")" = 4 ] || fail "the second tunnel's lamps 220 is not in the four moments: $(grep -n 'time\|tunnel_look' "$f")"
 [ "$(grep -Ec '^  tunnel_look [0-9]+ [0-9]+ .*reach 3' "$f")" = 1 ] || fail "a value other than the lamps was written with them (the Reach 3 of the Day row): $(grep -n 'tunnel_look' "$f")"
+left fx_kind
 fi
 if runs f; then
-fixture <<'TXT'
-# tnfs track light 2
-track AL1
-tunnel 14 20 lit
-
-time B
-  sun 84 30 70
-  tunnel_look 85
-  brightness 0 50 100 p1,p3,p5
-  tunnel_look 14 20 lamps 120
-
-time A
-  tunnel_look 14 20 lamps 120
-
-time C
-  tunnel_look 14 20 lamps 120
-
-time N
-  tunnel_look 14 20 lamps 120
-TXT
+fixture fx_f
 # the Sun's other two sliders and the three "auto" ticks, clicked: Height and Shadow strength set (the slider's ends are +-76 and the click at 0.9 of its width 76), each part unticked in turn (a "-" in the
 # line: the generator's own), and a sun with every part auto is no line at all; the file is saved after each flow
 sun_flow() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps "$1" > "$work/sunout" 2>&1 || fail "the sun flow $1: $(tail -3 "$work/sunout")"; }
