@@ -840,8 +840,9 @@ static int run(App *a, const Options *o)
         if (o->steps != NULL) steps_frame(&steps, a, win);
         set_title(win, a);
         ++frame;
-        /* a headless run waits for its steps, and for the Track light pictures in the making (bounded: a game that never ends cannot hold it) */
-        if (headless && frame >= o->frames && !steps_running(&steps) && !(light_busy && frame < o->frames + LIGHT_WAIT_FRAMES)) {
+        /* a headless run waits for its steps, and for the Track light pictures in the making (bounded: a game that never ends cannot hold it); one that takes a picture also for the photo still to be started */
+        const int light_waits = light_busy || (o->shot != NULL && app_light_photo_due(a));
+        if (headless && frame >= o->frames && !steps_running(&steps) && !(light_waits && frame < o->frames + LIGHT_WAIT_FRAMES)) {
             if (o->model_shot != NULL && !ui_model_save_picture(o->model_shot)) {
                 fprintf(stderr, "--model-shot: the Model has no picture to write\n");
                 ok = 0;

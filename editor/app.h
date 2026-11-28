@@ -487,6 +487,8 @@ int app_light_photo(App *a);
 /* Every frame, with the clock `now` in seconds: takes the photo job's output and picture, and starts the photo that is due once `now` is LIGHT_UI_SETTLE past the last
  * change. 1 while a job runs. */
 int app_light_poll(App *a, double now);
+/* 1 while a change still waits for its photo (the settle time, before app_light_poll starts it) */
+int app_light_photo_due(const App *a);
 /* part D: what is shown beside the photo, LIGHT_COMPARE_OFF, _BEFORE (the files as they are on disk) or _FOUR (the four times of day); the pictures are made on the poll */
 void app_light_set_compare(App *a, int mode);
 /* The test drive (light_drive.h): the game in a window of its own on this track, time and node, the working copy in front of the real files; each edit rewrites the copy and the

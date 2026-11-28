@@ -413,6 +413,12 @@ int app_light_poll(App *a, double now)
     return light_compare_poll(&ui->compare, &ui->session, ui->edit_serial, light_ui_time_letter(ui->time), ui->node, ui->view, ui->hud, a->game, a->export_src.cd, waiting);
 }
 
+int app_light_photo_due(const App *a)
+{
+    const LightUi *ui = &a->light;
+    return ui->open && ui->session.has_file && ui->edit_serial != ui->photo_serial && ui->drive.state != LIGHT_DRIVE_RUNNING;
+}
+
 void app_light_free(App *a)
 {
     light_drive_free(&a->light.drive);
