@@ -115,7 +115,7 @@ part_race() {
 }
 
 part_card() {
-    command -v magick >/dev/null 2>&1 && command -v zsh >/dev/null 2>&1 || { echo "skip: card (needs zsh and ImageMagick)"; return; }
+    command -v zsh >/dev/null 2>&1 || { echo "skip: card (needs zsh)"; return; }
     printf 'name=Solo\ncars=supra\ntracks=dune-run\n' > "$work/solo.ini"
     mkdir -p "$work/pics"
     MODS="$work/pieces/dune-run" EDITION="$work/solo.ini" DATA="$orig" zsh "$(dirname "$0")/../tools/menu_walk.sh" "$tnfs" "$work/pics" added-track >"$work/walk.log" 2>&1 ||
@@ -124,7 +124,7 @@ part_card() {
 }
 
 part_page() {
-    command -v magick >/dev/null 2>&1 && command -v zsh >/dev/null 2>&1 || { echo "skip: page (needs zsh and ImageMagick)"; return; }
+    command -v zsh >/dev/null 2>&1 || { echo "skip: page (needs zsh)"; return; }
     printf 'name=Solo\ncars=supra\ntracks=dune-run\n' > "$work/solo.ini"
     mkdir -p "$work/pics"
     MODS="$work/pieces/dune-run" EDITION="$work/solo.ini" DATA="$orig" zsh "$(dirname "$0")/../tools/menu_walk.sh" "$tnfs" "$work/pics" added-page >"$work/walk.log" 2>&1 ||
