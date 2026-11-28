@@ -823,3 +823,4 @@
 0.1 update_check
 0.1 win_movie
 0.1 wrong_way
+0.5 gate_pictures

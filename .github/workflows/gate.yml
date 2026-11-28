@@ -17,6 +17,14 @@ on:
         description: "The macOS shards too (Apple Silicon): the same tests and the same public log; off by default"
         type: boolean
         default: false
+      base:
+        description: "The previous main's commit, whose menus this build's are compared with (a full or short hash on this branch's history); empty: the last green Gate on main"
+        type: string
+        default: ""
+      expected_menus:
+        description: "Menu targets whose pictures are meant to differ from the previous main's (words, e.g. game-mode content)"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -105,6 +113,9 @@ jobs:
           # the log is public: ctest's own lines only (each test's name, result and time, and the list of the failed ones). Never --output-on-failure or -V: a test's output can
           # carry what it read from the CD (paths, names, dumps). To see why one failed, run it on a machine that has the data. tests/cd_data_fetch.sh checks this
           nix develop -c ctest --test-dir build -I "$select" --timeout 1200 -j "$(nproc)"
+      - name: Skipped parts
+        if: always()
+        run: sh tools/ci_skipped_parts.sh build
       - name: Delete the CD data
         if: always()
         run: rm -rf "${RUNNER_TEMP:?}/cd" "${GITHUB_WORKSPACE:?}/original"
@@ -186,17 +197,81 @@ jobs:
           select=$(python3 -I tools/ci_shards.py tests.json tests/ci/costs-${{ matrix.build }}.txt ${{ matrix.shards }} ${{ matrix.shard }} build/Testing/Temporary/CTestCostData.txt)   # ctest starts the longest tests first
           # the log is public: as on Linux, ctest's own lines only
           ctest --test-dir build -I "$select" --timeout 1200 -j "$(sysctl -n hw.ncpu)"
+      - name: Skipped parts
+        if: always()
+        run: sh tools/ci_skipped_parts.sh build
       - name: Delete the CD data
         if: always()
         run: rm -rf "${RUNNER_TEMP:?}/cd" "${GITHUB_WORKSPACE:?}/original"
 
+  # the picture checks (tools/gate_pictures.sh: verdict lines only). The menus are compared with the previous main's binary, built here from its own commit with that commit's
+  # flake: it is our public code and holds nothing of the CD, so no binary is stored anywhere. The commit must be in this branch's history: it is built and run beside the data
+  pictures:
+    name: gate · pictures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: cd-data
+    permissions:
+      contents: read
+      actions: read   # to find the last green Gate on main
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # first, as in the test jobs: no third-party action or install runs ahead of the step that holds the key
+      - uses: ./.github/actions/cd-data
+        with:
+          age-key: ${{ secrets.CD_AGE_KEY }}
+          repo-token: ${{ secrets.CD_REPO_TOKEN }}
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-ubuntu-24.04-release-${{ github.sha }}
+          restore-keys: ccache-ubuntu-24.04-release-
+      - name: The reference (the previous main)
+        env:
+          BASE: ${{ inputs.base || github.event.merge_group.base_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          base=$BASE
+          if [ -z "$base" ]; then base=$(gh run list -R "$GITHUB_REPOSITORY" --workflow gate.yml --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // empty'); fi
+          case $base in ''|*[!0-9a-f]*) echo "::error::no reference commit: no green Gate on main yet, give the input base"; exit 1 ;; esac
+          git merge-base --is-ancestor "$base" HEAD || { echo "::error::the reference is not in this branch's history"; exit 1; }
+          echo "reference $(git rev-parse "$base")"
+          git worktree add -q --detach "${RUNNER_TEMP:?}/ref" "$base"
+          cd "$RUNNER_TEMP/ref"
+          nix develop -c cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          nix develop -c cmake --build build --target tnfs
+      - name: Build
+        run: |
+          nix develop -c cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          nix develop -c cmake --build build --target tnfs tnfs-studio
+      - name: The pictures
+        env:
+          EXPECTED: ${{ inputs.expected_menus }}
+        run: nix develop -c nix shell --inputs-from . nixpkgs#imagemagick -c sh tools/gate_pictures.sh "${RUNNER_TEMP:?}/ref/build/tnfs" build "$RUNNER_TEMP/pictures"
+      - name: Delete the CD data
+        if: always()
+        run: rm -rf "${RUNNER_TEMP:?}/cd" "${RUNNER_TEMP:?}/pictures" "${GITHUB_WORKSPACE:?}/original"
+
   gate:
     name: gate
-    needs: [test, test-macos]
+    needs: [test, test-macos, pictures]
     if: always()
     runs-on: ubuntu-24.04
     steps:
       - name: Every shard passed
         run: |
           test "${{ needs.test.result }}" = success
+          test "${{ needs.pictures.result }}" = success
           test "${{ needs.test-macos.result }}" = "${{ inputs.macos && 'success' || 'skipped' }}"

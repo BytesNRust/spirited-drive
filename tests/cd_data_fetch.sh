@@ -36,19 +36,25 @@ refuses "exists already" "$work/there" CD_AGE_KEY=x CD_REPO_TOKEN=x
 
 # the public log of the CD jobs: the workflow never prints a test's output and uploads nothing
 flow=${1}/.github/workflows/gate.yml
-bad=$(sed 's/#.*//' "$flow" | grep -nE -e '--output-on-failure|--test-output-size|--verbose|--extra-verbose| -VV? |CTEST_OUTPUT_ON_FAILURE|upload-artifact|LastTest' || true)
+code() { sed -e 's/^#.*//' -e 's/[[:space:]]#.*//' "$1"; }   # without its comments; a # inside a word (nixpkgs#imagemagick) is not one, and hides nothing after it
+bad=$(code "$flow" | grep -nE -e '--output-on-failure|--test-output-size|--verbose|--extra-verbose| -VV? |CTEST_OUTPUT_ON_FAILURE|upload-artifact|LastTest' || true)
 [ -z "$bad" ] || fail "gate.yml would put test output or files in public: $bad"
-[ "$(sed 's/#.*//' "$flow" | grep -c 'ctest --test-dir build -I ')" = 2 ] || fail "gate.yml's two test steps (Linux, macOS) are not where this check looks"
+[ "$(code "$flow" | grep -c 'ctest --test-dir build -I ')" = 2 ] || fail "gate.yml's two test steps (Linux, macOS) are not where this check looks"
+# the picture checks run only through tools/gate_pictures.sh, which prints verdicts: the tools it runs would put the game's logs in public
+direct=$(code "$flow" | grep -nE 'golden_frames|frame_compare|menu_compare|menu_walk' || true)
+[ -z "$direct" ] || fail "gate.yml runs a picture tool itself: $direct"
+code "$flow" | grep -q 'sh tools/gate_pictures.sh ' || fail "gate.yml's picture checks are not where this check looks"
+
 # every job that holds the key takes the data before any other action, and deletes it whatever happened
-awkout=$(sed 's/#.*//' "$flow" | awk '
+awkout=$(code "$flow" | awk '
     /^  [a-z][a-z0-9-]*:[[:space:]]*$/ { job = $1; seen = 0 }
     /^      - / || /^        uses:/ { if (match($0, /uses: *[^ ]+/)) { u = substr($0, RSTART + 5, RLENGTH - 5); gsub(/^ +/, "", u); if (u !~ /^actions\/checkout@/ && !seen) { if (u == "./.github/actions/cd-data") { seen = 1; held[job] = 1 } else first[job] = u } } }
     /rm -rf "\$\{RUNNER_TEMP:\?\}\/cd"/ { del[job] = 1 }
-    END { for (j in held) { n++; if (j in first) print j " runs " first[j] " before cd-data"; if (!(j in del)) print j " does not delete the data" } if (n != 2) print "jobs that take the data: " n+0 }')
+    END { for (j in held) { n++; if (j in first) print j " runs " first[j] " before cd-data"; if (!(j in del)) print j " does not delete the data" } if (n != 3) print "jobs that take the data: " n+0 }')
 [ -z "$awkout" ] || fail "gate.yml's jobs with the data: $awkout"
 
 # the one cache a gate run saves: the sanitizers' compiler objects, from main only (a branch's objects must never feed main's gate), after the build and before the tests
-saves=$(sed 's/#.*//' "$flow" | awk '
+saves=$(code "$flow" | awk '
     function check() { if (step ~ /uses: *actions\/cache(\/save)?@/) { n++
             if (step !~ /if: github\.ref == .refs\/heads\/main. && matrix\.build == .asan. && matrix\.shard == 1[[:space:]]*\n/) print "a save without the main-only condition"
             if (step !~ /key: ccache-ubuntu-24\.04-sanitizers-/) print "a save that is not the sanitizers ccache"

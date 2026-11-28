@@ -2805,6 +2805,8 @@ if(UNIX AND Python3_FOUND)
     set_tests_properties(ci_shards PROPERTIES TIMEOUT 120)
     add_test(NAME cd_data_fetch COMMAND sh ${CMAKE_SOURCE_DIR}/tests/cd_data_fetch.sh ${CMAKE_SOURCE_DIR})
     set_tests_properties(cd_data_fetch PROPERTIES TIMEOUT 60)
+    add_test(NAME gate_pictures COMMAND sh ${CMAKE_SOURCE_DIR}/tests/gate_pictures.sh ${CMAKE_SOURCE_DIR})
+    set_tests_properties(gate_pictures PROPERTIES TIMEOUT 60)
 endif()
 # tools/menu_walk.sh fails a walk whose WAIT timed out (a stand-in for the game, no game data; skipped without zsh or timeout)
 if(UNIX)
@@ -2894,7 +2896,7 @@ endif()
 set(TNFS_STATIC_CHECKS
     readme_wording text_binarized_lint car_mask_class_table car_mask_psd masks_status track_mask_psd dash_mask_psd dash_psd_update
     frame_pick free_udp_ports spirited_logo spirited_icon profile_tables profile_tables_sabotage editor_ui_words
-    editor_loose_text track_groups skip_codes ci_shards cd_data_fetch)
+    editor_loose_text track_groups skip_codes ci_shards cd_data_fetch gate_pictures)
 set(TNFS_E2E_TESTS
     car_lamps_by_mask_game    editor_headless_track_a
     editor_headless_track_b editor_headless_track_c editor_headless_track_d
