@@ -48,17 +48,17 @@ mkdir -p "$work/oldws/tracks/CL1/light/track" "$work/oldws/tracks/CL1/light/trac
 printf 'old\n' > "$work/oldws/tracks/CL1/light/track/CL1.txt"
 for t in A B C N; do printf 'old\n' > "$work/oldws/tracks/CL1/light/track_light/CL1$t.txt"; done
 cp "$work/ws/tracks/CL1/original.ini" "$work/oldws/tracks/CL1/original.ini" || fail "no original.ini to copy for the old workspace"
-out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 30 --steps tweak-open-row:CL1,status 2>&1) || fail "Open on an old workspace's CL1: $out"
+out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 4 --steps tweak-open-row:CL1,status 2>&1) || fail "Open on an old workspace's CL1: $out"
 echo "$out" | grep -q "^status: tweak CL1: " || fail "Open did not say what it did: $out"
 [ -f "$work/oldws/tracks/CL1/light/track_light/CL1.txt" ] || fail "the old workspace did not get the one light file"
 [ -f "$work/oldws/tracks/CL1/light/track/CL1.txt" ] && fail "the old light file light/track/CL1.txt is still there"
 for t in A B C N; do [ -f "$work/oldws/tracks/CL1/light/track_light/CL1$t.txt" ] && fail "the old light file CL1$t.txt is still there"; done
-out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 20 --steps open-original:3,repo-ask,print-original 2>&1) || fail "open on the old workspace: $out"
+out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u2" --workspace "$work/oldws" --port-data "$work/data" --art-dir "$work/art" --window 1280x800 --frames 4 --steps open-original:3,repo-ask,print-original 2>&1) || fail "open on the old workspace: $out"
 echo "$out" | grep -q 'the project has no track_light' && fail "Copy to game repo finds no light file in the old workspace after Add originals: $out"
 echo "$out" | grep -q '^preview: CL1:.*1 unchanged' || fail "the old workspace's CL1 has something to publish after Add originals: $out"
 
 # open one: the Tracks room, its own light folder, the track fixed; the copy item is there
-out=$(run --frames 20 --steps open-original:3,repo-ask,print-original,print-menu 2>&1) || fail "open-original: $out"
+out=$(run --frames 4 --steps open-original:3,repo-ask,print-original,print-menu 2>&1) || fail "open-original: $out"
 echo "$out" | grep -q "^original: $work/ws/tracks/CL1$" || fail "the original track is open: $out"
 echo "$out" | grep -q "^light: $work/ws/tracks/CL1/light$" || fail "the light folder is the track's own: $out"
 echo "$out" | grep -q '^track: CL1 time: B$' || fail "CL1 at day: $out"
@@ -67,7 +67,7 @@ echo "$out" | grep -q '^preview: CL1:.*1 unchanged' || fail "an untouched track 
 
 # an edited light file: the preview names it, Copy writes it into data/ and nothing else
 printf 'time N\nbrightness 0 5 120\n' >> "$work/ws/tracks/CL1/light/track_light/CL1.txt"
-out=$(run --frames 20 --steps open-original:3,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish: $out"
+out=$(run --frames 4 --steps open-original:3,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish: $out"
 echo "$out" | grep -q 'track_light/CL1.txt changed (+2 -0 lines)' || fail "the preview names the edited file: $out"
 grep -q '^brightness 0 5 120$' "$work/data/track_light/CL1.txt" || fail "data/ did not get the edited file"
 echo "$out" | grep -q '^status: copied to the game repo: 1 file written' || fail "the status says what was written: $out"
@@ -78,18 +78,18 @@ echo "$out" | grep -q '^status: copied to the game repo: 1 file written' || fail
 : > "$work/ws/tracks/CL1/light/track_light/CL1.txt"
 printf '# tnfs track light 2\ntrack CL1\ntunnel 10 20\n\ntime B\n  sun 150 50 55\n  tunnel_look 100\n' > "$work/ws/tracks/CL1/light/track_light/CL1.txt"
 before=$(cksum < "$work/ws/tracks/CL1/light/track_light/CL1.txt")
-out=$(run --frames 20 --steps open-original:3,sun:120,30,70,light-bright:50,light-tone:64,light-lamp:150,tunnel-lamps:0,200,light-print,save,light-print 2>&1) || fail "user flow, edit: $out"
+out=$(run --frames 4 --steps open-original:3,sun:120,30,70,light-bright:50,light-tone:64,light-lamp:150,tunnel-lamps:0,200,light-print,save,light-print 2>&1) || fail "user flow, edit: $out"
 echo "$out" | grep -q '^light: CL1 nodes [0-9]* time B (unsaved) tunnels 1 looks 2 lamps 1 brightness 1 tones 1 .*sun 120 30 70$' || fail "the edits are not in the window's model: $(echo "$out" | grep '^light:')"
 echo "$out" | grep '^light:' | tail -1 | grep -q '(unsaved)' && fail "Save left the unsaved mark: $(echo "$out" | grep '^light:')"
 f=$work/ws/tracks/CL1/light/track_light/CL1.txt
 for line in '  sun 120 30 70' '  lamp 0 150' '  tone 0 20 road 404040:60' '  tunnel_look 10 20 lamps 200' ; do grep -q "^$line" "$f" || fail "Save did not write '$line': $(cat "$f")"; done
 grep -q '^  brightness 0 50 50' "$f" || fail "Save did not write the brightness line: $(cat "$f")"
 [ "$(cksum < "$f")" != "$before" ] || fail "Save changed nothing"
-out=$(run --frames 20 --steps open-original:3,light-print,light-remove:1,light-print,save,light-print 2>&1) || fail "user flow, reopen: $out"
+out=$(run --frames 4 --steps open-original:3,light-print,light-remove:1,light-print,save,light-print 2>&1) || fail "user flow, reopen: $out"
 echo "$out" | grep '^light:' | head -1 | grep -q 'lamps 1 brightness 1 tones 1 ' || fail "the saved lines were not read back when the track was opened again: $(echo "$out" | grep '^light:')"
 echo "$out" | grep '^light:' | tail -1 | grep -q 'brightness 1 tones 0 ' || fail "Remove did not take the tone away: $(echo "$out" | grep '^light:')"
 grep -q '^  tone ' "$f" && fail "the removed tone is still in the file: $(cat "$f")"
-out=$(run --frames 20 --steps open-original:3,repo-ask,print-original,repo-copy 2>&1) || fail "user flow, copy: $out"
+out=$(run --frames 4 --steps open-original:3,repo-ask,print-original,repo-copy 2>&1) || fail "user flow, copy: $out"
 echo "$out" | grep -q 'track_light/CL1.txt changed' || fail "the preview does not name the edited file: $out"
 cmp -s "$f" "$work/data/track_light/CL1.txt" || fail "data/ does not have the edited file, line for line: $(cat "$work/data/track_light/CL1.txt")"
 [ "$(grep -c '^  sun\|lamp' "$work/data/track_light/AL1.txt")" = 0 ] || fail "another track's file was changed"
@@ -134,7 +134,7 @@ if want c; then
 [ "$part" = all ] || run --frames 4 --steps add-originals >/dev/null 2>&1 || fail "part c: add-originals"   # part c alone starts from the sixteen the hub makes, as part b does
 [ "$part" = all ] || run --window 854x560 --reset-layout --frames 30 --steps open-original:0,poll-wait:6,print-panels >/dev/null 2>&1   # the dock the layout check of part b leaves, which the clicks below rely on
 stamp "part c starts"
-out=$(run --frames 20 --steps open-original:0,masks-print 2>&1) || fail "masks-print: $out"
+out=$(run --frames 4 --steps open-original:0,masks-print 2>&1) || fail "masks-print: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "three masks, all made: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective, 0 lamps$' || fail "scenery_00 ok: $out"
 echo "$out" | grep -q '^mask slot_00: ok, 4x1, 1 reflective, 1 lamps$' || fail "slot_00 has its lamp: $out"
@@ -143,7 +143,7 @@ echo "$out" | grep -q '^mask slot_01: no mask painted in the PSD, 4x1, 0 reflect
 [ -f "$work/ws/tracks/AL1/art-generated/track_masks/slot_01.png" ] && fail "a PNG was made from an empty mask layer"
 # a click on a row of the Texture table is quick on a slow volume: it reads at most its one PNG and never the game's whole track file again (a click once opened and decoded it, a freeze of seconds
 # on a network volume); only the scan (opening the track, Re-scan) reads the file
-out=$(run --frames 20 --steps open-original:0,masks-print,masks-reads,mask-select:0,mask-select:2,mask-select:0,mask-select:2,mask-select:0,masks-reads 2>&1) || fail "clicks: $out"
+out=$(run --frames 4 --steps open-original:0,masks-print,masks-reads,mask-select:0,mask-select:2,mask-select:0,mask-select:2,mask-select:0,masks-reads 2>&1) || fail "clicks: $out"
 opens_before=$(echo "$out" | sed -n 's/^masks reads: fam opens \([0-9]*\), files [0-9]*$/\1/p' | sed -n 1p)
 opens_after=$(echo "$out" | sed -n 's/^masks reads: fam opens \([0-9]*\), files [0-9]*$/\1/p' | sed -n 2p)
 files_before=$(echo "$out" | sed -n 's/^masks reads: fam opens [0-9]*, files \([0-9]*\)$/\1/p' | sed -n 1p)
@@ -151,13 +151,13 @@ files_after=$(echo "$out" | sed -n 's/^masks reads: fam opens [0-9]*, files \([0
 [ -n "$opens_before" ] && [ -n "$opens_after" ] || fail "no reads line: $out"
 [ "$opens_after" = "$opens_before" ] || fail "five clicks read the game's track file again ($opens_before -> $opens_after fam opens): $out"
 [ $((files_after - files_before)) -le 5 ] || fail "five clicks read more than a PNG each ($files_before -> $files_after files): $out"
-out=$(run --frames 20 --steps "open-original:0,masks-print,masks-reads,ui-focus:Track masks,ui-click:tmask_rescan,masks-reads" 2>&1) || fail "re-scan: $out"
+out=$(run --frames 4 --steps "open-original:0,masks-print,masks-reads,ui-focus:Track masks,ui-click:tmask_rescan,masks-reads" 2>&1) || fail "re-scan: $out"
 a=$(echo "$out" | sed -n 's/^masks reads: fam opens \([0-9]*\), files [0-9]*$/\1/p' | sed -n 1p)
 b=$(echo "$out" | sed -n 's/^masks reads: fam opens \([0-9]*\), files [0-9]*$/\1/p' | sed -n 2p)
 [ "$b" -gt "$a" ] || fail "Re-scan did not read the track's file again ($a -> $b): $out"
 
 # copy to game repo lists the PNGs, the copy puts them in data/track_masks/<TRACK>/ and a second one finds nothing to do
-out=$(run --frames 20 --steps open-original:0,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish masks: $out"
+out=$(run --frames 4 --steps open-original:0,repo-ask,print-original,repo-copy,repo-ask,print-original 2>&1) || fail "publish masks: $out"
 echo "$out" | grep -q 'track_masks/AL1/scenery_00.png new' || fail "the preview lists the new PNG: $out"
 [ -f "$work/data/track_masks/AL1/slot_00.png" ] && [ -f "$work/data/track_masks/AL1/scenery_00.png" ] || fail "the PNGs are not in data/track_masks/AL1"
 echo "$out" | grep -q '^preview: AL1: *3 unchanged' || fail "after publishing nothing is left to publish: $out"
@@ -220,25 +220,25 @@ def chunk(kind, data): return struct.pack(">I", len(data)) + kind + data + struc
 row = b"\x00" + bytes([255, 255, 255, 255])
 open(sys.argv[1], "wb").write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 1, 8, 0, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(row)) + chunk(b"IEND", b""))
 PY
-out=$(run --frames 20 --steps open-original:0,masks-print 2>&1) || fail "edited: $out"
+out=$(run --frames 4 --steps open-original:0,masks-print 2>&1) || fail "edited: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "one PNG is edited by hand: $out"
 echo "$out" | grep -q '^mask scenery_00: edited by hand, 4x1, 4 reflective' || fail "it is kept as it is: $out"
-out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_only,masks-print,status" 2>&1) || fail "the status of an edited mask: $out"
+out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_only,masks-print,status" 2>&1) || fail "the status of an edited mask: $out"
 echo "$out" | grep -qF 'masks: 1 PNG edited by hand, kept as they are (Update this mask from its PSD makes it again)' || fail "the words about a PNG edited by hand name the button as it is: $out"
 # Update masks from PSD on the edited one asks first (Replace / Keep / Cancel, as a car's does): Cancel and Keep leave the PNG byte for byte as it is, Replace puts the PSD's mask back
 edited_png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
 cp "$edited_png" "$work/edited_scenery.png"
 for answer in tmask_cancel tmask_keep; do
-    out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,ui-click:$answer,masks-print" 2>&1) || fail "$answer: $out"
+    out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,ui-click:$answer,masks-print" 2>&1) || fail "$answer: $out"
     cmp -s "$edited_png" "$work/edited_scenery.png" || fail "$answer in the question changed the PNG edited by hand: $out"
     echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "$answer: the PNG is still edited by hand: $out"
 done
-out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,ui-click:tmask_replace,masks-print" 2>&1) || fail "regenerate (the row, Update masks from PSD and Replace clicked): $out"
+out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,ui-click:tmask_replace,masks-print" 2>&1) || fail "regenerate (the row, Update masks from PSD and Replace clicked): $out"
 cmp -s "$edited_png" "$work/edited_scenery.png" && fail "Replace did not replace the PNG: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "Replace makes it again from the PSD: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "the PSD's mask is back: $out"
 # a mask that was not edited is made again at once, with no question
-out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,masks-print" 2>&1) || fail "regenerate an unedited mask: $out"
+out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,masks-print" 2>&1) || fail "regenerate an unedited mask: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "an unedited mask is made again with no question: $out"
 
 # the window's own buttons (as a car's Masks tab has them): the two folders shown in the Finder, Update masks from PSD for all of them (asking first about the PNGs edited by hand), Re-scan,
@@ -250,40 +250,40 @@ row = b"\x00" + bytes([255, 255, 255, 255])
 open(sys.argv[1], "wb").write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 1, 8, 0, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(row)) + chunk(b"IEND", b""))
 PY
 cp "$edited_png" "$work/edited_scenery.png"
-out=$(run --frames 30 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_show_psd,ui-click:tmask_show_png" 2>&1) || fail "show folders: $out"
+out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_show_psd,ui-click:tmask_show_png" 2>&1) || fail "show folders: $out"
 echo "$out" | grep -qxF "reveal: $work/ws/tracks/AL1/art-source/masks" || fail "Show PSD folder asks for the track's art-source/masks: $out"
 echo "$out" | grep -qxF "reveal: $work/ws/tracks/AL1/art-generated/track_masks" || fail "Show masks folder asks for the track's art-generated/track_masks: $out"
 for answer in tmask_all_cancel tmask_all_keep; do
-    out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:$answer,masks-print" 2>&1) || fail "update, $answer: $out"
+    out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:$answer,masks-print" 2>&1) || fail "update, $answer: $out"
     cmp -s "$edited_png" "$work/edited_scenery.png" || fail "update, $answer: the PNG edited by hand was replaced: $out"
     echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "update, $answer: the PNG is still edited by hand: $out"
 done
-out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_rescan,status" 2>&1) || fail "re-scan: $out"
+out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_rescan,status" 2>&1) || fail "re-scan: $out"
 echo "$out" | grep -q '^status: masks: scanned again (3 textures)$' || fail "Re-scan says it scanned the folder again: $out"
-out=$(run --frames 20 --steps "open-original:0,masks-changes" 2>&1) || fail "changes: $out"
+out=$(run --frames 4 --steps "open-original:0,masks-changes" 2>&1) || fail "changes: $out"
 echo "$out" | grep -q '^changes: ' && echo "$out" | grep -q 'track_masks/AL1/scenery_00.png' || fail "the list of changes against the game repo names the mask: $out"
-out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:tmask_all_replace,masks-print" 2>&1) || fail "update, replace: $out"
+out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:tmask_all_replace,masks-print" 2>&1) || fail "update, replace: $out"
 cmp -s "$edited_png" "$work/edited_scenery.png" && fail "update, Replace did not replace the PNG edited by hand: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "update, Replace makes every PNG from its PSD: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "update, Replace: the PSD's mask is back: $out"
 
 # without the game repo's data/ (--port-data) print-repo says none; the room's File menu has no copy item either way: Apply is in the Tweak panel
-out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --window 1280x800 --frames 20 --steps open-original:3,print-menu,print-repo 2>&1) || fail "no repo: $out"
+out=$("$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --window 1280x800 --frames 4 --steps open-original:3,print-menu,print-repo 2>&1) || fail "no repo: $out"
 echo "$out" | grep -q 'Copy to game repo' && fail "the room's File menu still has Copy to game repo: $out"
 echo "$out" | grep -q '^repo data: none$' || fail "no repo data is given: $out"
 # the repo folder chosen: a folder without car_masks/ and track_light/ is refused, the repo's data/ (or the repo itself) is kept
 mkdir -p "$work/notrepo" "$work/repo2/data/car_masks" "$work/repo2/data/track_light"
 bare() { "$editor" --game "$work/fake_game" --cd "$work/cd" --user "$work/u" --workspace "$work/ws" --art-dir "$work/art" --window 1280x800 "$@"; }
-out=$(TNFS_STUDIO_PICK="$work/notrepo" bare --frames 20 --steps open-original:3,repo-choose,status,print-repo 2>&1) || fail "repo refused: $out"
+out=$(TNFS_STUDIO_PICK="$work/notrepo" bare --frames 4 --steps open-original:3,repo-choose,status,print-repo 2>&1) || fail "repo refused: $out"
 echo "$out" | grep -q 'is not the repo.s data/' || fail "a folder without car_masks/ and track_light/ is refused: $out"
 echo "$out" | grep -q '^repo data: none$' || fail "nothing changed after a refusal: $out"
-out=$(TNFS_STUDIO_PICK="$work/repo2" bare --frames 20 --steps open-original:3,repo-choose,status,print-repo,print-menu 2>&1) || fail "repo chosen: $out"
+out=$(TNFS_STUDIO_PICK="$work/repo2" bare --frames 4 --steps open-original:3,repo-choose,status,print-repo,print-menu 2>&1) || fail "repo chosen: $out"
 echo "$out" | grep -q "^repo data: $work/repo2/data$" || fail "the repo's data/ is kept when the repo is chosen: $out"
-out=$(run --frames 20 --steps print-repo 2>&1) || fail "repo: $out"
+out=$(run --frames 4 --steps print-repo 2>&1) || fail "repo: $out"
 echo "$out" | grep -q "^repo data: $work/data$" || fail "--port-data is the repo data: $out"
 
 # Main menu goes back to the hub and the plain light folder comes back
-out=$(run --frames 20 --steps open-original:3,main-menu,print-menu,print-original 2>&1) || fail "main-menu: $out"
+out=$(run --frames 4 --steps open-original:3,main-menu,print-menu,print-original 2>&1) || fail "main-menu: $out"
 echo "$out" | grep -q '^room: hub$' || fail "Main menu returns to the hub: $out"
 echo "$out" | grep -q '^original: none$' || fail "no original is open on the hub: $out"
 echo "$out" | grep -q "^light: $work/data$" || fail "the light folder is the game's data/ again: $out"

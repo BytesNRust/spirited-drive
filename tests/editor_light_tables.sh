@@ -24,7 +24,7 @@ time B
   tunnel_look 60 71 90 lamps 150
 TXT
 printf '#!/bin/sh\n' > "$work/fake_game" && chmod +x "$work/fake_game"
-studio() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --user "$work/${UDIR:-u}" --ask light --window "${WIN:-1280x800}" --frames 60 "$@" > "$work/log" 2>&1; }
+studio() { "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --user "$work/${UDIR:-u}" --ask light --window "${WIN:-1280x800}" --frames 4 "$@" > "$work/log" 2>&1; }
 width() { grep "^fit $1 $2 " "$work/log" | tail -n 1 | sed 's/.* width \([0-9.]*\) need.*/\1/'; }   # width TABLE COLUMN: the last report's
 
 # 1. no header or cell narrower than it needs, in both tables (the lamps table has a lamp to draw)
