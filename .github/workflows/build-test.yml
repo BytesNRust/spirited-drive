@@ -281,10 +281,16 @@ jobs:
           chmod +x "$RUNNER_TEMP/appimagetool"
           APPIMAGETOOL="$RUNNER_TEMP/appimagetool" APPIMAGE_RUNTIME="$RUNNER_TEMP/runtime" SDL_LICENSE="$RUNNER_TEMP/SDL/LICENSE.txt" \
               tools/package_appimage.sh build/rel dist
-          cd dist && sha256sum *.AppImage > SHA256SUMS.txt && cat SHA256SUMS.txt
+          sudo apt-get install -y -qq lintian
+          SDL_LICENSE="$RUNNER_TEMP/SDL/LICENSE.txt" tools/package_deb.sh build/rel dist
+          lintian --fail-on error,warning dist/*.deb
+          cd dist && sha256sum *.AppImage *.deb > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - name: The AppImage runs by itself on clean systems
         run: tools/appimage_smoke.sh dist/*.AppImage ubuntu:22.04 ubuntu:24.04
+
+      - name: The .deb installs, upgrades and is removed on clean systems (the player's folder is kept)
+        run: tools/deb_smoke.sh dist/*.deb ubuntu:22.04 ubuntu:24.04
 
       - name: A real window, under X11 (Xvfb) and Wayland (weston), with pictures of the screen
         # no game data exists here: the first-start dialog and the folder chooser are as far as it goes
@@ -303,6 +309,7 @@ jobs:
           name: spirited-drive-linux-${{ inputs.update_test && 'UPDATE-TEST-' || '' }}${{ github.sha }}
           path: |
             dist/*.AppImage
+            dist/*.deb
             dist/README-linux.txt
             dist/SHA256SUMS.txt
           if-no-files-found: error

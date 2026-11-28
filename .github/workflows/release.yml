@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Pushing a tag vX.Y.Z (or vX.Y.Z-beta.N) builds the game for macOS (universal, Apple Silicon + Intel), Windows (x64) and Linux (x86_64), tests and packs each (the DMG, the zip, the AppImage, their
-# SHA-256s) and opens ONE DRAFT GitHub Release for the tag with all of them and RELEASE_NOTES.md; a maintainer reviews and publishes it by hand. ONE release holds every
+# Pushing a tag vX.Y.Z (or vX.Y.Z-beta.N) builds the game for macOS (universal, Apple Silicon + Intel), Windows (x64) and Linux (x86_64), tests and packs each (the DMG, the zip, the AppImage, the .deb)
+# and, with one SHA256SUMS.txt of them all, and opens ONE DRAFT GitHub Release for the tag with all of them and RELEASE_NOTES.md; a maintainer reviews and publishes it by hand. ONE release holds every
 # platform's download because the game's update notice opens "the latest release" and a player must find his own file there. If any build fails there is no draft.
 # The game's update check reads /releases/latest, which skips releases marked "pre-release", so beta versions are published as normal releases (their version number
 # says beta).
@@ -109,7 +109,7 @@ jobs:
           tools/package_macos.sh build/rel dist $icon
           lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q arm64
           lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q x86_64
-          cd dist && shasum -a 256 *.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
+          cd dist && shasum -a 256 *.dmg > SHA256SUMS-macos.txt && cat SHA256SUMS-macos.txt
 
       - name: The DMG holds the game only
         run: tools/check_dmg_contents.sh dist/*.dmg 0
@@ -128,7 +128,7 @@ jobs:
           name: macos-dmg
           path: |
             dist/*.dmg
-            dist/SHA256SUMS.txt
+            dist/SHA256SUMS-macos.txt
           if-no-files-found: error
 
   build-windows:
@@ -309,16 +309,28 @@ jobs:
           chmod +x "$RUNNER_TEMP/appimagetool"
           APPIMAGETOOL="$RUNNER_TEMP/appimagetool" APPIMAGE_RUNTIME="$RUNNER_TEMP/runtime" SDL_LICENSE="$RUNNER_TEMP/SDL/LICENSE.txt" \
               tools/package_appimage.sh build/rel dist
-          cd dist && sha256sum *.AppImage > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt
+
+      - name: The .deb, of the same program, checked by lintian
+        run: |
+          sudo apt-get install -y -qq lintian
+          SDL_LICENSE="$RUNNER_TEMP/SDL/LICENSE.txt" tools/package_deb.sh build/rel dist
+          lintian --fail-on error,warning dist/*.deb
+
+      - name: The Linux checksums
+        run: cd dist && sha256sum *.AppImage *.deb > SHA256SUMS-linux.txt && cat SHA256SUMS-linux.txt
 
       - name: The AppImage runs by itself on clean systems
         run: tools/appimage_smoke.sh dist/*.AppImage ubuntu:22.04 ubuntu:24.04
+
+      - name: The .deb installs, upgrades and is removed on clean systems (the player's folder is kept)
+        run: tools/deb_smoke.sh dist/*.deb ubuntu:22.04 ubuntu:24.04
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
         with:
           name: linux-appimage
           path: |
             dist/*.AppImage
+            dist/*.deb
             dist/SHA256SUMS-linux.txt
           if-no-files-found: error
 
@@ -348,7 +360,10 @@ jobs:
           name: linux-appimage
           path: dist
 
-      - name: Open the draft release (the DMG, the zip, the installer, the AppImage and the checksum lists)
+      - name: One checksum list of every download (each as its build job listed it)
+        run: tools/release_checksums.sh dist
+
+      - name: Open the draft release (the DMG, the zip, the installer, the AppImage, the .deb and their checksum list)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -356,5 +371,5 @@ jobs:
           ls -l dist
           notes="--generate-notes"
           [ -f RELEASE_NOTES.md ] && notes="--notes-file RELEASE_NOTES.md"
-          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/*-setup.exe dist/*.AppImage dist/SHA256SUMS.txt dist/SHA256SUMS-windows.txt dist/SHA256SUMS-linux.txt --draft --verify-tag \
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/*-setup.exe dist/*.AppImage dist/*.deb dist/SHA256SUMS.txt --draft --verify-tag \
              --title "Spirited Drive ${GITHUB_REF_NAME#v}" $notes

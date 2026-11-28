@@ -30,10 +30,33 @@ grep -q 'merge-base --is-ancestor "\$GITHUB_SHA" origin/main' "$rel" || bad "the
 [ "$(grep -c 'contents: write' "$rel")" = 1 ] || bad "more than one job (or none) may write to the repository: only publish may"
 grep -q 'dist/\*.dmg' "$rel" && grep -q 'dist/\*.zip' "$rel" || bad "the release does not offer the DMG and the zip"
 grep -q 'dist/\*-setup.exe' "$rel" || bad "the installer is not offered by the release (the installer commit is the one to take out, with this line)"
-grep -q 'SHA256SUMS-windows.txt' "$rel" || bad "the Windows checksums are not in a file of their own"
-grep -q 'SHA256SUMS.txt' "$rel" || bad "the macOS checksums are missing"
-grep -q 'dist/\*\.AppImage dist/SHA256SUMS.txt' "$rel" || bad "the release does not offer the AppImage"
-grep -q 'SHA256SUMS-linux.txt --draft' "$rel" || bad "the Linux checksums are not in the release, in a file of their own"
+grep -q 'dist/\*\.AppImage dist/\*\.deb dist/SHA256SUMS.txt --draft' "$rel" || bad "the release does not offer the AppImage, the .deb and the one checksum list, and no other list"
+grep -q 'tools/release_checksums.sh dist' "$rel" || bad "the publish job does not make the one checksum list of every asset"
+grep -q 'tools/package_deb.sh build/rel dist' "$rel" || bad "the release does not build the .deb"
+grep -q 'tools/deb_smoke.sh dist/\*\.deb' "$rel" || bad "the .deb is not installed, upgraded and removed before it is released"
+grep -q 'Spirited-Drive-\$VERSION-linux-amd64.deb' tools/package_deb.sh 2>/dev/null || bad "the .deb is not named Spirited-Drive-<version>-linux-amd64.deb"
+
+# the one checksum list, on made-up assets: every asset in it, each as its build job listed it (the few tiny files stay in the system's temporary folder)
+sums=$(mktemp -d)
+sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
+for f in a.dmg a-windows-x64.zip a-setup.exe a.AppImage a.deb; do printf '%s\n' "$f" > "$sums/$f"; done
+(cd "$sums" && sha a.dmg > SHA256SUMS-macos.txt && sha a-windows-x64.zip a-setup.exe | sed 's/  / */' > SHA256SUMS-windows.txt && sha a.AppImage a.deb > SHA256SUMS-linux.txt)
+if sh tools/release_checksums.sh "$sums" >/dev/null 2>&1; then
+    [ "$(grep -c . "$sums/SHA256SUMS.txt")" = 5 ] || bad "the one list does not have the five assets"
+    (cd "$sums" && sha -c SHA256SUMS.txt >/dev/null 2>&1) || bad "the one list does not check with sha256sum -c"
+    grep -q '\*' "$sums/SHA256SUMS.txt" && bad "the one list keeps the binary mark of one system"
+else
+    bad "release_checksums.sh fails on a whole set of assets"
+fi
+printf 'changed\n' > "$sums/a.deb"
+sh tools/release_checksums.sh "$sums" >/dev/null 2>&1 && bad "an asset that is not what its build job listed gets into the list"
+printf 'a.deb\n' > "$sums/a.deb"
+printf 'x\n' > "$sums/unlisted.AppImage"
+sh tools/release_checksums.sh "$sums" >/dev/null 2>&1 && bad "an asset no build job listed gets into the list"
+sums=$(mktemp -d)
+printf 'a\n' > "$sums/a.dmg"
+(cd "$sums" && sha a.dmg > SHA256SUMS-macos.txt)
+sh tools/release_checksums.sh "$sums" >/dev/null 2>&1 && bad "a release without some system's files gets a list"
 grep -q 'Spirited-Drive-\$VERSION-linux-x86_64.AppImage' tools/package_appimage.sh || bad "the AppImage is not named Spirited-Drive-<version>-linux-x86_64.AppImage"
 [ "$(grep -c 'tnfs_version' "$rel")" -ge 2 ] && grep -q 'GITHUB_REF_NAME#v' "$rel" || bad "the release workflow does not check each build's version against the tag"
 grep -q 'Spirited-Drive-\$VERSION-windows-x64.zip' "$pack" || bad "the Windows zip is not named Spirited-Drive-<version>-windows-x64.zip"
