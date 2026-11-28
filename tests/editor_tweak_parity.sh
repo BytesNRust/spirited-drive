@@ -11,7 +11,7 @@ repo=$3
 here=$(dirname "$0")
 part=${4:?usage: editor_tweak_parity.sh EDITOR ORIGINAL_DIR REPO cars|tracks}
 case $part in cars | tracks) ;; *) echo "FAIL: part '$part': cars or tracks" >&2; exit 2 ;; esac
-[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 77; }
 mkdir -p "$work/cars" "$work/ws" "$work/art" || exit 1
 fresh() {   # fresh NAME: a repo copy with the layout Copy needs, in $work/NAME (a clone where the volume has them: the data/ is copied twice a car and a track)
     mkdir -p "$work/$1/core/formats" && { cp -Rc "$repo/data" "$work/$1/data" 2>/dev/null || cp -R "$repo/data" "$work/$1/data"; } && cp "$repo/core/formats/car_paint.c" "$work/$1/core/formats/car_paint.c"

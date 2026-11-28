@@ -22,7 +22,7 @@ trap cleanup EXIT
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-[ -f "$repo/original/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no original/"; exit 0; }
+[ -f "$repo/original/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no original/"; exit 77; }
 [ -x "$exe" ] || { echo "FAIL: no $exe" >&2; exit 1; }
 base=$(python3 -I "$repo/tools/free_udp_ports.py" 16100 1 --lock-dir "$locks") || { echo "FAIL: no free port" >&2; exit 1; }
 python3 -I -c 'import socket, sys, time
@@ -35,7 +35,7 @@ grep -q held "$work/holder" || { echo "FAIL: the port $base was not taken" >&2; 
 # the way in as tools/link_loopback.sh's host: the movie, the title, Game Mode: Network; the name box; New Game. Then the refusal, and from Game Mode (the selector on Network still): Escape, Yes
 script="1000:ESC,0:WAIT:mark:movie=:60,500:ESC,0:WAIT:mark:screen=title:60,1000:ESC,0:WAIT:mark:screen=game_mode:60"
 script="$script,1500:DOWN,1000:ENTER,0:WAIT:mark:screen=name_box:60,500:ENTER,4000:DOWN,2000:ENTER,4000:ENTER"
-script="$script,0:WAIT:net_host: no network service:60,3000:ESC,3000:Y"
+script="$script,0:WAIT:net_host: no network service:60,3000:ESC,0:WAIT:mark:yes_no:60,500:Y"   # the box drains keys sent before it reads them
 mkdir -p "$work/user"
 log=$work/log
 (cd "$repo" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERBOSE=1 TNFS_INPUT_SETTLE=1500 TNFS_INPUT_SCRIPT="$script" \

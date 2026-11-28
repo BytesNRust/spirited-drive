@@ -2104,7 +2104,7 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_copy_originals PROPERTIES TIMEOUT 900)
             foreach(part cars tracks)   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
                 add_test(NAME editor_tweak_parity_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_parity.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} ${part})
-                set_tests_properties(editor_tweak_parity_${part} PROPERTIES TIMEOUT 1800)
+                set_tests_properties(editor_tweak_parity_${part} PROPERTIES TIMEOUT 1800 SKIP_RETURN_CODE 77)
             endforeach()
             add_test(NAME editor_tweak_list COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_list.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak step 2: the list, Open, the Tweak panel, Apply, Replace / Skip / Cancel, a traffic car, an old workspace; needs the game's files
             set_tests_properties(editor_tweak_list PROPERTIES TIMEOUT 900)
@@ -2137,7 +2137,7 @@ if(NOT EMSCRIPTEN)
         # two ctests of one machine, of any worktree, do not meet
         # the network screen on a UDP port that is taken (a free one found and claimed by tools/free_udp_ports.py): it leaves the screen
         add_test(NAME net_port_taken COMMAND bash ${CMAKE_SOURCE_DIR}/tests/net_port_taken.sh $<TARGET_FILE_DIR:tnfs>)
-        set_tests_properties(net_port_taken PROPERTIES TIMEOUT 300)
+        set_tests_properties(net_port_taken PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         foreach(word_at 9:15100 15:15120 0xFFFF:15140)
             string(REPLACE ":" ";" word_at ${word_at})
             list(GET word_at 0 word)
