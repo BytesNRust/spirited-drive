@@ -2,16 +2,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Splits ctest's tests into N shards by cost, for CI jobs that run side by side.
 
-usage: ci_shards.py TESTS.json COSTS N [K]
+usage: ci_shards.py TESTS.json COSTS N [K [COSTDATA]]
   TESTS.json  ctest --show-only=json-v1 of the build
   COSTS       lines "seconds test_name" (# comments); a test it does not name counts DEFAULT_COST
   N           the number of shards
   K           1..N: print shard K as ctest's -I value (0,0,0,#,#,...); without it, one line per shard with its tests and cost
+  COSTDATA    with K: also write shard K's costs as ctest's own file (<build>/Testing/Temporary/CTestCostData.txt), so ctest -j starts the longest tests first instead of in
+              registration order, where a long one that starts late sets the shard's time
 
 Tests that ctest ties together (a fixture's setup and the tests that require it) go to the same shard. The split is the same for the same input: longest group first, into the
 lightest shard.
 """
 import json
+import os
 import sys
 
 DEFAULT_COST = 5.0
@@ -72,8 +75,17 @@ def split(tests, costs, n):
     return shards
 
 
+def write_cost_data(path, tests, costs, indices):
+    """ctest's cost file: "name runs seconds" per test, then "---" (the tests that failed last time, none)."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        for i in indices:
+            f.write("%s 1 %g\n" % (tests[i]["name"], costs.get(tests[i]["name"], DEFAULT_COST)))
+        f.write("---\n")
+
+
 def main(argv):
-    if len(argv) not in (4, 5):
+    if len(argv) not in (4, 5, 6):
         sys.exit(__doc__)
     with open(argv[1], encoding="utf-8") as f:
         tests = json.load(f)["tests"]
@@ -83,12 +95,14 @@ def main(argv):
     shards = split(tests, costs, n)
     unknown = sum(1 for t in tests if t["name"] not in costs)
     print("ci_shards.py: %d of %d tests have no cost (they count %.0f s)" % (unknown, len(tests), DEFAULT_COST), file=sys.stderr)
-    if len(argv) == 5:
+    if len(argv) >= 5:
         k = int(argv[4])
         if not 1 <= k <= n:
             sys.exit("ci_shards.py: shard %d of %d" % (k, n))
         if not shards[k - 1]["tests"]:
             sys.exit("ci_shards.py: shard %d has no test" % k)   # an empty -I would run every test
+        if len(argv) == 6:
+            write_cost_data(argv[5], tests, costs, shards[k - 1]["tests"])
         print("0,0,0," + ",".join(str(i + 1) for i in shards[k - 1]["tests"]))   # ctest numbers its tests from 1, in the json's order
     else:
         for k, shard in enumerate(shards, 1):

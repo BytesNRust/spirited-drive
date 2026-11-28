@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The gate's shards (tools/ci_shards.py, .github/workflows/gate.yml): ctest runs every registered test in exactly one shard, and a fixture's tests stay together. Asks ctest itself
-# what each shard's -I runs. No CD data.
+# what each shard's -I runs; and the cost file a shard writes for ctest (it starts the longest tests first) lists that shard's tests. No CD data.
 # usage: ci_shards.sh CTEST BUILD REPO PYTHON
 set -eu
 ctest=${1:?ctest} build=${2:?build} repo=${3:?repo} python=${4:?python}
@@ -17,11 +17,15 @@ for pair in "release 5" "asan 8"; do
   : > "$work/ran"
   k=1
   while [ "$k" -le "$n" ]; do
-    select=$("$python" "$repo/tools/ci_shards.py" "$work/tests.json" "$costs" "$n" "$k")
+    select=$("$python" "$repo/tools/ci_shards.py" "$work/tests.json" "$costs" "$n" "$k" "$work/$1/$k/CTestCostData.txt")
     # -FA .*: without the fixtures ctest would add by itself, so a setup left in another shard shows
     "$ctest" --test-dir "$build" -N -FA '.*' -I "$select" | names > "$work/shard"
     "$ctest" --test-dir "$build" -N -I "$select" | names | sort > "$work/with_fixtures"
     sort "$work/shard" | cmp -s - "$work/with_fixtures" || { echo "FAIL: $1 shard $k needs a fixture's setup from another shard"; exit 1; }
+    # "name runs seconds" per test and "---": ctest's own file
+    [ "$(tail -n 1 "$work/$1/$k/CTestCostData.txt")" = "---" ] || { echo "FAIL: $1 shard $k's cost file does not end with ---"; exit 1; }
+    sed '$d' "$work/$1/$k/CTestCostData.txt" | awk 'NF != 3 || $2 != 1 || $3 + 0 <= 0 { exit 1 } { print $1 }' | sort > "$work/costed" || { echo "FAIL: $1 shard $k's cost file has a bad line"; exit 1; }
+    cmp -s "$work/costed" "$work/with_fixtures" || { echo "FAIL: $1 shard $k's cost file does not list the shard's tests"; exit 1; }
     cat "$work/shard" >> "$work/ran"
     k=$((k + 1))
   done
