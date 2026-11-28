@@ -189,7 +189,8 @@ record_has "scenery_00.png $want" || fail "the photo's scenery_00 mask is not th
 grep -q '^masks=.' "$work/record" 2>/dev/null || fail "the photo was not given the workspace's masks: $(cat "$work/record" 2>/dev/null)"
 before=$(grep '^scenery_00.png' "$work/record")
 retouch lamps   # retouched and saved: newer than its PNG
-out=$(run --frames 20 --steps open-original:0 2>&1) || fail "photo after a retouch: $out"
+# the frame the track opens in is slow (stall: longer than the photo's settle time), as on a loaded machine: the photo must still be taken after the masks are made again, not on the next frame before them
+out=$(run --frames 20 --steps open-original:0,stall:700 2>&1) || fail "photo after a retouch: $out"
 want=$(cksum < "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png")
 record_has "scenery_00.png $want" || fail "the photo's mask is not the regenerated PNG: $(grep '^scenery_00.png' "$work/record")"
 after=$(grep '^scenery_00.png' "$work/record")
