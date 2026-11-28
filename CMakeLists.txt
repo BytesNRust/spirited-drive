@@ -2764,8 +2764,13 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(mods_stock_ignored PROPERTIES TIMEOUT 150)
         add_test(NAME mods_user_notice COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/mods_user_notice -P ${CMAKE_SOURCE_DIR}/tests/mods_user_notice.cmake)
         set_tests_properties(mods_user_notice PROPERTIES TIMEOUT 300)
-        add_test(NAME boot_skip_chain COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/boot_skip_chain -P ${CMAKE_SOURCE_DIR}/tests/boot_skip_chain.cmake)
-        set_tests_properties(boot_skip_chain PROPERTIES TIMEOUT 360)
+        foreach(name_press key=ENTER click=CLICK:320:240)   # a press a test, side by side: each sits through the title
+            string(REPLACE "=" ";" name_press ${name_press})
+            list(GET name_press 0 name)
+            list(GET name_press 1 press)
+            add_test(NAME boot_skip_chain_${name} COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/boot_skip_chain_${name} -DPRESS=${press} -P ${CMAKE_SOURCE_DIR}/tests/boot_skip_chain.cmake)
+            set_tests_properties(boot_skip_chain_${name} PROPERTIES TIMEOUT 360)
+        endforeach()
     endif()
 endif()
 
@@ -2895,7 +2900,7 @@ set(TNFS_E2E_TESTS
     variant_choice_kept
     live_mode_switch_race
     mods_live_switch_race
-    boot_skip_chain)
+    boot_skip_chain_key boot_skip_chain_click)
 get_directory_property(tnfs_all_tests TESTS)
 set(tnfs_unlabeled "")
 foreach(t IN LISTS tnfs_all_tests)

@@ -1,8 +1,11 @@
-# usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P boot_skip_chain.cmake
+# usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> [-DPRESS=<key or click>] -P boot_skip_chain.cmake   (no PRESS: both; CMake runs a test each, side by side)
 # One press per screen (the owner's report, 2026-11-13): a key or a click that stops EA's movie must not also close the title that follows it
 # (title.c's fresh press). Each run presses once during the movie, then waits; the title must stay most of its own 500 ticks (before: about 60).
 include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
-foreach(press "ENTER" "CLICK:320:240")
+if(NOT DEFINED PRESS)
+    set(PRESS "ENTER" "CLICK:320:240")
+endif()
+foreach(press IN LISTS PRESS)
     file(REMOVE_RECURSE "${WORK}")
     file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
     set(script "1000:MOUSE:5:5,0:WAIT:mark:movie=:60,300:${press},0:WAIT:mark:screen=game_mode:40,0:WAIT:mark:never:1")
