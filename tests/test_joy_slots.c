@@ -32,5 +32,12 @@ int main(void)
     /* a repeated id (never by SDL) is carried once */
     joy_slots_match((const uint32_t[]){ 3 }, 1, (const uint32_t[]){ 3, 3 }, 2, from, gone);
     CHECK(from[0] == 0 && from[1] == -1);
+    /* the forces' way: a wheel's constant force is its own; Linux's pad (a sine made of rumble, no constant force) rumbles; a Mac or Windows pad rumbles; a sine alone is used when there is nothing else */
+    CHECK_EQ_INT(joy_forces_pick(1, 1, 0), JOY_FORCES_HAPTIC);
+    CHECK_EQ_INT(joy_forces_pick(1, 0, 0), JOY_FORCES_HAPTIC);
+    CHECK_EQ_INT(joy_forces_pick(0, 1, 1), JOY_FORCES_RUMBLE);
+    CHECK_EQ_INT(joy_forces_pick(0, 0, 1), JOY_FORCES_RUMBLE);
+    CHECK_EQ_INT(joy_forces_pick(0, 1, 0), JOY_FORCES_HAPTIC);
+    CHECK_EQ_INT(joy_forces_pick(0, 0, 0), JOY_FORCES_NONE);
     return TEST_REPORT();
 }

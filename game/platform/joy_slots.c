@@ -14,3 +14,10 @@ void joy_slots_match(const uint32_t *old_ids, int old_n, const uint32_t *new_ids
         }
     }
 }
+
+JoyForces joy_forces_pick(int constant, int sine, int rumble)
+{
+    if (constant) return JOY_FORCES_HAPTIC;
+    if (rumble) return JOY_FORCES_RUMBLE;
+    return sine ? JOY_FORCES_HAPTIC : JOY_FORCES_NONE;
+}

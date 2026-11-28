@@ -15,9 +15,13 @@
 #include "game/platform/joy_slots.h"
 #include "game/sys/control_map.h"
 #include "game/sys/port_controls.h"
+#include "game/sys/port_log.h"
 
 #include <SDL3/SDL.h>
 #include <string.h>
+#ifdef __linux__
+#include <unistd.h>   /* access: is the device writable */
+#endif
 
 enum {
     MAX_DEVICES = 16,
@@ -138,13 +142,25 @@ static bool start_haptic(void)
 
 static void virtual_refresh(void);
 
+/* what the log says of a pad or wheel as it is opened, for a report: what it is and where it comes from */
+static void log_opened(SDL_Joystick *j, bool gamepad)
+{
+    const char *const name = SDL_GetJoystickName(j);
+    const char *const path = SDL_GetJoystickPath(j);
+    port_log("pad: %s (%04x:%04x), %s, %s\n", name != NULL ? name : "?", (unsigned)SDL_GetJoystickVendor(j), (unsigned)SDL_GetJoystickProduct(j), gamepad ? "gamepad" : "joystick",
+             path != NULL ? path : "?");
+#ifdef __linux__
+    if (path != NULL && strncmp(path, "/dev/", 5) == 0 && access(path, W_OK) != 0) port_log("pad: no write access to %s: no rumble or force feedback (README-linux)\n", path);
+#endif
+}
+
 static SDL_Joystick *device_of(int device)
 {
     if (!start() || device < 0 || device >= devices) return NULL;
     if (opened[device] != NULL) return opened[device];
     if (SDL_IsGamepad(ids[device])) pads[device] = SDL_OpenGamepad(ids[device]);
     opened[device] = pads[device] != NULL ? SDL_GetGamepadJoystick(pads[device]) : SDL_OpenJoystick(ids[device]);
-    if (opened[device] != NULL) platform_joy_virtual_refresher(virtual_refresh);
+    if (opened[device] != NULL) log_opened(opened[device], pads[device] != NULL), platform_joy_virtual_refresher(virtual_refresh);
     return opened[device];
 }
 
@@ -302,15 +318,17 @@ bool platform_forces_open(int device)
     platform_forces_close();
     SDL_Joystick *j = device_of(device);
     if (j == NULL) return false;
-    if (start_haptic() && SDL_IsJoystickHaptic(j)) haptic = SDL_OpenHapticFromJoystick(j);
-    if (haptic != NULL && (SDL_GetHapticFeatures(haptic) & (SDL_HAPTIC_CONSTANT | SDL_HAPTIC_SINE)) != 0)
-        return true;
-    if (haptic != NULL) SDL_CloseHaptic(haptic), haptic = NULL;
-    if (SDL_GetBooleanProperty(SDL_GetJoystickProperties(j), SDL_PROP_JOYSTICK_CAP_RUMBLE_BOOLEAN, false)) {
-        rumbler = j;
-        return true;
+    if (start_haptic() && SDL_IsJoystickHaptic(j)) {
+        haptic = SDL_OpenHapticFromJoystick(j);
+        if (haptic == NULL) port_log("pad: force feedback not opened: %s\n", SDL_GetError());
     }
-    return false;
+    const Uint32 features = haptic != NULL ? SDL_GetHapticFeatures(haptic) : 0;
+    const JoyForces way = joy_forces_pick((features & SDL_HAPTIC_CONSTANT) != 0, (features & SDL_HAPTIC_SINE) != 0,
+                                          SDL_GetBooleanProperty(SDL_GetJoystickProperties(j), SDL_PROP_JOYSTICK_CAP_RUMBLE_BOOLEAN, false));
+    if (way != JOY_FORCES_HAPTIC && haptic != NULL) SDL_CloseHaptic(haptic), haptic = NULL;
+    if (way == JOY_FORCES_RUMBLE) rumbler = j;
+    port_log("pad: forces: %s (haptic features 0x%x)\n", way == JOY_FORCES_HAPTIC ? "force feedback" : way == JOY_FORCES_RUMBLE ? "rumble" : "none", (unsigned)features);
+    return way != JOY_FORCES_NONE;
 }
 
 void platform_forces_close(void)

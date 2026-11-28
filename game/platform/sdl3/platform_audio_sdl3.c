@@ -65,6 +65,8 @@ bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
         platform_audio_close();
         return false;
     }
+    const char *const device = SDL_GetAudioDeviceName(SDL_GetAudioStreamDevice(sdl3_audio));
+    port_log("platform: audio driver %s, device %s\n", SDL_GetCurrentAudioDriver(), device != NULL ? device : "?");
     return true;
 }
 

@@ -9,4 +9,11 @@
  * when its id is not in the new list. The arrays are as long as their lists. */
 void joy_slots_match(const uint32_t *old_ids, int old_n, const uint32_t *new_ids, int new_n, int *from_old, int *dropped);
 
+/* The way a device's forces are felt. A haptic device with a constant force is a force-feedback wheel or stick: its own effects. Otherwise rumble when the device has it: Linux
+ * calls an ordinary pad haptic too, with a sine the kernel makes out of rumble and no constant force, so the knocks and pushes would be lost there. Then a haptic device
+ * with a sine alone. */
+typedef enum { JOY_FORCES_NONE, JOY_FORCES_HAPTIC, JOY_FORCES_RUMBLE } JoyForces;
+
+JoyForces joy_forces_pick(int constant, int sine, int rumble);
+
 #endif

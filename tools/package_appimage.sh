@@ -98,6 +98,13 @@ How to start
 
 The first start's windows are your system's: the file chooser needs your desktop's portal (xdg-desktop-portal) or zenity. Desktops normally have one of them. If no window appears or no file chooser opens, install zenity (sudo apt install zenity) and start again, or give the folder yourself: ./$APPIMAGE_NAME --data /path/to/the/game/files
 
+Pads and wheels. Xbox, PlayStation and Switch pads normally work with nothing to install, plugged in before or while the game runs. Set the buttons in Options, Controls setup. If Steam is running, it may also turn the pad into keys or mouse moves: close Steam, or add the AppImage to Steam as a non-Steam game and start it from there. Rumble and force feedback need write access to the device; the log says "no write access" when it is missing.
+Logitech G25, G27, G29 and Driving Force wheels: without access to the wheel's raw device, the system's own driver gives the knocks and the steady push but no vibrations. To give access, make the file /etc/udev/rules.d/70-spirited-drive-wheel.rules (as root) with this one line, then unplug the wheel and plug it again. The line is for a G29 (c24f); for another wheel put its own number, which lsusb shows (G27 c29b, G25 c299, Driving Force GT c29a):
+KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c24f", TAG+="uaccess"
+Thrustmaster and Fanatec wheels may need a driver your distribution does not include before they give force feedback.
+
+Sound goes through your system's PipeWire or PulseAudio, or ALSA when neither answers. The log's "audio driver" line says which one. To choose another: SDL_AUDIO_DRIVER=pulseaudio ./$APPIMAGE_NAME (or pipewire, or alsa).
+
 To have it in your applications menu with its icon, add it with an AppImage manager (Gear Lever or AppImageLauncher, for example); on its own an AppImage does not add itself there.
 
 Bring your own CD. Spirited Drive contains no game data: you need your own copy of The Need for Speed Special Edition for PC (1996).
