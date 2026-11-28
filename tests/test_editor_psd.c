@@ -244,11 +244,53 @@ static void test_reveal(void)
     free(a);
 }
 
+/* an original car's kit made by an older Studio: its dash mask is the game's own picture with no manifest line. The look at the PSDs writes its hash down (adopt_the_games), reading the
+ * game's data/dash_masks/<STEM>/, spelt as the car file's stem (LDIABL; the car-mask folder is LDiabl): on a disk where case counts, another spelling finds nothing */
+static void test_adopt_the_games_dash(void)
+{
+    const char *dirs[] = { "kit4", "kit4/model", "kit4/art-source", "kit4/art-source/masks", "kit4/art-generated", "kit4/art-generated/dash_masks",
+                           "game4", "game4/dash_masks", "game4/dash_masks/LDIABL" };
+    for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) dir_of(dirs[i]);
+    CHECK(put("kit4/mod.ini", "id=diablo\nname=Diablo\nversion=1\ntype=car\nstem=LDIABL\nsound_from=911\n"));
+    /* the PSD folder counts only with a PSD in it; a dash.psd older than its mask, so nothing converts */
+    put_psd("kit4/art-source/masks/dash.psd");
+    char psd[700];
+    path_of(psd, sizeof psd, "kit4/art-source/masks/dash.psd");
+    struct timeval before[2];
+    gettimeofday(&before[0], NULL);
+    before[0].tv_sec -= 3600;
+    before[1] = before[0];
+    CHECK(utimes(psd, before) == 0);
+    CHECK(put("kit4/art-generated/dash_masks/dash_mask.png", "the game's dash") && put("game4/dash_masks/LDIABL/dash_mask.png", "the game's dash"));
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "./tnfs", "", NULL);
+    char kit[500], none[500], dash[700], manifest[700];
+    path_of(kit, sizeof kit, "kit4");
+    CHECK(app_open_car(a, kit) && app_car_is_kit(a));
+    for (int i = 0; i < 40000 && car_build_job_busy(&a->car_build); i++) car_build_job_poll(&a->car_build), usleep(5000);
+    path_of(none, sizeof none, "nowhere");
+    app_psd_setup(a, none, none);
+    path_of(a->export_src.data, sizeof a->export_src.data, "game4");
+    app_dash_stale_refresh(a);
+    CHECK(a->stale_ok && a->stale.stale == 0 && !app_psd_busy(a));   /* the look happened, and started nothing */
+    car_project_dash_dir(&a->car, dash, sizeof dash);
+    car_project_manifest(&a->car, manifest, sizeof manifest);
+    Manifest *m = calloc(1, sizeof *m);
+    CHECK(m != NULL && manifest_load(manifest, m) && manifest_state(m, dash, "dash_mask.png") != GEN_UNKNOWN);
+    free(m);
+    app_free(a);
+    free(a);
+}
+
 static void remove_tree(void)
 {
     char cmd[700];   /* kit3 and what its build wrote: a tree, not a list */
     snprintf(cmd, sizeof cmd, "find '%s/kit3' -depth -delete", root);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s/kit3\n", root);
+    snprintf(cmd, sizeof cmd, "find '%s/kit4' '%s/game4' -depth -delete", root, root);
+    if (system(cmd) != 0) fprintf(stderr, "could not remove %s/kit4\n", root);
     const char *files[] = { "kit/mod.ini", "kit/SIMDATA/CARFAMS/C84.CFM", "kit/car_masks/C84/old_mask.png", "kit/car_masks/C84/side_mask.png", "kit/car_masks/C84/frnt_mask.png",
                             "psd/c84/side.psd", "psd/c84/frnt.psd", "psd/c84/rear.psd" };
     char p[700];
@@ -269,6 +311,7 @@ int main(void)
     test_flows();
     test_kit();
     test_reveal();
+    test_adopt_the_games_dash();
     remove_tree();
     return TEST_REPORT();
 }
