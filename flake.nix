@@ -19,9 +19,9 @@
         # Native build of the port (macOS / Linux).
         default = pkgs.mkShell {
           # python3 with Pillow, and rsvg-convert: the PSD, mask and icon tests skip without them
-          # zsh on Linux (macOS has its own): tools/menu_walk.sh, which the menu tests run, needs it
+          # zsh and unzip on Linux (macOS has its own): tools/menu_walk.sh, which the menu tests run, and the tests that read a built zip need them
           packages = with pkgs; [ cmake ninja pkg-config sdl3 lldb ccache (python3.withPackages (ps: [ ps.pillow ])) librsvg ]
-            ++ lib.optionals stdenv.hostPlatform.isLinux [ zsh ];
+            ++ lib.optionals stdenv.hostPlatform.isLinux [ zsh unzip ];
         };
 
         # WebAssembly build of the port.
