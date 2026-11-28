@@ -325,6 +325,7 @@ void photos_section(App *a, const CarEditProblem *problems, int count)
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (ImGui::SmallButton("Remove")) app_photo_remove(a, i);
+        { char name[24]; snprintf(name, sizeof name, "photo%d_remove", i); ui_probe(name); }
         ImGui::PopID();
     }
     const CarEditProblem *bad = problem_for(problems, count, CE_PHOTOS);

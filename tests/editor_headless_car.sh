@@ -176,10 +176,14 @@ cmp -s "$work/shots-in/Side View.PNG" "$work/kit/photos/side-view.png" || fail "
 [ -s "$work/photos.png" ] || fail "no PNG of the Showcase photos"
 ls "$work/kit/photos" | grep -q '\.tmp$' && fail "a staged file was left behind"
 # the lists' rows (the photos, the colors) number themselves from 0: no two items may share an ID, or Remove of one row presses the other. The scan puts the mouse on a grid over
-# the window (ImGui flags a shared ID only under the mouse, and only for items on screen: the window is tall and wide enough to show both lists' buttons; a point every 12 px
-# down, as a button is 15 high). A copy of the kit, with colors
+# the window's left half (ImGui flags a shared ID only under the mouse, and only for items on screen), a point every 12 px down, as a button is 15 high. Both lists' last Remove
+# button must be inside what is swept: the card grew past 760 px once and the photo rows went unchecked, saying nothing. A copy of the kit, with colors
 cp -R "$work/kit" "$work/kit-scan" && printf 'paints=Red:c8102e,Blue:1040c0\n' >> "$work/kit-scan/mod.ini"
-"$editor" "$work/kit-scan" --window 960x760 --frames 3 --steps scan:40,12 >"$work/log" 2>&1 || fail "two items of the card share an ID: $(grep -v '^imgui error' "$work/log" | tail -2)"
+"$editor" "$work/kit-scan" --window 960x900 --frames 3 --steps scan:40,12,ui-rect:photo1_remove,ui-rect:colour1_remove >"$work/log" 2>&1 || fail "two items of the card share an ID, or a list's Remove is not drawn: $(grep -v '^imgui error' "$work/log" | tail -2)"
+for button in photo1_remove colour1_remove; do
+    awk -v w="$button" '$1 == "ui" && $2 == "rect:" && $3 == w { found = 1; if ($4 >= 480 || $5 + $7 > 890) bad = 1 } END { exit !(found && !bad) }' "$work/log" \
+        || fail "$button is not inside what the scan sweeps (960x900, left half): $(grep '^ui rect' "$work/log")"
+done
 "$editor" "$work/kit" --frames 2 --add-photo "$work/shots-in/tiny.png" >"$work/log" 2>&1 && fail "a 50x30 picture was accepted as a showcase photo"
 grep -q "50x30" "$work/log" || fail "no word about the size: $(cat "$work/log")"
 [ -e "$work/kit/photos/tiny.png" ] && fail "a refused picture was copied"
