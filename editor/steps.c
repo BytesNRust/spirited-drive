@@ -80,6 +80,11 @@ int steps_running(const Steps *s)
     return !s->failed && s->at < s->count;
 }
 
+int steps_hover_only(const Steps *s)
+{
+    return steps_running(s) && s->frames >= SETTLED_FRAMES && strncmp(s->name[s->at], "scan:", 5) == 0;
+}
+
 /* where point `i` is in the window: the Viewport's canvas and the view */
 static int point_at(const App *a, int i, float *x, float *y)
 {

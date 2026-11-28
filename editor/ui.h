@@ -65,6 +65,8 @@ void ui_event(const SDL_Event *ev);
 /* One frame: the dock space and its panels (the top view, the project), and the shortcuts; drawn over the cleared window, before
  * SDL_RenderPresent. The panels change `a`: the points, the view, the selection. */
 void ui_frame(SDL_Renderer *ren, App *a);
+/* 0: the frames that follow are laid out and checked as ever but not drawn (a headless sweep of the mouse: drawing is nearly all a frame costs without a display) */
+void ui_set_drawing(int on);
 
 /* ImGui's recoverable errors ("EndDisabled() too many times", a Begin with no End...): ui_open has ImGui tell them here, each is also printed on stderr as
  * "imgui error: ...". A headless run fails when any was told (main.c); the banner ImGui draws in the window is easy to miss in a test. */

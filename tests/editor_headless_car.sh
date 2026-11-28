@@ -35,7 +35,9 @@ printf '# made by Export original car\nid=wagon\nname=Wagon masks\nkind=masks\nm
 "$editor" --pick nosuchcar --frames 2 $export_opts >/dev/null 2>&1 && fail "--pick took a car that is not in the list"
 "$editor" "$work/exports/wagon-masks" --frames 3 --shot "$work/masksproject.png" >"$work/log" 2>&1 || fail "a masks project did not open: $(cat "$work/log")"
 [ ! -e "$work/exports/wagon-masks/trace.json" ] || fail "a masks project was made a track project"
-# poll-wait on a car (the clock was the track room's alone, so on a car the step never ended): 1 s of frames, then it is over; python bounds it, CI has no timeout command
+
+if want a; then
+# poll-wait on a car (the clock was the track room's alone, so on a car the step never ended): 1 s of frames, then it is over (--frames 3: the step alone keeps the run going); python bounds it, CI has no timeout command
 python3 -I -c "
 import subprocess, sys
 try:
@@ -43,11 +45,9 @@ try:
     sys.exit(r.returncode)
 except subprocess.TimeoutExpired:
     sys.exit(124)
-" "$work/log" "$editor" "$work/exports/wagon-masks" --frames 100 --steps poll-wait:1 || fail "poll-wait on a car did not end (rc $?): $(cat "$work/log")"
+" "$work/log" "$editor" "$work/exports/wagon-masks" --frames 3 --steps poll-wait:1 || fail "poll-wait on a car did not end (rc $?): $(cat "$work/log")"
 grep -q "poll: watching" "$work/log" || fail "poll-wait on a car did not start: $(cat "$work/log")"
 
-
-if want a; then
 # ==== Open: the start screen, a car's kit, a card that is not a car ====
 # no PROJECT: the start screen (nothing is made anywhere); a car's kit (the current layout) opens as a car and writes nothing; an old coche/ + modelo/ kit and a card
 # that is not a car are refused in words

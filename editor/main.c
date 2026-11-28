@@ -50,6 +50,7 @@ enum {
     WINDOW_H = WINDOW_LEAST_H,
     WINDOW_MIN_W = 640, WINDOW_MIN_H = 400, WINDOW_MAX_W = 3840, WINDOW_MAX_H = 2160,   /* --window's range */
     FRAME_MS = 16,
+    SCAN_DRAWN = 20,
     LIGHT_WAIT_FRAMES = 20000,   /* a headless Track light run waits this many frames at most for its pictures (5 minutes) */
     TEST_DRIVE_WAIT_MS = 60000   /* --test-drive waits this long for the game's line on the track */
 };
@@ -819,8 +820,13 @@ static int run(App *a, const Options *o)
             if (SDL_WaitEventTimeout(&ev, IDLE_WAIT_MS)) SDL_PushEvent(&ev);
             continue;
         }
-        SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
-        SDL_RenderClear(ren);
+        /* a headless sweep of the mouse (scan) draws one frame in SCAN_DRAWN and waits for none: each is still laid out and checked; a run that takes a picture draws them all */
+        const int drawn = !headless || o->shot != NULL || o->model_shot != NULL || !steps_hover_only(&steps) || frame % SCAN_DRAWN == 0;
+        ui_set_drawing(drawn);
+        if (drawn) {
+            SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
+            SDL_RenderClear(ren);
+        }
         ui_frame(ren, a);
         perf_end(PERF_UI, t);
         if (o->steps != NULL) steps_frame(&steps, a, win);
@@ -845,10 +851,10 @@ static int run(App *a, const Options *o)
             break;
         }
         t = perf_begin();
-        SDL_RenderPresent(ren);
+        if (drawn) SDL_RenderPresent(ren);
         perf_end(PERF_PRESENT, t);
         perf_frame();
-        SDL_Delay(FRAME_MS);
+        if (drawn) SDL_Delay(FRAME_MS);
     }
     if (headless && ui_error_count() > 0) {   /* a panel that breaks ImGui's rules draws a banner nobody reads in a test */
         fprintf(stderr, "ImGui reported %d error%s, the first: %s\n", ui_error_count(), ui_error_count() == 1 ? "" : "s", ui_error_first());

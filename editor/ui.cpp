@@ -975,6 +975,9 @@ static ImTextureID mask_texture(SDL_Renderer *ren, const App *a)
     return reinterpret_cast<ImTextureID>(tex);
 }
 
+static int drawing = 1;
+void ui_set_drawing(int on) { drawing = on; }
+
 void ui_frame(SDL_Renderer *ren, App *a)
 {
     static bool track_laid_out = false, car_laid_out[4] = { false, false, false, false }, light_laid_out[2] = { false, false };   // by the dock: [masks * 2 + tweak]
@@ -1108,5 +1111,5 @@ void ui_frame(SDL_Renderer *ren, App *a)
     open_error_popup(a);
     if (ImGui::GetCurrentContext()->DebugDrawIdConflictsId != 0) imgui_error(nullptr, nullptr, "two items share an ID (ImGui's red box): a row of a list needs its own PushID");   // only for the item under the mouse: the scan step moves it over the window
     ImGui::Render();
-    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);
+    if (drawing) ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);
 }

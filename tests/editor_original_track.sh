@@ -167,6 +167,11 @@ echo "$out" | grep -q '^originals: 16 tracks, 2 masks: 2 equal, 0 differ, 0 new 
 # the photo shows the workspace's masks (TNFS_TRACK_MASKS), and a PSD retouched in Photoshop shows in the next photo.
 # The photo is a game run of its own that can end after the editor's frames do (a slow machine): the record is waited for by what it must say, at most 90 s of the clock, never read at once
 export FAKE_RECORD="$work/record"
+# retouch KIND: AL1's scenery_00 PSD saved again with KIND's mask. Its PNG is dated long ago first, so the PSD is the newer of the two (what makes a PNG out of date) however quick the machine is
+retouch() {
+    touch -t 200001010000 "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png" || fail "no scenery_00.png to date"
+    "$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" "$1"
+}
 record_has() {   # record_has LINE: 0 once the fake game's record holds that line
     end=$((SECONDS + 90))
     while [ "$SECONDS" -lt "$end" ]; do
@@ -180,15 +185,13 @@ want=$(cksum < "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png")
 record_has "scenery_00.png $want" || fail "the photo's scenery_00 mask is not the workspace's: $(cat "$work/record" 2>/dev/null)"
 grep -q '^masks=.' "$work/record" 2>/dev/null || fail "the photo was not given the workspace's masks: $(cat "$work/record" 2>/dev/null)"
 before=$(grep '^scenery_00.png' "$work/record")
-sleep 1
-"$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" lamps   # retouched and saved: newer than its PNG
+retouch lamps   # retouched and saved: newer than its PNG
 out=$(run --frames 20 --steps open-original:0 2>&1) || fail "photo after a retouch: $out"
 want=$(cksum < "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png")
 record_has "scenery_00.png $want" || fail "the photo's mask is not the regenerated PNG: $(grep '^scenery_00.png' "$work/record")"
 after=$(grep '^scenery_00.png' "$work/record")
 [ -n "$after" ] && [ "$after" != "$before" ] || fail "a retouched PSD did not change the mask in the photo: $before -> $after"
-"$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" paint   # back to the first mask for what follows
-sleep 1
+retouch paint   # back to the first mask for what follows
 run --frames 4 --steps open-original:0,masks-print > /dev/null 2>&1
 # the window open: a PSD saved while the editor runs (no new run) is seen by the panel's poll: its status says so, the PNG is made again and so is the photo
 png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
@@ -197,8 +200,7 @@ run_bg --frames 7000 --steps open-original:0,poll-wait:90 > "$work/poll.out" 2>&
 poll_pid=$!
 for _ in $(seq 1 120); do grep -q '^poll: watching' "$work/poll.out" && break; sleep 0.5; done
 grep -q '^poll: watching' "$work/poll.out" || { kill -9 "$poll_pid" 2>/dev/null; fail "the window did not start watching: $(cat "$work/poll.out")"; }
-sleep 2
-"$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" lamps   # saved again while the window is open
+retouch lamps   # saved again while the window is open ("poll: watching" is said after the panels have read the PSDs' dates, so this save is after what they saw)
 for _ in $(seq 1 120); do
     [ "$(cksum < "$png")" != "$before_png" ] && grep -q '^poll: .*a PSD was saved again' "$work/poll.out" && grep -q "^scenery_00.png $(cksum < "$png")\$" "$work/record" && break
     sleep 0.5
@@ -207,8 +209,7 @@ kill -9 "$poll_pid" 2>/dev/null; wait "$poll_pid" 2>/dev/null   # -9: the editor
 grep -q '^poll: .*a PSD was saved again' "$work/poll.out" || fail "the open window did not notice the saved PSD: $(cat "$work/poll.out")"
 [ "$(cksum < "$png")" != "$before_png" ] || fail "the open window did not make the PNG again"
 grep -q "^scenery_00.png $(cksum < "$png")\$" "$work/record" || fail "the open window's photo did not show the new PNG: $(cat "$work/record")"
-"$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" paint   # back to the first mask for what follows
-sleep 1
+retouch paint   # back to the first mask for what follows
 run --frames 4 --steps open-original:0,masks-print > /dev/null 2>&1
 unset FAKE_RECORD
 
@@ -249,19 +250,19 @@ row = b"\x00" + bytes([255, 255, 255, 255])
 open(sys.argv[1], "wb").write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 1, 8, 0, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(row)) + chunk(b"IEND", b""))
 PY
 cp "$edited_png" "$work/edited_scenery.png"
-out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_show_psd,ui-click:tmask_show_png" 2>&1) || fail "show folders: $out"
+out=$(run --frames 30 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_show_psd,ui-click:tmask_show_png" 2>&1) || fail "show folders: $out"
 echo "$out" | grep -qxF "reveal: $work/ws/tracks/AL1/art-source/masks" || fail "Show PSD folder asks for the track's art-source/masks: $out"
 echo "$out" | grep -qxF "reveal: $work/ws/tracks/AL1/art-generated/track_masks" || fail "Show masks folder asks for the track's art-generated/track_masks: $out"
 for answer in tmask_all_cancel tmask_all_keep; do
-    out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:$answer,masks-print" 2>&1) || fail "update, $answer: $out"
+    out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:$answer,masks-print" 2>&1) || fail "update, $answer: $out"
     cmp -s "$edited_png" "$work/edited_scenery.png" || fail "update, $answer: the PNG edited by hand was replaced: $out"
     echo "$out" | grep -q '^masks: 3 to_make 0 edited 1$' || fail "update, $answer: the PNG is still edited by hand: $out"
 done
-out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_rescan,status" 2>&1) || fail "re-scan: $out"
+out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_rescan,status" 2>&1) || fail "re-scan: $out"
 echo "$out" | grep -q '^status: masks: scanned again (3 textures)$' || fail "Re-scan says it scanned the folder again: $out"
-out=$(run --frames 60 --steps "open-original:0,masks-changes" 2>&1) || fail "changes: $out"
+out=$(run --frames 20 --steps "open-original:0,masks-changes" 2>&1) || fail "changes: $out"
 echo "$out" | grep -q '^changes: ' && echo "$out" | grep -q 'track_masks/AL1/scenery_00.png' || fail "the list of changes against the game repo names the mask: $out"
-out=$(run --frames 60 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:tmask_all_replace,masks-print" 2>&1) || fail "update, replace: $out"
+out=$(run --frames 20 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_update,ui-click:tmask_all_replace,masks-print" 2>&1) || fail "update, replace: $out"
 cmp -s "$edited_png" "$work/edited_scenery.png" && fail "update, Replace did not replace the PNG edited by hand: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "update, Replace makes every PNG from its PSD: $out"
 echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "update, Replace: the PSD's mask is back: $out"

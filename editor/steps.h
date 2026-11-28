@@ -87,6 +87,8 @@ typedef struct {
 int steps_read(Steps *s, const char *text);
 /* 1 while steps are left */
 int steps_running(const Steps *s);
+/* 1 while a step that only moves the mouse over the window is running (scan): what it checks is found as the frame is laid out, so a headless run need not draw every one */
+int steps_hover_only(const Steps *s);
 /* This frame's part, after the window was drawn: the steps that need no frame are done, an input step sends its next events (taken by the
  * next frame). `win` gets the events. */
 void steps_frame(Steps *s, App *a, SDL_Window *win);
