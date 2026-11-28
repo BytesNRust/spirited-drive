@@ -12,6 +12,10 @@ int ui_probe_find(const char *name, float *x, float *y, float *w, float *h);
 /* brings the window of that name to the front (a docked tab shows nothing of its panel until it is), for ui-focus */
 void ui_probe_focus(const char *window);
 
+/* The tests' sabotage (--steps same-ids): every row of the card's photo list (0) or colour list (1) takes one ID, which the sweep (scan) must report; -1 none */
+void ui_probe_same_ids(int list);
+int ui_probe_row_id(int list, int row);   /* what a row pushes as its ID: `row`, or 0 for the list under sabotage */
+
 #ifdef __cplusplus
 }
 

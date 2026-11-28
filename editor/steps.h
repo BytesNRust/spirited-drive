@@ -49,6 +49,7 @@
  *   build          Build, as its button: what it says printed ("build: built ID.zip" or "build: build refused: ...")
  *   race           a car's Test in race, as its button: the game's command line printed ("race: ...") and its TNFS_ environment ("race env: ...")
  *   race-log       waits for the game's log to name the race's car ("race log: race car: slot 0 is ..."); fails when the game ends first
+ *   same-ids:L     a sabotage for the tests: the rows of the card's photo list (L 0) or colour list (1) take one ID, so scan must fail
  *   poll-wait:S   the window runs S seconds, so a file changed meanwhile is seen as when it is open: "poll: watching" first, then "poll: STATUS" when the photos are due again
  *   new-car-open   File > New car with a workspace: the window up, for a picture
  *   new-car:T      File > New car: the name "Car <word>" typed, car T (0..7: the eight you drive) chosen, Create pressed; the kit is made and opened

@@ -11,6 +11,7 @@ struct Entry { char name[48]; float x, y, w, h; int frame; };
 Entry g_table[160];
 int g_count = 0;
 char g_scope[32] = "";
+int g_same_ids = -1;
 
 }   // namespace
 
@@ -59,6 +60,10 @@ extern "C" int ui_probe_find(const char *name, float *x, float *y, float *w, flo
     }
     return 0;
 }
+
+extern "C" void ui_probe_same_ids(int list) { g_same_ids = list; }
+
+extern "C" int ui_probe_row_id(int list, int row) { return list == g_same_ids ? 0 : row; }
 
 extern "C" void ui_probe_focus(const char *window)
 {

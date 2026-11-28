@@ -306,7 +306,7 @@ void photos_section(App *a, const CarEditProblem *problems, int count)
     for (int i = 0; i < n; ++i) {
         uint32_t w = 0, h = 0;
         const bool there = car_photos_size(photos_dir, names[i], &w, &h) != 0;
-        ImGui::PushID(i);
+        ImGui::PushID(ui_probe_row_id(0, i));
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(names[i]);
         ImGui::SameLine();
@@ -351,7 +351,7 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
     for (int i = 0; i < s.paint_count; ++i) {
         ModPaint &p = s.paints[i];
         const CarEditProblem *bad = problem_for(problems, count, CE_PAINTS, i);
-        ImGui::PushID(i);
+        ImGui::PushID(ui_probe_row_id(1, i));
         float rgb[3] = { p.rgb[0] / 255.0f, p.rgb[1] / 255.0f, p.rgb[2] / 255.0f };
         if (ImGui::ColorEdit3("##rgb", rgb, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
             const uint8_t next[3] = { (uint8_t)(rgb[0] * 255.0f + 0.5f), (uint8_t)(rgb[1] * 255.0f + 0.5f), (uint8_t)(rgb[2] * 255.0f + 0.5f) };
