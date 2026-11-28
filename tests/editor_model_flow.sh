@@ -1,6 +1,6 @@
 #!/bin/sh
 # The Model window's controls clicked as a person does (ui_probe names the widgets, the steps ui-click send the mouse): Enlarge floats it and Dock back puts it where it was, the camera kept; the Soft edges
-# switch is on screen and toggles; at render scale 1 the switch is grey (a click changes nothing) and at the player's own scale it works. Needs the player's game files (original/): skipped without them.
+# switch is on screen and toggles; at render scale 1 the switch is grey (a click changes nothing) and at the player's own scale it works. Needs the player's game files (original/): skipped (exit 77) without them.
 # usage: editor_model_flow.sh EDITOR REPO [PART]
 # PART a..d runs one quarter of the flows, all runs the four: ctest runs a..d side by side (the whole took six minutes alone in a sanitizer build). Each part has its own scratch folder and makes its own kit.
 . "$(dirname "$0")/editor_headless_common.sh"
@@ -8,7 +8,7 @@ repo=$2
 part=${3:-all}
 case $part in all|a|b|c|d) ;; *) echo "FAIL: no part '$part'" >&2; exit 1;; esac
 runs() { [ "$part" = all ] || [ "$part" = "$1" ]; }
-[ -f "$repo/original/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no original/"; exit 0; }
+[ -f "$repo/original/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no original/"; exit 77; }
 ws="$work/ws"
 mkdir -p "$ws"
 kit="$ws/cars/car-supra"   # made by the first run (part a's first flow; the other parts make it with a run of their own), opened by the others
