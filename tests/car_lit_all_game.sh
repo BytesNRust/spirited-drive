@@ -2,6 +2,7 @@
 # No car is drawn black on any track with a light file (the ratio a car's table is made from, TNFS_CAR_RATIO_DUMP in view_light.c): every track of data/track_light by day, dawn and dusk, sun_shadow on
 # (the floor of a shadow is 0.55 of full), must give every car a ratio of at least MIN in one channel (a warm cast dims the blue, not the car) (a ratio left at 0 made the cars black in full sun, car_lit_game.sh). Tunnel nodes at dusk dim a car to about 0.3, so the floor is 0.15.
 # TRACKS="CY1 TR3" (environment) runs those tracks only: ctest runs four groups side by side (48 runs in all, 12 each; the groups are in CMakeLists.txt, checked by track_groups); with none, every file.
+# Only the ratios dumped are read, so the frames are drawn at render scale 1 (the same ratios, sooner).
 # usage: tests/car_lit_all_game.sh <tnfs binary> <original/ dir>      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
@@ -18,7 +19,7 @@ for track in $tracks; do
   min=0.15   # tunnels and dusk dim a car to ~0.3; a ratio left at 0 is the failure
   for time in day dawn dusk; do
     rm -f "$work/ratios"
-    TNFS_SUN_SHADOW=1 TNFS_WEATHER=clear TNFS_LIGHT_TIME=$time TNFS_CAR_RATIO_DUMP="$work/ratios" TNFS_AUTOPILOT=1 TNFS_FRAMES=1 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PREF_DIR="$work/pref" \
+    TNFS_RENDER_SCALE=1 TNFS_SUN_SHADOW=1 TNFS_WEATHER=clear TNFS_LIGHT_TIME=$time TNFS_CAR_RATIO_DUMP="$work/ratios" TNFS_AUTOPILOT=1 TNFS_FRAMES=1 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PREF_DIR="$work/pref" \
       timeout -k 5 300 "$bin" --data "$original" --user "$work/user" --drive "$track" --node 30 --screenshot "$work/s.ppm" > /dev/null 2>&1
     if [ ! -s "$work/ratios" ]; then echo "FAIL: $track $time: no car ratios dumped"; status=1; continue; fi
     checked=$((checked + 1))
