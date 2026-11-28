@@ -3,6 +3,7 @@
 # tunnel at 0, 1, 50 and 100 %, the chase view with the car at nodes -6..+6 around each mouth (a spread of them, the neighbouring ones in a row: TNFS_POOL_ALL=1 for every node). The picture's road in front of the car:
 #  (1) never jumps over 40 % of its range between neighbouring nodes (the whole run of a mouth, lamps and time fixed);
 #  (2) on the open road outside the mouth the pool never makes it lighter than the same node at lamps 100 % or than the farthest open node (+5 %);
+#      and that farthest node, which no tunnel lamps reach, is the same road at all four lamps values (within 5 % of their middle): it is the others' reference, so it has one of its own;
 #  (3) inside, at each node, the lamps 0 % -> 1 % step is no jump (within 10 % of the range) and 1 -> 50 -> 100 % no jump over 40 %.
 # (1) at night is printed as NOTE, not checked: with the pool on, a step inside the beam (AL1 nodes 0 -> 1, 42 % of the range even at lamps 100) is the tunnel floor's texture, accepted by the owner's rule (the pool wins);
 # the outside ramp is not drawn at night with the pool.
@@ -127,6 +128,16 @@ for (track, tm, mouth, lamps), seq in tab.items():
         cap = max(far, ref[i] if ref else far) * 1.05 + 2
         if seq[i] > cap:
             bad.append("(2) %s: outside node %d is %.1f, over the open road's %.1f" % (tag, offsets[i], seq[i], cap))
+for track, f, t in cases:   # (2) the farthest open node, the reference of the check above: the same at the four lamps values (the middle of four is not moved by one that is off)
+    for tm in times:
+        for mouth in mouths:
+            i = 0 if mouth == "in" else len(offsets) - 1
+            at = [(l, tab[(track, tm, mouth, l)][i]) for l in (0, 1, 50, 100) if (track, tm, mouth, l) in tab]
+            if len(at) != 4: continue   # a missing screenshot, already a failure
+            mid = sum(sorted(v for _, v in at)[1:3]) / 2
+            for lamps, v in at:
+                if abs(v - mid) > mid * 0.05 + 2:
+                    bad.append("(2) %s %s %s lamps %d: the farthest open node %d is %.1f, the road there at the other lamps %.1f" % (track, tm, mouth, lamps, offsets[i], v, mid))
 for track, f, t in cases:
     for tm in times:
         for mouth in mouths:
