@@ -25,6 +25,25 @@ static void flat(LightPos *pts)
 /* the road's points (0, 1, 6) never darken; the terrain's (2..5, 7..10) do */
 static int road_point(int p) { return p == 0 || p == 1 || p == 6; }
 
+/* The same light on every system: a wall due west of a point sits on the edge between two sky sectors, where atan2f's last bit differs between C libraries (Apple's puts it a bit under pi, in the
+ * sector below). With a second wall in that sector below, two sectors are shaded, not one: the point is 0.25 x 14/16 of full and, smoothed 3:1 with its open neighbour along the chain
+ * (0.25), 58 of 255; with one sector shaded it is 61. The expected value is fixed here, not computed with libm. */
+static void test_a_wall_due_west_shades_the_same_sector_on_every_system(void)
+{
+    enum { N = 3, WATCHED = 2 };   /* the same cross-section at three nodes, so the night's smoothing changes nothing */
+    LightPos pts[N * TRACK_NODE_LIGHT_POINTS];
+    uint8_t data[N * TRACK_NODE_LIGHT_POINTS];
+    for (int i = 0; i < N * TRACK_NODE_LIGHT_POINTS; i++) pts[i] = (LightPos){ 0, -1, 0 };   /* below: they raise no horizon */
+    for (int n = 0; n < N; n++) {
+        LightPos *row = pts + n * TRACK_NODE_LIGHT_POINTS;
+        row[WATCHED] = (LightPos){ 0, 0, 0 };
+        row[3] = (LightPos){ -10, 1000, 0 };      /* due west, on the sectors' edge: the first sector */
+        row[4] = (LightPos){ -10, 1000, 0.5f };   /* just short of due west: the last sector */
+    }
+    CHECK(terrain_light_make_rows(pts, N, 0, LIGHT_SYNTH_NIGHT, data));
+    CHECK_EQ_INT(data[TRACK_NODE_LIGHT_POINTS + WATCHED], 58);
+}
+
 static void test_quantised_to_sixteen_levels(void)
 {
     CHECK_EQ_INT(terrain_light_level(1.0f), 255);
@@ -588,6 +607,7 @@ int main(void)
     test_each_time_has_a_sun();
     test_a_wall_darkens_the_terrain_under_it_not_the_road();
     test_a_ring_sees_across_its_closing_node();
+    test_a_wall_due_west_shades_the_same_sector_on_every_system();
     test_quantised_to_sixteen_levels();
     test_a_flat_open_track_is_lit_as_the_cd_lights_flat_ground();
     test_the_arguments_are_checked();
