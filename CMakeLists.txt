@@ -2092,13 +2092,8 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_e2e_car PROPERTIES TIMEOUT 300)
             add_test(NAME editor_copy_originals COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_copy_originals.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Copy to game repo for the 20 original cars and the 16 tracks, a clean temp workspace, nothing edited
             set_tests_properties(editor_copy_originals PROPERTIES TIMEOUT 900)
-            # the 20 cars and the 16 tracks in eight parts that run side by side (each its own temp workspace): the same checks, a part to a car (or track) index mod 4
-            foreach(kind cars tracks)
-                foreach(idx 0 1 2 3)
-                    add_test(NAME editor_tweak_parity_${kind}${idx} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_parity.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} ${kind} ${idx} 4)   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
-                    set_tests_properties(editor_tweak_parity_${kind}${idx} PROPERTIES TIMEOUT 900)
-                endforeach()
-            endforeach()
+            add_test(NAME editor_tweak_parity COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_parity.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
+            set_tests_properties(editor_tweak_parity PROPERTIES TIMEOUT 1800)
             add_test(NAME editor_tweak_list COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_list.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak step 2: the list, Open, the Tweak panel, Apply, Replace / Skip / Cancel, a traffic car, an old workspace; needs the game's files
             set_tests_properties(editor_tweak_list PROPERTIES TIMEOUT 900)
             add_test(NAME editor_tweak_pack COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_pack.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>)   # Edit tweak step 4: Pack zip and Check; the zip installs and the race reads its light; needs the game's files
@@ -2824,8 +2819,7 @@ set(TNFS_E2E_TESTS
     content_menus_own
     editor_e2e_track
     editor_copy_originals
-    editor_tweak_parity_cars0 editor_tweak_parity_cars1 editor_tweak_parity_cars2 editor_tweak_parity_cars3
-    editor_tweak_parity_tracks0 editor_tweak_parity_tracks1 editor_tweak_parity_tracks2 editor_tweak_parity_tracks3
+    editor_tweak_parity
     editor_traffic_car_panel
     editor_real_workspace
     net_port_taken
