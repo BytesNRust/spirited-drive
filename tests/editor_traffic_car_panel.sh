@@ -24,7 +24,8 @@ for car in $cars; do
     studio "$kit" --port-data "$data" --steps ui-click:check || fail "$car: Check is gone: $(cat "$work/log")"
     studio "$kit" --port-data "$data" --steps ui-click:tweak_apply || fail "$car: Apply to game repo is gone: $(cat "$work/log")"
     # the click starts a race: the game's own log names the player's car (race-log fails when the game ends first), then Stop
-    studio "$kit" --port-data "$data" --steps ui-focus:Drive###Race,ui-click:test_drive,race-log,race-stop || fail "$car: Test drive did not start a race: $(grep -v '^ui rect' "$work/log" | tail -3)"
+    # --cd: the game needs the player's files, and with no --cd the editor looks for them from the folder the test is run in (ctest's is the build's: none there)
+    studio "$kit" --cd "$orig" --port-data "$data" --steps ui-focus:Drive###Race,ui-click:test_drive,race-log,race-stop || fail "$car: Test drive did not start a race: $(grep -v '^ui rect' "$work/log" | tail -3)"
     grep -q "^race log: race car: slot 0 is " "$work/log" || fail "$car: no race in the game's log: $(tail -3 "$work/log")"
 done
 # a driven car keeps its card and colors
