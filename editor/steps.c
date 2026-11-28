@@ -776,7 +776,7 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
     const int p = s->phase++;
     float x = 0, y = 0;
     if (strncmp(name, "race-", 5) == 0) return race_frames(s, a, name, p);
-    if (strncmp(name, "patience:", 9) == 0) return s->ui_patience = (int)arg[0], 0;   /* patience:N: the ui- steps after this one wait N frames, not UI_WAIT_FRAMES, for a widget that is not there: for a check that the click fails, once the window it would be on is up */
+    if (strncmp(name, "patience:", 9) == 0) return s->ui_patience = (int)arg[0], 0;   /* patience:N: every ui- step after this one, to the end of the run, waits N frames (not UI_WAIT_FRAMES) for a widget that is not there: for a check that the click fails, once the window it would be on is up, so put it right before that click, at the end */
     if (strncmp(name, "camera:", 7) == 0) {   /* camera:2: the car read again, then two frames for the Model to answer */
         if (p == 0) app_car_reread(a);
         return p < 2;
