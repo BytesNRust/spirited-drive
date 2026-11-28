@@ -68,7 +68,7 @@ void drive_run_refresh_set(int32_t hz)
 
 /* One step; at the race's end the results. */
 /* port, for the checks: TNFS_TRACE_PLAYER=N prints slot 0's car every N race ticks (a tick once in a row; a
- * replay's jumps and seeks print a tick again when they come back to it), so a race and its replay can be compared */
+ * replay's jumps and seeks print a tick again when they come back to it), so a race and its replay can be compared; the log takes mark:trace=TICK too */
 static void trace_player(void)
 {
     static int every = -1;
@@ -83,6 +83,7 @@ static void trace_player(void)
     last = race->tick;
     printf("trace %d %d: node %d x %d y %d z %d yaw %d speed %d\n", race->replay, race->tick, car->node, car->x, car->y,
            car->z, car->yaw, car->speed);
+    port_log("mark:trace=%d\n", race->tick);   /* port (test harness): a script can wait for a tick of the race */
 }
 
 static int32_t drive_steps;  /* port: the sim steps run so far (drive_tick's calls), for the stats overlay's steps a second */
