@@ -1988,7 +1988,7 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(car_piece_race_finish PROPERTIES FIXTURES_REQUIRED car_piece_giveup FIXTURES_SETUP car_piece_finish)
         set_tests_properties(car_piece_race_replay car_piece_race_refusals car_piece_race_stock PROPERTIES FIXTURES_REQUIRED car_piece_finish)
         # dep59 step 3: an added car in the menus, one test per part so they run side by side
-        foreach(part cards modes steps replays)
+        foreach(part cards names modes_stock modes_restored steps replays)
             add_test(NAME car_card_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_card_menus.sh $<TARGET_FILE:tnfs>
                      $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original ${part})
             set_tests_properties(car_card_menus_${part} PROPERTIES TIMEOUT 600)
@@ -2817,7 +2817,7 @@ include(fuzz/fuzz.cmake)
 # fails on a script that skips with exit 0, and on a test of such a script missing here
 set(TNFS_SKIP_TESTS
     editor_new_car editor_ui_io editor_ui_io_light editor_export_track track_new_generic mods_overlay car_piece_race_quick car_piece_race_giveup car_piece_race_finish
-    car_piece_race_replay car_piece_race_refusals car_piece_race_stock car_card_menus_cards car_card_menus_modes car_card_menus_steps car_card_menus_replays showcase_setup_tile
+    car_piece_race_replay car_piece_race_refusals car_piece_race_stock car_card_menus_cards car_card_menus_names car_card_menus_modes_stock car_card_menus_modes_restored car_card_menus_steps car_card_menus_replays showcase_setup_tile
     stock_screens_golden_stock stock_screens_golden_restored stock_screens_golden_restored-16x9 tweak_race_facts_A tweak_race_facts_B tweak_race_facts_C tweak_race_facts_compare
     edition_menus_menus edition_menus_modes edition_menus_race edition_menus_trackrace track_menus_central track_menus_race track_menus_card track_menus_page track_menus_best_times
     track_piece_run content_menus_own content_menus_standard car_own_behaviour track_new track_piece_drive editor_e2e_track editor_e2e_car editor_copy_originals editor_tweak_list
@@ -2912,7 +2912,9 @@ set(TNFS_E2E_TESTS
     car_piece_race_replay
     car_piece_race_stock
     car_card_menus_cards
-    car_card_menus_modes
+    car_card_menus_names
+    car_card_menus_modes_stock
+    car_card_menus_modes_restored
     car_card_menus_steps
     car_card_menus_replays
     showcase_setup_tile_restomod showcase_setup_tile_stock showcase_setup_tile_restored

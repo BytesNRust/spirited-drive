@@ -3,26 +3,27 @@
 # (mark:car= / mark:opponent= from Control Central, mark:gallery=<item> <skin> <paint> from the added car's gallery, mark:list_row= from the
 # replay list), and the pictures are the script's SHOTs (the frame on screen once it is still); one game session walks through several checks.
 # PART (one ctest each, so they run side by side):
-#   cards    Restomod: Control Central's car arrow twice from a fresh player's car 6 is the added car (16); its card.png is drawn (the card's
-#            box follows the piece's card: another name, another box, the game drawing it; the same box when Control Central opens
-#            again; card_name=off draws none); as the head to head rival its rival card is drawn (its box follows the name too). A click on its card opens its gallery: Color one on (Red)
-#            shows its swatch, Skin one on (stripes) shows its name; Done comes back to car 16 and Cancel closes Control Central. Started
-#            again, restomod.cfg keeps car=test-car and look.test-car=stripes,Red, Control Central opens on car 16, and config.dat's car is an
-#            original (0..7).
-#   modes    Stock and Restored with the piece in --mods: no added car, the same picture as without it, no restomod.cfg.
+#   cards    Restomod: Control Central's car arrow twice from a fresh player's car 6 is the added car (16), and as the head to head
+#            rival too. A click on its card opens its gallery: Color one on (Red) shows its swatch, Skin one on (stripes) shows its name; Done
+#            comes back to car 16 and Cancel closes Control Central. Started again, restomod.cfg keeps car=test-car and
+#            look.test-car=stripes,Red, Control Central opens on car 16 with the same card box, and config.dat's car is an original (0..7).
+#   names    Restomod: the card's box follows the name the game draws over the same card.png (another name, another box), as the rival
+#            card's does; card_name=off draws none.
+#   modes_stock, modes_restored
+#            that mode with the piece in --mods: no added car, the same picture as without it, no restomod.cfg.
 #   steps    Restomod: the gallery's Previous and Next go to the next car's gallery, whatever it is. Previous clicked from car 16 opens
 #            the Diablo's showcase, which stays open (the click's button, still down, is not taken there as Done) until Escape; Next from
 #            car 16 passes over the Warrior (no gallery) to the RX-7's showcase rather than back to Control Central.
 #   replays  a whole race of car 16 against car 16 from the menus (Race): the replay list shows its Replay.rpx, restomod.cfg keeps the
 #            rival; without the piece the row says which mod it needs.
-# usage: car_card_menus.sh TNFS STUDIO REPO ORIGINAL_DIR [PART] (no PART: all of them, in turn)
+# usage: car_card_menus.sh TNFS STUDIO REPO ORIGINAL_DIR [PART] (no PART: all of them, in turn; modes: both modes)
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
 tnfs=$(abs "$1")
 studio=$(abs "$2")
 repo=$(abs "$3")
 orig=$(abs "$4")
-parts=${5:-cards modes steps replays}
+parts=${5:-cards names modes steps replays}
 [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 77; }
 work=$(mktemp -d)
 trap 'find "$work" -delete' EXIT
@@ -147,6 +148,14 @@ part_cards() {
     walk "$piece" "$to_central,300:MOUSE:319:197,$(shot a2)" || fail "Control Central did not open again"
     [ "$(log | grep -m1 "^mark:car=")" = "mark:car=16" ] || fail "Control Central opened again on $(log | grep -m1 "^mark:car="), not car 16"
     has_shot a2 && card_box a a2 && fail "car 16's card box is not the same when Control Central opens again"
+}
+
+part_names() {
+    # the test car's own card and rival card, the pictures the others are compared with
+    user_in restomod
+    walk "$piece" "$to_central,$car_16,$(shot a),$rival_16,$(shot r16)" || fail "Restomod: car 16 and its rival card"
+    has_shot a || fail "no picture of car 16's card"
+    has_shot r16 || fail "no picture of car 16's rival card"
     # another name on the same card.png: car 16's card box and its rival box are other pictures (the game draws the name)
     user_in restomod
     walk "$other" "$to_central,$car_16,$(shot o),$rival_16,$(shot o16)" || fail "Restomod: the other name's car 16 and its rival card"
@@ -180,17 +189,20 @@ part_steps() {
     log | grep -q "the Warrior's \(figures\|card\)" && fail "the Warrior's page: $(log | grep -m1 "the Warrior's")"
 }
 
-part_modes() {
-    for mode in stock restored; do
-        user_in $mode
-        walk "$piece" "$to_central,$(car_on),$(car_on),$(shot $mode-piece)" || fail "$mode with the piece: the car arrow did not step twice"
-        log | grep -q "^car piece:" && fail "$mode loaded the car piece: $(log | grep "^car piece:" | head -1)"
-        log | grep -q "^mark:car=16" && fail "$mode offered car 16"
-        [ -e "$work/user/restomod.cfg" ] && fail "$mode wrote restomod.cfg"
-        user_in $mode
-        walk "$nomods" "$to_central,$(car_on),$(car_on),$(shot $mode)" || fail "$mode without the piece: the car arrow did not step twice"
-        cmp -s "$work/shots/$mode-piece.ppm" "$work/shots/$mode.ppm" || fail "$mode's Control Central is not the same with the piece in --mods"
-    done
+part_modes_stock() { mode_without_the_car stock; }
+part_modes_restored() { mode_without_the_car restored; }
+part_modes() { part_modes_stock; part_modes_restored; }
+
+mode_without_the_car() {
+    mode=$1
+    user_in $mode
+    walk "$piece" "$to_central,$(car_on),$(car_on),$(shot $mode-piece)" || fail "$mode with the piece: the car arrow did not step twice"
+    log | grep -q "^car piece:" && fail "$mode loaded the car piece: $(log | grep "^car piece:" | head -1)"
+    log | grep -q "^mark:car=16" && fail "$mode offered car 16"
+    [ -e "$work/user/restomod.cfg" ] && fail "$mode wrote restomod.cfg"
+    user_in $mode
+    walk "$nomods" "$to_central,$(car_on),$(car_on),$(shot $mode)" || fail "$mode without the piece: the car arrow did not step twice"
+    cmp -s "$work/shots/$mode-piece.ppm" "$work/shots/$mode.ppm" || fail "$mode's Control Central is not the same with the piece in --mods"
 }
 
 # the replay list: Options, Load/Save, View replay
@@ -198,13 +210,13 @@ replays="$(click 215 450),$(wait_for screen=options),$(click 240 324),300:MOUSE:
 # Rusty Springs (track 3: a circuit, one race; Coastal's three segments would go on), the track arrow twice from a fresh player's 1; one
 # lap with the harness's autopilot; Enter on each results screen once it has faded in (its mark:results=NAME), to Control Central again
 # (headless the pointer is not over Done at first: on the first screen one Enter wakes it there and a second takes Done)
-# (the race's clock runs four times faster, TNFS_CLOCK_RATE: the same steps and result, a quarter of the wait)
+# (the race's clock runs eight times faster, TNFS_CLOCK_RATE: the same steps, a shorter wait; no timed key falls in the race)
 rusty="$(click 535 319),$(wait_for card=),$(click 535 319),$(wait_for card=3)"
 results="0:WAIT:mark:results=circuit:300,300:ENTER,300:ENTER,$(wait_for results=best_totals),300:ENTER,$(wait_for car=16)"
 
 part_replays() {
     user_in restomod
-    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4" walk "$piece" "$to_central,$car_16,$rival_16,$rusty,$(click 56 453),$results,$replays" ||
+    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=8" walk "$piece" "$to_central,$car_16,$rival_16,$rusty,$(click 56 453),$results,$replays" ||
         fail "a race of car 16 against car 16 from the menus did not come back to the replay list"
     log | grep -q "^finish: 0=TESTCAR" || fail "the race of car 16 against car 16 did not finish"
     grep -q "^opponent=test-car$" "$work/user/restomod.cfg" 2>/dev/null || fail "the race did not keep opponent=test-car"
@@ -218,7 +230,7 @@ part_replays() {
 
 for part in $parts; do
     case $part in
-    cards|modes|steps|replays) "part_$part" ;;
+    cards|names|modes|modes_stock|modes_restored|steps|replays) "part_$part" ;;
     *) echo "FAIL: no part $part" >&2; exit 2 ;;
     esac
 done
