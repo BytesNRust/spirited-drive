@@ -105,7 +105,8 @@ part_race() {
     user_in
     section race;    add "$to_game_mode,$single,$(wait_for card=16),$(track_right 17),$(click 56 453)"
     section results; add "0:WAIT:mark:results=segment:300,300:ENTER,300:ENTER,0:WAIT:mark:results=track:300,300:ENTER,$(wait_for results=best_totals),300:ENTER,$(wait_for car=2)"
-    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk || { fail "race: the second piece did not race and come back to Control Central"; return; }
+    # (the race's clock runs four times faster, TNFS_CLOCK_RATE: the same steps and result; no key is sent while it races)
+    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4" walk || { fail "race: the second piece did not race and come back to Control Central"; return; }
     log | grep -q "^finish: 0=" || fail "race: the race did not finish"
     log | grep -q "could not start" && fail "race: the race did not start: $(log | grep "could not start")"
     [ -s "$work/user/race_records_tracks2.dat" ] || fail "race: race_records_tracks2.dat was not made"
