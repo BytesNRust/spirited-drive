@@ -41,7 +41,8 @@ grep -q '"30th Anniversary Lavender"' "$table" || fail "LDIABL: the game's full 
 clicked "$kit" --port-data "$repo/data" --steps ui-click:colour2_remove,paint-print,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm,status > "$work/log" 2>&1 || fail "LDIABL remove: $(cat "$work/log")"
 grep -q "^paints: Rosso Diablo #b3121e 30th Anniversary Lavende #9878c8$" "$work/log" || fail "LDIABL: Remove did not take the third colour away: $(grep '^paints' "$work/log")"
 grep -A2 "\"LDiabl\"" "$table" | grep -q "\"Nero\"" && fail "LDIABL: the removed colour is still in the table"
-clicked "$kit" --port-data "$repo/data" --steps ui-click:no_such_button > "$work/log" 2>&1 && fail "a click on a widget that is not there went"
+clicked "$kit" --port-data "$repo/data" --steps patience:30,ui-click:no_such_button > "$work/log" 2>&1 && fail "a click on a widget that is not there went"
+grep -q "no such widget drawn" "$work/log" || fail "the click on a widget that is not there failed for another reason: $(tail -3 "$work/log")"
 
 [ "$failures" = 0 ] && echo ok
 exit "$failures"
