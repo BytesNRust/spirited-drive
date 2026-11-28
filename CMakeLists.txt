@@ -1929,6 +1929,13 @@ if(NOT EMSCRIPTEN)
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_test(NAME fam_build_cd COMMAND test_fam_build ${CMAKE_SOURCE_DIR}/original/SIMDATA/ETRACKFM/AL1_001.FAM)
     endif()
+    # the 16 tracks in the four groups that track_light_fingerprint and car_lit_all_game run side by side; track_groups (no CD needed) checks they are the files of data/track_light, each once
+    set(TNFS_TRACKS_AL "AL1 AL2 AL3 CL1")
+    set(TNFS_TRACKS_CL "CL2 CL3 CY1 CY2")
+    set(TNFS_TRACKS_CY "CY3 TR1 TR2 TR3")
+    set(TNFS_TRACKS_TR "TR4 TR5 TR6 TR7")
+    add_test(NAME track_groups COMMAND ${CMAKE_COMMAND} "-DTRACKS=${TNFS_TRACKS_AL} ${TNFS_TRACKS_CL} ${TNFS_TRACKS_CY} ${TNFS_TRACKS_TR}" -DDIR=${CMAKE_SOURCE_DIR}/data/track_light
+             -P ${CMAKE_SOURCE_DIR}/tests/track_groups.cmake)
     add_test(NAME track_new_generic COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new_generic.sh $<TARGET_FILE:tnfs-studio>)
     set_tests_properties(track_new_generic PROPERTIES TIMEOUT 300)
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
@@ -1981,30 +1988,19 @@ if(NOT EMSCRIPTEN)
                  ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(ui_kit_check PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         # the light of the 16 tracks at the 4 times of day, hashed (game/race/track_light_fingerprint.h): a change of the files, the format or the generator shows here (about 75 s)
-        # the 16 tracks in four groups that run side by side (the script compares each group with its lines of the file)
-        set(TNFS_FP_AL "AL1 AL2 AL3 CL1")
-        set(TNFS_FP_CL "CL2 CL3 CY1 CY2")
-        set(TNFS_FP_CY "CY3 TR1 TR2 TR3")
-        set(TNFS_FP_TR "TR4 TR5 TR6 TR7")
+        # the 16 tracks in four groups that run side by side (TNFS_TRACKS_<group>; the script compares each group with its lines of the file)
         foreach(group AL CL CY TR)
             add_test(NAME track_light_fingerprint_${group} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original
                      ${CMAKE_SOURCE_DIR}/tests/track_light_fingerprint.txt WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-            set_tests_properties(track_light_fingerprint_${group} PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77 ENVIRONMENT "TRACKS=${TNFS_FP_${group}}")
+            set_tests_properties(track_light_fingerprint_${group} PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77 ENVIRONMENT "TRACKS=${TNFS_TRACKS_${group}}")
         endforeach()
         add_test(NAME sun_shadow_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/sun_shadow_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(sun_shadow_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME car_lit_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(car_lit_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
-        foreach(group AL CL CY TR1_3 TR4_7)   # the tracks by their first letters (Vertigo's seven in two halves), side by side (48 runs: 9 or 12 a group)
-            if(group STREQUAL "TR1_3")
-                set(lit_glob "TR[1-3]")
-            elseif(group STREQUAL "TR4_7")
-                set(lit_glob "TR[4-7]")
-            else()
-                set(lit_glob "${group}")
-            endif()
+        foreach(group AL CL CY TR)   # the same four groups, side by side (48 runs: 12 a group)
             add_test(NAME car_lit_all_game_${group} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_all_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-            set_tests_properties(car_lit_all_game_${group} PROPERTIES TIMEOUT 1200 SKIP_RETURN_CODE 77 ENVIRONMENT "GROUP=${lit_glob}")
+            set_tests_properties(car_lit_all_game_${group} PROPERTIES TIMEOUT 1200 SKIP_RETURN_CODE 77 ENVIRONMENT "TRACKS=${TNFS_TRACKS_${group}}")
         endforeach()
         add_test(NAME tunnel_mouth_road_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_mouth_road_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(tunnel_mouth_road_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
@@ -2782,7 +2778,7 @@ endif()
 set(TNFS_STATIC_CHECKS
     readme_wording text_binarized_lint car_mask_class_table car_mask_psd masks_status track_mask_psd dash_mask_psd dash_psd_update
     frame_pick free_udp_ports spirited_logo spirited_icon profile_tables profile_tables_sabotage editor_ui_words
-    editor_loose_text)
+    editor_loose_text track_groups)
 set(TNFS_E2E_TESTS
     car_lamps_by_mask_game    editor_headless_track_a
     editor_headless_track_b
@@ -2809,7 +2805,7 @@ set(TNFS_E2E_TESTS
     edition_menus_menus
     edition_menus_race
     track_light_fingerprint_AL track_light_fingerprint_CL track_light_fingerprint_CY track_light_fingerprint_TR
-    car_lit_all_game_AL car_lit_all_game_CL car_lit_all_game_CY car_lit_all_game_TR1_3 car_lit_all_game_TR4_7
+    car_lit_all_game_AL car_lit_all_game_CL car_lit_all_game_CY car_lit_all_game_TR
     light_drive_results_game
     light_drive_setup_game
     vegas_lamps_game_night vegas_lamps_game_day
