@@ -2558,8 +2558,12 @@ if(NOT EMSCRIPTEN)
         add_test(NAME handbrake_lamps COMMAND test_handbrake_lamps "${CMAKE_SOURCE_DIR}/original/SIMDATA")
     endif()
 
-    find_program(TNFS_PYTHON3 python3)   # the PSD mask tool's lamp colours (skips itself when Pillow is missing)
-    if(TNFS_PYTHON3)
+    # python3 by its name, never by a path: ctest looks it up in the PATH it runs with (nix develop's has Pillow). A path kept in CMakeCache.txt stayed on a python without Pillow
+    # after the flake gained it, and 8 tests were skipped; tests/skip_codes.py checks the Pillow tests. find_program only says whether there is a python3 at all
+    unset(TNFS_PYTHON3 CACHE)   # the entry older build folders keep
+    find_program(TNFS_HAS_PYTHON3 python3)
+    if(TNFS_HAS_PYTHON3)
+        set(TNFS_PYTHON3 python3)   # the PSD mask tool's lamp colours (skips itself when Pillow is missing)
         add_test(NAME car_mask_class_table COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_car_mask_class_table.py")
         add_test(NAME car_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_car_mask_psd.py")
         add_test(NAME masks_status COMMAND ${TNFS_PYTHON3} -I "${CMAKE_SOURCE_DIR}/tests/test_masks_status.py")   # tools/masks_status.py: what is left of the original masks and dashes
