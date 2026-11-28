@@ -8,6 +8,11 @@ name: Gate
 
 on:
   workflow_dispatch:
+    inputs:
+      leaks:
+        description: "LeakSanitizer on in the sanitizer shards (the tests' own detect_leaks=0 switched on for this run); the log still shows names and results only"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,7 +44,7 @@ jobs:
     environment: cd-data
     env:
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-      ASAN_OPTIONS: detect_leaks=0
+      ASAN_OPTIONS: detect_leaks=${{ inputs.leaks && '1' || '0' }}
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_COMPILERCHECK: content
       CCACHE_MAXSIZE: 1G
@@ -63,6 +68,9 @@ jobs:
           path: .ccache
           key: ccache-ubuntu-24.04-${{ matrix.build == 'release' && 'release' || 'sanitizers' }}-${{ github.sha }}
           restore-keys: ccache-ubuntu-24.04-${{ matrix.build == 'release' && 'release' || 'sanitizers' }}-
+      - name: Leak detection on (this run only)
+        if: inputs.leaks
+        run: grep -rl 'detect_leaks=0' tests tools | xargs sed -i 's/detect_leaks=0/detect_leaks=1/g'
       - name: Configure
         run: nix develop -c cmake -S . -B build -G Ninja ${{ matrix.cmake }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
