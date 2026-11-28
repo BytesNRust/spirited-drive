@@ -76,7 +76,7 @@ race "$work/box" box-car "$work/box.ppm"
 cmp -s "$work/box1.zip" "$work/box2.zip" || fail "mod pack of the box car gives two zips"
 
 # 2. the low-detail model from far
-echo "car_import: the low-detail model from far is skipped: no camera of the command line goes past car_draw_far_z"
+echo "SKIPPED-PART: car_import: the low-detail model from far is skipped: no camera of the command line goes past car_draw_far_z"
 
 # 3. the Viper back
 "$studio" unpack "$orig/SIMDATA/CARFAMS/DVIPER.CFM" "$work/d" >/dev/null 2>&1 || fail "unpack of DVIPER.CFM"

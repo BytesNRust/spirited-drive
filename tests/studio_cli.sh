@@ -22,7 +22,7 @@ if runs cd; then
 # 1. a file of every kind goes out and comes back identical
 for name in DVIPER.CFM TR1.TRI VIPERSW.BNK DVIPER.PBS DVIPER.PDN TR1_001.FAM CARPAL.FSH; do
     f=$(find_one "$name")
-    [ -n "$f" ] || { echo "skip $name (not on this CD)"; continue; }
+    [ -n "$f" ] || { echo "SKIPPED-PART: studio_cli: skip $name (not on this CD)"; continue; }
     d="$work/$name.d"
     "$studio" unpack "$f" "$d" >/dev/null 2>"$work/err" || { fail "unpack $name: $(cat "$work/err")"; continue; }
     # dep69: every texture an MTL names is a PNG the unpack wrote, so a 3D editor shows the model textured

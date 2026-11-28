@@ -21,7 +21,7 @@ grep -q 'GAME_ONLY=1' "$bt" || fail "Build Test does not package with GAME_ONLY=
 grep -q 'check_dmg_contents.sh' "$bt" || fail "Build Test does not check the DMG's contents"
 grep -q 'GAME_ONLY' "$pk" || fail "package_macos.sh does not know GAME_ONLY"
 if ! command -v hdiutil > /dev/null 2>&1; then
-    [ "$fails" = 0 ] && { echo "ok (workflow checks only: no hdiutil, the DMG part is skipped)"; exit 0; }
+    [ "$fails" = 0 ] && { echo "SKIPPED-PART: package_game_only: no hdiutil, the DMG part is skipped (the workflow checks are ok)"; exit 0; }
     exit 1
 fi
 work=$(mktemp -d)

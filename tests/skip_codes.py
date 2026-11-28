@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""A test that skips is not a test that passed. Two rules, checked on the scripts of tests/ and on what ctest registered:
+"""A test that skips is not a test that passed. Four rules, checked on the scripts of tests/ and on what ctest registered:
   1. no script says "skip" and exits 0: a whole test that cannot run exits 77 (a part left out of a test that ran may still say so and go on);
   2. every ctest test whose command is a script that can exit 77 has SKIP_RETURN_CODE 77, so ctest says "Skipped" and not "Failed";
-  3. a ctest test that runs a Python script of tests/ that uses Pillow runs it with the python3 of the PATH, not one a build folder remembered (which may have no Pillow).
+  3. a ctest test that runs a Python script of tests/ that uses Pillow runs it with the python3 of the PATH, not one a build folder remembered (which may have no Pillow);
+  4. a script that leaves a part out and goes on says so in a line with SKIPPED-PART, which the gate greps in ctest's LastTest.log.
 usage: skip_codes.py CTEST BUILD REPO
 """
 import json
@@ -18,6 +19,7 @@ PARTIAL = {"package_game_only.sh"}
 
 SH_SKIP_PASS = re.compile(r"""\b(echo|printf)\b[^#|;]*\bskip.*\bexit 0\b""", re.I)
 PY_SKIP_PASS = re.compile(r"""print\([^\n]*skipped[^\n]*\n\s*sys\.exit\(0\)""", re.I)
+SH_SAYS_SKIP = re.compile(r"""\b(echo|printf)\b[^#]*\bskip""", re.I)
 CAN_SKIP = re.compile(r"""\bexit 77\b|sys\.exit\(77\)""")
 USES_PILLOW = re.compile(r"\bPIL\b|\bPillow\b")
 
@@ -35,6 +37,9 @@ def main(ctest, build, repo):
             can_skip.add(name)
         if name.endswith(".py") and USES_PILLOW.search(text):
             pillow.add(name)
+        if name.endswith(".sh"):
+            failures += ["%s:%d: leaves something out without SKIPPED-PART in the line" % (name, i) for i, line in enumerate(text.splitlines(), 1)
+                         if SH_SAYS_SKIP.search(line) and not re.search(r"SKIPPED-PART|\bexit 77\b|\bskipped=1\b", line)]
         if name in PARTIAL:
             continue
         if name.endswith(".sh"):

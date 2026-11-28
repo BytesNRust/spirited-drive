@@ -188,7 +188,7 @@ if [ -n "$tnfs" ]; then
         --screenshot "$work/b.ppm" >/dev/null 2>"$work/err" || fail "the Viper did not race: $(tail -3 "$work/err")"
     cmp -s "$work/a.ppm" "$work/b.ppm" || fail "the piece made from the Viper does not look like the Viper"
 else
-    echo "car_new: the game's --car takes no id (or no game given): the race is skipped"
+    echo "SKIPPED-PART: car_new: the game's --car takes no id (or no game given): the race is skipped"
 fi
 
 [ "$failures" -eq 0 ] || exit 1

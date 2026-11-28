@@ -94,7 +94,7 @@ assert any(p[3] == 255 for n, p in c.getcolors(1 << 20))
 PY
     [ ! -e "$real_masks/F512TR/dash_color.png" ] || fail "the draft was written in the dash masks folder"
 else
-    echo "dash_color_draft: the real-dash part needs original/: skipped"
+    echo "SKIPPED-PART: dash_color_draft: the real-dash part needs original/: skipped"
 fi
 
 [ "$failures" -eq 0 ] && echo "dash_color_draft: ok"

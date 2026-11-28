@@ -72,7 +72,7 @@ done
 # the wing races 10 seconds (500 ticks: the countdown, then about 30 a second) with a rival on the road. With the piece as the rival
 # itself: the command line has no way to name the rival's car yet (the menus' step 3)
 race "$work/fin" "$work/rival.ppm" 2 500
-echo "model_build: the piece as the rival is skipped: no way to name the rival's car outside the menus yet"
+echo "SKIPPED-PART: model_build: the piece as the rival is skipped: no way to name the rival's car outside the menus yet"
 
 [ "$failures" -eq 0 ] || exit 1
 echo "model_build: ok"
