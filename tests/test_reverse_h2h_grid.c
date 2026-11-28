@@ -1,6 +1,7 @@
 /* Head to head on a circuit run the other way round (Vertigo Ridge, TR3, port: formats/tri_reverse.h): the player and the
  * rival start a lane apart, as they do on the forward track, with the same separation across the road.
  *   test_reverse_h2h_grid SIMDATA_DIR */
+#include "formats/path_case.h"
 #include "formats/tri.h"
 #include "formats/tri_reverse.h"
 #include "game/race/car_load.h"
@@ -24,9 +25,11 @@ static RaceSim reverse_sim;
 static CarPdn pdns[RACERS];
 static int32_t hover[2];   /* the player's height over the road after the first ticks, forward and reversed */
 
-static uint8_t *read_file(const char *path, size_t *size)
+/* `rel` below `simdata`, in the spelling the file system has (the CD's names are upper case, the game's model names are not: Linux tells them apart) */
+static uint8_t *read_file(const char *simdata, const char *rel, size_t *size)
 {
-    FILE *fp = fopen(path, "rb");
+    char path[512];
+    FILE *fp = path_find_case(simdata, rel, path, sizeof path) ? fopen(path, "rb") : NULL;
     if (fp == NULL) return NULL;
     uint8_t *data = NULL;
     const long length = fseek(fp, 0, SEEK_END) == 0 ? ftell(fp) : -1;
@@ -42,13 +45,13 @@ static uint8_t *read_file(const char *path, size_t *size)
 
 static int load_pdn(CarPdn *pdn, const char *simdata, int model)
 {
-    char path[512];
-    snprintf(path, sizeof path, "%s/CARFAMS/%s.PDN", simdata, car_model_names[model]);
+    char rel[64];
+    snprintf(rel, sizeof rel, "CARFAMS/%s.PDN", car_model_names[model]);
     size_t size = 0;
-    uint8_t *file = read_file(path, &size);
+    uint8_t *file = read_file(simdata, rel, &size);
     const int ok = file != NULL && car_pdn_read(pdn, file, size);
     free(file);
-    if (!ok) fprintf(stderr, "test_reverse_h2h_grid: cannot read %s\n", path);
+    if (!ok) fprintf(stderr, "test_reverse_h2h_grid: cannot read %s/%s\n", simdata, rel);
     return ok;
 }
 
@@ -79,23 +82,22 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: test_reverse_h2h_grid SIMDATA_DIR\n");
         return 2;
     }
-    char path[512];
-    snprintf(path, sizeof path, "%s/MISC/TR3.TRI", argv[1]);
     size_t size = 0;
-    uint8_t *forward = read_file(path, &size);
+    uint8_t *forward = read_file(argv[1], "MISC/TR3.TRI", &size);
     uint8_t *reversed = forward != NULL ? malloc(size) : NULL;
     if (reversed == NULL || tri_reverse(forward, size, reversed) != TRI_OK) {
-        fprintf(stderr, "test_reverse_h2h_grid: cannot reverse %s\n", path);
+        fprintf(stderr, "test_reverse_h2h_grid: cannot reverse %s/MISC/TR3.TRI\n", argv[1]);
         return 1;
     }
-    snprintf(path, sizeof path, "%s/CARSPECS/%s.PBS", argv[1], car_model_names[0]);
+    char rel[64];
+    snprintf(rel, sizeof rel, "CARSPECS/%s.PBS", car_model_names[0]);
     size_t specs_size = 0;
-    uint8_t *specs_file = read_file(path, &specs_size);
+    uint8_t *specs_file = read_file(argv[1], rel, &specs_size);
     CarSpecs specs;
     const int read = specs_file != NULL && car_specs_read(&specs, specs_file, specs_size);
     free(specs_file);
     if (!read) {
-        fprintf(stderr, "test_reverse_h2h_grid: cannot read %s\n", path);
+        fprintf(stderr, "test_reverse_h2h_grid: cannot read %s/%s\n", argv[1], rel);
         return 1;
     }
     RaceField field;
