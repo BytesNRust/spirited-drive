@@ -2,7 +2,7 @@
 # tools/menu_walk.sh <bin> <outdir> <target>: walk the front end headless to a menu screen and save its picture as <outdir>/<target>.png.
 #
 #   targets: game-mode (Game Mode, the first menu after the intro: our boot screen and EA's movie skipped)  central (Control Central, KEYS after it)  showcase (the gallery, from a click on Control Central's car card)
-#            records (a stock car's RECORDS screen, page 1)  records-p2 (its page 2)
+#            records (a stock car's RECORDS screen, page 1)  records-p2 (its page 2): a page 2 exists only with more than ten tracks, so with the stock tracks alone it fails (exit 3)
 #            added-gallery (an added car's gallery: the car arrow clicked twice to car 16, the first added car, then the same click, KEYS after it; needs PROFILE=restomod, an EDITION with the piece among its cars and MODS the piece's folder)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
 #            content (CONTENT, from Game Mode's "Manage content...": open in Restomod alone, so PROFILE defaults to restomod there; with KEYS they follow 2.5 s after the click, the pointer parked off the list: a WAIT on the screen mark armed after it came never ended, and KEYS never ran)
@@ -113,6 +113,7 @@ fi
 
 pack="" shots=""   # pack: the target saves SHOT pictures (the names in shots, a mark each needs after a colon)
 steps_after=""   # set by the targets whose own steps go on after their mark (the done wait below)
+arrive=""   # the game's mark that says the walk is there, when it is not the target's screen=: a WAIT of its own after the screen opens
 case $target in
 game-mode)    script="$to_game_mode${KEYS:+,$KEYS}"; final=game_mode; tail=${TAIL:-3} ;;
 content)      export TNFS_CONTENT_DOOR=1   # Game Mode hides Manage content (owner 2026-11-25); the tests' door puts the row back (a binary from before ignores it)
@@ -120,10 +121,10 @@ content)      export TNFS_CONTENT_DOOR=1   # Game Mode hides Manage content (own
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
 records)      script="$to_central,$(click 180 200),$(wait_for showcase),1000:CLICK:$(( 430 + dx )):265,1500:CLICK:$(( 375 + dx )):265,$(wait_for car_records),$(park)"; final=car_records; tail=${TAIL:-3} ;;   # a stock car's RECORDS: the showcase's Video tile slid to its other face, then clicked
-records-p2)   script="$to_central,$(click 180 200),$(wait_for showcase),1000:CLICK:$(( 430 + dx )):265,1500:CLICK:$(( 375 + dx )):265,$(wait_for car_records),$(next_page),0:WAIT:mark:records_page=1:$step,$(park)"; final=car_records; tail=${TAIL:-3} ;;
+records-p2)   script="$to_central,$(click 180 200),$(wait_for showcase),1000:CLICK:$(( 430 + dx )):265,1500:CLICK:$(( 375 + dx )):265,$(wait_for car_records),$(next_page),0:WAIT:mark:records_page=1:$step,$(park)"; final=car_records; arrive="records_page=1"; tail=${TAIL:-3} ;;
 added-gallery) script="$to_central,$(click 319 197),0:WAIT:mark:car=:$step,$(click 319 197),0:WAIT:mark:car=16:$step,$(click 180 200),$(wait_for added_gallery)${KEYS:+,$KEYS}"; final=added_gallery; tail=${TAIL:-3} ;;
 added-track)  [ -n "$MODS" ] && [ -n "$EDITION" ] || { echo "added-track needs MODS (a track piece's folder) and EDITION (an edition file naming it alone, tracks=<id>)" >&2; exit 2; }
-              script="$to_central,0:WAIT:mark:card=16:$step${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3}; PROFILE=${PROFILE:-restomod} ;;   # the card's mark: 16 is the first added track
+              script="$to_central,0:WAIT:mark:card=16:$step${KEYS:+,$KEYS}"; final=central; arrive="card=16"; tail=${TAIL:-3}; PROFILE=${PROFILE:-restomod} ;;   # the card's mark: 16 is the first added track
 added-page)   [ -n "$MODS" ] && [ -n "$EDITION" ] || { echo "added-page needs MODS (a track piece's folder) and EDITION (an edition file naming it alone, tracks=<id>)" >&2; exit 2; }
               script="$to_central,0:WAIT:mark:card=16:$step,$(click 400 320),$(wait_for track_page)${KEYS:+,$KEYS}"; final=track_page; tail=${TAIL:-3}; PROFILE=${PROFILE:-restomod} ;;   # the card's click opens the added track's page
 options)      script="$to_options"; final=options ;;
@@ -191,10 +192,14 @@ limit=$(( step * 12 + 60 ))
 # ("input script: done"), at most DONE_WAIT seconds
 # past the target's mark: a binary from before that line (a menu_compare against an older build, a bisect) never logs it, and the walk then
 # says so and goes on as without KEYS
+# The marks are looked for at the start of a line: the input script's own lines ("waiting for X", "WAIT X timed out") hold the text too, and a
+# WAIT that timed out would pass for the screen it never saw. The timeout is looked for first.
+arrive=${arrive:-screen=$final}
 rc=1 waited=0 marked=-1 frames_at_mark=0 mark_epoch=0
 while [ $waited -lt $limit ]; do
     sleep 1; waited=$((waited + 1))
-    if [ $marked -lt 0 ] && grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then marked=$waited; frames_at_mark=$(ls "$work/cap" | wc -l); mark_epoch=$(date +%s); fi
+    if grep -q "input script: step.*timed out" "$work/user/spirited-drive.log" 2>/dev/null; then rc=3; break; fi
+    if [ $marked -lt 0 ] && grep -q "^mark:$arrive" "$work/user/spirited-drive.log" 2>/dev/null; then marked=$waited; frames_at_mark=$(ls "$work/cap" | wc -l); mark_epoch=$(date +%s); fi
     if [ $marked -ge 0 ]; then
         if [ -z "$KEYS$steps_after" ] || grep -q "input script: done" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
         if [ $(( waited - marked )) -ge ${DONE_WAIT:-30} ]; then
@@ -202,7 +207,6 @@ while [ $waited -lt $limit ]; do
             sleep ${tail:-3}; rc=0; break
         fi
     fi
-    if grep -q "input script: step.*timed out" "$work/user/spirited-drive.log" 2>/dev/null; then rc=3; break; fi
     [ -f "$work/game.rc" ] && break   # the game ended on its own (a crash, a quit, the script's end): the status it left, not a look at the process table, which
                                        # (pgrep -f) came back empty for a game that was running and the walk then stopped it itself (ui_kit_check's flake)
 done
@@ -239,7 +243,7 @@ if [ -n "$pack" ]; then
     for item in ${=shots}; do
         name=${item%%:*}; needs=""; case $item in *:*) needs=${item#*:} ;; esac
         if [ -f "$work/shots/$name.ppm" ] && to_png "$work/shots/$name.ppm" "$out/$name.png" 2>/dev/null; then echo "$name ok" >> "$out/pack.status"; made=$((made + 1))
-        elif [ -n "$needs" ] && ! grep -q "mark:$needs" "$work/user/spirited-drive.log" 2>/dev/null; then
+        elif [ -n "$needs" ] && ! grep -q "^mark:$needs" "$work/user/spirited-drive.log" 2>/dev/null; then
             echo "$name never" >> "$out/pack.status"; never=$((never + 1)); echo "menu_walk pack: no $name: this binary never logged mark:$needs" >&2
         else echo "$name failed" >> "$out/pack.status"; missing=$((missing + 1)); echo "menu_walk pack: no picture $name" >&2; fi
     done
@@ -254,7 +258,7 @@ if [ -n "$pack" ]; then
 fi
 # the screen the game ended on: a key or click that went on past the target (a repeat) leaves another page up, and its picture is not the target's
 if [ $rc -eq 0 ]; then
-    ended=$(grep -o "mark:screen=[a-z_0-9]*" "$work/user/spirited-drive.log" | tail -1)
+    ended=$(grep -o "^mark:screen=[a-z_0-9]*" "$work/user/spirited-drive.log" | tail -1)
     ended=${ended#mark:screen=}
     if [ "$ended" != "$final" ]; then rc=4; echo "menu_walk $target: the game went on to $ended after $final; no picture saved" >&2; fi
 fi
@@ -276,7 +280,7 @@ if [ $rc -eq 0 ]; then
     elif [ -n "$(ls "$work/cap" 2>/dev/null)" ]; then rc=5; echo "menu_walk $target: $(cat "$work/pick.err"); no picture saved" >&2
     else rc=1; echo "reached mark:screen=$final but no frame was captured" >&2; fi
 fi
-if { [ $rc -eq 3 ] || [ $rc -eq 1 ]; } && [ "$final" = content ] && ! grep -q "mark:screen=content" "$work/user/spirited-drive.log" 2>/dev/null; then
+if { [ $rc -eq 3 ] || [ $rc -eq 1 ]; } && [ "$final" = content ] && ! grep -q "^mark:screen=content" "$work/user/spirited-drive.log" 2>/dev/null; then
     rc=6; echo "menu_walk content: this binary never opened CONTENT (one from before it?): no picture" >&2
 fi
 if [ $rc -ne 0 ]; then

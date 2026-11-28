@@ -2730,6 +2730,11 @@ set_tests_properties(check_tag_version PROPERTIES TIMEOUT 60)
 # a release does not go out with the notes' draft markers (tools/check_release_notes.sh, the next step after the tag check)
 add_test(NAME check_release_notes COMMAND sh ${CMAKE_SOURCE_DIR}/tests/check_release_notes.sh ${CMAKE_SOURCE_DIR})
 set_tests_properties(check_release_notes PROPERTIES TIMEOUT 60)
+# tools/menu_walk.sh fails a walk whose WAIT timed out (a stand-in for the game, no game data; skipped without zsh or timeout)
+if(UNIX)
+    add_test(NAME menu_walk_marks COMMAND sh ${CMAKE_SOURCE_DIR}/tests/menu_walk_marks.sh ${CMAKE_SOURCE_DIR})
+    set_tests_properties(menu_walk_marks PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+endif()
 include(fuzz/fuzz.cmake)
 
 # port: every test, whenever it was registered above, gets a scratch pref dir, so a test that starts tnfs with no --user (or forgets one) writes in the build, never in the player's own
