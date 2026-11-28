@@ -2037,9 +2037,15 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(sun_shadow_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         add_test(NAME car_lit_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(car_lit_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
-        foreach(group AL CL CY TR)   # the same four groups, side by side (48 runs: 12 a group)
-            add_test(NAME car_lit_all_game_${group} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_all_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-            set_tests_properties(car_lit_all_game_${group} PROPERTIES TIMEOUT 1200 SKIP_RETURN_CODE 77 ENVIRONMENT "TRACKS=${TNFS_TRACKS_${group}}")
+        foreach(group AL CL CY TR)   # the same four groups, each in two halves of two tracks, side by side (48 runs: 6 a test)
+            string(REPLACE " " ";" lit_tracks "${TNFS_TRACKS_${group}}")
+            foreach(half 1 2)
+                math(EXPR lit_from "2 * ${half} - 2")
+                list(SUBLIST lit_tracks ${lit_from} 2 lit_half)
+                list(JOIN lit_half " " lit_half)
+                add_test(NAME car_lit_all_game_${group}${half} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lit_all_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+                set_tests_properties(car_lit_all_game_${group}${half} PROPERTIES TIMEOUT 1200 SKIP_RETURN_CODE 77 ENVIRONMENT "TRACKS=${lit_half}")
+            endforeach()
         endforeach()
         add_test(NAME tunnel_mouth_road_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_mouth_road_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(tunnel_mouth_road_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
@@ -2930,7 +2936,8 @@ set(TNFS_E2E_TESTS
     edition_menus_menus
     edition_menus_race
     track_light_fingerprint_AL track_light_fingerprint_CL track_light_fingerprint_CY track_light_fingerprint_TR
-    car_lit_all_game_AL car_lit_all_game_CL car_lit_all_game_CY car_lit_all_game_TR
+    car_lit_all_game_AL1 car_lit_all_game_AL2 car_lit_all_game_CL1 car_lit_all_game_CL2
+    car_lit_all_game_CY1 car_lit_all_game_CY2 car_lit_all_game_TR1 car_lit_all_game_TR2
     light_drive_results_game
     light_drive_setup_game
     vegas_lamps_game_night vegas_lamps_game_day
