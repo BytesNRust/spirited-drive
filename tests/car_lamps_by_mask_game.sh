@@ -11,8 +11,8 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/tnfs_lamps_mask.XXXXXX")
 fail() { echo "FAIL: $*" >&2; echo "kept: $work" >&2; exit 1; }
 here=$(dirname "$0")
 mkdir -p "$work/own/DVIPER" "$work/moved/DVIPER"
-cp data/car_masks/DViper/*.png "$work/own/DVIPER/" || fail "no data/car_masks/DViper"
-cp data/car_masks/DViper/*.png "$work/moved/DVIPER/"
+cp data/car_masks/DVIPER/*.png "$work/own/DVIPER/" || fail "no data/car_masks/DVIPER"
+cp data/car_masks/DVIPER/*.png "$work/moved/DVIPER/"
 m=$work/moved/DVIPER/rsid_mask.png
 python3 -I "$here/mask_poke.py" "$m" 20 0 50 60 255 || fail "mask_poke (erase)"      # the oval's and the block's texels (x26-57, y5-50) are no brake light any more ...
 python3 -I "$here/mask_poke.py" "$m" 100 10 20 10 240 || fail "mask_poke (move)"     # ... the class is on a block that has no lamp texel

@@ -5,7 +5,7 @@
 # PART=axxess (and the Diablo) or copmust runs that one alone (ctest runs both side by side); unset, all.
 . "$(dirname "$0")/editor_headless_common.sh"
 tnfs=$2 orig=$3 data=$4
-[ -r "$orig/SIMDATA/CARFAMS/AXXESS.CFM" ] && [ -d "$data/car_masks/AXXESS" ] || { echo "skip: no game files in $orig"; exit 77; }
+[ -r "$orig/SIMDATA/CARFAMS/AXXESS.CFM" ] && [ -d "$data/car_masks/axxess" ] || { echo "skip: no game files in $orig"; exit 77; }
 part=${PART:-all}
 case $part in all) cars="AXXESS COPMUST" ;; axxess) cars=AXXESS ;; copmust) cars=COPMUST ;; *) echo "FAIL: PART=$part is not axxess, copmust or all" >&2; exit 1 ;; esac
 runs=0

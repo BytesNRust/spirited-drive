@@ -37,7 +37,7 @@ static void adopt_the_games(App *a, const char *masks, const char *dash)
     snprintf(done, sizeof done, "%s", a->dir);
     int adopted = 0;
     for (int pass = 0; pass < 2; ++pass) {
-        snprintf(game, sizeof game, "%s/%s/%s", a->export_src.data, pass == 0 ? "car_masks" : "dash_masks", oc->folder);
+        snprintf(game, sizeof game, "%s/%s/%s", a->export_src.data, pass == 0 ? "car_masks" : "dash_masks", pass == 0 ? oc->folder : oc->file);   // the dash folders are spelt as the car file's stem (LDIABL, TSUPRA)
         char why[160];
         if (!(pass == 0 ? mask_changes_compare(masks, game, c, why, sizeof why) : mask_changes_compare_dash(dash, game, c, why, sizeof why))) continue;
         for (int i = 0; i < c->count; ++i)
