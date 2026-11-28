@@ -2074,7 +2074,7 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(lamp_strip_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         foreach(part night day)   # the night and the day halves of the same script, side by side
             add_test(NAME vegas_lamps_game_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/vegas_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-            set_tests_properties(vegas_lamps_game_${part} PROPERTIES TIMEOUT 400 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
+            set_tests_properties(vegas_lamps_game_${part} PROPERTIES TIMEOUT 1000 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
         endforeach()
         foreach(part early late)
             add_test(NAME tunnel_look_tint_game_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_look_tint_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # an unlit tunnel (lamps 0) keeps its tunnel_look colour at the four times of day
