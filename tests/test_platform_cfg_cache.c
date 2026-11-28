@@ -1,6 +1,7 @@
 /* The platform layer's cache of the .cfg files (a read does not go to the disk again within a few ms): a write through
  * the layer is read back at once, a removed file is gone at once, a file edited from outside is seen within the
  * interval, and other files are never cached. */
+#include "game/sys/port_log.h"
 #include "platform/platform.h"
 #include "test.h"
 
@@ -91,7 +92,9 @@ static void test_no_temp_left(const char *dir)
     snprintf(path, sizeof path, "%s/blocked.cfg", dir);
     CHECK(mkdir(path, 0700) == 0);
     poke(path, "inside", "x");
+    port_log_watch("the target is a folder (0 retries)");   /* it stays in the way: retries only wasted 500 ms and more */
     CHECK(!platform_write_user_file("blocked.cfg", (const uint8_t *)"a=1\n", 4));
+    CHECK(port_log_watch_hit());
     CHECK_EQ_INT(temp_files_left(), 0);
     snprintf(path, sizeof path, "%s/blocked.cfg/inside", dir);
     unlink(path);

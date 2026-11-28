@@ -206,12 +206,15 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
         return false;
     }
     bool renamed = SDL_RenamePath(temp, path);
-    for (int again = 0; !renamed && again < 250; again++) {   /* Windows: the target is open in a reader for an instant (a scanner for longer), and the rename is refused: up to half a second */
+    SDL_PathInfo target;
+    const bool folder = !renamed && SDL_GetPathInfo(path, &target) && target.type == SDL_PATHTYPE_DIRECTORY;   /* it stays in the way: no use waiting */
+    int retries = 0;
+    for (; !renamed && !folder && retries < 250; retries++) {   /* Windows: the target is open in a reader for an instant (a scanner for longer), and the rename is refused: up to half a second */
         SDL_Delay(2);
         renamed = SDL_RenamePath(temp, path);
     }
     if (!renamed) {
-        port_log("platform: cannot rename %s: %s\n", temp, SDL_GetError());
+        port_log("platform: cannot rename %s: %s (%d retries)\n", temp, folder ? "the target is a folder" : SDL_GetError(), retries);
         SDL_RemovePath(temp);
         return false;
     }
