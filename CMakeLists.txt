@@ -80,6 +80,13 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# AddressSanitizer builds (-fsanitize=address in CMAKE_C_FLAGS: the gate's and CI's sanitizer builds) compile at -O1 with clang when they name no -O level of their own: the
+# compute-heavy tests run several times faster (notes: gcc gains nothing, so it keeps -O0). -O1 can drop a read or write whose result nothing uses, which -O0 would report:
+# pass -O0 in CMAKE_C_FLAGS to check those too. -fno-omit-frame-pointer keeps the reports' stack traces whole.
+if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND CMAKE_BUILD_TYPE STREQUAL "Debug" AND CMAKE_C_FLAGS MATCHES "-fsanitize=[a-z,]*address" AND NOT CMAKE_C_FLAGS MATCHES "(^| )-O")
+    add_compile_options(-O1 -fno-omit-frame-pointer)
+endif()
+
 if(WIN32)   # MinGW's strict C99 hides M_PI and the POSIX calls the sources use: core/win_posix.h puts them back in front of every C file
     add_compile_definitions(_USE_MATH_DEFINES __USE_MINGW_ANSI_STDIO=1)   # (the latter: printf with %zu, as the C99 the code is)
     add_compile_options("$<$<COMPILE_LANGUAGE:C>:-include${CMAKE_SOURCE_DIR}/core/win_posix.h>")
