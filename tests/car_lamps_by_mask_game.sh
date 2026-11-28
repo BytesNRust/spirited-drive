@@ -21,7 +21,9 @@ run() {   # profile masks-root -> the game's log
   mkdir -p "$u/editions"
   printf 'profile=%s\npsx_dir=\nlight_effects=1\n' "$1" > "$u/port.cfg"; printf 'light_effects=1\n' > "$u/$1.cfg"
   TNFS_VERBOSE=1 TNFS_CAR_MASKS="$2" TNFS_FRAMES=8 TNFS_AUTOPILOT=1 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PREF_DIR="$u/pref" \
-    timeout -k 5 120 "$bin" --data "$original" --user "$u" --drive CY1 --car 5 --racers 1 --node 300 > "$u/out" 2>&1; [ -s "$u/spirited-drive.log" ] || fail "$1 $(basename "$2"): the game did not run: $(tail -3 "$u/out")"
+    timeout -k 5 120 "$bin" --data "$original" --user "$u" --drive CY1 --car 5 --racers 1 --node 300 --screenshot "$u/shot.ppm" > "$u/out" 2>&1   # without --screenshot the race never ends: each run sat out the 120 s
+  rc=$?   # (run() is a subshell: a failure here is left in a file, or Stock and Restored would pass on a game that never ran)
+  { [ $rc -eq 0 ] && [ -s "$u/shot.ppm" ] && [ -s "$u/spirited-drive.log" ]; } || { echo "FAIL: $1 $(basename "$2"): the game did not run (exit $rc): $(tail -3 "$u/out")" >&2; : > "$work/bad"; }
   cat "$u/spirited-drive.log" 2>/dev/null
 }
 n_of() { sed -n 's/^car_lamps: slot [0-9]* DVIPER: \([0-9]*\) texels.*/\1/p' | head -n 1; }
@@ -33,5 +35,6 @@ for p in stock restored; do
   got=$(run $p "$work/moved" | n_of)
   [ -z "$got" ] || fail "$p with the oval moved: the exe's lamps were changed ($got texels)"
 done
+[ ! -e "$work/bad" ] || fail "a game run failed (above)"
 echo "car_lamps_by_mask_game: ok"
 find "$work" -mindepth 1 -delete && rmdir "$work"

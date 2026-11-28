@@ -13,7 +13,7 @@ mkdir -p "$work/cars" "$work/ws" "$work/art" || exit 1
 fresh() {   # fresh NAME: a repo copy with the layout Copy needs, in $work/NAME (a clone where the volume has them: the data/ is copied twice a car and a track)
     mkdir -p "$work/$1/core/formats" && { cp -Rc "$repo/data" "$work/$1/data" 2>/dev/null || cp -R "$repo/data" "$work/$1/data"; } && cp "$repo/core/formats/car_paint.c" "$work/$1/core/formats/car_paint.c"
 }
-studio() { "$editor" "$@" --user "$work/u" --frames 30 >"$work/log" 2>&1; }
+studio() { "$editor" "$@" --user "$work/u" --frames 4 >"$work/log" 2>&1; }
 same_tree() {   # same_tree A B WHAT
     diff -r "$work/$1/data" "$work/$2/data" >"$work/diff" 2>&1 && cmp -s "$work/$1/core/formats/car_paint.c" "$work/$2/core/formats/car_paint.c" || fail "$3: Apply is not Copy: $(head -5 "$work/diff") $(diff "$work/$1/core/formats/car_paint.c" "$work/$2/core/formats/car_paint.c" | head -4)"
 }

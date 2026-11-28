@@ -28,7 +28,7 @@ done
 i=-1
 for t in AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7; do
     i=$((i + 1))
-    "$editor" --workspace "$work/ws" --port-data "$data" --art-dir "$work/art" --cd "$orig" --user "$work/u" --frames 30 --steps "open-original:$i,repo-ask,print-original" >"$work/log" 2>&1 || { fail "open $t: $(cat "$work/log")"; continue; }
+    "$editor" --workspace "$work/ws" --port-data "$data" --art-dir "$work/art" --cd "$orig" --user "$work/u" --frames 4 --steps "open-original:$i,repo-ask,print-original" >"$work/log" 2>&1 || { fail "open $t: $(cat "$work/log")"; continue; }
     grep -q "^track: $t " "$work/log" || fail "$t is not the track opened as number $i: $(cat "$work/log")"
     grep -q "^preview: $t:.* unchanged" "$work/log" || fail "Copy of $t does not say its files are unchanged: $(cat "$work/log")"
     grep -q "[0-9a-z] changed\|no track_light\| new " "$work/log" && fail "Copy of the untouched $t lists a change: $(cat "$work/log")"

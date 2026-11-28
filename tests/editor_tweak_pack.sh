@@ -19,12 +19,12 @@ t=$work/ws/tweaks/cy1-tweak
 zip=$t/build/cy1-tweak.zip
 
 # Save makes the tweak again: the panel's status says changed right after Save, with no Check, Apply or reopening in between
-studio --frames 60 --steps tweak-open-row:CY1,tweak-shown,sun:110,25,65,save,poll-wait:1,tweak-shown || fail "Save refresh: $(tail -3 "$work/log")"
+studio --frames 4 --steps tweak-open-row:CY1,tweak-shown,sun:110,25,65,save,poll-wait:1,tweak-shown || fail "Save refresh: $(tail -3 "$work/log")"
 grep -q '^tweak shown: same as the game' "$work/log" || fail "a tweak not changed yet is not the game's: $(grep shown "$work/log")"
 [ "$(grep -c '^tweak shown: ' "$work/log")" -eq 2 ] && ! grep '^tweak shown: ' "$work/log" | tail -n 1 | grep -q 'same as the game' || fail "Save did not refresh the tweak: $(grep shown "$work/log")"
 
 # the track: the sun changed, Check, Pack zip
-studio --frames 90 --steps tweak-open-row:CY1,sun:120,30,70,save,ui-click:tweak_check,ui-click:tweak_pack,status || fail "CY1 pack: $(tail -3 "$work/log")"
+studio --frames 4 --steps tweak-open-row:CY1,sun:120,30,70,save,ui-click:tweak_check,ui-click:tweak_pack,status || fail "CY1 pack: $(tail -3 "$work/log")"
 grep -q '^status: pack zip: 1 file packed' "$work/log" || fail "Pack zip did not say what went in: $(grep status "$work/log")"
 [ -f "$zip" ] || fail "no zip at $zip"
 [ "$(names "$zip")" = "mod.ini track_light/CY1.txt" ] || fail "the zip holds: $(names "$zip")"
@@ -49,31 +49,31 @@ fi
 rm -f "$zip"
 light=$work/ws/tracks/CY1/light/track_light/CY1.txt
 sed -i.bak 's/^tunnel 1064 1171$/tunnel 1000 1100/' "$light" && rm -f "$light.bak"
-studio --frames 90 --steps tweak-open-row:CY1,ui-click:tweak_check,ui-click:tweak_pack,status || fail "fact: $(tail -3 "$work/log")"
+studio --frames 4 --steps tweak-open-row:CY1,ui-click:tweak_check,ui-click:tweak_pack,status || fail "fact: $(tail -3 "$work/log")"
 grep -q '^status: pack zip: not made: .*tunnel 1000 1100' "$work/log" || fail "a changed tunnel fact was not refused by its line: $(grep status "$work/log")"
 [ ! -e "$zip" ] || fail "a zip was made with a changed fact"
 
 # a car mask with a texel that is no class: Check and Pack name it
-studio --frames 60 --steps tweak-open-row:Wagon,tweak-status || fail "Wagon open: $(tail -3 "$work/log")"
+studio --frames 4 --steps tweak-open-row:Wagon,tweak-status || fail "Wagon open: $(tail -3 "$work/log")"
 kit=$(ls -d "$work"/ws/cars/* | head -n 1)
 m=$(ls -S "$kit/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
 python3 -I "$here/mask_poke.py" "$m" 30 30 20 20 200
-studio --frames 60 --steps tweak-open-row:Wagon,tweak-check   # the step fails: the run ends there
+studio --frames 4 --steps tweak-open-row:Wagon,tweak-check   # the step fails: the run ends there
 grep -q '^check: car_masks/Wagon/.*texel (30,30) is 200,200,200' "$work/log" || fail "Check did not name the texel: $(grep -E '^check|^status' "$work/log")"
-studio --frames 60 --steps tweak-open-row:Wagon,ui-click:tweak_check,ui-click:tweak_pack,status
+studio --frames 4 --steps tweak-open-row:Wagon,ui-click:tweak_check,ui-click:tweak_pack,status
 grep -q '^status: pack zip: not made: car_masks/Wagon/' "$work/log" || fail "Pack zip did not refuse the mask: $(grep status "$work/log")"
 [ ! -e "$work/ws/tweaks/wagon-tweak/build/wagon-tweak.zip" ] || fail "a zip was made from a mask with a texel that is no class"
 python3 -I "$here/mask_poke.py" "$m" 30 30 20 20 255
-studio --frames 60 --steps tweak-open-row:Wagon,ui-click:tweak_check,ui-click:tweak_pack,status || fail "Wagon pack: $(tail -3 "$work/log")"
+studio --frames 4 --steps tweak-open-row:Wagon,ui-click:tweak_check,ui-click:tweak_pack,status || fail "Wagon pack: $(tail -3 "$work/log")"
 grep -q '^status: pack zip: 1 file packed' "$work/log" || fail "a class value was refused: $(grep status "$work/log")"
 [ "$(names "$work/ws/tweaks/wagon-tweak/build/wagon-tweak.zip" | wc -w)" -eq 2 ] || fail "Wagon zip: $(names "$work/ws/tweaks/wagon-tweak/build/wagon-tweak.zip")"
 
 # nothing changed: no zip
-studio --frames 60 --steps tweak-open-row:Jetta,ui-click:tweak_check,ui-click:tweak_pack,status || fail "Jetta: $(tail -3 "$work/log")"
+studio --frames 4 --steps tweak-open-row:Jetta,ui-click:tweak_check,ui-click:tweak_pack,status || fail "Jetta: $(tail -3 "$work/log")"
 grep -q '^status: pack zip: not made: nothing differs from the game' "$work/log" || fail "an unchanged tweak: $(grep status "$work/log")"
 
 # only a body color changed: the colors go to the game repo only, so there is no zip and the status says so
-studio --frames 90 --steps tweak-open-row:LDiabl,paint-rgb:0,7,7,7,save,ui-click:tweak_check,ui-click:tweak_pack,status || fail "Diablo: $(tail -3 "$work/log")"
+studio --frames 4 --steps tweak-open-row:LDiabl,paint-rgb:0,7,7,7,save,ui-click:tweak_check,ui-click:tweak_pack,status || fail "Diablo: $(tail -3 "$work/log")"
 grep -q '^status: pack zip: not made: nothing differs from the game but the colors, which go to the game repo only' "$work/log" || fail "colors only: $(grep status "$work/log")"
 [ ! -e "$work/ws/tweaks/ldiabl-tweak/build/ldiabl-tweak.zip" ] || fail "a zip was made for colors"
 

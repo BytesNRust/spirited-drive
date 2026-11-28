@@ -28,14 +28,24 @@ disown "$holder" 2>/dev/null   # its kill at the end is no news
 for _ in $(seq 1 50); do grep -q held "$work/holder" 2>/dev/null && break; sleep 0.1; done
 grep -q held "$work/holder" || { echo "FAIL: the port $base was not taken" >&2; exit 1; }
 
-# a host on the taken port: its game cannot be hosted, so the run stops at "the host hosting a game" (STEP_TIMEOUT) whatever it does
-BASE_PORT_FIXED=1 BASE_PORT=$base STEP_TIMEOUT=60 bash "$repo/tools/link_loopback.sh" "$build" refused "$work/out" >"$work/run.log" 2>&1
+# a host on the taken port: its game cannot be hosted, so link_loopback would sit out STEP_TIMEOUT waiting for it. The run is stopped as soon as the host has said there is no
+# network service and then opened a screen (it left, and is alive); a host that never does ends the run by STEP_TIMEOUT as before
 log=$work/out/host/log
+BASE_PORT_FIXED=1 BASE_PORT=$base STEP_TIMEOUT=60 bash "$repo/tools/link_loopback.sh" "$build" refused "$work/out" >"$work/run.log" 2>&1 &
+run=$!
+left=0 rc=""
+while kill -0 "$run" 2>/dev/null; do
+    if awk '/net_host: no network service/ { seen = 1; next } seen && /^mark:screen=/ { found = 1 } END { exit !found }' "$log" 2>/dev/null; then left=1; break; fi
+    sleep 0.2
+done
+rc=$(cat "$work/out/host/rc" 2>/dev/null)   # read before the run is stopped: a status here is the host's own end
+kill -TERM "$run" 2>/dev/null
+wait "$run" 2>/dev/null
 [ -f "$log" ] || { fail "no host log: $(tail -3 "$work/run.log")"; exit 1; }
 grep -q "Address already in use" "$log" || fail "the host did not meet the taken port: $(tail -3 "$log")"
 grep -q "net_host: no network service" "$log" || fail "the games box did not say there is no network service: $(tail -3 "$log")"
+[ "$left" = 1 ] || fail "no screen opened after the games box was refused: $(tail -3 "$log")"
 grep -qaE "AddressSanitizer|runtime error:|SEGV" "$log" && fail "the host crashed on the taken port"
-rc=$(cat "$work/out/host/rc" 2>/dev/null || echo none)
 case $rc in 139 | 134 | 138) fail "the host died of a signal (status $rc) on the taken port" ;; esac
-[ "$failures" = 0 ] && echo "ok: the host on taken port $base left the screen (status $rc)"
+[ "$failures" = 0 ] && echo "ok: the host on taken port $base left the screen (status ${rc:-still running})"
 exit $((failures != 0))

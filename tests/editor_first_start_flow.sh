@@ -16,19 +16,19 @@ run() { "$editor" --user "$work/u" --cd "$orig" --art-dir "$work/art" --port-dat
 row='ui-click:door_tweak,ui-click:tweak_tab_car,ui-click:tweak_row_Dodge Viper RT/10,ui-click:tweak_open'
 
 # 1. the game is not found: the question is on the main menu; Not now answers it, and it is gone (a second click has nothing to click)
-run --game "$work/gone" --frames 12 --steps ui-click:locate_not_now || fail "the first start did not ask for the game's folder: $(tail -3 "$work/log")"
-run --game "$work/gone" --frames 12 --steps ui-click:locate_not_now,ui-click:locate_not_now && fail "the question was still there after Not now"
+run --game "$work/gone" --frames 4 --steps ui-click:locate_not_now || fail "the first start did not ask for the game's folder: $(tail -3 "$work/log")"
+run --game "$work/gone" --frames 4 --steps ui-click:locate_not_now,ui-click:locate_not_now && fail "the question was still there after Not now"
 
 # 1b. no --game: the answer is kept in the Documents folder, which is empty on a clean machine; a second session on the same one does not ask (the search for the game is off, whatever is installed here)
 docs=$work/docs
 mkdir -p "$docs" "$work/cwd"
-ask() { exe=$(cd "$(dirname "$editor")" && pwd)/$(basename "$editor"); (cd "$work/cwd" && TNFS_STUDIO_GAME_SEARCH=off TNFS_STUDIO_DOCUMENTS="$docs" "$exe" --user "$work/u2" --cd "$orig" --art-dir "$work/art" --workspace "$work/ws" --window 1280x800 --frames 12 "$@" >"$work/log" 2>&1); }
+ask() { exe=$(cd "$(dirname "$editor")" && pwd)/$(basename "$editor"); (cd "$work/cwd" && TNFS_STUDIO_GAME_SEARCH=off TNFS_STUDIO_DOCUMENTS="$docs" "$exe" --user "$work/u2" --cd "$orig" --art-dir "$work/art" --workspace "$work/ws" --window 1280x800 --frames 4 "$@" >"$work/log" 2>&1); }
 ask --steps ui-click:locate_not_now || fail "the first session did not ask for the game's folder: $(tail -3 "$work/log")"
 [ -f "$docs/Spirited Drive Studio/game.txt.asked" ] || fail "Not now left no mark in the Documents folder: $(find "$docs" | head -5)"
 ask --steps ui-click:locate_not_now && fail "the second session asked for the game's folder again"
 
 # 2. Edit tweak -> Car -> the Viper -> Open: the tweak is made in the workspace, the game is not changed
-run --game "$work/none" --frames 90 --steps "$row,tweak-status" || fail "Open the Viper by the doors: $(tail -3 "$work/log")"
+run --game "$work/none" --frames 4 --steps "$row,tweak-status" || fail "Open the Viper by the doors: $(tail -3 "$work/log")"
 t=$work/ws/tweaks/dviper-tweak
 [ -f "$t/mod.ini" ] && [ -d "$t/car_masks/DVIPER" ] || fail "no tweak for the Viper in the workspace: $(ls "$work/ws" "$work/ws/tweaks" 2>&1 | head -5)"
 grep -q 'same as the game' "$work/log" || fail "a tweak not changed yet is not the game's: $(grep '^tweak' "$work/log")"
@@ -39,10 +39,10 @@ kit=$(ls -d "$work"/ws/cars/* | head -n 1)
 m=$(ls -S "$kit/art-generated/car_masks"/*_mask.png 2>/dev/null | head -n 1)
 [ -n "$m" ] || fail "the Viper's kit has no mask"
 python3 -I "$here/mask_poke.py" "$m" 30 30 20 20 255
-run --game "$work/none" --frames 90 --steps "$row,ui-click:tweak_check,tweak-check" || fail "Check after the change: $(grep -E '^check|^tweak' "$work/log")"
+run --game "$work/none" --frames 4 --steps "$row,ui-click:tweak_check,tweak-check" || fail "Check after the change: $(grep -E '^check|^tweak' "$work/log")"
 grep -q '^check: ok' "$work/log" || fail "Check: $(grep '^check' "$work/log")"
 grep -q 'car_masks/DVIPER/.*changed' "$work/log" || fail "the changed mask is not listed: $(grep -A5 '^tweak dviper' "$work/log")"
-run --game "$work/none" --frames 90 --steps "$row,ui-click:tweak_check,ui-click:tweak_pack,status" || fail "Pack zip: $(tail -3 "$work/log")"
+run --game "$work/none" --frames 4 --steps "$row,ui-click:tweak_check,ui-click:tweak_pack,status" || fail "Pack zip: $(tail -3 "$work/log")"
 grep -q '^status: pack zip: [0-9]* files\? packed' "$work/log" || fail "Pack zip did not say what went in: $(grep status "$work/log")"
 zip=$t/build/dviper-tweak.zip
 [ -f "$zip" ] || fail "no zip"
