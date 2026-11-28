@@ -14,7 +14,9 @@ for car in AXXESS COPMUST; do
     [ -d "$kit" ] || { fail "no kit for $car in $(ls "$work/cars")"; continue; }
     runs=$((runs + 1)); "$editor" "$kit" --port-data "$data" --user "$work/player$runs" --game "$tnfs" --window 1280x800 --frames 30 --steps status >"$work/log" 2>&1   # no workspace: the status is the one opening left
     grep -q "^status: opened: edit the masks; the Tweak panel applies them to the game repo (a traffic or police car has no card or colors)" "$work/log" || fail "$car: the status is not the true one: $(grep -i status "$work/log")"
-    studio "$kit" --port-data "$data" --steps ui-click:add_color && fail "$car: Add color is still offered for a car with no colors"
+    # the Car panel is up (its Check button is on screen), then Add color is waited for 60 frames, not 600: at 0.1 s a frame (software drawing on an old Mac) two full waits took the test past its time
+    studio "$kit" --port-data "$data" --steps ui-rect:check,patience:60,ui-click:add_color && fail "$car: Add color is still offered for a car with no colors"
+    grep -q "ui-click:add_color: no such widget drawn" "$work/log" || fail "$car: the run did not end at the missing Add color: $(cat "$work/log")"
     studio "$kit" --port-data "$data" --steps ui-click:check || fail "$car: Check is gone: $(cat "$work/log")"
     studio "$kit" --port-data "$data" --steps ui-click:tweak_apply || fail "$car: Apply to game repo is gone: $(cat "$work/log")"
     studio "$kit" --port-data "$data" --steps ui-focus:Drive###Race,ui-click:test_drive,drive-stop || fail "$car: Test drive is not in Drive: $(cat "$work/log")"
