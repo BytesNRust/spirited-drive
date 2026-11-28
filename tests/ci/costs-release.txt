@@ -16,7 +16,8 @@
 51.1 content_menus_own
 24.8 tunnel_pool_lamps_game_AL1_night_in
 24.8 tunnel_pool_lamps_game_AL1_night_out
-49.0 editor_headless_car_b
+41.6 editor_headless_car_b
+30.5 editor_headless_car_c
 24.3 tunnel_pool_lamps_game_AL3_day_in
 24.3 tunnel_pool_lamps_game_AL3_day_out
 48.5 car_card_menus_replays

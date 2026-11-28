@@ -9,7 +9,8 @@
 71.2 tunnel_pool_lamps_game_AL1_day_out
 64.6 tunnel_pool_lamps_game_AL3_day_in
 64.6 tunnel_pool_lamps_game_AL3_day_out
-86.4 editor_headless_car_b
+45.4 editor_headless_car_b
+36.7 editor_headless_car_c
 86.4 editor_headless_track_a
 81.7 car_card_menus_cards
 80.4 editor_model_flow_d
