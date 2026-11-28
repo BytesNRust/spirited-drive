@@ -612,6 +612,14 @@ static int run_requested(App *a, const Options *o)
     return ok;
 }
 
+/* The pause between two frames. A headless run takes the precise one: macOS stretches a plain 16 ms sleep to 50-90 ms on CI's runners, which was most of a Studio test's time. The
+ * frames stay FRAME_MS apart, so what the steps count in frames lasts as long by the clock. A user's window keeps the plain sleep (the precise one spins at its end). */
+static void frame_pause(int headless)
+{
+    if (headless) SDL_DelayPrecise((Uint64)FRAME_MS * SDL_NS_PER_MS);
+    else SDL_Delay(FRAME_MS);
+}
+
 static int run(App *a, const Options *o)
 {
     if (o->shot != NULL) SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
@@ -853,7 +861,7 @@ static int run(App *a, const Options *o)
         t = perf_begin();
         if (drawn) SDL_RenderPresent(ren);
         perf_end(PERF_PRESENT, t), t = perf_begin();
-        if (drawn) SDL_Delay(FRAME_MS);
+        if (drawn) frame_pause(headless);
         perf_end(PERF_PAUSE, t);
         perf_frame();
     }
