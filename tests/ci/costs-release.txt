@@ -7,7 +7,8 @@
 63.0 editor_headless_track_a
 62.2 editor_headless_track_b
 61.3 live_mode_switch_race
-57.0 car_card_menus_cards
+41.0 car_card_menus_cards
+33.0 car_card_menus_names
 55.6 net_track_guard_15
 54.7 net_track_guard_0xffff
 54.5 net_track_guard_9
@@ -20,7 +21,7 @@
 30.5 editor_headless_car_c
 24.3 tunnel_pool_lamps_game_AL3_day_in
 24.3 tunnel_pool_lamps_game_AL3_day_out
-48.5 car_card_menus_replays
+40.0 car_card_menus_replays
 48.3 boot_skip_chain_click
 24.1 tunnel_pool_lamps_game_AL1_day_in
 24.1 tunnel_pool_lamps_game_AL1_day_out
@@ -34,7 +35,8 @@
 43.3 light_drive_setup_game
 42.0 track_piece_run
 41.1 light_drive_results_game
-38.1 car_card_menus_modes
+22.0 car_card_menus_modes_stock
+22.0 car_card_menus_modes_restored
 37.5 stats_mods_isolation
 37.2 editor_car_race
 36.3 boot_skip_chain_key

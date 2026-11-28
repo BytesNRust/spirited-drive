@@ -12,7 +12,8 @@
 45.4 editor_headless_car_b
 36.7 editor_headless_car_c
 86.4 editor_headless_track_a
-81.7 car_card_menus_cards
+49.0 car_card_menus_cards
+57.0 car_card_menus_names
 80.4 editor_model_flow_d
 80.2 editor_headless_track_b
 78.8 variant_choice_kept
@@ -20,12 +21,13 @@
 72.5 vegas_lamps_game_night
 71.8 stock_screens_golden_stock
 66.4 ui_kit_check
-63.1 car_card_menus_modes
+32.0 car_card_menus_modes_stock
+32.0 car_card_menus_modes_restored
 63.1 menu_music_kept
 62.9 content_menus_own
 62.3 live_mode_switch_race
 60.4 rain_lamps_masked
-55.9 car_card_menus_replays
+46.0 car_card_menus_replays
 55.2 net_track_guard_9
 54.6 net_track_guard_0xffff
 54.5 net_track_guard_15
