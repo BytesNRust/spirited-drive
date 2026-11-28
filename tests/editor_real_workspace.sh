@@ -58,8 +58,9 @@ one_car() {   # STEM (lower case folder in the workspace), STEM (upper), car_mas
     [ "$written" = "$(sort -u "$work/$low.n.after")" ] || fail "$low: Copy wrote $(echo $written) and the list said $(sort -u "$work/$low.n.after" | tr '\n' ' ')"
     cmp -s "$kit/art-generated/car_masks/$png" "$repo/data/car_masks/$folder/$png" || fail "$low: the copied $png is not the kit's"
 }
-one_car ansx ANSX ANSX "rsid side_lo topv frnt"
-one_car ldiabl LDIABL LDiabl "frnt rear wing back_lo"
+# the candidates are textures of the near model only: --preview-tex scrolls to those, so a far one (NAME_lo) would give two pictures of the same unscrolled list
+one_car ansx ANSX ANSX "rsid topv frnt bott"
+one_car ldiabl LDIABL LDiabl "frnt rear wing"
 
 # an original track as it is in the migrated workspace: the old light format
 tws=$work/ws-tracks trepo=$work/repo-tracks
