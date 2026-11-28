@@ -1355,6 +1355,7 @@ if(NOT EMSCRIPTEN)
         endforeach()
         add_test(NAME editor_headless_car_a COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_car.sh $<TARGET_FILE:tnfs-track-editor> a)
         add_test(NAME editor_headless_car_b COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_car.sh $<TARGET_FILE:tnfs-track-editor> b)
+        add_test(NAME editor_headless_car_c COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_car.sh $<TARGET_FILE:tnfs-track-editor> c)
         add_test(NAME editor_card_ids COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_card_ids.sh $<TARGET_FILE:tnfs-track-editor>)   # no two rows of the car card's lists share an ID: the mouse swept over them
         add_test(NAME editor_card_ids_sabotage COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_card_ids.sh $<TARGET_FILE:tnfs-track-editor> sabotage)   # the same sweep must fail when they do
         set_tests_properties(editor_card_ids editor_card_ids_sabotage PROPERTIES TIMEOUT 300)
@@ -1385,6 +1386,7 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_own_track_masks PROPERTIES TIMEOUT 600)
         set_tests_properties(editor_headless_car_a PROPERTIES TIMEOUT 900)
         set_tests_properties(editor_headless_car_b PROPERTIES TIMEOUT 900)
+        set_tests_properties(editor_headless_car_c PROPERTIES TIMEOUT 900)
         add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back
         set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)
         foreach(part a b c d e f)   # the Track light window headless, six parts side by side (alone the one run took ten minutes: the editor paints a frame in software here): a window, views and the panel's other widgets; more views, the HUD and Copy to; tunnels/sun/clicks, colour and what is refused; lamps and kinds; tunnel cells; the moments' columns and the sun sliders
@@ -2897,7 +2899,7 @@ set(TNFS_E2E_TESTS
     car_lamps_by_mask_game    editor_headless_track_a
     editor_headless_track_b editor_headless_track_c editor_headless_track_d
     editor_headless_car_a
-    editor_headless_car_b
+    editor_headless_car_b editor_headless_car_c
     editor_car_panel_clicks
     editor_new_car
     editor_model_flow_a editor_model_flow_b editor_model_flow_c editor_model_flow_d

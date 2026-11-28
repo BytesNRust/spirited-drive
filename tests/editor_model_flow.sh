@@ -12,6 +12,7 @@ runs() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 ws="$work/ws"
 mkdir -p "$ws"
 kit="$ws/cars/car-supra"   # made by the first run (part a's first flow; the other parts make it with a run of their own), opened by the others
+# --frames 4 after the new car: a run lasts as long as its steps; frames past them drew the car again for nothing, 10 to 25 s a run on an old Mac. The runs that make the new car keep 60, for its Convert PSD to run in
 run() { u=$1; shift; "$editor" --workspace "$ws" --user "$work/$u" --cd "${CD:-$repo/original}" --port-data "$repo/data" --window 1280x800 "$@"; }
 state() { echo "$out" | grep '^model: ' | sed -n "$1p"; }
 high() { echo "$1" | sed -n 's/^model picture: [0-9]* x \([0-9]*\), [1-9][0-9]* drawn.*/\1/p' | tail -1; }   # the picture's height: 480 times the scale, less in a wide panel (the picture has no more pixels than the game's frame at the scale)
@@ -31,23 +32,23 @@ cams=$(echo "$out" | grep '^camera: ')
 [ "$(echo "$cams" | sed -n 1p)" = "$(echo "$cams" | sed -n 2p)" ] || fail "the camera changed through Enlarge and Dock back: $cams"
 
 # the Soft edges switch is on screen, starts as the player's setting (Restomod's on) and toggles; the Render scale combo is on screen
-out=$(run u2 --frames 60 "$kit" --steps psd-wait:3,camera:3,ui-click:model_soft,psd-wait:3,camera:3,ui-click:model_soft,psd-wait:3,camera:3 2>&1) || fail "soft flow: $out"
+out=$(run u2 --frames 4 "$kit" --steps psd-wait:3,camera:3,ui-click:model_soft,psd-wait:3,camera:3,ui-click:model_soft,psd-wait:3,camera:3 2>&1) || fail "soft flow: $out"
 echo "$out" | grep -q 'no such widget' && fail "the Soft edges switch was not on screen: $out"
 [ "$(state 1 | cut -d' ' -f6-9)" = "scale 2 soft 1" ] || fail "the Model did not start at the player's render scale 2 with Soft edges on: $(state 1)"
 [ "$(state 2 | cut -d' ' -f8-9)" = "soft 0" ] || fail "the switch did not turn Soft edges off: $(state 2)"
 [ "$(state 3 | cut -d' ' -f8-9)" = "soft 1" ] || fail "the switch did not turn Soft edges on again: $(state 3)"
-out=$(run u2 --frames 40 "$kit" --steps psd-wait:3,ui-click:model_render_scale,psd-wait:3 2>&1) || fail "render scale combo: $out"
+out=$(run u2 --frames 4 "$kit" --steps psd-wait:3,ui-click:model_render_scale,psd-wait:3 2>&1) || fail "render scale combo: $out"
 echo "$out" | grep -q 'no such widget' && fail "the Render scale combo was not on screen: $out"
 
 # render scale 1: the switch is grey, a click changes nothing
-out=$(run u3 --render-scale 1 --frames 60 "$kit" --steps psd-wait:3,camera:3,ui-click:model_soft,psd-wait:3,camera:3 2>&1) || fail "scale 1 flow: $out"
+out=$(run u3 --render-scale 1 --frames 4 "$kit" --steps psd-wait:3,camera:3,ui-click:model_soft,psd-wait:3,camera:3 2>&1) || fail "scale 1 flow: $out"
 [ "$(state 1 | cut -d' ' -f6-9)" = "scale 1 soft 1" ] || fail "--render-scale 1 did not set the scale: $(state 1)"
 [ "$(state 2 | cut -d' ' -f8-9)" = "soft 1" ] || fail "a click on the grey switch changed it: $(state 2)"
 
 # the player's own render scale: restomod.cfg's
 mkdir -p "$work/u4"
 printf 'render_scale=3\n' > "$work/u4/restomod.cfg"
-out=$(run u4 --frames 40 "$kit" --steps psd-wait:3,camera:3 2>&1) || fail "player scale: $out"
+out=$(run u4 --frames 4 "$kit" --steps psd-wait:3,camera:3 2>&1) || fail "player scale: $out"
 [ "$(state 1 | cut -d' ' -f6-7)" = "scale 3" ] || fail "the Model did not start at the player's render_scale 3: $(state 1)"
 
 fi
@@ -57,11 +58,11 @@ if runs b; then
 # from scale 2 and not at 1
 for sc in 1 2; do
     for sw in on off; do
-        out=$(run u5 --render-scale $sc --soft $sw --shine on --paint 1 --frames 40 "$kit" --steps psd-wait:3 --model-shot "$work/pic_${sc}_$sw.png" 2>&1) || fail "model shot scale $sc soft $sw: $out"
+        out=$(run u5 --render-scale $sc --soft $sw --shine on --paint 1 --frames 4 "$kit" --steps psd-wait:3 --model-shot "$work/pic_${sc}_$sw.png" 2>&1) || fail "model shot scale $sc soft $sw: $out"
     done
 done
 [ "$(high "$out")" -gt 480 ] 2>/dev/null || fail "the scale 2 picture is not higher than the scale 1 frame's 480, with a car in it: $out"
-out1=$(run u5 --render-scale 1 --soft on --shine on --paint 1 --frames 40 "$kit" --steps psd-wait:3 --model-shot "$work/pic_1_on2.png" 2>&1)
+out1=$(run u5 --render-scale 1 --soft on --shine on --paint 1 --frames 4 "$kit" --steps psd-wait:3 --model-shot "$work/pic_1_on2.png" 2>&1)
 echo "$out1" | grep -q '^model picture: [0-9]* x [0-9]*, [1-9][0-9]* drawn$' || fail "the scale 1 picture has no car in it: $out1"
 [ "$(high "$out1")" -lt "$(high "$out")" ] 2>/dev/null || fail "the scale 1 picture is not smaller than the scale 2 one: $(high "$out1") and $(high "$out")"
 cmp -s "$work/pic_1_on.png" "$work/pic_1_off.png" || fail "at render scale 1 the soft edges changed the picture"
@@ -71,29 +72,29 @@ fi
 
 if runs c; then
 # a layout saved with the Model floating (Enlarge, then the window closed): Dock back has no node it came from, and docks beside the other panels; Enlarge and Dock back work again after it
-run u6 --frames 40 "$kit" --big --steps psd-wait:3 >/dev/null 2>&1 || fail "the floating layout was not made"
+run u6 --frames 4 "$kit" --big --steps psd-wait:3 >/dev/null 2>&1 || fail "the floating layout was not made"
 awk '/^\[Window\]\[Model\]/ { m = 1; next } /^\[/ { m = 0 } m && /^DockId=/ { found = 1 } END { exit found }' "$work/u6/track-editor.ini" || fail "the saved layout has the Model docked: the floating case is not tested"
-out=$(run u6 --frames 90 "$kit" --steps psd-wait:3,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3 2>&1) || fail "floating layout: $out"
+out=$(run u6 --frames 4 "$kit" --steps psd-wait:3,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3 2>&1) || fail "floating layout: $out"
 [ "$(state 1 | cut -d' ' -f2-5)" = "big 0 docked 0" ] || fail "the saved layout did not start the Model floating: $(state 1)"
 [ "$(state 2 | cut -d' ' -f2-5)" = "big 0 docked 1" ] || fail "Dock back did nothing with the Model floating from a saved layout: $(state 2)"
 [ "$(state 3 | cut -d' ' -f2-5)" = "big 1 docked 0" ] || fail "Enlarge after it did not float the window: $(state 3)"
 [ "$(state 4 | cut -d' ' -f2-5)" = "big 0 docked 1" ] || fail "Dock back after Enlarge did not dock it: $(state 4)"
 
 # Reset layout with the window enlarged: it is docked again, not enlarged, and Enlarge works from there
-out=$(run u7 --frames 90 "$kit" --steps psd-wait:3,ui-click:model_enlarge,psd-wait:4,camera:3,reset-layout,psd-wait:25,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3 2>&1) || fail "reset layout: $out"
+out=$(run u7 --frames 4 "$kit" --steps psd-wait:3,ui-click:model_enlarge,psd-wait:4,camera:3,reset-layout,psd-wait:25,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3 2>&1) || fail "reset layout: $out"
 [ "$(state 1 | cut -d' ' -f2-5)" = "big 1 docked 0" ] || fail "Enlarge did not float it before the reset: $(state 1)"
 [ "$(state 2 | cut -d' ' -f2-5)" = "big 0 docked 1" ] || fail "Reset layout left the Model enlarged or floating: $(state 2)"
 [ "$(state 3 | cut -d' ' -f2-5)" = "big 1 docked 0" ] || fail "Enlarge did not work after Reset layout: $(state 3)"
 
 # the soft edges and render scale are the process's (the Preview, the card photos and the captures read them): the Model's own choices (scale 1, Soft edges off, a hand moving the camera) leave them as they were
-out=$(run u8 --render-scale 1 --soft off --frames 60 "$kit" --steps psd-wait:3,camera:1,psd-wait:3,camera:3 2>&1) || fail "studio state: $out"
+out=$(run u8 --render-scale 1 --soft off --frames 4 "$kit" --steps psd-wait:3,camera:1,psd-wait:3,camera:3 2>&1) || fail "studio state: $out"
 [ "$(state 1 | cut -d" " -f6-14)" = "scale 1 soft 0 studio scale 2 soft 1" ] || fail "the Model's own scale or Soft edges reached the rest of the Studio: $(state 1)"
 
 # what moves is drawn on the scale 1 frame (Auto-rotate here), and the full frame when it stops
-out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_on.png" 2>&1) || fail "auto-rotate shot: $out"
+out=$(run u9 --render-scale 2 --frames 4 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_on.png" 2>&1) || fail "auto-rotate shot: $out"
 rot_on=$(high "$out")
 [ -n "$rot_on" ] || fail "with Auto-rotate on there is no picture: $out"
-out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_off.png" 2>&1) || fail "auto-rotate off shot: $out"
+out=$(run u9 --render-scale 2 --frames 4 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_off.png" 2>&1) || fail "auto-rotate off shot: $out"
 [ "$(high "$out")" -gt "${rot_on:-0}" ] 2>/dev/null || fail "with Auto-rotate off again the picture is not the full one (higher than the moving one's $rot_on): $out"
 
 fi
@@ -131,14 +132,14 @@ print("car box %d..%d x %d..%d in %d x %d" % (min(xs), max(xs), ys[0], ys[-1], w
 sys.exit(0 if min(xs) > 0 and max(xs) < w - 1 and ys[0] > 0 and ys[-1] < h - 1 else 1)
 PY
 for sc in 1 2 3; do
-    out=$(run u11 --render-scale $sc --shine on --frames 60 "$kit" --steps psd-wait:3,ui-click:model_side,psd-wait:4 --model-shot "$work/side_$sc.png" 2>&1) || fail "side view at scale $sc: $out"
+    out=$(run u11 --render-scale $sc --shine on --frames 4 "$kit" --steps psd-wait:3,ui-click:model_side,psd-wait:4 --model-shot "$work/side_$sc.png" 2>&1) || fail "side view at scale $sc: $out"
     echo "$out" | grep -q 'no such widget' && fail "the Side button was not on screen: $out"
     python3 -I "$work/whole.py" "$work/side_$sc.png" || fail "the car is cut by the frame's edge in the Side view at render scale $sc"
 done
 # an ini from an older Studio (before the dock was kept per car kind: its windows are floating, there are no dock nodes at all): the layout is built, the Model is docked and Enlarge / Dock back work
 mkdir -p "$work/u10"
 printf '[Window][Model]\nPos=40,40\nSize=1100,700\nCollapsed=0\n\n[Window][Car]\nPos=60,60\nSize=500,500\nCollapsed=0\n' > "$work/u10/track-editor.ini"
-out=$(run u10 --frames 90 "$kit" --steps psd-wait:3,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3 2>&1) || fail "old ini: $out"
+out=$(run u10 --frames 4 "$kit" --steps psd-wait:3,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3,ui-click:model_enlarge,psd-wait:4,camera:3 2>&1) || fail "old ini: $out"
 [ "$(state 1 | cut -d' ' -f2-9)" = "big 0 docked 1 scale 2 soft 1" ] || fail "an older ini did not give the Model its dock and the player's scale and soft edges: $(state 1)"
 [ "$(state 2 | cut -d' ' -f2-5)" = "big 1 docked 0" ] || fail "Enlarge did not work with an older ini: $(state 2)"
 [ "$(state 3 | cut -d' ' -f2-5)" = "big 0 docked 1" ] || fail "Dock back did not work with an older ini: $(state 3)"
@@ -146,9 +147,9 @@ out=$(run u10 --frames 90 "$kit" --steps psd-wait:3,camera:3,ui-click:model_enla
 # a colour changed in the Color box again and again (a drag does it every frame): the Model makes the scene again for it, at most 10 a second (model_view's rule, checked by test_editor_model_view), and it is
 # made again for the last one (the step camera:4 counts the scenes; a headless frame is slower than the 100 ms, so here every change may take one: never more than the changes)
 mkdir -p "$work/u12"
-run u12 --frames 40 "$kit" --steps psd-wait:3,ui-click:add_color,psd-wait:3,save >/dev/null 2>&1 || fail "a color was not added to the kit"
+run u12 --frames 4 "$kit" --steps psd-wait:3,ui-click:add_color,psd-wait:3,save >/dev/null 2>&1 || fail "a color was not added to the kit"
 steps=psd-wait:6,camera:4; for n in 1 2 3 4 5 6; do steps="$steps,paint-rgb:0,$((n * 30)),50,90,psd-wait:1"; done
-out=$(run u12 --render-scale 2 --paint 1 --frames 120 "$kit" --steps "$steps,psd-wait:30,camera:4,paint-print" 2>&1) || fail "colour changes: $out"
+out=$(run u12 --render-scale 2 --paint 1 --frames 4 "$kit" --steps "$steps,psd-wait:30,camera:4,paint-print" 2>&1) || fail "colour changes: $out"
 first=$(echo "$out" | grep '^model rebuilds: ' | sed -n 1p | cut -d' ' -f3); last=$(echo "$out" | grep '^model rebuilds: ' | sed -n 2p | cut -d' ' -f3)
 [ -n "$last" ] && [ $((last - first)) -ge 1 ] && [ $((last - first)) -le 6 ] || fail "the Model did not make the scene again for 6 colours in 1..6 times: $first -> $last"
 echo "$out" | grep -q '^paints: .*#b4325a$' || fail "the last colour was not the card's: $(echo "$out" | grep '^paints:')"

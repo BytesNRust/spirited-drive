@@ -2,9 +2,10 @@
 # The editor on cars, headless, in the order a user goes: Export original car, open it (or a kit), edit and save its card,
 # The mask view, Preview by day and night, the Model, In-game photo, Changes. The blocks that need the player's game files
 # (original/) are skipped without them.
-# usage: editor_headless_car.sh EDITOR
+# usage: editor_headless_car.sh EDITOR [a|b|c]
 . "$(dirname "$0")/editor_headless_common.sh"
-part=${2:-all}   # a: export .. mask view; b: Preview .. Window menu (both start with the Export block, which the rest uses); all: both. CMake runs a and b as two tests: one test of ~100 editor runs passed the 450 s limit on a loaded machine
+part=${2:-all}   # a: export .. mask view; b: Preview and Model; c: In-game photo .. Window menu (all start with the Export block, which the rest uses); all: the three. CMake runs them as three tests side by side
+case $part in all|a|b|c) ;; *) echo "FAIL: part $part is not a, b, c or all" >&2; exit 1 ;; esac
 want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 repo_src="$(cd "$(dirname "$0")/.." && pwd)"
 repo=$(cd "$(dirname "$0")/.." && pwd)
@@ -35,6 +36,11 @@ printf '# made by Export original car\nid=wagon\nname=Wagon masks\nkind=masks\nm
 "$editor" --pick nosuchcar --frames 2 $export_opts >/dev/null 2>&1 && fail "--pick took a car that is not in the list"
 "$editor" "$work/exports/wagon-masks" --frames 3 --shot "$work/masksproject.png" >"$work/log" 2>&1 || fail "a masks project did not open: $(cat "$work/log")"
 [ ! -e "$work/exports/wagon-masks/trace.json" ] || fail "a masks project was made a track project"
+# a car's kit (the current layout) whose pictures are no pictures, so its car cannot be drawn: every part opens it
+mkdir -p "$work/kit/model/near/bank" "$work/kit/art-generated/car_masks"
+printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/mod.ini"
+printf 'x' > "$work/kit/art-generated/car_masks/rsid_mask.png"
+printf 'x' > "$work/kit/model/near/bank/0010_rsid.png"
 
 if want a; then
 # poll-wait on a car (the clock was the track room's alone, so on a car the step never ended): 1 s of frames, then it is over (--frames 3: the step alone keeps the run going); python bounds it, CI has no timeout command
@@ -54,10 +60,6 @@ grep -q "poll: watching" "$work/log" || fail "poll-wait on a car did not start: 
 "$editor" --frames 3 --shot "$work/start.png" >"$work/log" 2>&1 || fail "run with nothing to open: $(cat "$work/log")"
 [ -s "$work/start.png" ] || fail "no PNG of the start screen"
 "$editor" --ask opencar --frames 3 >"$work/log" 2>&1 || fail "run with Open car asked for on the start screen: $(cat "$work/log")"
-mkdir -p "$work/kit/model/near/bank" "$work/kit/art-generated/car_masks"
-printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/mod.ini"
-printf 'x' > "$work/kit/art-generated/car_masks/rsid_mask.png"
-printf 'x' > "$work/kit/model/near/bank/0010_rsid.png"
 "$editor" "$work/kit" --frames 3 --shot "$work/kit.png" >"$work/log" 2>&1 || fail "run on a car's kit: $(cat "$work/log")"
 [ -s "$work/kit.png" ] || fail "no PNG of the car"
 cmp -s "$work/kit.png" "$work/start.png" && fail "the car looks like the start screen"
@@ -247,12 +249,13 @@ fi
 
 fi
 
-if want b; then
-if [ "$part" = b ] && [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then   # what part a leaves for the blocks below: the real Wagon's kit, its side mask changed from outside
+if { [ "$part" = b ] || [ "$part" = c ]; } && [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then   # what part a leaves for the blocks below: the real Wagon's kit, its side mask changed from outside
     mkdir "$work/real"
     "$editor" --export-car Wagon --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real Wagon: $(cat "$work/log")"
     python3 -I "$(dirname "$0")/mask_poke.py" "$work/real/wagon/art-generated/car_masks/side_mask.png" 142 26 8 5 248 || fail "the outside change of the mask"
 fi
+
+if want b; then
 # ==== Preview: a paint, Day and Night ====
 if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then
     "$editor" --export-car P911 --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real 911: $(cat "$work/log")"
@@ -364,6 +367,10 @@ if [ -f "$p911" ]; then
     "$editor" "$work/k911" --frames 2 --wheels spinning >"$work/log" 2>&1 && fail "a bad --wheels was accepted"
     cmp -s "$work/m1.png" "$work/stub.png" && fail "the 911 looks like a car that cannot be drawn"
 fi
+
+fi
+
+if want c; then
 
 # ==== In-game photo (a fake game) ====
 # In-game photo with a fake game (a script that writes what the real one does): a masks project of a traffic car finds the car in the draw, follows its slot and shows
