@@ -3,14 +3,26 @@
 # temp workspace with a retouch (a mask changed from outside, a color changed on the card, a line added to the light file): one copy of the repo's data/ gets Copy (repo-copy), another gets
 # tweak-make + tweak-apply on the same project, and the two trees (data/ and core/formats/car_paint.c) must be identical (diff -r). The traffic and police cars have a masks folder and no colors.
 # Also: the tweak folder's layout (mod.ini type=tweak, data/ paths, studio/), and hand-copying the folders over a third data/ gives the same tree as Apply.
-# Two ctests, the cars' and the tracks' (PART), each with its own workspace and its own hand-copy check over its own tweaks (their data/ folders do not overlap).
-# Needs the game's files (original/). usage: editor_tweak_parity.sh EDITOR ORIGINAL_DIR REPO cars|tracks
+# Six ctests (PART): the cars in four (cars_a..cars_d, every fourth car) and the tracks in two (tracks_a, tracks_b, every other track), each with its own workspace and its own hand-copy check
+# over its own tweaks (their data/ folders do not overlap). PART cars or tracks runs the whole of one.
+# Needs the game's files (original/). usage: editor_tweak_parity.sh EDITOR ORIGINAL_DIR REPO cars[_a..d]|tracks[_a|_b]
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$2
 repo=$3
 here=$(dirname "$0")
-part=${4:?usage: editor_tweak_parity.sh EDITOR ORIGINAL_DIR REPO cars|tracks}
-case $part in cars | tracks) ;; *) echo "FAIL: part '$part': cars or tracks" >&2; exit 2 ;; esac
+part=${4:?usage: editor_tweak_parity.sh EDITOR ORIGINAL_DIR REPO cars[_a..d]|tracks[_a|_b]}
+# kind: which flow; every and at: the cars or tracks of this part are those whose place in the list, modulo `every`, is `at`; want: how many that is; changes: the fewest cars that must change the repo
+case $part in
+    cars) kind=cars every=1 at=0 want=20 changes=16 ;;
+    cars_a) kind=cars every=4 at=0 want=5 changes=4 ;;
+    cars_b) kind=cars every=4 at=1 want=5 changes=4 ;;
+    cars_c) kind=cars every=4 at=2 want=5 changes=4 ;;
+    cars_d) kind=cars every=4 at=3 want=5 changes=4 ;;
+    tracks) kind=tracks every=1 at=0 want=16 ;;
+    tracks_a) kind=tracks every=2 at=0 want=8 ;;
+    tracks_b) kind=tracks every=2 at=1 want=8 ;;
+    *) echo "FAIL: part '$part': cars, cars_a..cars_d, tracks, tracks_a or tracks_b" >&2; exit 2 ;;
+esac
 [ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 77; }
 mkdir -p "$work/cars" "$work/ws" "$work/art" || exit 1
 fresh() {   # fresh NAME: a repo copy with the layout Copy needs, in $work/NAME (a clone where the volume has them: the data/ is copied twice a car and a track)
@@ -21,8 +33,12 @@ same_tree() {   # same_tree A B WHAT
     diff -r "$work/$1/data" "$work/$2/data" >"$work/diff" 2>&1 && cmp -s "$work/$1/core/formats/car_paint.c" "$work/$2/core/formats/car_paint.c" || fail "$3: Apply is not Copy: $(head -5 "$work/diff") $(diff "$work/$1/core/formats/car_paint.c" "$work/$2/core/formats/car_paint.c" | head -4)"
 }
 cars_part() {
-    n=0 changed_cars=0
+    n=0 changed_cars=0 k=-1
+    total=$(ls "$repo/data/car_masks" | grep -c .)
+    [ "$total" -eq 20 ] || fail "data/car_masks has $total cars, not the 20 originals the four parts share"
     for c in $(ls "$repo/data/car_masks"); do
+        k=$((k + 1))
+        [ $((k % every)) -eq "$at" ] || continue
         before=$(ls "$work/cars")
         "$editor" --export-car "$c" --into "$work/cars" --cd "$orig" --port-data "$repo/data" --frames 1 --user "$work/u" >"$work/log" 2>&1 || { fail "Export original car $c: $(cat "$work/log")"; continue; }
         kit=$work/cars/$(ls "$work/cars" | grep -vxF "$before" | head -n 1)
@@ -46,15 +62,17 @@ PY
         diff -r "$repo/data" "$work/copy/data" >/dev/null 2>&1 || changed_cars=$((changed_cars + 1))
         n=$((n + 1))
     done
-    [ "$n" -eq 20 ] || fail "$n of the 20 original cars went through"
-    [ "$changed_cars" -ge 16 ] || fail "the retouch changed the repo for only $changed_cars cars: the parity proves nothing"
+    [ "$n" -eq "$want" ] || fail "$n of the $want original cars of this part went through"
+    [ "$changed_cars" -ge "$changes" ] || fail "the retouch changed the repo for only $changed_cars cars: the parity proves nothing"
 }
 tracks_part() {
     # the tracks: the light file with a line added, and a mask PNG changed from outside
     "$editor" --workspace "$work/ws" --port-data "$repo/data" --art-dir "$work/art" --cd "$orig" --user "$work/u" --frames 4 --steps add-originals >"$work/log" 2>&1 || fail "Add originals: $(cat "$work/log")"
-    i=-1
+    i=-1 n=0
     for t in AL1 AL2 AL3 CL1 CL2 CL3 CY1 CY2 CY3 TR1 TR2 TR3 TR4 TR5 TR6 TR7; do
         i=$((i + 1))
+        [ $((i % every)) -eq "$at" ] || continue
+        n=$((n + 1))
         echo "# tweak parity" >>"$work/ws/tracks/$t/light/track_light/$t.txt"
         mkdir -p "$work/ws/tracks/$t/art-generated/track_masks"
         for p in "$repo/data/track_masks/$t"/*.png; do   # the first mask that is an 8-bit grey PNG, changed from outside
@@ -68,8 +86,9 @@ tracks_part() {
         same_tree copy tweak "track $t"
         diff -r "$repo/data" "$work/copy/data" >/dev/null 2>&1 && fail "$t: the retouch changed nothing in the repo"
     done
+    [ "$i" -eq 15 ] && [ "$n" -eq "$want" ] || fail "$n of the $want tracks of this part went through"
 }
-${part}_part
+${kind}_part
 # hand-copying the tweak's folders over a data/ = Apply: every file the hand copy changed against the repo is the same in Apply's tree (a PNG with the same picture in other bytes is left alone by Apply)
 fresh hand; fresh again
 for d in "$work"/ws/tweaks/*-tweak; do
@@ -77,10 +96,29 @@ for d in "$work"/ws/tweaks/*-tweak; do
     [ -d "$d/track_light" ] && cp "$d/track_light/"*.txt "$work/hand/data/track_light/"
     studio --workspace "$work/ws" --port-data "$work/again/data" --steps "tweak-apply:$(basename "$d")" || fail "Apply of $d: $(tail -3 "$work/log")"
 done
-( cd "$work/hand/data" && find . -type f ) | while read -r f; do
-    cmp -s "$work/hand/data/$f" "$repo/data/$f" && continue
-    cmp -s "$work/hand/data/$f" "$work/again/data/$f" || case "$f" in *.png) cmp -s "$work/again/data/$f" "$repo/data/$f" || echo "$f";; *) echo "$f";; esac
-done >"$work/diff"
+# in one process: a cmp for each of the 300 files of data/ cost half a minute in every part
+python3 -I - "$work/hand/data" "$repo/data" "$work/again/data" >"$work/diff" <<'PY' || fail "the hand copy's comparison did not run: $(cat "$work/diff")"
+import os, sys
+hand, repo, again = sys.argv[1:]
+
+def read(path):
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError:
+        return None
+
+for folder, _, names in os.walk(hand):
+    for name in names:
+        rel = os.path.relpath(os.path.join(folder, name), hand)
+        h, r = read(os.path.join(hand, rel)), read(os.path.join(repo, rel))
+        if h == r:
+            continue
+        a = read(os.path.join(again, rel))
+        if h == a or (rel.endswith(".png") and a is not None and a == r):
+            continue
+        print(rel)
+PY
 [ -s "$work/diff" ] && fail "hand-copying the tweaks' folders is not Apply: $(head -5 "$work/diff")"
 [ "$failures" -eq 0 ] && echo "editor_tweak_parity $part: ok"
 exit "$failures"

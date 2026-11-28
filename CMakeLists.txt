@@ -1397,8 +1397,10 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_original_track_flow_a PROPERTIES TIMEOUT 900)
         add_test(NAME editor_original_track_flow_b COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> b)   # part b: test drive and the 854 px layout
         set_tests_properties(editor_original_track_flow_b PROPERTIES TIMEOUT 900)
-        add_test(NAME editor_original_track_flow_c COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> c)   # part c: masks, polls, repo folder, main menu (the rest of what part b was: split to run side by side)
+        add_test(NAME editor_original_track_flow_c COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> c)   # part c: masks, publish, photos and the open window's poll
         set_tests_properties(editor_original_track_flow_c PROPERTIES TIMEOUT 900)
+        add_test(NAME editor_original_track_flow_d COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> d)   # part d: PNGs edited by hand, the masks buttons, the repo folder, main menu, the real CD's textures
+        set_tests_properties(editor_original_track_flow_d PROPERTIES TIMEOUT 900)
         add_test(NAME editor_game_repo_enables COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_repo_enables.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:make_fake_tri>)   # a Studio with no game data folder of its own: File > Game repo folder... enables Add originals and Open original track
         set_tests_properties(editor_game_repo_enables PROPERTIES TIMEOUT 300)
         add_test(NAME editor_settings_first_run COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_settings_first_run.sh $<TARGET_FILE:tnfs-track-editor>)   # Edit tweak step 3: the three doors, the first start's question about the game, File > Settings
@@ -2131,7 +2133,7 @@ if(NOT EMSCRIPTEN)
                 add_test(NAME editor_copy_originals_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_copy_originals.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Copy to game repo for the 20 original cars and the 16 tracks, a clean temp workspace, nothing edited
                 set_tests_properties(editor_copy_originals_${part} PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
             endforeach()
-            foreach(part cars tracks)   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
+            foreach(part cars_a cars_b cars_c cars_d tracks_a tracks_b)   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
                 add_test(NAME editor_tweak_parity_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_parity.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} ${part})
                 set_tests_properties(editor_tweak_parity_${part} PROPERTIES TIMEOUT 1800 SKIP_RETURN_CODE 77)
             endforeach()
@@ -2898,7 +2900,7 @@ set(TNFS_E2E_TESTS
     editor_model_flow_a editor_model_flow_b editor_model_flow_c editor_model_flow_d
     editor_light_window_a editor_light_window_b editor_light_window_c editor_light_window_d editor_light_window_e editor_light_window_f
     editor_original_track_flow_a
-    editor_original_track_flow_b editor_original_track_flow_c
+    editor_original_track_flow_b editor_original_track_flow_c editor_original_track_flow_d
     studio_cli_cd studio_cli_edit studio_cli_car
     car_piece_race_giveup
     car_piece_race_finish
@@ -2924,7 +2926,7 @@ set(TNFS_E2E_TESTS
     content_menus_own
     editor_e2e_track
     editor_copy_originals_cars_a editor_copy_originals_cars_b editor_copy_originals_tracks_a editor_copy_originals_tracks_b
-    editor_tweak_parity_cars editor_tweak_parity_tracks
+    editor_tweak_parity_cars_a editor_tweak_parity_cars_b editor_tweak_parity_cars_c editor_tweak_parity_cars_d editor_tweak_parity_tracks_a editor_tweak_parity_tracks_b
     editor_traffic_car_panel_axxess editor_traffic_car_panel_copmust
     editor_real_workspace_ansx
     editor_real_workspace_ldiabl

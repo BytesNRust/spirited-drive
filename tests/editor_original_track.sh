@@ -1,10 +1,11 @@
 #!/bin/sh
 # Original tracks as workspace projects (dep103 phase A), headless: Add the 16 from a fake data/ and art folder, open one (the Track light window on its own folder, the track fixed),
 # the File menu of that room, the publish preview and the copy back into data/. The photo goes through a fake game; no CD data.
-# usage: editor_original_track.sh EDITOR REPO MAKE_TEST_PSD MAKE_FAKE_TRI
+# usage: editor_original_track.sh EDITOR REPO MAKE_TEST_PSD MAKE_FAKE_TRI [a|b|c|d]
 set -u
 editor=$1 repo=$2 make_psd=$3 make_tri=$4
-part=${5:-all}   # a: hub, old workspace, light flow, copy; b: test drive, 854 px layout; c: masks, polls, repo folder, main menu; all: the three (three ctest tests run a, b and c side by side: each well under the limit on a slow runner)
+part=${5:-all}   # a: hub, old workspace, light flow, copy; b: test drive, 854 px layout; c: masks, publish, photos and the open window's poll; d: PNGs edited by hand, the masks buttons, repo folder, main menu, the real CD's textures; all: the four (four ctest tests run them side by side)
+case $part in all | a | b | c | d) ;; *) echo "FAIL: part $part is not a, b, c, d or all" >&2; exit 1 ;; esac
 want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 stamp() { echo "editor_original_track[$part]: $* at ${SECONDS}s" >&2; }
 work=$(mktemp -d)
@@ -214,6 +215,18 @@ grep -q "^scenery_00.png $(cksum < "$png")\$" "$work/record" || fail "the open w
 retouch paint   # back to the first mask for what follows
 run --frames 4 --steps open-original:0,masks-print > /dev/null 2>&1
 unset FAKE_RECORD
+
+fi
+
+if want d; then
+# part d alone starts as part c leaves things for what follows: the sixteen, the dock of the 854 px check, the PNGs made from the PSDs (the first mask, "paint") and published into data/
+if [ "$part" = d ]; then
+    run --frames 4 --steps add-originals >/dev/null 2>&1 || fail "part d: add-originals"
+    run --window 854x560 --reset-layout --frames 30 --steps open-original:0,poll-wait:6,print-panels >/dev/null 2>&1
+    out=$(run --frames 4 --steps open-original:0,masks-print,repo-ask,repo-copy 2>&1) || fail "part d: the PNGs made and published: $out"
+    [ -f "$work/data/track_masks/AL1/scenery_00.png" ] || fail "part d: data/ has no scenery_00.png to compare with: $out"
+fi
+stamp "part d starts"
 
 # a PNG changed by hand is kept and says so; Regenerate from PSD puts the PSD's mask back
 python3 - "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png" <<'PY'
