@@ -5,7 +5,8 @@
 66.7 editor_model_flow_d
 66.5 stock_screens_golden_stock
 63.0 editor_headless_track_a
-62.2 editor_headless_track_b
+36.0 editor_headless_track_b
+26.0 editor_headless_track_e
 61.3 live_mode_switch_race
 57.0 car_card_menus_cards
 55.6 net_track_guard_15

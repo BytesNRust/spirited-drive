@@ -13,7 +13,8 @@
 86.4 editor_headless_track_a
 81.7 car_card_menus_cards
 80.4 editor_model_flow_d
-80.2 editor_headless_track_b
+46.0 editor_headless_track_b
+34.0 editor_headless_track_e
 78.8 variant_choice_kept
 75.5 editor_model_flow_c
 72.5 vegas_lamps_game_night

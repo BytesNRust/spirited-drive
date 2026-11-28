@@ -4,13 +4,13 @@
 # The track editor runs headless (Dear ImGui over the SDL software renderer): a project folder is made, N frames are drawn and the last one
 # is written as a PNG that has the window's size, the road's line and the control points drawn in the viewport panel; --save writes the
 # project files; --user makes its folder and keeps the layout in it; an unknown option fails. (Without a PROJECT it shows the start screen and makes nothing; a normal run reopens the last project from the recent list, a headless one does not read it.)
-# usage: editor_headless_track.sh EDITOR [a|b|c|d|all]
+# usage: editor_headless_track.sh EDITOR [a|b|c|d|e|all]
 . "$(dirname "$0")/editor_headless_common.sh"
 
-# a: new project, limits, road profile keys; c: several points, Copy, Paste, Mirror; b: Add curve .. Test drive; d: scoped edits, window sizes, the Window menu; all: the four.
+# a: new project, limits, road profile keys; c: several points, Copy, Paste, Mirror; b: Add curve, Colour by; e: Build, Install, Test drive; d: scoped edits, window sizes, the Window menu; all: the five.
 # CMake runs each as its own test, side by side (~100 editor runs: one test took minutes). Each part makes what it needs in its own scratch folder.
 part=${2:-all}
-case $part in all|a|b|c|d) ;; *) echo "FAIL: no part '$part'" >&2; exit 1;; esac
+case $part in all|a|b|c|d|e) ;; *) echo "FAIL: no part '$part'" >&2; exit 1;; esac
 want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 
 if want a; then
@@ -258,7 +258,7 @@ grep -q "copy a run of points first" "$work/log" || fail "Paste's refusal does n
 
 fi
 
-if [ "$part" = b ] || [ "$part" = d ]; then   # what part a leaves for parts b and d (fixtures: the project, the mild, amber and red S, the shoulder surfaces)
+if [ "$part" = b ] || [ "$part" = d ] || [ "$part" = e ]; then   # what part a leaves for parts b, d and e (fixtures: the project, the mild, amber and red S, the shoulder surfaces)
 "$editor" "$work/proj" --window 960x1200 --frames 6 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
 mkdir "$work/mild"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [15.0, 80.0], [15.0, 120.0], [0.0, 160.0], [0.0, 200.0]]\n}\n' > "$work/mild/trace.json"   # an S of 6.5 degrees a node at most: nothing is marked (the old limit was 6)
@@ -361,6 +361,9 @@ grep -q "^classes 7: 0@0-9 2@10-10 3@11-17 2@18-18 0@19-28 5@29-29 6@30-36 5@37-
 # a mode out of range is refused
 "$editor" "$work/cs" --window 960x1200 --user "$work/cs-u" --frames 2 --steps colour-by:99 >"$work/log" 2>&1 && fail "colour-by:99 was taken"
 
+fi
+
+if want e; then
 # ==== Build: under the limits, over an amber one, refused over a red one ====
 # Build: a curve under the limits is built, one over them is refused with the limit named
 "$editor" "$work/mild" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a curve under the limits: $(cat "$work/log")"
