@@ -4,10 +4,13 @@
 # The track editor runs headless (Dear ImGui over the SDL software renderer): a project folder is made, N frames are drawn and the last one
 # is written as a PNG that has the window's size, the road's line and the control points drawn in the viewport panel; --save writes the
 # project files; --user makes its folder and keeps the layout in it; an unknown option fails. (Without a PROJECT it shows the start screen and makes nothing; a normal run reopens the last project from the recent list, a headless one does not read it.)
-# usage: editor_headless_track.sh EDITOR
+# usage: editor_headless_track.sh EDITOR [a|b|c|d|all]
 . "$(dirname "$0")/editor_headless_common.sh"
 
-part=${2:-all}   # a: new project .. Copy, Paste, Mirror; b: Add curve .. Window menu; all: both (CMake runs a and b as two tests: ~70 editor runs in one took 450 s on a slow runner)
+# a: new project, limits, road profile keys; c: several points, Copy, Paste, Mirror; b: Add curve .. Test drive; d: scoped edits, window sizes, the Window menu; all: the four.
+# CMake runs each as its own test, side by side (~100 editor runs: one test took minutes). Each part makes what it needs in its own scratch folder.
+part=${2:-all}
+case $part in all|a|b|c|d) ;; *) echo "FAIL: no part '$part'" >&2; exit 1;; esac
 want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 
 if want a; then
@@ -191,6 +194,9 @@ assert all(node(k, 3) - node(k, 1) == 24 for k in range(49)), "the right barrier
 PY
 python3 "$work/tri_fence.py" "$work/fence/build/fence.zip" || fail "the TRI of the fence project does not have the fence of its keys"
 
+fi
+
+if want c; then
 # ==== Several points selected (dep87): gestures, group edits, one undo each, the guard on removing, the profile Mixed ====
 # a straight of 8 points 40 m apart, the right shoulder tarmac from point 3. In the viewport: a click, Shift+click a range, Cmd+click one in or
 # out, Esc clears, a box drag the points inside it; the Points rows take the same clicks. The Road profile shows a value the points share, else Mixed
@@ -252,8 +258,7 @@ grep -q "copy a run of points first" "$work/log" || fail "Paste's refusal does n
 
 fi
 
-if want b; then
-if [ "$part" = b ]; then   # what part a leaves for the sections below (fixtures: the project, the mild, amber and red S, the shoulder surfaces)
+if [ "$part" = b ] || [ "$part" = d ]; then   # what part a leaves for parts b and d (fixtures: the project, the mild, amber and red S, the shoulder surfaces)
 "$editor" "$work/proj" --window 960x1200 --frames 6 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
 mkdir "$work/mild"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [15.0, 80.0], [15.0, 120.0], [0.0, 160.0], [0.0, 200.0]]\n}\n' > "$work/mild/trace.json"   # an S of 6.5 degrees a node at most: nothing is marked (the old limit was 6)
@@ -264,6 +269,8 @@ printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 80.
 mkdir "$work/surface"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "shoulder_l_surface": "tarmac"}, {"point": 3, "shoulder_l_surface": "verge", "shoulder_r_surface": "tarmac"}]\n}\n' > "$work/surface/trace.json"
 fi
+
+if want b; then
 # ==== Add curve and Add straight (dep88): after the last point or the selected one, going on the road's way; one undo; red under Build's radius ====
 # a straight north of 4 points 100 m apart. A quarter right of radius 60 m after the last point ends 60 m on and 60 m east (6 points, the
 # default: 15 degrees each); after point 1 the road beyond turns with it and runs east; radius 15 m is red in Problems at once, in Build's words
@@ -411,6 +418,9 @@ grep -q "the game was not found" "$work/log" || fail "Test drive's refusal does 
 "$editor" "$work/fresh" --frames 6 --shot "$work/drive.png" >"$work/log" 2>&1 || fail "run with the Drive window: $(cat "$work/log")"
 [ -s "$work/drive.png" ] || fail "no PNG with the Drive window"
 
+fi
+
+if want d; then
 # ==== dep87 part 2: an edit changes only what is selected ====
 # a straight of 10 points 40 m apart with a 2+1 lanes key on point 7; print-road prints what the keys make at every point (lanes 17 = 1+1, 18 = 1+2, 33 = 2+1)
 mkdir "$work/scope"
