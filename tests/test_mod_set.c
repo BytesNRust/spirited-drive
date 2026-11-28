@@ -242,14 +242,7 @@ static void test_what_a_folder_may_serve(void)
     CHECK(port_log_watch_hit());
     port_log_watch("is left out");
     CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));
-    {   /* asked for in another case: the file system of macOS and Windows finds the CD's file, a case-sensitive one (Linux) does not (the game asks in the CD's upper case);
-         * either way nothing is said again */
-        char lower[400];
-        snprintf(lower, sizeof lower, "%s/simdata/misc/note.b21", cd);
-        struct stat st;
-        const int any_case = stat(lower, &st) == 0;
-        CHECK_EQ_INT(game_file_is("simdata/misc/note.b21", "from the cd"), any_case);
-    }
+    CHECK(game_file_is("simdata/misc/note.b21", "from the cd"));   /* asked for in another case it is the same file, on every system; nothing is said again */
     CHECK(!port_log_watch_hit());   /* said once, not at every read */
     CHECK(data_from("track_light/TR1B.txt", "/mods/twk/"));   /* its look is served */
     CHECK(!data_from("track_light/TR2B.txt", "/mods/car1/"));   /* a car's folder serves its own files only */
