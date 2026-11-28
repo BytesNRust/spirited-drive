@@ -19,9 +19,9 @@ for image in "$@"; do
         export PATH="$PATH:/usr/games"
         apt-get update -qq
         cp /new.deb /tmp/new.deb
-        # an older package of the same files, to upgrade from
+        # an older package of the same files, to upgrade from: older than any version a build stamps, an update test build (0.0.1~updatetest) too
         dpkg-deb -R /tmp/new.deb /tmp/older
-        sed -i "s/^Version: .*/Version: 0.0.1/" /tmp/older/DEBIAN/control
+        sed -i "s/^Version: .*/Version: 0.0.0~older/" /tmp/older/DEBIAN/control
         dpkg-deb --root-owner-group -Zxz --build /tmp/older /tmp/older.deb >/dev/null
         apt-get install -y -qq /tmp/older.deb >/tmp/apt.log 2>&1 || { tail -20 /tmp/apt.log; exit 1; }
         command -v zenity >/dev/null || { echo "apt did not bring zenity" >&2; exit 1; }
