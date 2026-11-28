@@ -141,7 +141,7 @@ static uint32_t *copy_list(const List *l, ExchangeError *err)
 {
     uint32_t *v = malloc((l->count ? l->count : 1) * sizeof *v);
     if (v == NULL) exchange_fail(err, "out of memory");
-    else memcpy(v, l->values, l->count * sizeof *v);
+    else if (l->count > 0) memcpy(v, l->values, l->count * sizeof *v);   /* an empty list has no values: memcpy takes no NULL, even for 0 bytes */
     return v;
 }
 
