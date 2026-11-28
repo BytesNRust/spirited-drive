@@ -4,7 +4,7 @@
 # the log. It read a NULL there and crashed (SIGSEGV, status 139). The port taken is a free one found by tools/free_udp_ports.py
 # and claimed, as the link tests' own are, so other ctests of the machine do not meet it.
 # The game's own run, not tools/link_loopback.sh: that waits for a hosted game, which never comes (a step's 60 s sat out). Here the script waits for the refusal and then leaves
-# the game by Game Mode's Escape ("Exit to system ?", Yes): a game that left the screen and lives ends with status 0.
+# the network screen and the game by Game Mode's Escape ("Exit to system ?", Yes): a game that left the screen and lives ends with status 0.
 # usage: tests/net_port_taken.sh BUILD_DIR   (the folder holding tnfs; run from anywhere)
 set -u
 build=${1:?usage: net_port_taken.sh BUILD_DIR}
@@ -32,10 +32,10 @@ disown "$holder" 2>/dev/null   # its kill at the end is no news
 for _ in $(seq 1 50); do grep -q held "$work/holder" 2>/dev/null && break; sleep 0.1; done
 grep -q held "$work/holder" || { echo "FAIL: the port $base was not taken" >&2; exit 1; }
 
-# the way in as tools/link_loopback.sh's host: the movie, the title, Game Mode: Network; the name box; New Game. Then the refusal, and from Game Mode (the selector on Network still): Escape, Yes
+# the way in as tools/link_loopback.sh's host: the movie, the title, Game Mode: Network; the name box; the games box. Its refusal leaves the network screen up: Escape to Game Mode, Escape, Yes
 script="1000:ESC,0:WAIT:mark:movie=:60,500:ESC,0:WAIT:mark:screen=title:60,1000:ESC,0:WAIT:mark:screen=game_mode:60"
-script="$script,1500:DOWN,1000:ENTER,0:WAIT:mark:screen=name_box:60,500:ENTER,4000:DOWN,2000:ENTER,4000:ENTER"
-script="$script,0:WAIT:net_host: no network service:60,3000:ESC,0:WAIT:mark:yes_no:60,500:Y"   # the box drains keys sent before it reads them
+script="$script,1500:DOWN,1000:ENTER,0:WAIT:mark:screen=name_box:60,500:ENTER,4000:DOWN,2000:ENTER"
+script="$script,0:WAIT:net_host: no network service:60,3000:ESC,3000:ESC,0:WAIT:mark:yes_no:60,500:Y"   # Escape leaves the network screen, Escape again asks (a dropped one fails the wait); the box drains keys sent before it reads them
 mkdir -p "$work/user"
 log=$work/log
 (cd "$repo" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERBOSE=1 TNFS_INPUT_SETTLE=1500 TNFS_INPUT_SCRIPT="$script" \
