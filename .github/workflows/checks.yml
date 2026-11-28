@@ -48,8 +48,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
-      - name: Install ccache
-        run: sudo apt-get install -y -qq ccache || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
       - name: Restore the ccache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
         with:
@@ -58,14 +56,14 @@ jobs:
           restore-keys: ccache-ubuntu-24.04-release-
       - name: Configure
         run: |
-          ccache -z
-          nix develop -c cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache
+          nix develop -c ccache -z
+          nix develop -c cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
           set -o pipefail
           nix develop -c cmake --build build 2>&1 | tee build.log
       - name: ccache statistics
-        run: ccache -s
+        run: nix develop -c ccache -s
       - name: Save the ccache (main only)
         if: github.ref == 'refs/heads/main'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
@@ -83,8 +81,9 @@ jobs:
           path: build/Testing/Temporary/CTestCostData.txt
           key: ctest-cost-ubuntu-24.04-release-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ctest-cost-ubuntu-24.04-release-
+      # twice the runner's CPUs: many tests wait more than they compute (4 runs each on the 4-CPU runner: -j 4 95..132 s, -j 8 79..103 s)
       - name: Test
-        run: nix develop -c ctest --test-dir build --output-on-failure --timeout 600 -j "$(nproc)"
+        run: nix develop -c ctest --test-dir build --output-on-failure --timeout 600 -j "$(( $(nproc) * 2 ))"
       - name: Save the tests' times
         if: success() || failure()
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
