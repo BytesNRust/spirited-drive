@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The track mask tools (tools/track_mask_psd.py, tools/track_mask_from_psd.py): a painted texel is reflective when it is opaque and not black, the PSD the writer makes is a
-texture under an empty mask layer, and the files it reads carry the names track_mask.h looks up. Skipped (exit 0) when Pillow is not installed."""
+texture under an empty mask layer, and the files it reads carry the names track_mask.h looks up. Skipped (exit 77) when Pillow is not installed."""
 import importlib.util
 import os
 import sys
@@ -20,7 +20,7 @@ try:
     from PIL import Image
 except ImportError as error:
     print("test_track_mask_psd: skipped (%s)" % error)
-    sys.exit(0)
+    sys.exit(77)
 
 failures = 0
 

@@ -18,7 +18,8 @@
       devShells = forAllSystems (pkgs: {
         # Native build of the port (macOS / Linux).
         default = pkgs.mkShell {
-          packages = with pkgs; [ cmake ninja pkg-config sdl3 lldb ];
+          # python3 with Pillow, and rsvg-convert: the PSD, mask and icon tests skip without them
+          packages = with pkgs; [ cmake ninja pkg-config sdl3 lldb (python3.withPackages (ps: [ ps.pillow ])) librsvg ];
         };
 
         # WebAssembly build of the port.
