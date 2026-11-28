@@ -2,17 +2,21 @@
 # Edit tweak, step 2: the Edit tweak list and the Tweak panel, end to end, on copies (a temp workspace and a temp copy of the repo's data/; never the owner's workspace). Start screen -> Edit tweak ->
 # Track -> CY1 -> Open -> change the sun, Save -> the tweak folder has track_light/CY1.txt -> Apply to game repo writes it; the repo's own change to a file asks Replace / Skip / Cancel; the same with a
 # traffic car (Wagon): its masks reach car_masks/Wagon and no color; an old workspace's car is turned into a tweak when opened, its folder untouched; the old buttons are gone from the menus.
+# PART=track (the list, CY1 and its Apply questions) or cars (Wagon, the Diablo, the old workspace, the menus) runs that one alone (ctest runs both side by side); unset, all.
 # Needs the game's files (original/). usage: editor_tweak_list.sh EDITOR ORIGINAL_DIR REPO
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$2
 repo=$3
 here=$(dirname "$0")
+part=${PART:-all}
+case $part in all | track | cars) ;; *) echo "FAIL: PART=$part is not track, cars or all" >&2; exit 1 ;; esac
 [ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 0; }
 mkdir -p "$work/ws" "$work/art" "$work/r/core/formats" || exit 1
 cp -R "$repo/data" "$work/r/data" && cp "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c"
 studio() { "$editor" "$@" --cd "$orig" --art-dir "$work/art" --user "$work/u" --workspace "$work/ws" >"$work/log" 2>&1; }
 opts="--port-data $work/r/data"
 
+track_part() {
 # the list: the 21 cars and the 16 tracks, none with a tweak yet
 studio $opts --frames 4 --steps tweak-list || fail "tweak-list: $(tail -3 "$work/log")"
 [ "$(grep -c '^tweak row:' "$work/log")" -eq 37 ] || fail "the list has $(grep -c '^tweak row:' "$work/log") rows, not 37"
@@ -50,7 +54,9 @@ cmp -s "$work/r/data/track_light/CY1.txt" "$work/own.txt" || fail "Skip changed 
 studio $opts --frames 4 --steps tweak-open-row:CY1,ui-click:tweak_apply,ui-click:tweak_confirm,ui-click:tweak_replace || fail "own change, Replace: $(tail -3 "$work/log")"
 cmp -s "$work/r/data/track_light/CY1.txt" "$t/track_light/CY1.txt" || fail "Replace did not write the tweak's file"
 
+}
 # a traffic car: its masks reach car_masks/Wagon and no color goes anywhere
+wagon_part() {
 studio $opts --frames 4 --steps tweak-open-row:Wagon,tweak-status || fail "Wagon open: $(tail -3 "$work/log")"
 kit=$(ls -d "$work"/ws/cars/* | head -n 1)
 [ -d "$work/ws/tweaks/wagon-tweak/car_masks/Wagon" ] || fail "Wagon: no car_masks/Wagon in its tweak"
@@ -62,13 +68,17 @@ grep -q 'changed' "$work/log" || fail "Wagon: the retouched mask is not listed a
 diff -rq "$repo/data/car_masks/Wagon" "$work/r/data/car_masks/Wagon" >/dev/null 2>&1 && fail "Wagon: Apply changed nothing in the repo"
 cmp -s "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c" || fail "Wagon: the colors table changed for a traffic car"
 
+}
 # the confirmation: Apply lists what it writes first and Cancel writes nothing
+track_end() {
 cp "$work/r/data/track_light/CY1.txt" "$work/before.txt"
 studio $opts --frames 4 --steps tweak-open-row:CY1,sun:100,20,60,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm_cancel || fail "confirm, Cancel: $(tail -3 "$work/log")"
 cmp -s "$work/r/data/track_light/CY1.txt" "$work/before.txt" || fail "Cancel on the list wrote into the repo"
 # Apply with no repo set asks for the folder (the dialog itself is the system's) and writes nothing
 studio --frames 4 --light-dir "$work/r/data" --steps tweak-open-row:CY1,ui-click:tweak_check,ui-click:tweak_apply,status || fail "Apply with no repo: $(tail -3 "$work/log")"
 grep -q "^status: choose the game repo's folder, then Apply again" "$work/log" || fail "Apply with no repo did not ask for the folder: $(grep status "$work/log")"
+}
+cars_part() {
 # a car with colors by the doors: the Diablo, a color changed, Save, Apply: its row in the repo's table has it
 studio $opts --frames 4 --steps ui-click:door_tweak,ui-click:tweak_row_Lamborghini\ Diablo\ VT,ui-click:tweak_open,paint-rgb:0,9,9,9,save,ui-click:tweak_check,ui-click:tweak_apply,ui-click:tweak_confirm || fail "Diablo by the doors: $(tail -3 "$work/log")"
 grep -q '{ 9, 9, 9 }' "$work/r/core/formats/car_paint.c" || fail "the Diablo's color is not in the repo's table: $(diff "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c" | head -4)"
@@ -101,5 +111,10 @@ studio $opts --frames 4 --steps print-menu
 for gone in "Export original car" "Open original track" "Add originals" "Copy to game repo" "Locate game"; do
     grep -q "$gone" "$work/log" && fail "the main menu still has \"$gone\""
 done
+}
+case $part in all | track) track_part ;; esac
+case $part in all | cars) wagon_part ;; esac
+case $part in all | track) track_end ;; esac
+case $part in all | cars) cars_part ;; esac
 [ "$failures" -eq 0 ] && echo "editor_tweak_list: ok"
 exit "$failures"

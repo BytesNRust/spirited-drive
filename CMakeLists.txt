@@ -2076,8 +2076,10 @@ if(NOT EMSCRIPTEN)
             add_test(NAME vegas_lamps_game_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/vegas_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
             set_tests_properties(vegas_lamps_game_${part} PROPERTIES TIMEOUT 400 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
         endforeach()
-        add_test(NAME tunnel_look_tint_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_look_tint_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # an unlit tunnel (lamps 0) keeps its tunnel_look colour at the four times of day
-        set_tests_properties(tunnel_look_tint_game PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77)
+        foreach(part early late)
+            add_test(NAME tunnel_look_tint_game_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_look_tint_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # an unlit tunnel (lamps 0) keeps its tunnel_look colour at the four times of day
+            set_tests_properties(tunnel_look_tint_game_${part} PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
+        endforeach()
         add_test(NAME portal_faces_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/portal_faces_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # a tunnel's portal on both mouths: TR3 reversed shows the far one, by default, not with TNFS_PORTAL_BOTH=0
         set_tests_properties(portal_faces_game PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         add_test(NAME car_lamps_by_mask_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_lamps_by_mask_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})   # a car with masks lights its brake lamps by the masks alone in Restomod (the Viper with its oval moved), Stock and Restored keep the exe's
@@ -2122,14 +2124,18 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_hill_race PROPERTIES TIMEOUT 300)
             add_test(NAME editor_e2e_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_car.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
             set_tests_properties(editor_e2e_car PROPERTIES TIMEOUT 300)
-            add_test(NAME editor_copy_originals COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_copy_originals.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Copy to game repo for the 20 original cars and the 16 tracks, a clean temp workspace, nothing edited
-            set_tests_properties(editor_copy_originals PROPERTIES TIMEOUT 900)
+            foreach(part cars_a cars_b tracks_a tracks_b)
+                add_test(NAME editor_copy_originals_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_copy_originals.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Copy to game repo for the 20 original cars and the 16 tracks, a clean temp workspace, nothing edited
+                set_tests_properties(editor_copy_originals_${part} PROPERTIES TIMEOUT 900 ENVIRONMENT "PART=${part}")
+            endforeach()
             foreach(part cars tracks)   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
                 add_test(NAME editor_tweak_parity_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_parity.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} ${part})
                 set_tests_properties(editor_tweak_parity_${part} PROPERTIES TIMEOUT 1800 SKIP_RETURN_CODE 77)
             endforeach()
-            add_test(NAME editor_tweak_list COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_list.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak step 2: the list, Open, the Tweak panel, Apply, Replace / Skip / Cancel, a traffic car, an old workspace; needs the game's files
-            set_tests_properties(editor_tweak_list PROPERTIES TIMEOUT 900)
+            foreach(part track cars)
+                add_test(NAME editor_tweak_list_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_list.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak step 2: the list, Open, the Tweak panel, Apply, Replace / Skip / Cancel, a traffic car, an old workspace; needs the game's files
+                set_tests_properties(editor_tweak_list_${part} PROPERTIES TIMEOUT 900 ENVIRONMENT "PART=${part}")
+            endforeach()
             add_test(NAME editor_tweak_pack COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_pack.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>)   # Edit tweak step 4: Pack zip and Check; the zip installs and the race reads its light; needs the game's files
             set_tests_properties(editor_tweak_pack PROPERTIES TIMEOUT 900)
             add_test(NAME editor_tweak_flows COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_flows.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak flows the list/parity tests leave: the list with tweaks, reopening, a track mask, Replace/Skip/Cancel on a car with several masks and with colors, Apply with nothing new; needs the game's files
@@ -2870,7 +2876,7 @@ set(TNFS_E2E_TESTS
     track_piece_run
     content_menus_own
     editor_e2e_track
-    editor_copy_originals
+    editor_copy_originals_cars_a editor_copy_originals_cars_b editor_copy_originals_tracks_a editor_copy_originals_tracks_b
     editor_tweak_parity_cars editor_tweak_parity_tracks
     editor_traffic_car_panel
     editor_real_workspace_ansx

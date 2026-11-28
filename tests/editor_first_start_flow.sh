@@ -17,7 +17,8 @@ row='ui-click:door_tweak,ui-click:tweak_tab_car,ui-click:tweak_row_Dodge Viper R
 
 # 1. the game is not found: the question is on the main menu; Not now answers it, and it is gone (a second click has nothing to click)
 run --game "$work/gone" --frames 4 --steps ui-click:locate_not_now || fail "the first start did not ask for the game's folder: $(tail -3 "$work/log")"
-run --game "$work/gone" --frames 4 --steps ui-click:locate_not_now,ui-click:locate_not_now && fail "the question was still there after Not now"
+run --game "$work/gone" --frames 4 --steps ui-click:locate_not_now,patience:60,ui-click:locate_not_now && fail "the question was still there after Not now"
+grep -q "ui-click:locate_not_now: no such widget drawn" "$work/log" || fail "the second click did not end at a missing question: $(tail -3 "$work/log")"
 
 # 1b. no --game: the answer is kept in the Documents folder, which is empty on a clean machine; a second session on the same one does not ask (the search for the game is off, whatever is installed here)
 docs=$work/docs
@@ -25,7 +26,8 @@ mkdir -p "$docs" "$work/cwd"
 ask() { exe=$(cd "$(dirname "$editor")" && pwd)/$(basename "$editor"); (cd "$work/cwd" && TNFS_STUDIO_GAME_SEARCH=off TNFS_STUDIO_DOCUMENTS="$docs" "$exe" --user "$work/u2" --cd "$orig" --art-dir "$work/art" --workspace "$work/ws" --window 1280x800 --frames 4 "$@" >"$work/log" 2>&1); }
 ask --steps ui-click:locate_not_now || fail "the first session did not ask for the game's folder: $(tail -3 "$work/log")"
 [ -f "$docs/Spirited Drive Studio/game.txt.asked" ] || fail "Not now left no mark in the Documents folder: $(find "$docs" | head -5)"
-ask --steps ui-click:locate_not_now && fail "the second session asked for the game's folder again"
+ask --steps ui-rect:door_tweak,patience:60,ui-click:locate_not_now && fail "the second session asked for the game's folder again"
+grep -q "ui-click:locate_not_now: no such widget drawn" "$work/log" || fail "the second session did not end at a missing question: $(tail -3 "$work/log")"
 
 # 2. Edit tweak -> Car -> the Viper -> Open: the tweak is made in the workspace, the game is not changed
 run --game "$work/none" --frames 4 --steps "$row,tweak-status" || fail "Open the Viper by the doors: $(tail -3 "$work/log")"
