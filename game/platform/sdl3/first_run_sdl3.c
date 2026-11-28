@@ -35,7 +35,7 @@ static SDL_MessageBoxFlags box_flags(void)
 #endif
 }
 
-/* SDL's message box on Wayland is zenity's alone (KDE and others come without it): with the video driver down SDL asks every driver, and the X11 one draws its own box
+/* SDL's message box on Wayland is zenity's alone (KDE and others come without it): with the video driver down SDL can be asked for the X11 one, which draws its own box
  * (XWayland) with nothing installed. 1 shown and answered; 0 and the log says why. */
 static bool show_box(const SDL_MessageBoxData *box, int *pressed)
 {
@@ -44,8 +44,10 @@ static bool show_box(const SDL_MessageBoxData *box, int *pressed)
     const char *const driver = SDL_GetCurrentVideoDriver();
     if (driver == NULL || strcmp(driver, "wayland") != 0) return false;
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    SDL_SetHintWithPriority(SDL_HINT_VIDEO_DRIVER, "x11", SDL_HINT_OVERRIDE);   /* over SDL_VIDEO_DRIVER too, for this box only */
     const bool shown = SDL_ShowMessageBox(box, pressed);
     if (!shown) port_log("first run: no message box without the video driver either: %s\n", SDL_GetError());
+    SDL_ResetHint(SDL_HINT_VIDEO_DRIVER);
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) port_log("first run: the video driver did not come back: %s\n", SDL_GetError());
     return shown;
 }
