@@ -133,7 +133,7 @@ int platform_mouse_wheel(void);
 
 /* Mods overlay (BYTES-0009, dep59 n4). With mods folders set (`dirs`, highest first: the ones mod_set.h puts in effect), a file the game
  * asks for under `data_root` is read from the first folder that has its own copy (the same relative name, else its upper-case form, else
- * its lower-case form: modpath_find), else from `data_root`. A mod file is validated against the original executable's limits first
+ * its lower-case form: modpath_find; else in any case: path_find_case, as is the data root's own file), else from `data_root`. A mod file is validated against the original executable's limits first
  * (formats/validate.h): an invalid one is not handed to the game, nor a later mod's or the data root's copy in its place, and
  * platform_mods_error() says which file failed and why. Names that would leave a mod's folder (.. components, absolute names, symbolic
  * links out of it) are refused. The folders only say where mods are: the player's files (config, saves, replays) go to the player's
