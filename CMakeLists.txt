@@ -1366,8 +1366,10 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_car_two_originals PROPERTIES TIMEOUT 300)
         add_test(NAME editor_new_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_new_car.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
         set_tests_properties(editor_new_car PROPERTIES TIMEOUT 600)
-        add_test(NAME editor_model_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_model_flow.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})
-        set_tests_properties(editor_model_flow PROPERTIES TIMEOUT 900)
+        foreach(part a b c d)   # the Model window's flows in four parts side by side: enlarge and the switches, the pictures, the layouts and auto-rotate, the side view and colour changes
+            add_test(NAME editor_model_flow_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_model_flow.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} ${part})
+            set_tests_properties(editor_model_flow_${part} PROPERTIES TIMEOUT 900)
+        endforeach()
         add_test(NAME editor_installed_mod COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_installed_mod.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})   # Studio refuses an installed mod's folder and writes nothing in it
         set_tests_properties(editor_installed_mod PROPERTIES TIMEOUT 300)
         if(APPLE AND NOT CMAKE_C_FLAGS MATCHES "-fsanitize")   # the UI thread's file calls at rest are counted by a dylib put in front of the editor (tests/io_count.c); not in a sanitizer build: its runtime must come first
@@ -2037,8 +2039,15 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(tunnel_gradient_tint_game PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77)
         add_test(NAME tunnel_gradient_pool_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_gradient_pool_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(tunnel_gradient_pool_game PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
-        add_test(NAME tunnel_pool_lamps_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_pool_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-        set_tests_properties(tunnel_pool_lamps_game PROPERTIES TIMEOUT 1800 SKIP_RETURN_CODE 77)
+        set(pool_parts AL1_day AL1_night AL3_day AL3_night)   # one track at one time of day each, side by side; the script checks the list is its own cases
+        list(JOIN pool_parts " " pool_list)
+        foreach(part ${pool_parts})
+            string(REPLACE "_" ";" pool "${part}")
+            list(GET pool 0 pool_track)
+            list(GET pool 1 pool_time)
+            add_test(NAME tunnel_pool_lamps_game_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/tunnel_pool_lamps_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+            set_tests_properties(tunnel_pool_lamps_game_${part} PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77 ENVIRONMENT "POOL_TRACK=${pool_track};POOL_TIME=${pool_time};POOL_PARTS=${pool_list}")
+        endforeach()
         add_test(NAME lamp_strip_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/lamp_strip_game.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
         set_tests_properties(lamp_strip_game PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
         foreach(part night day)   # the night and the day halves of the same script, side by side
@@ -2802,7 +2811,7 @@ set(TNFS_E2E_TESTS
     editor_headless_car_b
     editor_car_panel_clicks
     editor_new_car
-    editor_model_flow
+    editor_model_flow_a editor_model_flow_b editor_model_flow_c editor_model_flow_d
     editor_light_window_a editor_light_window_b editor_light_window_c editor_light_window_d editor_light_window_e editor_light_window_f
     editor_original_track_flow_a
     editor_original_track_flow_b editor_original_track_flow_c

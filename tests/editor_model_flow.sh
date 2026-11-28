@@ -1,16 +1,26 @@
 #!/bin/sh
 # The Model window's controls clicked as a person does (ui_probe names the widgets, the steps ui-click send the mouse): Enlarge floats it and Dock back puts it where it was, the camera kept; the Soft edges
 # switch is on screen and toggles; at render scale 1 the switch is grey (a click changes nothing) and at the player's own scale it works. Needs the player's game files (original/): skipped without them.
-# usage: editor_model_flow.sh EDITOR REPO
+# usage: editor_model_flow.sh EDITOR REPO [PART]
+# PART a..d runs one quarter of the flows, all runs the four: ctest runs a..d side by side (the whole took six minutes alone in a sanitizer build). Each part has its own scratch folder and makes its own kit.
 . "$(dirname "$0")/editor_headless_common.sh"
 repo=$2
+part=${3:-all}
+case $part in all|a|b|c|d) ;; *) echo "FAIL: no part '$part'" >&2; exit 1;; esac
+runs() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 [ -f "$repo/original/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no original/"; exit 0; }
 ws="$work/ws"
 mkdir -p "$ws"
-kit="$ws/cars/car-supra"   # made by the first run, opened by the others
+kit="$ws/cars/car-supra"   # made by the first run (part a's first flow; the other parts make it with a run of their own), opened by the others
 run() { u=$1; shift; "$editor" --workspace "$ws" --user "$work/$u" --cd "${CD:-$repo/original}" --port-data "$repo/data" --window 1280x800 "$@"; }
 state() { echo "$out" | grep '^model: ' | sed -n "$1p"; }
+high() { echo "$1" | sed -n 's/^model picture: [0-9]* x \([0-9]*\), [1-9][0-9]* drawn.*/\1/p' | tail -1; }   # the picture's height: 480 times the scale, less in a wide panel (the picture has no more pixels than the game's frame at the scale)
 
+if [ "$part" != all ] && [ "$part" != a ]; then
+    out=$(run u0 --frames 60 --steps new-car:0,psd-wait:3 2>&1) || fail "new car: $out"
+fi
+
+if runs a; then
 # Enlarge then Dock back: floating, then docked again, the camera the same
 out=$(run u1 --frames 60 --steps new-car:0,psd-wait:3,camera:0,camera:3,ui-click:model_enlarge,psd-wait:3,camera:3,ui-click:model_enlarge,psd-wait:3,camera:3,camera:0 2>&1) || fail "enlarge flow: $out"
 echo "$out" | grep -q 'no such widget' && fail "the Enlarge button was not on screen: $out"
@@ -40,6 +50,9 @@ printf 'render_scale=3\n' > "$work/u4/restomod.cfg"
 out=$(run u4 --frames 40 "$kit" --steps psd-wait:3,camera:3 2>&1) || fail "player scale: $out"
 [ "$(state 1 | cut -d' ' -f6-7)" = "scale 3" ] || fail "the Model did not start at the player's render_scale 3: $(state 1)"
 
+fi
+
+if runs b; then
 # the picture is as high as the game's frame at the render scale (480 times it) and as wide as the panel's shape says (read from the buffer, not the screen's copy: the software renderer cannot show it), and the soft edges are in it
 # from scale 2 and not at 1
 for sc in 1 2; do
@@ -47,7 +60,6 @@ for sc in 1 2; do
         out=$(run u5 --render-scale $sc --soft $sw --shine on --paint 1 --frames 40 "$kit" --steps psd-wait:3 --model-shot "$work/pic_${sc}_$sw.png" 2>&1) || fail "model shot scale $sc soft $sw: $out"
     done
 done
-high() { echo "$1" | sed -n 's/^model picture: [0-9]* x \([0-9]*\), [1-9][0-9]* drawn.*/\1/p' | tail -1; }   # the picture's height: 480 times the scale, less in a wide panel (the picture has no more pixels than the game's frame at the scale)
 [ "$(high "$out")" -gt 480 ] 2>/dev/null || fail "the scale 2 picture is not higher than the scale 1 frame's 480, with a car in it: $out"
 out1=$(run u5 --render-scale 1 --soft on --shine on --paint 1 --frames 40 "$kit" --steps psd-wait:3 --model-shot "$work/pic_1_on2.png" 2>&1)
 echo "$out1" | grep -q '^model picture: [0-9]* x [0-9]*, [1-9][0-9]* drawn$' || fail "the scale 1 picture has no car in it: $out1"
@@ -55,6 +67,9 @@ echo "$out1" | grep -q '^model picture: [0-9]* x [0-9]*, [1-9][0-9]* drawn$' || 
 cmp -s "$work/pic_1_on.png" "$work/pic_1_off.png" || fail "at render scale 1 the soft edges changed the picture"
 cmp -s "$work/pic_2_on.png" "$work/pic_2_off.png" && fail "at render scale 2 the soft edges did not change the picture"
 
+fi
+
+if runs c; then
 # a layout saved with the Model floating (Enlarge, then the window closed): Dock back has no node it came from, and docks beside the other panels; Enlarge and Dock back work again after it
 run u6 --frames 40 "$kit" --big --steps psd-wait:3 >/dev/null 2>&1 || fail "the floating layout was not made"
 awk '/^\[Window\]\[Model\]/ { m = 1; next } /^\[/ { m = 0 } m && /^DockId=/ { found = 1 } END { exit found }' "$work/u6/track-editor.ini" || fail "the saved layout has the Model docked: the floating case is not tested"
@@ -81,6 +96,9 @@ rot_on=$(high "$out")
 out=$(run u9 --render-scale 2 --frames 60 "$kit" --steps psd-wait:3,ui-click:model_auto_rotate,psd-wait:6,ui-click:model_auto_rotate,psd-wait:6 --model-shot "$work/rot_off.png" 2>&1) || fail "auto-rotate off shot: $out"
 [ "$(high "$out")" -gt "${rot_on:-0}" ] 2>/dev/null || fail "with Auto-rotate off again the picture is not the full one (higher than the moving one's $rot_on): $out"
 
+fi
+
+if runs d; then
 # the car whole inside the drawing frame from a side (Side is wider than the first view: the framing is made again for it): no row or column at the frame's edge has a car pixel, at render scale 1, 2 and 3
 cat > "$work/whole.py" <<'PY'
 import struct, sys, zlib
@@ -134,5 +152,6 @@ out=$(run u12 --render-scale 2 --paint 1 --frames 120 "$kit" --steps "$steps,psd
 first=$(echo "$out" | grep '^model rebuilds: ' | sed -n 1p | cut -d' ' -f3); last=$(echo "$out" | grep '^model rebuilds: ' | sed -n 2p | cut -d' ' -f3)
 [ -n "$last" ] && [ $((last - first)) -ge 1 ] && [ $((last - first)) -le 6 ] || fail "the Model did not make the scene again for 6 colours in 1..6 times: $first -> $last"
 echo "$out" | grep -q '^paints: .*#b4325a$' || fail "the last colour was not the card's: $(echo "$out" | grep '^paints:')"
+fi
 
 [ "$failures" = 0 ] || exit 1

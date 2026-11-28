@@ -9,6 +9,8 @@
 #  (4) by day, going in with the lamps at 0, 1 and 50 %, the road does not rise by more than 2 (of 255) from node -1 to node +2 (the beam comes into the tunnel gradually).
 #  (5) by day, going out with the lamps at 0, 1 and 50 %, the road at the tunnel's last node is not a dip (over 2 under both its neighbours): the beam fades out at the exit.
 # The tunnels' light files are main's of cd627f90 (tests/fixtures/track_light), so the test checks the code and not the owner's tuning of AL1 and AL3.
+# ctest runs it in four parts side by side, one track at one time of day each (POOL_TRACK, POOL_TIME): every check compares shots of one track at one time only. POOL_PARTS (ctest's list of the parts)
+# must be exactly this script's tracks x times, so a case added here without its part fails. Without them it runs all.
 # usage: tests/tunnel_pool_lamps_game.sh <tnfs binary> <original/ dir> [contact sheet dir]      (run from the repo's root)  Exit 77 (skipped) without the CD's data.
 set -u
 bin=$1
@@ -21,6 +23,14 @@ jobs_max=${TNFS_POOL_JOBS:-4}
 # track from to
 cases="AL1 1596 1607
 AL3 616 639"
+times="day night"
+if [ -n "${POOL_PARTS:-}" ]; then
+  have=$(echo "$cases" | while read -r track from to; do for time in $times; do printf '%s_%s ' $track $time; done; done)
+  [ "$have" = "$POOL_PARTS " ] || { echo "FAIL: the test's cases are '$have', ctest runs the parts '$POOL_PARTS'"; exit 1; }
+fi
+[ -z "${POOL_TRACK:-}" ] || cases=$(echo "$cases" | grep "^$POOL_TRACK ")
+[ -z "${POOL_TIME:-}" ] || times=$POOL_TIME
+{ [ -n "$cases" ] && case $times in "day night"|day|night) true;; *) false;; esac; } || { echo "FAIL: no case for track '${POOL_TRACK:-}' time '${POOL_TIME:-}'"; exit 1; }
 lamps_all="0 1 50 100"
 mkdir -p "$work/shots"
 echo "$cases" | while read -r track from to; do
@@ -28,7 +38,7 @@ echo "$cases" | while read -r track from to; do
 done
 [ ! -e "$work/bad" ] || exit 1
 for lamps in $lamps_all; do
-  for time in day night; do
+  for time in $times; do
     blk=B; [ $time = night ] && blk=N
     echo "$cases" | while read -r track from to; do
       d="$work/mods_${track}_${time}_$lamps"
@@ -49,7 +59,7 @@ shot() {   # track time lamps node out
 }
 n=0
 echo "$cases" | while read -r track from to; do
-  for time in day night; do
+  for time in $times; do
     for lamps in $lamps_all; do
       for mouth in in out; do
         base=$from; [ $mouth = out ] && base=$to
@@ -65,10 +75,11 @@ echo "$cases" | while read -r track from to; do
   wait
 done
 wait
-python3 -I - "$work" "$offsets" "$sheets" << 'PY'
+python3 -I - "$work" "$offsets" "$sheets" "$(echo "$cases" | tr '\n' ';')" "$times" << 'PY'
 import sys, os
 w, offsets, sheets = sys.argv[1], [int(o) for o in sys.argv[2].split()], sys.argv[3]
-cases = [("AL1", 1596, 1607), ("AL3", 616, 639)]
+cases = [(c.split()[0], int(c.split()[1]), int(c.split()[2])) for c in sys.argv[4].split(";") if c]
+times = sys.argv[5].split()
 def tm_of(tag):
     return tag.split()[1]
 def mean(p):
@@ -89,7 +100,7 @@ bad = []
 notes = []
 tab = {}
 for track, f, t in cases:
-    for tm in ("day", "night"):
+    for tm in times:
         for mouth in ("in", "out"):
             for lamps in (0, 1, 50, 100):
                 seq = [mean("%s/shots/%s_%s_%d_%s_%d.ppm" % (w, track, tm, lamps, mouth, o)) for o in offsets]
@@ -113,7 +124,7 @@ for (track, tm, mouth, lamps), seq in tab.items():
         if seq[i] > cap:
             bad.append("(2) %s: outside node %d is %.1f, over the open road's %.1f" % (tag, offsets[i], seq[i], cap))
 for track, f, t in cases:
-    for tm in ("day", "night"):
+    for tm in times:
         for mouth in ("in", "out"):
             s = [tab.get((track, tm, mouth, l)) for l in (0, 1, 50, 100)]
             if any(x is None for x in s): continue
