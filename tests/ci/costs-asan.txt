@@ -814,3 +814,4 @@
 0.2 zip
 0.1 resource_exchange_cd_count
 0.1 track_groups
+0.1 exe_help

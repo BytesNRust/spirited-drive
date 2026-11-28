@@ -90,26 +90,30 @@ typedef struct {
     const char *uninstall;   /* --uninstall ID */
     int mods_list;           /* --mods-list */
     int update_check;        /* --update-check */
+    int help;                /* --help, -h */
 } Options;
 
-/* the usage message, as a fatal; returns 0 for a caller that goes on */
+/* the usage message: a fatal for arguments that are wrong, standard output for --help; each %s is the program's name */
+#define USAGE "usage: %s [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n" \
+              "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n" \
+              "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n" \
+              "       %s [--data DIR] [--mods DIR] --replay FILE.RPL|FILE.RPX\n" \
+              "       %s [--data DIR] --movie FILE.TGV\n" \
+              "       %s [--user DIR] --install FILE.zip | --uninstall ID | --mods-list\n" \
+              "       %s --update-check | --help\n"
+#define USAGE_NAMES(program) program, program, program, program, program, program, program
+
+/* returns 0 for a caller that goes on */
 static int bad_usage(const char *program)
 {
-    port_fatal("usage: %s [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
-                    "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
-                    "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
-                    "       %s [--data DIR] [--mods DIR] --replay FILE.RPL|FILE.RPX\n"
-                    "       %s [--data DIR] --movie FILE.TGV\n"
-                    "       %s [--user DIR] --install FILE.zip | --uninstall ID | --mods-list\n"
-                    "       %s --update-check\n",
-            program, program, program, program, program, program, program);
+    port_fatal(USAGE, USAGE_NAMES(program));
     return 0;
 }
 
 static int parse_args(int argc, char **argv, Options *opt)
 {
     *opt = (Options){ "original", 0, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
-                      0, NULL, NULL, NULL, 0, 0 };
+                      0, NULL, NULL, NULL, 0, 0, 0 };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--data") == 0 && has_value) {
@@ -141,6 +145,8 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->mods_list = 1;
         } else if (strcmp(argv[i], "--update-check") == 0) {
             opt->update_check = 1;
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            opt->help = 1;
         } else if (strcmp(argv[i], "--movie") == 0 && has_value) {
             opt->movie = argv[++i];
         } else if (strcmp(argv[i], "--racers") == 0 && has_value) {
@@ -418,6 +424,10 @@ int main(int argc, char **argv)
     win_console_attach(argc, argv);   /* Windows release: a GUI program, its output goes to the shell that started it, or to a console of --console's own */
     Options opt;
     if (!parse_args(argc, argv, &opt)) return EXIT_FAILURE;
+    if (opt.help) {   /* port: asked for, so no failure: nothing is opened or written */
+        printf(USAGE, USAGE_NAMES(argv[0]));
+        return EXIT_SUCCESS;
+    }
     port_settings_set_display_probe(platform_desktop_size);   /* the profiles' widescreen is the display's own shape */
     set_stats_sender();
     platform_set_user_dir(opt.user);   /* port: before the log opens in it */

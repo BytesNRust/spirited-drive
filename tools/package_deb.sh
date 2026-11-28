@@ -40,7 +40,7 @@ DOC="$ROOT/usr/share/doc/spirited-drive"
 mkdir -p "$APP" "$ROOT/DEBIAN" "$ROOT/usr/games" "$ROOT/usr/share/applications" "$ROOT/usr/share/man/man6" "$ROOT/usr/share/lintian/overrides" "$DOC"
 
 install -m 755 "$EXE" "$APP/tnfs"
-strip "$APP/tnfs"
+strip --remove-section=.comment "$APP/tnfs"   # .comment: the compiler's name, of no use to a player (lintian: binary-has-unneeded-section)
 git -C "$SRC_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "$SRC_DIR is not a git checkout: no data/ in the package" >&2; exit 1; }
 git -C "$SRC_DIR" ls-files -- data | while IFS= read -r file; do
     mkdir -p "$APP/$(dirname "$file")"
@@ -64,6 +64,7 @@ Comment=The Need for Speed SE (1996), rebuilt to run natively. Bring your own CD
 Exec=/usr/games/spirited-drive
 Icon=spirited-drive
 Categories=Game;
+Keywords=racing;driving;cars;
 Terminal=false
 StartupWMClass=tnfs
 DESKTOP

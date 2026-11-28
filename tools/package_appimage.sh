@@ -68,6 +68,7 @@ Comment=The Need for Speed SE (1996), rebuilt to run natively. Bring your own CD
 Exec=tnfs
 Icon=spirited-drive
 Categories=Game;
+Keywords=racing;driving;cars;
 Terminal=false
 StartupWMClass=tnfs
 X-AppImage-Version=$VERSION

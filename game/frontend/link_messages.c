@@ -183,7 +183,7 @@ static void handle(void *ctx, int16_t kind, uint32_t link, const uint8_t *data, 
 static void bug(void *ctx, uint32_t text, int32_t kind, uint32_t link)
 {
     (void)ctx, (void)text;
-    port_log("tnfs net: BUG: Unknow Packet Index Received <%d> pc<%x>\n", (int)kind, (unsigned)link);
+    port_log("tnfs net: BUG: Unknown Packet Index Received <%d> pc<%x>\n", (int)kind, (unsigned)link);
 }
 
 int32_t link_receive(uint32_t link, const uint8_t *data, int32_t size)

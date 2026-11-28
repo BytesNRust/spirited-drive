@@ -2793,6 +2793,8 @@ set_tests_properties(check_tag_version PROPERTIES TIMEOUT 60)
 # a release does not go out with the notes' draft markers (tools/check_release_notes.sh, the next step after the tag check)
 add_test(NAME check_release_notes COMMAND sh ${CMAKE_SOURCE_DIR}/tests/check_release_notes.sh ${CMAKE_SOURCE_DIR})
 set_tests_properties(check_release_notes PROPERTIES TIMEOUT 60)
+add_test(NAME exe_help COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -P ${CMAKE_SOURCE_DIR}/tests/exe_help.cmake)   # --help and -h: the usage, status 0
+set_tests_properties(exe_help PROPERTIES TIMEOUT 200)
 # the gate in CI (.github/workflows/gate.yml): its shards run every test once, and its data step fails clearly without its secrets
 find_package(Python3 COMPONENTS Interpreter)
 if(UNIX AND Python3_FOUND)
