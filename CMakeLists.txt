@@ -2169,6 +2169,10 @@ if(NOT EMSCRIPTEN)
         add_test(NAME unsequenced_size_lint COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tools/unsequenced_size_lint.py ${CMAKE_SOURCE_DIR})   # f(read(&n), n): the order is the compiler's
         # README.md: the announcement wording (never the claims the notes forbid; the per-mode, network, palette and Lunar Springs lines are there); stdlib python only
         add_test(NAME readme_wording COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/readme_wording.py ${CMAKE_SOURCE_DIR})
+        if(UNIX AND NOT APPLE)   # port (Linux): the user folder follows XDG_DATA_HOME and --user, asked of the program itself; stdlib python only
+            add_test(NAME linux_user_dirs COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/linux_user_dirs.py $<TARGET_FILE:tnfs>)
+            set_tests_properties(linux_user_dirs PROPERTIES TIMEOUT 300)
+        endif()
         # tools/light_photo.sh: the 2x2 sheet and the arguments, no game and no CD data; stdlib python only
         add_test(NAME light_photo_sheet COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/light_photo_check.py ${CMAKE_SOURCE_DIR})
         if(WIN32)   # it runs tools/light_photo.sh (a developer's script, with a fake game binary of its own): not part of the Windows version
