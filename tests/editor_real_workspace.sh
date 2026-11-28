@@ -4,15 +4,15 @@
 #    already had before and exactly one more mask, the Preview shows the edit, Copy writes only the changed masks;
 #  - an original track (AL1): the workspace has the OLD light format (four files): opened as it is, the window has no light file (said); after Add originals the new file is there, the sun is
 #    touched with the mouse, saved, and Copy writes that one light file into the repo's data/.
-# A kit of the migration is not a test kit: what this finds is reported by the failing line. Skipped without the backup, the game files, Pillow (to paint the PSD) or a data/ folder.
+# A kit of the migration is not a test kit: what this finds is reported by the failing line. Skipped (exit 77) without the backup, the game files, Pillow (to paint the PSD) or a data/ folder.
 # usage: editor_real_workspace.sh EDITOR ORIGINAL_DIR DATA_DIR   (TNFS_REAL_WORKSPACE: the backup folder, default ~/workspace/bytes-n-rust/backups/originals-workspace-before-add-originals-2026-11-23)
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$2 data=$3
 repo_src="$(cd "$(dirname "$0")/.." && pwd)"
 backup=${TNFS_REAL_WORKSPACE:-$HOME/workspace/bytes-n-rust/backups/originals-workspace-before-add-originals-2026-11-23}
-[ -d "$backup/cars" ] && [ -d "$backup/tracks" ] || { echo "skip: no backup of the real workspace at $backup"; exit 0; }
-[ -r "$orig/SIMDATA/CARFAMS/ANSX.CFM" ] && [ -d "$data/car_masks/ANSX" ] || { echo "skip: no game files in $orig"; exit 0; }
-python3 -c "import PIL" 2>/dev/null || { echo "skip: python3 has no Pillow (the PSD is painted with tools/psd_edit.py)"; exit 0; }
+[ -d "$backup/cars" ] && [ -d "$backup/tracks" ] || { echo "skip: no backup of the real workspace at $backup"; exit 77; }
+[ -r "$orig/SIMDATA/CARFAMS/ANSX.CFM" ] && [ -d "$data/car_masks/ANSX" ] || { echo "skip: no game files in $orig"; exit 77; }
+python3 -c "import PIL" 2>/dev/null || { echo "skip: python3 has no Pillow (the PSD is painted with tools/psd_edit.py)"; exit 77; }
 before=$(cd "$backup" && find . -type f | sort | xargs cksum | cksum)   # the backup is only read: its listing is compared at the end
 clicked() { "$editor" "$@" --window 1280x800; }
 names_of() { awk '/^(changed|new|missing): /{print $2}' "$1" | sort -u; }

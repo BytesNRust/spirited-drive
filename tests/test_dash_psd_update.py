@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """tools/dash_mask_psd.py --update and its parts: tools/dash_rebuild.py (the dash behind the steering wheel from the steering frames), tools/psd_edit.py (a PSD's
-layers rewritten, the others byte for byte). Skipped (exit 0) when Pillow is not installed."""
+layers rewritten, the others byte for byte). Skipped (exit 77) when Pillow is not installed."""
 import importlib.util
 import os
 import struct
@@ -21,7 +21,7 @@ try:
     dash_psd, rebuild, psd_edit, car_psd = load("dash_mask_psd"), load("dash_rebuild"), load("psd_edit"), load("car_mask_psd")
 except ImportError as error:
     print("test_dash_psd_update: skipped (%s)" % error)
-    sys.exit(0)
+    sys.exit(77)
 
 failures = 0
 

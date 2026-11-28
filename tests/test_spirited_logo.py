@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The banner's tool (tools/spirited_logo.py) and the file the boot screen loads (data/logo/spirited_logo.png): every letter of the name has an outline, the rows end
-at the same place, the drawing is the same from run to run, and the PNG is what the game asks for, 580 x 140 RGBA with a soft shadow. Skipped (exit 0) when Pillow is
+at the same place, the drawing is the same from run to run, and the PNG is what the game asks for, 580 x 140 RGBA with a soft shadow. Skipped (exit 77) when Pillow is
 not installed; the rendering checks are skipped when rsvg-convert is not."""
 import importlib.util
 import os
@@ -15,7 +15,7 @@ try:
     from PIL import Image
 except ImportError as error:
     print("test_spirited_logo: skipped (%s)" % error)
-    sys.exit(0)
+    sys.exit(77)
 
 failures = 0
 

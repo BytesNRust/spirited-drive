@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """tools/track_starter_psds.py with the game's files: TR2, TR5 and TR7 get one PSD for each texture, a second run writes nothing, and a PSD already there is kept.
-usage: test_track_starter_psds.py <track_mask_draft> <original dir>. Skipped (exit 0) when Pillow is missing."""
+usage: test_track_starter_psds.py <track_mask_draft> <original dir>. Skipped (exit 77) when Pillow is missing."""
 import os
 import subprocess
 import sys
@@ -10,7 +10,7 @@ try:
     import PIL  # noqa: F401
 except ImportError as error:
     print("test_track_starter_psds: skipped (%s)" % error)
-    sys.exit(0)
+    sys.exit(77)
 
 here = os.path.dirname(os.path.abspath(__file__))
 tool = os.path.join(here, "..", "tools", "track_starter_psds.py")

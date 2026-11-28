@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The PSD mask tool's lamp colours (tools/car_mask_from_psd.py lamp_class): red brake 240, orange position 244, yellow headlight 248 and cyan
 reversing light 252, the cyan decided before the blue (glass) and green (body) rules it ties with (b == g); the values are car_mask.h's.
-Skipped (exit 0) when Pillow is not installed: the tool imports it."""
+Skipped (exit 77) when Pillow is not installed: the tool imports it."""
 import importlib.util
 import os
 import re
@@ -17,7 +17,7 @@ try:
     spec.loader.exec_module(writer)
 except ImportError as error:
     print("test_car_mask_psd: skipped (%s)" % error)
-    sys.exit(0)
+    sys.exit(77)
 
 header = open(os.path.join(here, "..", "core", "formats", "car_mask_codec.h")).read()
 classes = dict((name, int(value)) for name, value in re.findall(r"CAR_MASK_(BRAKE|POSITION|HEADLIGHT|REVERSE) = (\d+)", header))

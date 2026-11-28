@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The dash mask tool (tools/dash_mask_from_psd.py): its classes are dash_mask.h's, a painted colour reads as the class the game reads it as, a layer placed
-off the origin lands where it is, and a saved PNG reads back. Skipped (exit 0) when Pillow is not installed."""
+off the origin lands where it is, and a saved PNG reads back. Skipped (exit 77) when Pillow is not installed."""
 import importlib.util
 import os
 import re
@@ -15,7 +15,7 @@ try:
     spec.loader.exec_module(tool)
 except ImportError as error:
     print("test_dash_mask_psd: skipped (%s)" % error)
-    sys.exit(0)
+    sys.exit(77)
 
 header = open(os.path.join(here, "..", "game", "race", "dash_mask.h")).read()
 want = dict((name, int(value)) for name, value in re.findall(r"DASH_MASK_(AUTO|DASH|DIAL|NOSE|BLADE|LIT) = (\d+)", header))

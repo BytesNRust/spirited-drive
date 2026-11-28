@@ -1,14 +1,14 @@
 #!/bin/sh
 # tools/dash_color_draft.py (dep98 item 2): a first dash_color.png per dash from the dash's art. A fixture dash (a red, a blue and a grey gauge) gives red, blue and the
 # default colour on exactly the lit pixels; a dash that has a colour file is left alone; an output inside data/ or art/, a file that is there, a missing dump and a bad
-# colour are refused and write nothing. With the game's files (original/) two real dashes are dumped and drafted, each with its sheet. Skipped without python3 + Pillow.
+# colour are refused and write nothing. With the game's files (original/) two real dashes are dumped and drafted, each with its sheet. Skipped (exit 77) without python3 + Pillow.
 # usage: dash_color_draft.sh PYTHON TOOL [TNFS ORIGINAL_DIR DASH_MASKS_DIR]
 py=$1
 tool=$2
 tnfs=${3:-}
 orig=${4:-}
 real_masks=${5:-}
-"$py" -c "import PIL" 2>/dev/null || { echo "skip: no Pillow"; exit 0; }
+"$py" -c "import PIL" 2>/dev/null || { echo "skip: no Pillow"; exit 77; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0
