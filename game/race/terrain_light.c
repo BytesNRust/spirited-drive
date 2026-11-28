@@ -63,7 +63,8 @@ static Horizon horizon_of(const LightPos *pts, uint32_t count, int ring, uint32_
             if (run2 < 0.25f || run2 > (float)(SKY_REACH * SKY_REACH)) continue;
             const float run = sqrtf(run2);
             const float t = dy / run;
-            const int sector = (int)((atan2f(dz, dx) + 3.14159265f) * (float)SKY_SECTORS / 6.28318531f) % SKY_SECTORS;
+            /* port (the same light on every system): the angle in double, then rounded; atan2f's last bit differs between C libraries, and on a sector's edge that moved a point to the next sector */
+            const int sector = (int)(((float)atan2((double)dz, (double)dx) + 3.14159265f) * (float)SKY_SECTORS / 6.28318531f) % SKY_SECTORS;
             if (t > tan_max[sector]) tan_max[sector] = t;
             if ((dx * sun_x + dz * sun_z) / run > SUN_BEAM_COS && t > h.sun_tan) h.sun_tan = t;
         }
