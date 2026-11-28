@@ -75,7 +75,8 @@ for profile in ${PROFILES:-stock restored restored-16x9}; do
     case $profile in *-16x9) printf 'format=16:9\n' > "$work/user/${profile%%-*}.cfg"; dx=107 ;; esac
     full="$(make_script $dx),0:WAIT:mark:walk_end:1"
     last=$(printf '%s' "$full" | tr ',' '\n' | grep -c .)
-    (cd "$work" && env TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_VERBOSE=1 TNFS_VERSION_TEXT=walk TNFS_INPUT_SETTLE=500 TNFS_SHOT_DIR="$work/shots" TNFS_INPUT_SCRIPT="$full" \
+    # the race's clock runs four times faster (TNFS_CLOCK_RATE): the autopilot's lap is the same steps, and its pictures are taken after it, on its marks
+    (cd "$work" && env TNFS_CLOCK_RATE=4 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_VERBOSE=1 TNFS_VERSION_TEXT=walk TNFS_INPUT_SETTLE=500 TNFS_SHOT_DIR="$work/shots" TNFS_INPUT_SCRIPT="$full" \
         timeout -k 5 ${WALK_TIMEOUT:-300} "$tnfs" --data "$orig" --user "$work/user" >"$work/out" 2>&1)
     rc=$?
     if ! { [ $rc -eq 3 ] && grep -q "input script: step $last: WAIT mark:walk_end timed out" "$work/user/spirited-drive.log" &&

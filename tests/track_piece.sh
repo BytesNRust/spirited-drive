@@ -35,17 +35,20 @@ through() {
     done
 }
 log() { grep -v "^input script" "$work/user/spirited-drive.log" 2>/dev/null; }
+# The races' clock runs four times faster (TNFS_CLOCK_RATE): the same steps, a quarter of the wait. Escape comes on the replay's tick REPLAY_TICKS, not after seconds: the ticks replay_sync compares
+# are the ones the owner's 30 s before it gave (2026-11-25), whatever the clock's rate
+REPLAY_TICKS=1800
 replay() {   # the replay file $1, the mods folder $2 (none: no --mods): the status; stderr in err, the trace in replay.out
-    script="0:WAIT:mark:spray_v4=1:120,30000:ESC,3000:ENTER,3000:ENTER,3000:ENTER,3000:ESC"
+    script="0:WAIT:mark:spray_v4=1:120,0:WAIT:mark:trace=$REPLAY_TICKS:120,300:ESC,3000:ENTER,3000:ENTER,3000:ENTER,3000:ESC"
     file=$1
     if [ -n "$2" ]; then set -- --mods "$2"; else set --; fi
-    TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
+    TNFS_CLOCK_RATE=4 TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 120 "$tnfs" --data "$orig" --user "$work/user" "$@" --replay "$file" >"$work/replay.out" 2>"$work/err"
 }
 
 part_finish() {
     # the whole race to its finish (the autopilot, one lap) and through its three results screens; a clean end
-    TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 \
+    TNFS_CLOCK_RATE=4 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 \
         TNFS_INPUT_SCRIPT="0:WAIT:mark:spray_v4=1:120$(through segment track best_totals)" \
         timeout -k 5 300 "$tnfs" --data "$orig" --mods "$piece" --user "$work/user" --drive dune-run --car 5 --type 0 >"$work/race.out" 2>"$work/err"
     rc=$?
@@ -70,6 +73,9 @@ part_replay() {
     rc=$?
     [ "$rc" -eq 0 ] || fail "replay: with the piece it ended with status $rc: $(tail -3 "$work/err")"
     python3 "$repo/tools/replay_sync.py" race "$work/race.kept" "$work/replay.out" >"$work/sync" 2>&1 || fail "replay: not in sync: $(cat "$work/sync")"
+    compared=$(sed -n 's/^[0-9]* ticks ([0-9]*\.\.\([0-9]*\)).*/\1/p' "$work/sync")
+    [ "${compared:-0}" -ge "$REPLAY_TICKS" ] || fail "replay: the ticks compared end at ${compared:-none}, before $REPLAY_TICKS: $(cat "$work/sync")"
+    echo "replay compared: $(head -1 "$work/sync")"
 }
 
 part_refusals() {
