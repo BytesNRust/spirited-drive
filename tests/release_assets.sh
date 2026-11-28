@@ -57,7 +57,7 @@ sums=$(mktemp -d)
 printf 'a\n' > "$sums/a.dmg"
 (cd "$sums" && sha a.dmg > SHA256SUMS-macos.txt)
 sh tools/release_checksums.sh "$sums" >/dev/null 2>&1 && bad "a release without some system's files gets a list"
-grep -q '^MAINTAINER="Bytes n Rust <hi@bytesnrust.com>"$' tools/package_deb.sh 2>/dev/null || bad "the .deb's maintainer is not the project's address"
+grep -q '^MAINTAINER="Bytes & Rust <hi@bytesnrust.com>"$' tools/package_deb.sh 2>/dev/null || bad "the .deb's maintainer is not the project's address"
 grep -q '^Recommends: zenity, curl$' tools/package_deb.sh 2>/dev/null || bad "the .deb does not recommend zenity and curl (the file chooser and the update notice)"
 readme=$(sed -n '/^cat > "\$README" <<EOF/,/^EOF/p' tools/package_appimage.sh)
 deb_line=$(printf '%s\n' "$readme" | grep -n 'apt install \./\$DEB_NAME' | head -1 | cut -d: -f1)
