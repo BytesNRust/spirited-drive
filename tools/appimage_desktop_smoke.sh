@@ -69,25 +69,66 @@ drawn() {
     [ "$colours" -gt 8 ] || fail "$(basename "$1") shows next to nothing ($colours colours)"
 }
 
+# the pixels that differ between two pictures by more than FUZZ (all of them when they cannot be compared)
+differing() { compare -fuzz "$3" -metric AE "$1" "$2" null: 2>&1 | awk '{ n = ($1 ~ /^[0-9]/) ? $1 + 0 : 1000000; printf "%d", n; exit }'; }
+
+# resting TAKE NAME: TAKE NAME until two in a row are the same picture, so a fade-in is over: the screen before the game, to tell its drawing from
+resting() {
+    tries=60
+    "$1" "$2" || return 1
+    while [ "$tries" -gt 0 ]; do
+        tries=$((tries - 1))
+        cp "/out/$2.png" /tmp/before.png
+        sleep 0.5
+        "$1" "$2" || return 1
+        [ "$(differing /tmp/before.png "/out/$2.png" 0%)" -lt 500 ] && return 0
+    done
+    fail "$2: the screen never came to rest"
+}
+
+# settled TAKE NAME BASE: TAKE NAME until the picture is drawn and is not BASE (what the screen showed before: more than a change of tone or of the clock),
+# 30 s at most. No fixed wait: a loaded machine takes longer to draw. From that first picture it goes on only a little, for one that has stopped changing
+# (a window opening): an animation keeps the sixth, and a screen that goes on to another keeps the last one seen.
+settled() {
+    tries=60
+    seen=0
+    while [ "$tries" -gt 0 ]; do
+        tries=$((tries - 1))
+        "$1" "$2" || return 1
+        if [ "$(identify -format %k "/out/$2.png")" -gt 8 ] && [ "$(differing "$3" "/out/$2.png" 8%)" -gt 10000 ]; then
+            [ "$seen" -gt 0 ] && [ "$(differing /tmp/previous.png "/out/$2.png" 0%)" -lt 500 ] && break
+            cp "/out/$2.png" /tmp/previous.png
+            seen=$((seen + 1))
+            [ "$seen" -ge 6 ] && break
+        elif [ "$seen" -gt 0 ]; then
+            cp /tmp/previous.png "/out/$2.png"
+            break
+        fi
+        sleep 0.5
+    done
+    drawn "/out/$2.png"
+    [ "$seen" -gt 0 ] || fail "$2: the screen did not change in 30 s"
+}
+
 windows_up() { xdotool search --onlyvisible --name "$1"; }
-shot_x11() { import -window root "/out/$1.png"; drawn "/out/$1.png"; }
+grab_x11() { import -window root "/out/$1.png"; }
+shot_x11() { grab_x11 "$1"; drawn "/out/$1.png"; }
 logged() { grep -aq "$1" "$2"; }
 
 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >/out/xvfb.txt 2>&1 &
 export DISPLAY=:99
 until_ok 20 xdpyinfo || { echo "Xvfb did not start" >&2; cat /out/xvfb.txt >&2; exit 1; }
 
+grab_x11 x11-empty-screen
 if [ ! -d /gamedata ]; then
     mkdir user-x11
     SDL_VIDEO_DRIVER=x11 timeout -k 3 90 "$APP" --user /tmp/user-x11 --verbose >/out/x11-first-start.txt 2>&1 &
     if until_ok 30 windows_up "Spirited Drive"; then
-        sleep 2   # the dialog's own first drawing
-        shot_x11 x11-first-start-dialog
+        settled grab_x11 x11-first-start-dialog /out/x11-empty-screen.png
         # Return takes the default button (choose the CD's folder): the system's folder chooser must come up
         xdotool search --onlyvisible --name "Spirited Drive" | head -1 | xargs -I{} xdotool windowactivate --sync {} key Return 2>/dev/null || xdotool key Return
         if until_ok 20 pgrep -x zenity; then
-            sleep 3
-            shot_x11 x11-folder-chooser
+            settled grab_x11 x11-folder-chooser /out/x11-first-start-dialog.png
         else
             shot_x11 x11-after-return
             fail "no folder chooser after Return on the first-start dialog"
@@ -102,16 +143,16 @@ else
     mkdir user-x11
     printf 'profile=restored\npsx_dir=\n' > user-x11/port.cfg
     SDL_VIDEO_DRIVER=x11 timeout -k 3 90 "$APP" --data /gamedata --user /tmp/user-x11 --verbose >/out/x11-game.txt 2>&1 &
-    if until_ok 60 logged 'mark:hold screen=boot' /out/x11-game.txt; then
-        sleep 1
-        shot_x11 x11-boot-screen
+    if until_ok 60 logged 'mark:screen=boot' /out/x11-game.txt; then
+        settled grab_x11 x11-boot-screen /out/x11-empty-screen.png
+        # the key that skips the first movie, which brings the title screen (during the boot screen it would only end that)
+        until_ok 30 logged 'mark:movie=' /out/x11-game.txt || fail "no movie after the boot screen"
         window=$(xdotool search --onlyvisible --name "Spirited Drive" | head -1)
         [ -n "$window" ] || fail "no game window on X11"
         xdotool windowfocus "$window" 2>/dev/null || true
         xdotool key Return
         until_ok 20 logged 'mark:screen=title' /out/x11-game.txt || fail "Return from the keyboard did not bring the title screen"
-        sleep 2
-        shot_x11 x11-after-return
+        settled grab_x11 x11-after-return /out/x11-boot-screen.png
     else
         shot_x11 x11-no-boot-screen
         fail "the boot screen did not come up on X11"
@@ -124,24 +165,22 @@ fi
 unset DISPLAY
 export WAYLAND_DISPLAY=sd-wayland
 weston --backend=headless --renderer=pixman --width=1280 --height=800 --socket=sd-wayland --debug --idle-time=0 >/out/weston.txt 2>&1 &
-shot_wayland() {
-    mkdir -p "shot-$1"
-    (cd "shot-$1" && timeout -k 3 20 weston-screenshooter) >>/out/weston.txt 2>&1 || true
-    found=$(ls "shot-$1" | head -1)
-    if [ -n "$found" ]; then
-        cp "shot-$1/$found" "/out/$1.png"
-        drawn "/out/$1.png"
-    else
-        fail "weston took no picture for $1"
-    fi
+shots=0
+grab_wayland() {
+    shots=$((shots + 1))   # a folder of its own for each picture: the screenshooter names its files by the time
+    mkdir "shot-$shots"
+    (cd "shot-$shots" && timeout -k 3 20 weston-screenshooter) >>/out/weston.txt 2>&1 || true
+    found=$(ls "shot-$shots" | head -1)
+    [ -n "$found" ] || { fail "weston took no picture for $1"; return 1; }
+    cp "shot-$shots/$found" "/out/$1.png"
 }
 if until_ok 20 test -S "$XDG_RUNTIME_DIR/sd-wayland"; then
     mkdir user-wayland
+    resting grab_wayland wayland-empty-screen
     if [ ! -d /gamedata ]; then
         SDL_VIDEO_DRIVER=wayland GDK_BACKEND=wayland timeout -k 3 60 "$APP" --user /tmp/user-wayland --verbose >/out/wayland-first-start.txt 2>&1 &
         if until_ok 30 pgrep -x zenity; then
-            sleep 4
-            shot_wayland wayland-first-start-dialog
+            settled grab_wayland wayland-first-start-dialog /out/wayland-empty-screen.png
         else
             fail "no first-start dialog on Wayland (SDL shows it with zenity there)"
             cat /out/wayland-first-start.txt >&2
@@ -149,9 +188,8 @@ if until_ok 20 test -S "$XDG_RUNTIME_DIR/sd-wayland"; then
     else
         printf 'profile=restored\npsx_dir=\n' > user-wayland/port.cfg
         SDL_VIDEO_DRIVER=wayland timeout -k 3 90 "$APP" --data /gamedata --user /tmp/user-wayland --verbose >/out/wayland-game.txt 2>&1 &
-        if until_ok 60 logged 'mark:hold screen=boot' /out/wayland-game.txt; then
-            sleep 3   # the game goes full screen: let weston finish its animation
-            shot_wayland wayland-boot-screen
+        if until_ok 60 logged 'mark:screen=boot' /out/wayland-game.txt; then
+            settled grab_wayland wayland-boot-screen /out/wayland-empty-screen.png
         else
             fail "the boot screen did not come up on Wayland"
             tail -30 /out/wayland-game.txt >&2
