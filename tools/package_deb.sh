@@ -25,7 +25,7 @@ VERSION=$(sed -n 's/^const char tnfs_version\[\] = "\(.*\)";.*/\1/p' "$VERSION_C
 [ -n "$VERSION" ] || { echo "cannot read the version from $VERSION_C" >&2; exit 1; }
 # dpkg sorts "~" before everything: 0.9.2~beta.1 comes before 0.9.2, as it should
 DEB_VERSION=$(printf '%s' "$VERSION" | sed 's/-/~/')
-MAINTAINER="Bytes n Rust <noreply@bytesnrust.com>"
+MAINTAINER="Bytes n Rust <hi@bytesnrust.com>"
 
 if readelf -d "$EXE" | grep -q 'NEEDED.*libSDL3'; then
     echo "$EXE wants a libSDL3.so from the system: build SDL3 with SDL_STATIC=ON SDL_SHARED=OFF" >&2
