@@ -81,7 +81,7 @@ new="$(click 170 456)" delete="$(click 420 456)" install="$(click 590 456)" done
 uninstall="$(click 560 356)" previous="$(click 450 384)" car_line="$(click 150 358)"
 # a click on the card's text, which takes nothing: it closes a banner still up (a banner ends on a click), else does nothing
 quiet="$(click 600 300)"
-yes="300:Y"   # the yes / no box (yes_no_box.c) logs no mark: its Y, once it is up (the click before it opened it)
+yes="$(wait_for yes_no),300:Y"   # the yes / no box's Y once it says it reads keys (mark:yes_no; one sent before is dropped)
 
 # walk MODS: the game run with $script, which ends on a WAIT for a mark that never comes, a second long: the game stops there (status 3,
 # that step named), every step before it taken. Set for one walk: extra (more of the game's environment). 0 when so; else it says the
