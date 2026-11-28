@@ -4,12 +4,14 @@
 # real game shows it too (it differs from the photo of the car as exported), and Test drive starts the game on the car and stops it. Each editor run has a player folder of its own, so a window
 # layout kept by one run cannot change another's picture.
 # Needs the game's files (original/).
-# usage: editor_e2e_car.sh EDITOR TNFS ORIGINAL_DIR PORT_DATA
+# usage: editor_e2e_car.sh EDITOR TNFS ORIGINAL_DIR PORT_DATA [a|b]   a: steps 1-5b (the Wagon); b: 6 and 7 (cars you drive); unset: all. ctest runs a and b side by side.
 . "$(dirname "$0")/editor_headless_common.sh"
 tnfs=$2
 orig=$3
 data=$4
 [ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 77; }
+part=${5:-all}
+case $part in all | a | b) ;; *) echo "FAIL: part $part is not a, b or all" >&2; exit 1 ;; esac
 runs=0
 studio() { runs=$((runs + 1)); "$editor" "$@" --user "$work/player$runs" >"$work/log" 2>&1; }
 car="$work/cars/wagon"
@@ -17,6 +19,7 @@ mask="$car/art-generated/car_masks/side_mask.png"
 photo() { studio "$car" --game "$tnfs" --cd "$orig" --race-photo --night --race-png "$1" --frames 4; }
 preview() { studio "$car" --view night --lights head --preview-tex side --frames 14 --shot "$1"; }
 
+if [ "$part" != b ]; then
 # 1. Export original car
 studio --export-car Wagon --into "$work/cars" --cd "$orig" --port-data "$data" --frames 1 || fail "Export original car: $(cat "$work/log")"
 [ -f "$car/mod.ini" ] && [ -f "$mask" ] || { fail "Export made no kit: $(ls "$car")"; exit "$failures"; }
@@ -72,7 +75,9 @@ done
 studio "$car" --port-data "$repo" --frames 2 --steps repo-ask,status >"$work/log" 2>&1 && fail "Copy to game repo with nothing changed went on"
 grep -q "every mask is the game repo's own" "$work/log" || fail "the second ask does not say nothing is left: $(cat "$work/log")"
 cmp -s "$data/car_masks/Wagon/side_mask.png" "$mask" && fail "the game's own data/ was written"
+fi
 
+if [ "$part" != a ]; then
 # 6. The same on a car you drive: its kit opens, its mask is edited in art-generated/car_masks/, the Preview and the Race photo show the edit, Build and Install are
 # refused in words (an original car has no package), and the Preview's car file is all the build writes
 if [ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ]; then
@@ -134,6 +139,7 @@ if [ -r "$orig/SIMDATA/CARFAMS/LDIABL.CFM" ] && [ -d "$data/car_masks/$ldir" ] &
     grep -q "^status: copied to the game repo: .*1 dash file" "$work/log" || fail "Copy did not say it wrote the Diablo's dash: $(cat "$work/log")"
     cmp -s "$repo3/data/dash_masks/LDIABL/dash_mask.png" "$dia/art-generated/dash_masks/dash_mask.png" || fail "the repo's Diablo dash is not the kit's"
     grep -q '"LDiabl", 6,' "$repo3/core/formats/car_paint.c" && grep -q '"F", { 96, 96, 96 }' "$repo3/core/formats/car_paint.c" || fail "Copy did not write the Diablo's six colours into car_paint.c: $(grep -n LDiabl "$repo3/core/formats/car_paint.c")"
+fi
 fi
 
 [ "$failures" -eq 0 ] && echo "editor_e2e_car: ok"

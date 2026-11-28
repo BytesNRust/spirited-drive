@@ -503,8 +503,9 @@ static void test_ppm(void)
 static void make_fake_game(char *path, size_t cap)
 {
     snprintf(path, cap, "%s/fake-tnfs", base);
-    write_text_file(path,
-        "#!/bin/sh\n"
+    /* bash by its name where it is: a Mac's /bin/sh starts a second shell, and this game is started some two hundred times */
+    char text[8192];
+    snprintf(text, sizeof text, "%s%s", access("/bin/bash", X_OK) == 0 ? "#!/bin/bash\n" : "#!/bin/sh\n",
         "user=; shot=\n"
         "zip=\n"
         "while [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; --install) zip=$2; shift;; esac; shift; done\n"
@@ -532,7 +533,8 @@ static void make_fake_game(char *path, size_t cap)
         "         else echo \"follow: slot $TNFS_FOLLOW_CAR on the road from tick 1000, the frame at tick 1064\"; fi;;\n"
         "esac; fi\n"
         "if [ -n \"$shot\" ]; then printf 'P6\\n640 480\\n255\\n' > \"$shot\"; head -c 921600 /dev/zero >> \"$shot\"; fi\n"
-        "exit 0\n", 0755);
+        "exit 0\n");
+    write_text_file(path, text, 0755);
 }
 
 static void run_job(RaceJob *job)
@@ -589,7 +591,8 @@ static void test_kit_masks(void)
     car_race_free(&job);
 }
 
-static void test_job(void)
+/* the draws of the traffic, tried one after another until the car is on screen or none is left: a hundred runs of the fake game, a test of its own (argument "draws") */
+static void test_traffic_draws(void)
 {
     char game[600], why[300], project[600];
     make_fake_game(game, sizeof game);
@@ -598,36 +601,7 @@ static void test_job(void)
     RaceJob job;
     memset(&job, 0, sizeof job);
     job.run.fd = -1;
-    const ExportCar *p911 = car_export_car(index_of("P911")), *wagon = car_export_car(index_of("Wagon")), *cop = car_export_car(index_of("COPMUST"));
-    setenv("FAKE_MODE", "ok", 1);
-    /* an installed track (item 6): the window's race on its folder; a traffic car refused before anything is made; no folder refused */
-    CHECK(!car_race_start_race_mod(&job, game, "/cd", project, wagon, "my-track", "/u/mods/my-track", 0, NULL, why, sizeof why) && strstr(why, "no traffic") != NULL);
-    CHECK(!car_race_start_race_mod(&job, game, "/cd", project, p911, "my-track", "", 0, NULL, why, sizeof why) && strstr(why, "no folder") != NULL);
-    CHECK(car_race_start_race_mod(&job, game, "/cd", project, p911, "my-track", "/u/mods/my-track", 1, NULL, why, sizeof why));
-    run_job(&job);
-    CHECK(!car_race_busy(&job) && job.finished && strstr(job.log, "Test drive on the installed track my-track, night") != NULL && job.temp[0] == '\0' && !temps_left());
-    /* a car you drive: one run, a photo, the scratch folder gone after */
-    CHECK(car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 1, NULL, why, sizeof why));
-    CHECK(car_race_busy(&job) && !car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 1, NULL, why, sizeof why) && strstr(why, "already") != NULL);
-    run_job(&job);
-    CHECK(!car_race_busy(&job) && job.finished && job.ok && job.photo != NULL && job.photo_serial == 1 && job.photo_night == 1);
-    CHECK(strstr(job.summary, "Porsche 911 Carrera on Rusty Springs, night") != NULL && strstr(job.summary, " off") == NULL && strstr(job.summary, "TR5") == NULL);
-    CHECK(strstr(job.log, "In-game photo: Porsche 911 Carrera on Rusty Springs, night") != NULL);
-    CHECK(job.photo_w == 640 && job.photo_h == 480);   /* the size the game wrote (the fake's) */
-    {   /* T6: what was switched off is said in the summary and the log */
-        RaceLook look = car_race_look_default();
-        look.reflections = 0;
-        CHECK(car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 0, &look, why, sizeof why));
-        run_job(&job);
-        CHECK(job.ok && strstr(job.summary, "Reflections off") != NULL && strstr(job.log, "Reflections off") != NULL);
-    }
-    CHECK(strstr(job.log, "fake game out") != NULL && strstr(job.log, "masks=") != NULL && strstr(job.log, "/proj/car_masks") != NULL);
-    CHECK(job.temp[0] == '\0' && !temps_left());
-    /* a traffic car found at once: the probe, then the shot following its slot */
-    CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, NULL, why, sizeof why));
-    run_job(&job);
-    CHECK(job.ok && job.photo_serial == 3 && job.photo_slot == 3 && strstr(job.summary, "slot 3") != NULL && strstr(job.summary, "800 ticks") != NULL && strstr(job.summary, "Coastal 1") != NULL && strstr(job.summary, "CL1") == NULL);
-    CHECK(strstr(job.log, "follow=3") != NULL && strstr(job.log, "the car is in it") != NULL && !temps_left());
+    const ExportCar *wagon = car_export_car(index_of("Wagon")), *cop = car_export_car(index_of("COPMUST"));
     /* found in the third draw: the seeds are tried in order */
     setenv("FAKE_MODE", "later", 1);
     CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 1, NULL, why, sizeof why));
@@ -671,6 +645,51 @@ static void test_job(void)
     run_job(&job);
     CHECK(job.finished && !job.ok && strstr(job.summary, "parked off the road") != NULL && job.probes == RACE_SEEDS + 1 && job.parked == 1);
     unsetenv("FAKE_FOLLOW");
+    unsetenv("FAKE_MODE");
+    car_race_free(&job);
+    rmdir(project);
+    unlink(game);
+}
+
+static void test_job(void)
+{
+    char game[600], why[300], project[600];
+    make_fake_game(game, sizeof game);
+    snprintf(project, sizeof project, "%s/proj", base);
+    mkdir(project, 0777);
+    RaceJob job;
+    memset(&job, 0, sizeof job);
+    job.run.fd = -1;
+    const ExportCar *p911 = car_export_car(index_of("P911")), *wagon = car_export_car(index_of("Wagon")), *cop = car_export_car(index_of("COPMUST"));
+    setenv("FAKE_MODE", "ok", 1);
+    /* an installed track (item 6): the window's race on its folder; a traffic car refused before anything is made; no folder refused */
+    CHECK(!car_race_start_race_mod(&job, game, "/cd", project, wagon, "my-track", "/u/mods/my-track", 0, NULL, why, sizeof why) && strstr(why, "no traffic") != NULL);
+    CHECK(!car_race_start_race_mod(&job, game, "/cd", project, p911, "my-track", "", 0, NULL, why, sizeof why) && strstr(why, "no folder") != NULL);
+    CHECK(car_race_start_race_mod(&job, game, "/cd", project, p911, "my-track", "/u/mods/my-track", 1, NULL, why, sizeof why));
+    run_job(&job);
+    CHECK(!car_race_busy(&job) && job.finished && strstr(job.log, "Test drive on the installed track my-track, night") != NULL && job.temp[0] == '\0' && !temps_left());
+    /* a car you drive: one run, a photo, the scratch folder gone after */
+    CHECK(car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 1, NULL, why, sizeof why));
+    CHECK(car_race_busy(&job) && !car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 1, NULL, why, sizeof why) && strstr(why, "already") != NULL);
+    run_job(&job);
+    CHECK(!car_race_busy(&job) && job.finished && job.ok && job.photo != NULL && job.photo_serial == 1 && job.photo_night == 1);
+    CHECK(strstr(job.summary, "Porsche 911 Carrera on Rusty Springs, night") != NULL && strstr(job.summary, " off") == NULL && strstr(job.summary, "TR5") == NULL);
+    CHECK(strstr(job.log, "In-game photo: Porsche 911 Carrera on Rusty Springs, night") != NULL);
+    CHECK(job.photo_w == 640 && job.photo_h == 480);   /* the size the game wrote (the fake's) */
+    {   /* T6: what was switched off is said in the summary and the log */
+        RaceLook look = car_race_look_default();
+        look.reflections = 0;
+        CHECK(car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 0, &look, why, sizeof why));
+        run_job(&job);
+        CHECK(job.ok && strstr(job.summary, "Reflections off") != NULL && strstr(job.log, "Reflections off") != NULL);
+    }
+    CHECK(strstr(job.log, "fake game out") != NULL && strstr(job.log, "masks=") != NULL && strstr(job.log, "/proj/car_masks") != NULL);
+    CHECK(job.temp[0] == '\0' && !temps_left());
+    /* a traffic car found at once: the probe, then the shot following its slot */
+    CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, NULL, why, sizeof why));
+    run_job(&job);
+    CHECK(job.ok && job.photo_serial == 3 && job.photo_slot == 3 && strstr(job.summary, "slot 3") != NULL && strstr(job.summary, "800 ticks") != NULL && strstr(job.summary, "Coastal 1") != NULL && strstr(job.summary, "CL1") == NULL);
+    CHECK(strstr(job.log, "follow=3") != NULL && strstr(job.log, "the car is in it") != NULL && !temps_left());
     /* a game that does not say who is in which slot (an older one) */
     setenv("FAKE_MODE", "old", 1);
     CHECK(car_race_start_photo(&job, game, "/cd", project, cop, "AL1", 0, NULL, why, sizeof why));
@@ -808,28 +827,34 @@ static void test_drive_job(void)
     car_race_free(&job);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    const int draws = argc > 1 && strcmp(argv[1], "draws") == 0;
+    if (argc > 1 && !draws) return fprintf(stderr, "usage: test_editor_car_race [draws]\n"), 2;
     snprintf(base, sizeof base, "%s/car_race_test_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
     if (mkdtemp(base) == NULL) return 2;
     char real[PATH_MAX];   /* realpath wants PATH_MAX bytes (Linux: 4096; glibc stops the program otherwise) */
     if (realpath(base, real) != NULL) snprintf(base, sizeof base, "%s", real);
     setenv("TMPDIR", base, 1);   /* the scratch folders of the jobs are made here, and counted */
-    test_command();
-    test_long_inherited_word();
-    test_installed_track_command();
-    test_installed_tracks_scan();
-    test_tracks();
-    test_files_and_temp();
-    test_player_dir();
-    test_player_options();
-    test_log();
-    test_ppm();
-    test_original_of();
-    test_job();
-    test_kit_masks();
-    test_drive_command();
-    test_drive_job();
+    if (draws) {
+        test_traffic_draws();
+    } else {
+        test_command();
+        test_long_inherited_word();
+        test_installed_track_command();
+        test_installed_tracks_scan();
+        test_tracks();
+        test_files_and_temp();
+        test_player_dir();
+        test_player_options();
+        test_log();
+        test_ppm();
+        test_original_of();
+        test_job();
+        test_kit_masks();
+        test_drive_command();
+        test_drive_job();
+    }
     nftw(base, remove_entry, 16, FTW_DEPTH | FTW_PHYS);   /* what this test made, and only it */
     return TEST_REPORT();
 }

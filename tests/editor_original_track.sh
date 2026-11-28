@@ -1,11 +1,11 @@
 #!/bin/sh
 # Original tracks as workspace projects (dep103 phase A), headless: Add the 16 from a fake data/ and art folder, open one (the Track light window on its own folder, the track fixed),
 # the File menu of that room, the publish preview and the copy back into data/. The photo goes through a fake game; no CD data.
-# usage: editor_original_track.sh EDITOR REPO MAKE_TEST_PSD MAKE_FAKE_TRI [a|b|c|d]
+# usage: editor_original_track.sh EDITOR REPO MAKE_TEST_PSD MAKE_FAKE_TRI [a|b|c|d|e]
 set -u
 editor=$1 repo=$2 make_psd=$3 make_tri=$4
 part=${5:-all}   # a: hub, old workspace, light flow, copy; b: test drive, 854 px layout; c: masks, publish, photos and the open window's poll; d: PNGs edited by hand, the masks buttons, repo folder, main menu, the real CD's textures; all: the four (four ctest tests run them side by side)
-case $part in all | a | b | c | d) ;; *) echo "FAIL: part $part is not a, b, c, d or all" >&2; exit 1 ;; esac
+case $part in all | a | b | c | d | e) ;; *) echo "FAIL: part $part is not a, b, c, d, e or all" >&2; exit 1 ;; esac
 want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 stamp() { echo "editor_original_track[$part]: $* at ${SECONDS}s" >&2; }
 work=$(mktemp -d)
@@ -219,14 +219,18 @@ unset FAKE_RECORD
 
 fi
 
-if want d; then
-# part d alone starts as part c leaves things for what follows: the sixteen, the dock of the 854 px check, the PNGs made from the PSDs (the first mask, "paint") and published into data/
-if [ "$part" = d ]; then
-    run --frames 4 --steps add-originals >/dev/null 2>&1 || fail "part d: add-originals"
+if want d || want e; then
+# parts d and e alone start as part c leaves things for what follows: the sixteen, the dock of the 854 px check, the PNGs made from the PSDs (the first mask, "paint") and published into data/
+if [ "$part" = d ] || [ "$part" = e ]; then
+    run --frames 4 --steps add-originals >/dev/null 2>&1 || fail "part $part: add-originals"
     run --window 854x560 --reset-layout --frames 30 --steps open-original:0,poll-wait:6,print-panels >/dev/null 2>&1
-    out=$(run --frames 4 --steps open-original:0,masks-print,repo-ask,repo-copy 2>&1) || fail "part d: the PNGs made and published: $out"
-    [ -f "$work/data/track_masks/AL1/scenery_00.png" ] || fail "part d: data/ has no scenery_00.png to compare with: $out"
+    out=$(run --frames 4 --steps open-original:0,masks-print,repo-ask,repo-copy 2>&1) || fail "part $part: the PNGs made and published: $out"
+    [ -f "$work/data/track_masks/AL1/scenery_00.png" ] || fail "part $part: data/ has no scenery_00.png to compare with: $out"
 fi
+edited_png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
+fi
+
+if want d; then
 stamp "part d starts"
 
 # a PNG changed by hand is kept and says so; Regenerate from PSD puts the PSD's mask back
@@ -242,7 +246,6 @@ echo "$out" | grep -q '^mask scenery_00: edited by hand, 4x1, 4 reflective' || f
 out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask_only,masks-print,status" 2>&1) || fail "the status of an edited mask: $out"
 echo "$out" | grep -qF 'masks: 1 PNG edited by hand, kept as they are (Update this mask from its PSD makes it again)' || fail "the words about a PNG edited by hand name the button as it is: $out"
 # Update masks from PSD on the edited one asks first (Replace / Keep / Cancel, as a car's does): Cancel and Keep leave the PNG byte for byte as it is, Replace puts the PSD's mask back
-edited_png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
 cp "$edited_png" "$work/edited_scenery.png"
 for answer in tmask_cancel tmask_keep; do
     out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,ui-click:$answer,masks-print" 2>&1) || fail "$answer: $out"
@@ -256,7 +259,10 @@ echo "$out" | grep -q '^mask scenery_00: ok, 4x1, 2 reflective' || fail "the PSD
 # a mask that was not edited is made again at once, with no question
 out=$(run --frames 4 --steps "open-original:0,ui-focus:Track masks,ui-click:tmask2_row,ui-click:tmask_regen,masks-print" 2>&1) || fail "regenerate an unedited mask: $out"
 echo "$out" | grep -q '^masks: 3 to_make 0 edited 0$' || fail "an unedited mask is made again with no question: $out"
+fi
 
+if want e; then
+stamp "part e starts"
 # the window's own buttons (as a car's Masks tab has them): the two folders shown in the Finder, Update masks from PSD for all of them (asking first about the PNGs edited by hand), Re-scan,
 # and the list of changes against the game repo (--port-data); the PNG edited by hand is scenery_00 again
 python3 - "$edited_png" <<'PY'
