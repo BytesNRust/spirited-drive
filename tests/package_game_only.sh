@@ -35,7 +35,9 @@ mk() {   # NAME [extra entry]...: a DMG with the game, the Applications link and
     chmod +x "$work/$name/Spirited Drive.app/Contents/MacOS/tnfs"
     ln -s /Applications "$work/$name/Applications"
     for extra in "$@"; do mkdir -p "$work/$name/$extra"; done
-    hdiutil create -quiet -volname T -srcfolder "$work/$name" -format UDZO -fs HFS+ "$work/$name.dmg"
+    # makehybrid, not create: the checker only mounts and lists it, and create mounts a scratch volume and compresses (8-12 s each, and its attach
+    # 7-11 s, against 1 s and 3.5 s here: it ran into the test's time limit on a loaded machine). The release's own DMG is made by package_macos.sh
+    hdiutil makehybrid -quiet -hfs -default-volume-name T -o "$work/$name.dmg" "$work/$name"
 }
 mk game
 mk both "Spirited Drive Studio.app"
