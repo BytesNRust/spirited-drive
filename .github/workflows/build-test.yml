@@ -286,6 +286,18 @@ jobs:
       - name: The AppImage runs by itself on clean systems
         run: tools/appimage_smoke.sh dist/*.AppImage ubuntu:22.04 ubuntu:24.04
 
+      - name: A real window, under X11 (Xvfb) and Wayland (weston), with pictures of the screen
+        # no game data exists here: the first-start dialog and the folder chooser are as far as it goes
+        run: tools/appimage_desktop_smoke.sh dist/*.AppImage desktop
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        if: always()
+        with:
+          name: spirited-drive-linux-desktop-${{ github.sha }}
+          path: desktop/
+          if-no-files-found: warn
+          retention-days: 14
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
         with:
           name: spirited-drive-linux-${{ inputs.update_test && 'UPDATE-TEST-' || '' }}${{ github.sha }}
