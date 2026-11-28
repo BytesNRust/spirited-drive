@@ -15,6 +15,7 @@ typedef enum {
     PERF_PREVIEW,   /* the Preview panel */
     PERF_UI,        /* the whole of ui_frame (the panels above are inside it) */
     PERF_PRESENT,   /* SDL_RenderPresent */
+    PERF_PAUSE,     /* the pause between frames (main.c frame_pause) */
     PERF_SLOTS
 } PerfSlot;
 

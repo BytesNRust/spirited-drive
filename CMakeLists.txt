@@ -1358,6 +1358,8 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_card_ids COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_card_ids.sh $<TARGET_FILE:tnfs-track-editor>)   # no two rows of the car card's lists share an ID: the mouse swept over them
         add_test(NAME editor_card_ids_sabotage COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_card_ids.sh $<TARGET_FILE:tnfs-track-editor> sabotage)   # the same sweep must fail when they do
         set_tests_properties(editor_card_ids editor_card_ids_sabotage PROPERTIES TIMEOUT 300)
+        add_test(NAME editor_headless_pace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_pace.sh $<TARGET_FILE:tnfs-track-editor>)   # a headless run's frames are about 16 ms apart, no less and not much more
+        set_tests_properties(editor_headless_pace PROPERTIES TIMEOUT 120)
         add_test(NAME editor_car_panel_clicks COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_car_panel_clicks.sh $<TARGET_FILE:tnfs-track-editor>)   # the car panels clicked: a colour name typed, Up, Down, Add color, Remove, Copy to game repo and its window, on the Diablo and the NSX
         set_tests_properties(editor_car_panel_clicks PROPERTIES TIMEOUT 300)
         add_test(NAME editor_car_two_originals COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_car_two_originals.sh $<TARGET_FILE:tnfs-track-editor>)   # the Diablo and the NSX through Copy to game repo: colours, masks, dash masks, from fixture kits

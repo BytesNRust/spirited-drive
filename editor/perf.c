@@ -9,7 +9,7 @@ static int on = -1;
 static uint64_t total[PERF_SLOTS], worst[PERF_SLOTS], started;
 static int frames;
 
-static const char *const NAME[PERF_SLOTS] = { "dash", "poll", "watch", "recompute", "model", "masks", "preview", "ui", "present" };
+static const char *const NAME[PERF_SLOTS] = { "dash", "poll", "watch", "recompute", "model", "masks", "preview", "ui", "present", "pause" };
 
 int perf_on(void)
 {

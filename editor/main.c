@@ -852,9 +852,10 @@ static int run(App *a, const Options *o)
         }
         t = perf_begin();
         if (drawn) SDL_RenderPresent(ren);
-        perf_end(PERF_PRESENT, t);
-        perf_frame();
+        perf_end(PERF_PRESENT, t), t = perf_begin();
         if (drawn) SDL_Delay(FRAME_MS);
+        perf_end(PERF_PAUSE, t);
+        perf_frame();
     }
     if (headless && ui_error_count() > 0) {   /* a panel that breaks ImGui's rules draws a banner nobody reads in a test */
         fprintf(stderr, "ImGui reported %d error%s, the first: %s\n", ui_error_count(), ui_error_count() == 1 ? "" : "s", ui_error_first());
