@@ -2205,8 +2205,10 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(stock_outside_band_game PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         add_test(NAME car_export_kits COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_export_kits.sh $<TARGET_FILE:car_export_kits> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs-studio>)
         set_tests_properties(car_export_kits PROPERTIES TIMEOUT 300)
-        add_test(NAME migration_acceptance COMMAND sh ${CMAKE_SOURCE_DIR}/tests/migration_acceptance.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data - "" $<TARGET_FILE:car_export_kits>)
-        set_tests_properties(migration_acceptance PROPERTIES TIMEOUT 300)
+        if(TARGET tnfs-track-editor)   # a build without the editor (TNFS_EDITOR=OFF) has no such target to name
+            add_test(NAME migration_acceptance COMMAND sh ${CMAKE_SOURCE_DIR}/tests/migration_acceptance.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data - "" $<TARGET_FILE:car_export_kits>)
+            set_tests_properties(migration_acceptance PROPERTIES TIMEOUT 300)
+        endif()
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
