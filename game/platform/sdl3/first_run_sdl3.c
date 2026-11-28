@@ -35,6 +35,21 @@ static SDL_MessageBoxFlags box_flags(void)
 #endif
 }
 
+/* SDL's message box on Wayland is zenity's alone (KDE and others come without it): with the video driver down SDL asks every driver, and the X11 one draws its own box
+ * (XWayland) with nothing installed. 1 shown and answered; 0 and the log says why. */
+static bool show_box(const SDL_MessageBoxData *box, int *pressed)
+{
+    if (SDL_ShowMessageBox(box, pressed)) return true;
+    port_log("first run: no message box (%s): %s\n", box->title, SDL_GetError());
+    const char *const driver = SDL_GetCurrentVideoDriver();
+    if (driver == NULL || strcmp(driver, "wayland") != 0) return false;
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    const bool shown = SDL_ShowMessageBox(box, pressed);
+    if (!shown) port_log("first run: no message box without the video driver either: %s\n", SDL_GetError());
+    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) port_log("first run: the video driver did not come back: %s\n", SDL_GetError());
+    return shown;
+}
+
 /* a message box with up to three buttons: the index of the one pressed (the last when it is closed), left to right in the order given */
 static int ask(const char *title, const char *text, const char *const labels[], int count)
 {
@@ -46,7 +61,7 @@ static int ask(const char *title, const char *text, const char *const labels[], 
     dialog_wrap(text, DIALOG_LINE_MAX, wrapped, sizeof wrapped);
     const SDL_MessageBoxData box = { box_flags(), NULL, title, wrapped, count, buttons, NULL };
     int pressed = count - 1;
-    if (!SDL_ShowMessageBox(&box, &pressed)) return count - 1;
+    if (!show_box(&box, &pressed)) return count - 1;
     return pressed;
 }
 
@@ -63,51 +78,62 @@ static void choose_profile(void)
         buttons[i] = (SDL_MessageBoxButtonData){ i == FIRST_PROFILE_DEFAULT ? SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT : 0, i, port_profile_title(order[i]) };
     const SDL_MessageBoxData box = { box_flags(), NULL, "Pick your profile", text, FIRST_PROFILE_COUNT, buttons, NULL };
     int pressed = FIRST_PROFILE_DEFAULT;
-    if (!SDL_ShowMessageBox(&box, &pressed) || pressed < 0 || pressed >= FIRST_PROFILE_COUNT) pressed = FIRST_PROFILE_DEFAULT;
+    if (!show_box(&box, &pressed) || pressed < 0 || pressed >= FIRST_PROFILE_COUNT) pressed = FIRST_PROFILE_DEFAULT;
     if (!port_profile_select(order[pressed])) port_log("first_run: could not keep the profile %s\n", port_profile_key(order[pressed]));
 }
 
 typedef struct {
-    int done;
+    SDL_AtomicInt done;   /* the dialog may answer on a thread of its own */
+    bool failed;          /* no chooser could be shown (a cancel is not a failure) */
+    char why[200];
     char path[1024];
 } Picked;
 
-static void picked_folder(void *user, const char *const *list, int filter)
+static void picked_path(void *user, const char *const *list, int filter)
 {
     (void)filter;
     Picked *p = user;
     p->path[0] = '\0';
-    if (list != NULL && list[0] != NULL) snprintf(p->path, sizeof p->path, "%s", list[0]);
-    p->done = 1;
+    if (list == NULL) p->failed = true, snprintf(p->why, sizeof p->why, "%s", SDL_GetError());   /* SDL's error is the answering thread's */
+    else if (list[0] != NULL) snprintf(p->path, sizeof p->path, "%s", list[0]);
+    SDL_SetAtomicInt(&p->done, 1);
 }
 
-/* the folder the player picks ("" when none), the dialog's result waited for */
-static bool pick_folder(char *out, size_t out_size)
+/* the dialog's answer waited for: the path chosen into `out`; false for none, and a chooser that could not be shown is said (on a Linux with neither a desktop portal nor
+ * zenity the wizard would just close) */
+static bool wait_picked(Picked *p, char *out, size_t out_size)
 {
-    Picked p = { 0, { 0 } };
-    SDL_ShowOpenFolderDialog(picked_folder, &p, NULL, NULL, false);
-    while (!p.done) {
+    while (!SDL_GetAtomicInt(&p->done)) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {}
         SDL_Delay(30);
     }
-    snprintf(out, out_size, "%s", p.path);
-    return p.path[0] != '\0';
+    if (p->failed) {
+        static const char *const QUIT[] = { FIRST_RUN_BUTTON_QUIT };
+        char text[600];
+        port_log("first run: no file chooser: %s\n", p->why);
+        snprintf(text, sizeof text, "%s\n\n(%s)", FIRST_RUN_NO_CHOOSER_TEXT, p->why);
+        ask("No window to choose the files", text, QUIT, 1);
+    }
+    snprintf(out, out_size, "%s", p->path);
+    return p->path[0] != '\0';
+}
+
+/* the folder the player picks ("" when none) */
+static bool pick_folder(char *out, size_t out_size)
+{
+    Picked p = { 0 };
+    SDL_ShowOpenFolderDialog(picked_path, &p, NULL, NULL, false);
+    return wait_picked(&p, out, out_size);
 }
 
 /* port (ISO): the .iso file the player picks ("" when none), one filter, no multiple selection */
 static bool pick_iso(char *out, size_t out_size)
 {
     static const SDL_DialogFileFilter FILTERS[] = { { "CD image", "iso" } };
-    Picked p = { 0, { 0 } };
-    SDL_ShowOpenFileDialog(picked_folder, &p, NULL, FILTERS, 1, NULL, false);
-    while (!p.done) {
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {}
-        SDL_Delay(30);
-    }
-    snprintf(out, out_size, "%s", p.path);
-    return p.path[0] != '\0';
+    Picked p = { 0 };
+    SDL_ShowOpenFileDialog(picked_path, &p, NULL, FILTERS, 1, NULL, false);
+    return wait_picked(&p, out, out_size);
 }
 
 typedef struct {

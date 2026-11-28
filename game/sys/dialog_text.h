@@ -23,6 +23,15 @@ int dialog_chars(const char *text);
 #define FIRST_RUN_BUTTON_OTHER_FOLDER "Other folder"
 #define FIRST_RUN_BUTTON_OTHER_IMAGE "Other image"
 #define FIRST_RUN_BUTTON_ANYWAY "Use anyway"
+/* shown when no file chooser could be opened at all */
+#ifdef __linux__
+#define FIRST_RUN_NO_CHOOSER_TEXT                                                                                    \
+    "Your system has no file chooser this game can open.\n\n"                                                        \
+    "Install zenity (on Ubuntu, Mint, Zorin or elementary: sudo apt install zenity) and start the game again, or "     \
+    "start it from a terminal with --data and the folder that has the game's files."
+#else
+#define FIRST_RUN_NO_CHOOSER_TEXT "The window to choose the files could not be opened. Start the game from a terminal with --data and the folder that has the game's files."
+#endif
 #define FIRST_RUN_START_TEXT                                                                                         \
     "This game needs the files of your own copy of The Need for Speed Special Edition (PC, 1996).\n\n"              \
     "Choose where they are:\n"                                                                                         \

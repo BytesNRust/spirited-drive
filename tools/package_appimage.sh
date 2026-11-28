@@ -96,6 +96,8 @@ How to start
 3. Run it: double click, or ./$APPIMAGE_NAME in a terminal. You do not need libfuse2 (libfuse2t64). If it stops with a FUSE message, run it with ./$APPIMAGE_NAME --appimage-extract-and-run, or install your system's fuse3 package (sudo apt install fuse3).
 4. On the first start, point the game at your own CD, a folder with its files, or an ISO image of your own disc. It copies what it needs, and you can put the CD away.
 
+The first start's windows are your system's: the file chooser needs your desktop's portal (xdg-desktop-portal) or zenity. Desktops normally have one of them. If no window appears or no file chooser opens, install zenity (sudo apt install zenity) and start again, or give the folder yourself: ./$APPIMAGE_NAME --data /path/to/the/game/files
+
 To have it in your applications menu with its icon, add it with an AppImage manager (Gear Lever or AppImageLauncher, for example); on its own an AppImage does not add itself there.
 
 Bring your own CD. Spirited Drive contains no game data: you need your own copy of The Need for Speed Special Edition for PC (1996).

@@ -57,6 +57,9 @@ int main(void)
     dialog_wrap(FIRST_RUN_START_TEXT, DIALOG_LINE_MAX, out, sizeof out);
     CHECK(longest_line(out) <= DIALOG_LINE_MAX);
     CHECK(strstr(out, "Special Edition (PC, 1996)") != NULL || strstr(out, "Special\nEdition") != NULL);
+    dialog_wrap(FIRST_RUN_NO_CHOOSER_TEXT, DIALOG_LINE_MAX, out, sizeof out);
+    CHECK(longest_line(out) <= DIALOG_LINE_MAX);
+    CHECK(strstr(out, "--data") != NULL);
     const char *const labels[] = { FIRST_RUN_BUTTON_CD, FIRST_RUN_BUTTON_ISO, FIRST_RUN_BUTTON_QUIT, FIRST_RUN_BUTTON_AGAIN, FIRST_RUN_BUTTON_OTHER_FOLDER,
                                    FIRST_RUN_BUTTON_OTHER_IMAGE, FIRST_RUN_BUTTON_ANYWAY };
     for (size_t i = 0; i < sizeof labels / sizeof labels[0]; i++) CHECK(dialog_chars(labels[i]) <= DIALOG_BUTTON_MAX);
