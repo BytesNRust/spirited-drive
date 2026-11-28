@@ -12,7 +12,7 @@ inputs:
     required: true
   repo:
     description: the private data repository
-    default: BytesNRust/spirited-drive-cd
+    default: BytesNRust/spirited-drive-data
   tag:
     description: the release that holds the asset
     default: cd-data
