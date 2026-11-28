@@ -100,7 +100,7 @@ To update, install the new .deb over the old one. To remove it: sudo apt remove 
 How to start on other distributions: the AppImage
 1. Put $APPIMAGE_NAME in any folder.
 2. Make it executable: in the file manager, Properties, allow running it as a program; or in a terminal: chmod +x $APPIMAGE_NAME
-3. Run it: double click, or ./$APPIMAGE_NAME in a terminal. You do not need libfuse2 (libfuse2t64). If it stops with a FUSE message, run it with ./$APPIMAGE_NAME --appimage-extract-and-run, or install your system's fuse3 package (sudo apt install fuse3).
+3. Run it: double click, or ./$APPIMAGE_NAME in a terminal. You do not need libfuse2 (libfuse2t64). If it stops with a FUSE message, install your system's fuse3 package (Ubuntu, Mint, Zorin or elementary: sudo apt install fuse3; Fedora: sudo dnf install fuse3; Arch: sudo pacman -S fuse3; openSUSE: sudo zypper install fuse3), or run it with nothing to install: ./$APPIMAGE_NAME --appimage-extract-and-run
 4. On the first start, point the game at your own CD, a folder with its files, or an ISO image of your own disc. It copies what it needs, and you can put the CD away.
 
 The first start's windows are your system's: the file chooser needs your desktop's portal (xdg-desktop-portal) or zenity. Desktops normally have one of them. If no window appears or no file chooser opens, install zenity with your package manager (sudo apt install zenity on Ubuntu, Mint, Zorin or elementary; sudo dnf install zenity on Fedora) and start again, or give the folder yourself: ./$APPIMAGE_NAME --data /path/to/the/game/files (with the .deb: spirited-drive --data /path/to/the/game/files)
