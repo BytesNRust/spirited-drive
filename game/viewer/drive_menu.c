@@ -36,6 +36,7 @@ typedef struct {
     RaceMenuWorld *w;
     uint8_t *pixels;            /* 00524834: the menu's surface, VIDEO_WIDTH x VIDEO_HEIGHT */
     uint32_t clock_ms;          /* where 004bb8dc's ticks were last counted */
+    int port_keys_marked;       /* port (test harness): mark:race_menu logged, once each time the menu opens */
 } MenuCtx;
 
 /* Ticks at TICK_HZ since *since (moved on by the ticks counted) */
@@ -235,7 +236,12 @@ static void blit_at(void *ctx, const uint8_t *shape, int32_t x, int32_t y)
 /* [004c6194] reads the mouse as it is: the race syncs no pointer, so a click that started it is not taken for one here */
 static int16_t buttons(void *ctx) { return (void)ctx, pointer_sync_from_os(), (int16_t)pointer_read_buttons(); }
 static int32_t ticks(void *ctx) { return (void)ctx, timer_ticks_since_last(); }
-static uint16_t key(void *ctx) { return (void)ctx, (uint16_t)input_get_key(); }
+static uint16_t key(void *ctx)
+{
+    MenuCtx *c = ctx;
+    if (!c->port_keys_marked) port_log("mark:race_menu\n"), c->port_keys_marked = 1;   /* port (test harness): the menu reads its keys from here */
+    return (uint16_t)input_get_key();
+}
 static int16_t ask(void *ctx, const char *question) { return (void)ctx, (int16_t)glue_yes_no(NULL, question); }  /* 00465f4c */
 static void notice(void *ctx, const char *text, int32_t time) { (void)ctx, glue_banner_wait(NULL, text, time); }  /* 00467214 */
 /* 00410b7c (the deadline) and 00410c18 in a link race; alone nothing is sent and every wait ends */
@@ -325,7 +331,7 @@ void drive_menu_run(void *menu)
     if (pixels == NULL || sw != VIDEO_WIDTH || sh != VIDEO_HEIGHT) pixels = own;
     RaceMenuWorld w = { 0 };
     world_from_race(m, &w);
-    MenuCtx c = { m, &w, pixels, platform_ticks_ms() };
+    MenuCtx c = { m, &w, pixels, platform_ticks_ms(), 0 };
     const RaceMenuOps ops = { &c, call, sounds, kept, fill, fade, set_palette, mode, clip, surface_free, surface_new,
                               select_surface, present, pointer_to, music, load, load_inventory, unload, palette, number,
                               inside, chat, blit_own, blit_at, buttons, ticks, key, ask, notice, net_send, net_wait,

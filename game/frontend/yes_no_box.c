@@ -1,4 +1,5 @@
 #include "game/frontend/yes_no_box.h"
+#include "game/sys/port_log.h"
 
 enum {
     BOX_X = 0x96, BOX_Y = 0xbe, BOX_W = 0x154, BOX_H = 0x64, SHADE = 0x9000, RED = 0xff0000,
@@ -99,6 +100,7 @@ int yes_no_box(const char *title, int german, DialogPointer *p, const MessageBan
         ops->pointer_buttons(ops->ctx, p);
     }
     ops->drain(ops->ctx);
+    port_log("mark:yes_no\n");   /* port (test harness): the box reads keys from here (one sent before is drained) */
     do {
         if (over(p, 0xbe, 0x104)) {
             if (selected != YES) redraw = 1, selected = YES;

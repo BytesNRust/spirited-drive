@@ -6,9 +6,10 @@ file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 file(WRITE "${WORK}/user/port.cfg" "profile=stock\n")
 # the first race seen (its dust's switch logged), given up from the pause menu (Esc, Up to Quit, Enter, Y), Enter twice on its results once they have faded in (headless the first
-# wakes the pointer onto Done), then the second race: the script ends (status 3) a second after Restomod's dust is logged. A line that never comes ends the run at that wait (status 3
-# too) and the checks below say what is missing.
-set(script "0:WAIT:mark:spray_v4=0:90,8000:ESC,2000:UP,2000:ENTER,2000:Y")   # Esc once the start's fly-over is over (an Esc in it only cuts it short)
+# wakes the pointer onto Done), then the second race: the script ends (status 3) a second after Restomod's dust is logged. Each key waits for the game to read it: mark:race_keys
+# (an earlier Esc is ignored), mark:race_menu (the menu's keys), mark:yes_no (its question: keys sent before are dropped). A line that never comes ends the run at that wait
+# (status 3 too) and the checks below say what is missing.
+set(script "0:WAIT:mark:spray_v4=0:90,0:WAIT:mark:race_keys:90,300:ESC,0:WAIT:mark:race_menu:60,300:UP,300:ENTER,0:WAIT:mark:yes_no:60,300:Y")
 string(APPEND script ",0:WAIT:mark:results=circuit:120,300:ENTER,300:ENTER,0:WAIT:mark:spray_v4=1:90,0:WAIT:mark:never:1")
 execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ASAN_OPTIONS=detect_leaks=0 TNFS_BANDS=0 TNFS_VERBOSE=1
                         TNFS_INPUT_SETTLE=300 TNFS_DRIVE_AGAIN=restomod "TNFS_INPUT_SCRIPT=${script}"

@@ -9,6 +9,7 @@
 #include "game/race/race_chase.h"
 #include "game/race/race_detail.h"
 #include "game/race/race_sound.h"
+#include "game/sys/port_log.h"
 
 #include <string.h>
 
@@ -143,6 +144,8 @@ void drive_pause_frame(DrivePause *p, const DriveInput *in, RaceState *race, Dri
                                         p->detail };
     race_menu_keys_phase(&p->keys, race->phase == PHASE_RACING, race->tick, p->port_resume_keys);
     p->keys.dropped = race->dropped, p->keys.w509d70 = race->end_state;
+    if (!p->port_keys_marked && race_menu_keys_open(&p->keys, race->phase == PHASE_RACING, race->tick, race->replay))
+        port_log("mark:race_keys\n"), p->port_keys_marked = 1;   /* port (test harness): a script waits for it before its ESC; once a race */
     race_menu_keys(&keys, &inputs, &p->keys, frame);
     race->dropped = p->keys.dropped, race->end_state = p->keys.w509d70;
 }

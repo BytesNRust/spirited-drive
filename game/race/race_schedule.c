@@ -82,6 +82,11 @@ void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, Ra
     st->pending = 1;
 }
 
+int race_menu_keys_open(const RaceMenuKeysState *st, int32_t racing, int32_t tick, int32_t replay)
+{
+    return racing && replay == 0 && st->pending == 0 && st->port_esc_up_wait == 0 && tick > KEYS_AFTER && x_add(st->last, MENU_GAP) <= tick;
+}
+
 void race_menu_keys_resumed(RaceMenuKeysState *st, int32_t tick, int32_t port_resume_keys)
 {
     st->last = port_resume_keys ? 0 : tick;

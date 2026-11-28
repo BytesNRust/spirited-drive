@@ -20,6 +20,7 @@ typedef struct {
     uint8_t detail;          /* 004fb785, the race's: set before each frame */
     int port_resume_keys;    /* port: back from a replay the ESC that closed it is not the menu's (race_menu_keys_phase) */
     int32_t detail_pending;  /* 004c5360: the draw distance the menu's Esc asks for, -1 none (the frame takes it) */
+    int port_keys_marked;    /* port (test harness): mark:race_keys logged (drive_pause_start clears it) */
 } DrivePause;
 
 void drive_pause_start(DrivePause *p);

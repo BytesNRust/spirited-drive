@@ -316,8 +316,33 @@ static void p_still_resumes_without_a_menu(void)
     CHECK_EQ_INT(st.port_menu_after_pause, 0);
 }
 
+/* race_menu_keys_open: whether an ESC pressed now would open the menu (the log's mark:race_keys, which a script waits for before its ESC) */
+static void keys_open_from_the_menu_gap(void)
+{
+    RaceMenuKeysState st = { 0 };
+    CHECK_EQ_INT(race_menu_keys_open(&st, PHASE_RACING, 179, 0), 0);
+    CHECK_EQ_INT(race_menu_keys_open(&st, PHASE_RACING, 180, 0), 1);
+    CHECK_EQ_INT(race_menu_keys_open(&st, 0, 180, 0), 0);               /* not racing */
+    CHECK_EQ_INT(race_menu_keys_open(&st, PHASE_RACING, 180, 1), 0);    /* a replay */
+    st.pending = 1;
+    CHECK_EQ_INT(race_menu_keys_open(&st, PHASE_RACING, 180, 0), 0);
+    st = (RaceMenuKeysState){ .port_esc_up_wait = 1 };
+    CHECK_EQ_INT(race_menu_keys_open(&st, PHASE_RACING, 180, 0), 0);
+    /* and it agrees with race_menu_keys itself at the edge */
+    for (int32_t tick = 179; tick <= 180; tick++) {
+        st = (RaceMenuKeysState){ 0 };
+        MenuTrack mt = { 0 };
+        RaceMenuKeysOps mops = { .ctx = &mt, .notice_up = tk_no_notice, .set = tk_menu_set, .detail = tk_menu_detail };
+        const int open = race_menu_keys_open(&st, PHASE_RACING, tick, 0);
+        const RaceMenuKeysInputs in = { .tick = tick, .phase = PHASE_RACING, .esc = 1 };
+        race_menu_keys(&mops, &in, &st, (int16_t)tick);
+        CHECK_EQ_INT(mt.set_calls, open);
+    }
+}
+
 int main(void)
 {
+    keys_open_from_the_menu_gap();
     esc_while_paused_opens_menu();
     esc_while_paused_is_ignored_in_the_exe();
     p_still_resumes_without_a_menu();
