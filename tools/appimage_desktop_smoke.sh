@@ -1,12 +1,14 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Runs the AppImage in a real Linux window and takes pictures of the screen: X11 (Xvfb) and Wayland (weston, headless), sound off. It runs in a
+# Runs the AppImage in a real Linux window and takes pictures of the screen: X11 (Xvfb with openbox) and Wayland (weston, headless), sound off. It runs in a
 # throwaway Ubuntu 24.04 container with no network, so nothing of the game is sent anywhere.
 #
 #   tools/appimage_desktop_smoke.sh APPIMAGE OUT_DIR [DATA_DIR]
 #
 # Without DATA_DIR (CI: no game data exists there) it reaches the first-start dialog and, with Return, the folder chooser.
 # With DATA_DIR (a developer's own copy of the CD, mounted read-only) it reaches the boot screen and what Return brings after it.
+# Xvfb has no window manager of its own, and without one a full screen request is ignored (the game stays 854x480): openbox runs there, and with DATA_DIR the window
+# must be the screen's size. On Wayland the pictures are for the eye: nothing there tells where a window was put.
 # OUT_DIR gets the screen pictures (PNG) and the game's output of each run. The pictures with DATA_DIR show the game's art: they stay out of the repo.
 set -eu
 
@@ -24,7 +26,7 @@ if [ "${1:-}" != --inside ]; then
     docker build -q -t "$IMAGE" - <<'EOF'
 FROM ubuntu:24.04
 RUN apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-    xvfb xauth xdotool x11-utils xfonts-base imagemagick weston zenity fonts-dejavu-core \
+    xvfb openbox xauth xdotool x11-utils xfonts-base imagemagick weston zenity fonts-dejavu-core \
     libx11-6 libxext6 libxrandr2 libxcursor1 libxi6 libxfixes3 libxss1 libxtst6 libxkbcommon0 \
     libwayland-client0 libwayland-cursor0 libwayland-egl1 libdecor-0-0 libegl1 libgl1 libgl1-mesa-dri libasound2t64 >/dev/null
 EOF
@@ -118,6 +120,9 @@ logged() { grep -aq "$1" "$2"; }
 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >/out/xvfb.txt 2>&1 &
 export DISPLAY=:99
 until_ok 20 xdpyinfo || { echo "Xvfb did not start" >&2; cat /out/xvfb.txt >&2; exit 1; }
+openbox >/out/openbox.txt 2>&1 &
+openbox_pid=$!
+until_ok 20 sh -c 'xprop -root _NET_SUPPORTING_WM_CHECK | grep -q "window id"' || { echo "openbox did not start" >&2; cat /out/openbox.txt >&2; exit 1; }
 
 grab_x11 x11-empty-screen
 if [ ! -d /gamedata ]; then
@@ -153,6 +158,8 @@ else
         xdotool key Return
         until_ok 20 logged 'mark:screen=title' /out/x11-game.txt || fail "Return from the keyboard did not bring the title screen"
         settled grab_x11 x11-after-return /out/x11-boot-screen.png
+        size=$(xdotool getwindowgeometry "$window" | sed -n 's/.*Geometry: *//p')
+        [ "$size" = 1280x800 ] || fail "the game's window is ${size:-unknown}, not the screen's 1280x800: full screen did not take"
     else
         shot_x11 x11-no-boot-screen
         fail "the boot screen did not come up on X11"
@@ -161,6 +168,7 @@ else
     pkill -f squashfs-root 2>/dev/null || true
 fi
 
+kill "$openbox_pid" 2>/dev/null || true
 # Wayland: weston with no screen of its own; its screenshooter writes the picture into the folder it runs in
 unset DISPLAY
 export WAYLAND_DISPLAY=sd-wayland
