@@ -184,7 +184,8 @@ part_finish() {
     [ -e "$work/user/config.dat" ] && fail "a race with the piece wrote config.dat"
     echo "look.test-car=-,Blue" >> "$work/user/restomod.cfg"   # step 3: the paint picked in its gallery (the skin as it comes has masks)
     script="0:WAIT:mark:results=circuit:240,300:ENTER,300:ENTER,0:WAIT:mark:results=best_totals:120,300:ENTER"   # its results, the best totals   # a race run to its finish: its results and the best totals
-    TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
+    # (the race's clock runs four times faster, TNFS_CLOCK_RATE: the same steps and result; no key is sent while it races)
+    TNFS_CLOCK_RATE=4 TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 300 "$tnfs" --data "$orig" --mods "$piece" --user "$work/user" --drive TR1 --car test-car --type 0 >"$work/race.out" 2>"$work/err"
     rc=$?
     [ "$rc" -eq 0 ] || fail "the finished race with the piece ended with status $rc: $(tail -3 "$work/err")"
