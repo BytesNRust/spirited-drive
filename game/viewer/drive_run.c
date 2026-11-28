@@ -675,6 +675,7 @@ int drive_window(const Track *t, uint8_t *pixels)
     /* 004275f8: 004fb7d8 bit 3 (the Turbo cheat) puts the timer on level 3 (0043bb44) */
     if (drive_sim.race.track_flags & TRACK_FLAG_TURBO) r.clock = drive_clock_of_level(DRIVE_CLOCK_TURBO_LEVEL);
     drive_clock = r.clock;
+    if (clock_rate() > 1u) port_log("clock: rate %u (TNFS_CLOCK_RATE)\n", clock_rate());
     light_edit_start(&light_edit, light_edit_wanted()), light_edit_started = 1;   /* port (light_edit) */
     race_stats_start(&race_stats, port_extras_race_on(RACE_SWITCH_STATS));  /* port: the overlay as the mode's file has it */
     wrong_way = (WrongWay){ 0 };   /* port (wrong_way): a new race starts with no warning */
