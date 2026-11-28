@@ -452,7 +452,7 @@ raw, stride = zlib.decompress(idat), w * 4 + 1
 rows, prev = [], bytearray(w * 4)
 for y in range(h):
     f, line = raw[y * stride], bytearray(raw[y * stride + 1:(y + 1) * stride])
-    for i in range(len(line)):
+    for i in range(len(line)) if f else ():   # an unfiltered row (the editor writes them so) has nothing to undo, byte by byte
         a = line[i - 4] if i >= 4 else 0
         b = prev[i]
         c = prev[i - 4] if i >= 4 else 0

@@ -1312,6 +1312,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_dash_check COMMAND test_editor_dash_check)
         add_test(NAME editor_car_preview COMMAND test_editor_car_preview)
         add_test(NAME editor_car_race COMMAND test_editor_car_race)
+        add_test(NAME editor_car_race_draws COMMAND test_editor_car_race draws)
         add_test(NAME editor_light_photo COMMAND test_editor_light_photo)
         add_test(NAME editor_light_drive COMMAND test_editor_light_drive)
         add_test(NAME editor_light_flow COMMAND test_editor_light_flow ${CMAKE_SOURCE_DIR})
@@ -1401,8 +1402,10 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_original_track_flow_b PROPERTIES TIMEOUT 900)
         add_test(NAME editor_original_track_flow_c COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> c)   # part c: masks, publish, photos and the open window's poll
         set_tests_properties(editor_original_track_flow_c PROPERTIES TIMEOUT 900)
-        add_test(NAME editor_original_track_flow_d COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> d)   # part d: PNGs edited by hand, the masks buttons, the repo folder, main menu, the real CD's textures
+        add_test(NAME editor_original_track_flow_d COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> d)   # part d: PNGs edited by hand and Update this mask
         set_tests_properties(editor_original_track_flow_d PROPERTIES TIMEOUT 900)
+        add_test(NAME editor_original_track_flow_e COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd> $<TARGET_FILE:make_fake_tri> e)   # part e: the masks buttons, the repo folder, main menu, the real CD's textures
+        set_tests_properties(editor_original_track_flow_e PROPERTIES TIMEOUT 900)
         add_test(NAME editor_game_repo_enables COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_repo_enables.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:make_fake_tri>)   # a Studio with no game data folder of its own: File > Game repo folder... enables Add originals and Open original track
         set_tests_properties(editor_game_repo_enables PROPERTIES TIMEOUT 300)
         add_test(NAME editor_settings_first_run COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_settings_first_run.sh $<TARGET_FILE:tnfs-track-editor>)   # Edit tweak step 3: the three doors, the first start's question about the game, File > Settings
@@ -2130,8 +2133,10 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_e2e_track PROPERTIES TIMEOUT 300)
             add_test(NAME editor_hill_race COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_hill_race.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original)   # dep95 step 8: a hill drawn in the editor, built, installed and raced: the camera's height at the foot, the crest and the way down
             set_tests_properties(editor_hill_race PROPERTIES TIMEOUT 300)
-            add_test(NAME editor_e2e_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_car.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
-            set_tests_properties(editor_e2e_car PROPERTIES TIMEOUT 300)
+            foreach(part a b)
+                add_test(NAME editor_e2e_car_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_car.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data ${part})
+                set_tests_properties(editor_e2e_car_${part} PROPERTIES TIMEOUT 300)
+            endforeach()
             foreach(part cars_a cars_b tracks_a tracks_b)
                 add_test(NAME editor_copy_originals_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_copy_originals.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Copy to game repo for the 20 original cars and the 16 tracks, a clean temp workspace, nothing edited
                 set_tests_properties(editor_copy_originals_${part} PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
@@ -2146,8 +2151,10 @@ if(NOT EMSCRIPTEN)
             endforeach()
             add_test(NAME editor_tweak_pack COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_pack.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>)   # Edit tweak step 4: Pack zip and Check; the zip installs and the race reads its light; needs the game's files
             set_tests_properties(editor_tweak_pack PROPERTIES TIMEOUT 900)
-            add_test(NAME editor_tweak_flows COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_flows.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak flows the list/parity tests leave: the list with tweaks, reopening, a track mask, Replace/Skip/Cancel on a car with several masks and with colors, Apply with nothing new; needs the game's files
-            set_tests_properties(editor_tweak_flows PROPERTIES TIMEOUT 900)
+            foreach(part a b)   # Edit tweak flows the list/parity tests leave: the list with tweaks, reopening, a track mask, Replace/Skip/Cancel on a car with several masks and with colors, Apply with nothing new; needs the game's files
+                add_test(NAME editor_tweak_flows_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_flows.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} ${part})
+                set_tests_properties(editor_tweak_flows_${part} PROPERTIES TIMEOUT 900)
+            endforeach()
             add_test(NAME editor_first_start_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_first_start_flow.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs>)   # the first start end to end: the game's folder asked once, Edit tweak, a car's mask, Check, Pack zip, installed, raced; needs the game's files
             set_tests_properties(editor_first_start_flow PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77)
             add_test(NAME editor_tweak_game_data COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_game_data.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak > Track on an installed app: no repo -> the game's own data/; the repo kept in workspace.txt is applied at start; needs the game's files
@@ -2820,8 +2827,8 @@ set(TNFS_SKIP_TESTS
     car_piece_race_replay car_piece_race_refusals car_piece_race_stock car_card_menus_cards car_card_menus_modes car_card_menus_steps car_card_menus_replays showcase_setup_tile
     stock_screens_golden_stock stock_screens_golden_restored stock_screens_golden_restored-16x9 tweak_race_facts_A tweak_race_facts_B tweak_race_facts_C tweak_race_facts_compare
     edition_menus_menus edition_menus_modes edition_menus_race edition_menus_trackrace track_menus_central track_menus_race track_menus_card track_menus_page track_menus_best_times
-    track_piece_run content_menus_own content_menus_standard car_own_behaviour track_new track_piece_drive editor_e2e_track editor_e2e_car editor_copy_originals editor_tweak_list
-    editor_tweak_pack editor_tweak_flows editor_first_start_flow editor_tweak_game_data editor_original_psd_newer editor_e2e_diablo editor_traffic_car_panel_axxess editor_traffic_car_panel_copmust editor_real_workspace
+    track_piece_run content_menus_own content_menus_standard car_own_behaviour track_new track_piece_drive editor_e2e_track editor_e2e_car_a editor_e2e_car_b editor_copy_originals editor_tweak_list
+    editor_tweak_pack editor_tweak_flows_a editor_tweak_flows_b editor_first_start_flow editor_tweak_game_data editor_original_psd_newer editor_e2e_diablo editor_traffic_car_panel_axxess editor_traffic_car_panel_copmust editor_real_workspace
     editor_e2e_cockpit editor_e2e_kit car_new car_card model_build mod_install_game_cars mod_install_game_tweak mod_install_game_before mod_install_game_tri mod_install_game_stock
     car_import_game car_resize_game car_texture_game car_kit_cli car_export_kits migration_acceptance reference_mod car_mask_psd track_mask_psd track_starter_psds dash_mask_psd
     dash_psd_update dash_color_draft spirited_logo spirited_icon replay_conditions_cd replay_conditions_recorded replay_conditions_extras replay_conditions_extras_old
@@ -2905,7 +2912,7 @@ set(TNFS_E2E_TESTS
     editor_model_flow_a editor_model_flow_b editor_model_flow_c editor_model_flow_d
     editor_light_window_a editor_light_window_b editor_light_window_c editor_light_window_d editor_light_window_e editor_light_window_f
     editor_original_track_flow_a
-    editor_original_track_flow_b editor_original_track_flow_c editor_original_track_flow_d
+    editor_original_track_flow_b editor_original_track_flow_c editor_original_track_flow_d editor_original_track_flow_e
     studio_cli_cd studio_cli_edit studio_cli_car
     car_piece_race_giveup
     car_piece_race_finish

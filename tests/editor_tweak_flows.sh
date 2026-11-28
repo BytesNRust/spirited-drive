@@ -6,11 +6,13 @@
 #   4 Replace / Skip / Cancel on a car with several changed masks: Cancel writes nothing, Skip writes the files the repo did not touch and keeps the repo's own, Replace writes the rest
 #   5 a car with colors: Cancel on the own-changes question writes no color either; Skip writes the colors and keeps the repo's own mask; Cancel on the first confirmation writes nothing
 #   6 Apply of a tweak that holds nothing new: it writes nothing and says so
-# Needs the game's files (original/). usage: editor_tweak_flows.sh EDITOR ORIGINAL_DIR REPO
+# Needs the game's files (original/). usage: editor_tweak_flows.sh EDITOR ORIGINAL_DIR REPO [a|b]   a: 1, 2, 3 and 6 (a track); b: 4 and 5 (cars); unset: all. ctest runs a and b side by side.
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$2
 repo=$3
 here=$(dirname "$0")
+part=${4:-all}
+case $part in all | a | b) ;; *) echo "FAIL: part $part is not a, b or all" >&2; exit 1 ;; esac
 [ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 77; }
 mkdir -p "$work/ws" "$work/art" "$work/r/core/formats" || exit 1
 cp -R "$repo/data" "$work/r/data" && cp "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c"
@@ -19,6 +21,7 @@ opts="--port-data $work/r/data"
 poke() { python3 -I "$here/mask_poke.py" "$@" >/dev/null; }
 same() { cmp -s "$1" "$2"; }
 
+if [ "$part" != b ]; then
 # ---- 1 and 2: a track tweak, made, listed, reopened, changed again (Save makes the tweak again: the panel and the list say so with no Check, Apply or reopening between)
 studio $opts --frames 4 --steps ui-click:door_tweak,ui-click:tweak_tab_track,ui-click:tweak_row_CY1,ui-click:tweak_open,sun:120,30,70,save,poll-wait:1,tweak-shown || fail "CY1 first change: $(tail -3 "$work/log")"
 grep -q '^tweak shown: changed' "$work/log" || fail "right after Save the panel does not say the tweak changed (no Check, Apply or reopening between): $(grep 'tweak shown' "$work/log")"
@@ -66,7 +69,9 @@ cp "$work/r/data/track_light/CY1.txt" "$work/before.txt"
 studio $opts --frames 4 --steps tweak-open-row:CY1,ui-click:tweak_apply,ui-click:tweak_confirm,status || fail "nothing to apply: $(tail -3 "$work/log")"
 same "$work/r/data/track_light/CY1.txt" "$work/before.txt" || fail "Apply of a tweak that is the repo's changed the repo"
 grep -q '^status: applied to the game repo: 0 files written, 0 left as the repo has them' "$work/log" || fail "Apply with nothing new does not say it wrote nothing: $(grep '^status' "$work/log")"
+fi
 
+if [ "$part" != a ]; then
 # ---- 4: a car with several changed masks (the traffic Wagon), the repo's own change in one of them
 studio $opts --frames 4 --steps tweak-open-row:Wagon || fail "Wagon open: $(tail -3 "$work/log")"
 kit=$(ls -d "$work"/ws/cars/* | head -n 1)
@@ -118,6 +123,7 @@ studio $opts --frames 4 --steps tweak-open-row:LDiabl,ui-click:tweak_apply,ui-cl
 grep -q '{ 9, 9, 9 }' "$work/r/core/formats/car_paint.c" || fail "Skip did not write the colors"
 same "$work/r/data/$df" "$work/dia.own" || fail "Skip overwrote the Diablo's mask the repo changed on its own"
 grep -q '0 files written, 1 left as the repo has them, colors written' "$work/log" || fail "Skip does not say 0 written, 1 left, colors written: $(grep '^status' "$work/log")"
+fi
 
 [ "$failures" -eq 0 ] && echo "editor_tweak_flows: ok"
 exit "$failures"
