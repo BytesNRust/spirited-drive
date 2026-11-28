@@ -112,10 +112,8 @@ static bool wait_picked(Picked *p, char *out, size_t out_size)
     }
     if (p->failed) {
         static const char *const QUIT[] = { FIRST_RUN_BUTTON_QUIT };
-        char text[600];
         port_log("first run: no file chooser: %s\n", p->why);
-        snprintf(text, sizeof text, "%s\n\n(%s)", FIRST_RUN_NO_CHOOSER_TEXT, p->why);
-        ask("No window to choose the files", text, QUIT, 1);
+        ask("No window to choose the files", FIRST_RUN_NO_CHOOSER_TEXT, QUIT, 1);
     }
     snprintf(out, out_size, "%s", p->path);
     return p->path[0] != '\0';

@@ -62,7 +62,24 @@ int main(void)
     CHECK(strstr(out, "--data") != NULL);
     const char *const labels[] = { FIRST_RUN_BUTTON_CD, FIRST_RUN_BUTTON_ISO, FIRST_RUN_BUTTON_QUIT, FIRST_RUN_BUTTON_AGAIN, FIRST_RUN_BUTTON_OTHER_FOLDER,
                                    FIRST_RUN_BUTTON_OTHER_IMAGE, FIRST_RUN_BUTTON_ANYWAY };
+#ifndef __linux__   /* the width is Windows' button; Linux's boxes size their buttons to the label */
     for (size_t i = 0; i < sizeof labels / sizeof labels[0]; i++) CHECK(dialog_chars(labels[i]) <= DIALOG_BUTTON_MAX);
+#else
+    (void)labels;
+#endif
     CHECK_EQ_INT(dialog_chars("CD or folder\xe2\x80\xa6"), 13);   /* the ellipsis is one character */
+
+    /* Linux, pinned on every system. Its notice names both install commands, a line each, and its labels are ASCII: SDL's own X11 box has no ellipsis in its font */
+    dialog_wrap(FIRST_RUN_NO_CHOOSER_TEXT_LINUX, DIALOG_LINE_MAX, out, sizeof out);
+    CHECK(longest_line(out) <= DIALOG_LINE_MAX);
+    CHECK(strstr(out, "\nsudo apt install zenity") != NULL);
+    CHECK(strstr(out, "\nsudo dnf install zenity") != NULL);
+    CHECK(strstr(out, "package manager") != NULL);
+    CHECK(strstr(out, "--data") != NULL);
+    const char *const linux_texts[] = { FIRST_RUN_BUTTON_CD_LINUX, FIRST_RUN_BUTTON_ISO_LINUX, FIRST_RUN_NO_CHOOSER_TEXT_LINUX };
+    for (size_t i = 0; i < sizeof linux_texts / sizeof linux_texts[0]; i++)
+        for (const unsigned char *p = (const unsigned char *)linux_texts[i]; *p != '\0'; p++) CHECK(*p < 0x80);
+    CHECK(strcmp(FIRST_RUN_BUTTON_CD_LINUX, "CD or folder...") == 0);
+    CHECK(strcmp(FIRST_RUN_BUTTON_ISO_LINUX, "ISO image...") == 0);
     return TEST_REPORT();
 }
