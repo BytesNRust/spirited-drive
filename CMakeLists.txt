@@ -1989,8 +1989,10 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(car_card_menus_${part} PROPERTIES TIMEOUT 600)
         endforeach()
         # owner 2026-11-23: the showcase's SETUP tile is the player's car's: on its page, not on a rival's (Stock and Restomod)
-        add_test(NAME showcase_setup_tile COMMAND sh ${CMAKE_SOURCE_DIR}/tests/showcase_setup_tile.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
-        set_tests_properties(showcase_setup_tile PROPERTIES TIMEOUT 900)
+        foreach(profile restomod stock restored)   # a test each, side by side: two walks to the showcase apiece
+            add_test(NAME showcase_setup_tile_${profile} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/showcase_setup_tile.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
+            set_tests_properties(showcase_setup_tile_${profile} PROPERTIES TIMEOUT 900 ENVIRONMENT "PROFILES=${profile}")
+        endforeach()
         # Stock and Restored show the original's screens: the front end's pictures against goldens (tests/golden/screens/<profile>), one game session per profile
         foreach(profile stock restored restored-16x9)   # a session each, side by side
             add_test(NAME stock_screens_golden_${profile} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/stock_screens_golden.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
@@ -2861,7 +2863,7 @@ set(TNFS_E2E_TESTS
     car_card_menus_modes
     car_card_menus_steps
     car_card_menus_replays
-    showcase_setup_tile
+    showcase_setup_tile_restomod showcase_setup_tile_stock showcase_setup_tile_restored
     stock_screens_golden_stock stock_screens_golden_restored stock_screens_golden_restored-16x9
     tweak_race_facts_clean tweak_race_facts_A tweak_race_facts_B tweak_race_facts_C tweak_race_facts_compare
     edition_menus_menus

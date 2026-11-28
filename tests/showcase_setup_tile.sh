@@ -2,7 +2,7 @@
 # The SETUP tile of the car showcase is Restomod's and the PLAYER's car's (owner 2026-11-23): in Restomod, on the page of the player's own car, it is there and a click on it opens the
 # Car Setup panel; in Stock and Restored the screen is the original's (no tile); on the page of a rival (the opponent card's click in Control Central) it is not drawn and a click in its place opens nothing, the Color place as the original's.
 # The same goes for the RECORDS face of the Video tile (its peek is logged). Checked in Restomod, Stock and Restored, against the real binary and the CD data, by the walk's own SHOTs (the frame on screen once it is still) and marks.
-# usage: showcase_setup_tile.sh TNFS REPO ORIGINAL_DIR
+# usage: showcase_setup_tile.sh TNFS REPO ORIGINAL_DIR      PROFILES: the profiles to walk (all three when not given; CMake runs a test each, side by side)
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
 tnfs=$(abs "$1")
@@ -70,7 +70,8 @@ peek() {
     fi
 }
 
-for profile in restomod stock restored; do
+for profile in ${PROFILES:-restomod stock restored}; do
+    case $profile in restomod | stock | restored) ;; *) fail "PROFILES: '$profile' is no profile"; continue ;; esac
     # the player's page: in Restomod the tile is there and a click on it opens the panel (the box changes); in Stock and Restored the screen is the original's: no tile, nothing opens
     walk $profile "$player_page,$(over),$(shot pl_a),$(tile),$(shot pl_b)" || { fail "$profile: the walk to the player's showcase"; continue; }
     if [ $profile = restomod ]; then
