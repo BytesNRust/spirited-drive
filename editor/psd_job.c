@@ -12,6 +12,7 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utime.h>
 
 void psd_job_init(PsdJob *job)
 {
@@ -104,6 +105,8 @@ enum { STAGE_MAX = 256 };
 typedef struct {
     char tmp[STAGE_MAX][PSD_PATH + 8], to[STAGE_MAX][PSD_PATH];
     int count;
+    char same[STAGE_MAX][PSD_PATH];   /* there already, byte for byte what the PSD gives: not written again (on a synced workspace a rewritten file is sent again) */
+    int same_count;
 } Staged;
 
 static void unstage(Staged *st)
@@ -135,6 +138,35 @@ static int with_tmp_suffix(char *tmp, size_t size, const char *to)
     return 1;
 }
 
+static int same_bytes(const char *a, const char *b)
+{
+    char first[MANIFEST_SHA], second[MANIFEST_SHA];
+    return manifest_file_sha(a, first) && manifest_file_sha(b, second) && strcmp(first, second) == 0;
+}
+
+/* A PNG left as it is can still be older than its PSD (NAME_mask.png comes from NAME.psd, the dash's PNGs from dash.psd): it would be looked at as stale for ever, so its time, and
+ * nothing else, is brought up. Failing to is no failure of the conversion: the file is right. */
+static void bring_up_to_date(const char *psd_dir, const char *png_path, int dash)
+{
+    const char *base = strrchr(png_path, '/');
+    base = base != NULL ? base + 1 : png_path;
+    const char *end = strstr(base, "_mask.png");
+    char name[PSD_PATH];
+    const int n = dash ? snprintf(name, sizeof name, "dash.psd") : end != NULL ? snprintf(name, sizeof name, "%.*s.psd", (int)(end - base), base) : 0;
+    if (n <= 0 || (size_t)n >= sizeof name) return;
+    struct stat png, psd;
+    if (stat(png_path, &png) != 0) return;
+    DIR *d = opendir(psd_dir);
+    if (d == NULL) return;
+    for (const struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
+        char p[PSD_PATH];
+        if (strcasecmp(e->d_name, name) != 0 || !join(p, sizeof p, psd_dir, e->d_name) || stat(p, &psd) != 0) continue;
+        if (png.st_mtime < psd.st_mtime) (void)utime(png_path, NULL);
+        break;
+    }
+    closedir(d);
+}
+
 static int stage_pngs(PsdJob *job, const Manifest *known, const char *from, const char *dest, Staged *st)
 {
     DIR *d = opendir(from);
@@ -152,6 +184,12 @@ static int stage_pngs(PsdJob *job, const Manifest *known, const char *from, cons
                 const size_t used = strlen(job->kept_names);
                 job->kept++;
                 if (used + strlen(f->d_name) + 3 < sizeof job->kept_names) snprintf(job->kept_names + used, sizeof job->kept_names - used, "%s%s", used > 0 ? ", " : "", f->d_name);
+                continue;
+            }
+            char there[PSD_PATH];
+            if (st->same_count < STAGE_MAX && join(there, sizeof there, dest, f->d_name) && same_bytes(there, src)) {
+                snprintf(st->same[st->same_count++], sizeof st->same[0], "%s", there);
+                count++;
                 continue;
             }
             const int slot = st->count;
@@ -183,6 +221,16 @@ static int scratch_dash_has(const PsdJob *job, const char *name)
     char path[PSD_PATH];
     const int n = snprintf(path, sizeof path, "%s/dash/%s/%s", job->scratch, job->folder, name);
     return n > 0 && (size_t)n < sizeof path && access(path, F_OK) == 0;
+}
+
+static int same_manifest(const Manifest *a, const Manifest *b)
+{
+    if (a->count != b->count) return 0;
+    for (int i = 0; i < b->count; i++) {
+        const char *sha = manifest_sha(a, b->entry[i].name);
+        if (sha == NULL || strcmp(sha, b->entry[i].sha) != 0) return 0;
+    }
+    return 1;
 }
 
 static void finish(PsdJob *job)
@@ -227,11 +275,15 @@ static void finish(PsdJob *job)
         fail(job, "some files could not be put in place: the project may hold part of the new masks");
         return;
     }
-    for (int i = 0; manifest != NULL && i < st->count; i++) {   /* what was made, hashed: a later edit of it by hand is told from it */
-        const char *base = strrchr(st->to[i], '/');
+    Manifest *before = manifest != NULL ? malloc(sizeof *before) : NULL;   /* NULL: the manifest is written whatever it says */
+    if (before != NULL) *before = *manifest;
+    for (int i = 0; manifest != NULL && i < st->count + st->same_count; i++) {   /* what was made, hashed: a later edit of it by hand is told from it */
+        const char *file = i < st->count ? st->to[i] : st->same[i - st->count];
+        const char *base = strrchr(file, '/');
         char sha[MANIFEST_SHA];
-        written &= manifest_file_sha(st->to[i], sha) && manifest_set(manifest, base != NULL ? base + 1 : st->to[i], sha);
+        written &= manifest_file_sha(file, sha) && manifest_set(manifest, base != NULL ? base + 1 : file, sha);
     }
+    for (int i = 0; i < st->same_count; i++) bring_up_to_date(job->psd_dir, st->same[i], strstr(st->same[i], "/dash_mask.png") != NULL || strstr(st->same[i], "/dash_color.png") != NULL);
     free(st);
     const int has_dash = scratch_dash_has(job, "dash_mask.png"), has_colour = scratch_dash_has(job, "dash_color.png");   /* what the reader made says whether the dash.psd has a colour layer, whatever was kept */
     if (has_dash && !has_colour) {   /* a dash.psd with no colour layer: the colour of an older conversion goes */
@@ -241,7 +293,8 @@ static void finish(PsdJob *job)
         if (!by_hand && join(file, sizeof file, job->dash_dst, "dash_color.png")) unlink(file);
         if (!by_hand && manifest != NULL) manifest_forget(manifest, "dash_color.png");
     }
-    if (manifest != NULL) written &= manifest_save(job->manifest, manifest);
+    if (manifest != NULL && (before == NULL || !same_manifest(before, manifest) || access(job->manifest, F_OK) != 0)) written &= manifest_save(job->manifest, manifest);
+    free(before);
     free(manifest);
     if (!written) {
         fail(job, "the masks were made, but their manifest (.generated.tsv) could not be written");

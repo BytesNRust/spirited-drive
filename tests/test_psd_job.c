@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <utime.h>
 #include <unistd.h>
 
 enum { W = 4 };
@@ -354,6 +355,66 @@ static void test_no_manifest_line(void)
     psd_job_free(&job);
 }
 
+/* a conversion that gives what is there already writes nothing: on a synced workspace a rewritten file is a file to send again. A PNG older than its PSD gets its time brought up
+ * (once), its content left where it is. The times are set by hand, no waiting. */
+static void set_time(const char *rel, time_t when)
+{
+    char p[700];
+    path_of(p, sizeof p, rel);
+    const struct utimbuf t = { when, when };
+    CHECK(utime(p, &t) == 0);
+}
+
+static struct stat stat_of(const char *rel)
+{
+    char p[700];
+    struct stat st;
+    memset(&st, 0, sizeof st);
+    path_of(p, sizeof p, rel);
+    CHECK(stat(p, &st) == 0);
+    return st;
+}
+
+static void test_unchanged_not_rewritten(void)
+{
+    static const char *const OUT[] = { "kit6/art-generated/car_masks/side_mask.png", "kit6/art-generated/car_masks/frnt_mask.png", "kit6/art-generated/dash_masks/dash_mask.png",
+                                       "kit6/art-generated/dash_masks/dash_color.png", "kit6/art-generated/.generated.tsv" };
+    static const char *const PSD[] = { "psd/TSupra/side.psd", "psd/TSupra/frnt.psd", "psd/TSupra/dash.psd" };
+    enum { OUTS = 5, PNGS = 4, PSD_AT = 1000000, MADE_AT = 2000000, OLD_AT = 500000 };
+    PsdJob job;
+    char why[300], masks[700], dash[700], manifest[700];
+    path_of(masks, sizeof masks, "kit6/art-generated/car_masks"), path_of(dash, sizeof dash, "kit6/art-generated/dash_masks"), path_of(manifest, sizeof manifest, "kit6/art-generated/.generated.tsv");
+    dir_of("kit6");
+    put_dash_psd("psd/TSupra/dash.psd", 1);
+    psd_job_init(&job);
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok);
+    for (int i = 0; i < 3; i++) set_time(PSD[i], PSD_AT);
+    struct stat before[OUTS];
+    for (int i = 0; i < OUTS; i++) set_time(OUT[i], MADE_AT), before[i] = stat_of(OUT[i]);
+    for (int force = 0; force < 2; force++) {
+        CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, force, why, sizeof why));
+        run_to_end(&job);
+        CHECK(job.ok && job.kept == 0);
+        CHECK_EQ_INT(job.masks, 2);   /* the words count them as before */
+        for (int i = 0; i < OUTS; i++) {
+            const struct stat now = stat_of(OUT[i]);
+            CHECK(now.st_ino == before[i].st_ino && now.st_mtime == (time_t)MADE_AT);
+        }
+    }
+    for (int i = 0; i < PNGS; i++) set_time(OUT[i], OLD_AT);
+    CHECK(psd_job_start(&job, psd_dir, "TSUPRA", masks, dash, manifest, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.ok);
+    for (int i = 0; i < PNGS; i++) {
+        const struct stat now = stat_of(OUT[i]);
+        CHECK(now.st_ino == before[i].st_ino && now.st_mtime > (time_t)PSD_AT);
+    }
+    CHECK(stat_of(OUT[PNGS]).st_mtime == (time_t)MADE_AT);   /* the manifest says the same: not written */
+    psd_job_free(&job);
+}
+
 static void remove_tree(void)
 {
     char cmd[700];
@@ -379,6 +440,7 @@ int main(void)
     test_kit();
     test_edited_by_hand();
     test_no_manifest_line();
+    test_unchanged_not_rewritten();
     remove_tree();
     return TEST_REPORT();
 }
