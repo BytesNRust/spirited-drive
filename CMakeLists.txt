@@ -2151,8 +2151,10 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_original_psd_newer PROPERTIES TIMEOUT 600)
             add_test(NAME editor_e2e_diablo COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_diablo.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # the Diablo from the game files with the panels clicked
             set_tests_properties(editor_e2e_diablo PROPERTIES TIMEOUT 300)
-            add_test(NAME editor_traffic_car_panel COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_traffic_car_panel.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # a traffic car and the police car: the Car panel offers the masks only, true status, Check, Copy and Test drive; the Diablo keeps Add color
-            set_tests_properties(editor_traffic_car_panel PROPERTIES TIMEOUT 300)
+            foreach(part axxess copmust)
+                add_test(NAME editor_traffic_car_panel_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_traffic_car_panel.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # a traffic car and the police car: the Car panel offers the masks only, true status, Check, Copy and Test drive; the Diablo keeps Add color
+                set_tests_properties(editor_traffic_car_panel_${part} PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
+            endforeach()
             foreach(part ansx ldiabl tracks)   # a copy of the owner's migrated workspace (skips without the backup): two original cars and AL1 through the flows, side by side
                 add_test(NAME editor_real_workspace_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_real_workspace.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
                 set_tests_properties(editor_real_workspace_${part} PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
@@ -2812,7 +2814,7 @@ set(TNFS_SKIP_TESTS
     stock_screens_golden_stock stock_screens_golden_restored stock_screens_golden_restored-16x9 tweak_race_facts_A tweak_race_facts_B tweak_race_facts_C tweak_race_facts_compare
     edition_menus_menus edition_menus_modes edition_menus_race edition_menus_trackrace track_menus_central track_menus_race track_menus_card track_menus_page track_menus_best_times
     track_piece_run content_menus_own content_menus_standard car_own_behaviour track_new track_piece_drive editor_e2e_track editor_e2e_car editor_copy_originals editor_tweak_list
-    editor_tweak_pack editor_tweak_flows editor_first_start_flow editor_tweak_game_data editor_original_psd_newer editor_e2e_diablo editor_traffic_car_panel editor_real_workspace
+    editor_tweak_pack editor_tweak_flows editor_first_start_flow editor_tweak_game_data editor_original_psd_newer editor_e2e_diablo editor_traffic_car_panel_axxess editor_traffic_car_panel_copmust editor_real_workspace
     editor_e2e_cockpit editor_e2e_kit car_new car_card model_build mod_install_game_cars mod_install_game_tweak mod_install_game_before mod_install_game_tri mod_install_game_stock
     car_import_game car_resize_game car_texture_game car_kit_cli car_export_kits migration_acceptance reference_mod car_mask_psd track_mask_psd track_starter_psds dash_mask_psd
     dash_psd_update dash_color_draft spirited_logo spirited_icon replay_conditions_cd replay_conditions_recorded replay_conditions_extras replay_conditions_extras_old
@@ -2923,7 +2925,7 @@ set(TNFS_E2E_TESTS
     editor_e2e_track
     editor_copy_originals_cars_a editor_copy_originals_cars_b editor_copy_originals_tracks_a editor_copy_originals_tracks_b
     editor_tweak_parity_cars editor_tweak_parity_tracks
-    editor_traffic_car_panel
+    editor_traffic_car_panel_axxess editor_traffic_car_panel_copmust
     editor_real_workspace_ansx
     editor_real_workspace_ldiabl
     editor_real_workspace_tracks
