@@ -35,10 +35,12 @@
 53.1 boot_skip_chain_click
 51.9 edition_menus_trackrace
 48.5 editor_headless_car_a
-47.7 editor_car_race
+19.1 editor_car_race
+28.6 editor_car_race_draws
 47.6 car_lit_all_game_AL
 47.1 car_card_menus_steps
-46.9 editor_e2e_car
+23.4 editor_e2e_car_a
+23.4 editor_e2e_car_b
 46.7 mods_live_switch_race
 46.2 car_lit_all_game_TR
 46.2 edition_menus_menus
@@ -50,7 +52,8 @@
 44.2 track_piece_run
 43.8 light_drive_setup_game
 43.2 stock_screens_golden_restored-16x9
-42.5 editor_tweak_flows
+17.8 editor_tweak_flows_a
+24.6 editor_tweak_flows_b
 42.4 car_lit_all_game_CY
 42.1 track_new
 41.7 editor_tweak_parity_cars_a
@@ -66,7 +69,8 @@
 40.2 editor_first_start_flow
 39.2 track_light_fingerprint_CY
 37.9 editor_original_track_flow_c
-37.9 editor_original_track_flow_d
+18.2 editor_original_track_flow_d
+19.7 editor_original_track_flow_e
 37.5 stats_mods_isolation
 37.5 track_menus_page
 37.3 reflectors_day_weather_game
