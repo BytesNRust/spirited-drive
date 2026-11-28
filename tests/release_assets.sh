@@ -81,6 +81,7 @@ grep -q 'enable_language(RC)' CMakeLists.txt || bad "CMake does not enable RC: t
 grep -q '^1 ICON' "$rc" && grep -q 'VALUE "FileDescription", "Spirited Drive"' "$rc" || bad "$rc has no icon or no Spirited Drive name"
 iss=packaging/windows/spirited-drive.iss
 if [ -f "$iss" ]; then   # the installer commit's files (pure text): the folder is always asked, the old exe name goes, a doubled Spirited Drive folder is collapsed
+    grep -q '^AppPublisher=Bytes & Rust.\{0,1\}$' "$iss" || bad "the installer does not name the publisher Bytes & Rust"
     grep -q '^DisableDirPage=no' "$iss" || bad "the installer does not always ask for the folder (DisableDirPage=no)"
     grep -q 'Name: "{app}\\tnfs.exe"' "$iss" || bad "the installer does not remove the old tnfs.exe"
     grep -q 'function IsUpdate' "$iss" && grep -q 'PrevAppDir' "$iss" || bad "the installer does not tell an update (an earlier install with its program) from a fresh install"

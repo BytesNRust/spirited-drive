@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The Windows installer on a Windows machine (the CI runner is disposable; do not run this on a PC whose installed game you care about: it installs into, updates and
 # removes %LOCALAPPDATA%\Programs\Spirited Drive and Spirited Drive's Start menu entry):
-#   1. silent install into the default folder: the program, its data and the Start menu shortcut are there, and no administrator was needed
+#   1. silent install into the default folder: the program, its data and the Start menu shortcut are there, and no administrator was needed; the publisher
+#      Windows shows (the Installed apps list's, the installer's CompanyName) is "Bytes & Rust", the & kept as written
 #   2. the installed program starts (--mods-list, no window, exit 0)
 #   3. an update over it (the same installer run again) removes what the program carried before and the new one does not (a stale file in data\, a stale DLL, the old tnfs.exe),
 #      and leaves what is not the program's (a file of the player's beside the program)
@@ -33,6 +34,13 @@ rc=$?
 [ -d "$APP/data/car_masks" ] || fail "no data/car_masks in $APP"
 [ -f "$APP/unins000.exe" ] || fail "no uninstaller in $APP"
 [ -f "$SHORTCUT" ] || fail "no Start menu shortcut at $SHORTCUT"
+publisher='Bytes & Rust'
+system32="$(cygpath -u "$SYSTEMROOT")/System32"
+listed=$("$system32/reg.exe" query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{920C49EB-3A70-4CEF-85E8-1C6EC5005CB2}_is1' /v Publisher | tr -d '\r' | sed -n 's/^ *Publisher *REG_SZ *//p')
+[ "$listed" = "$publisher" ] || fail "the Installed apps list names the publisher '$listed', not '$publisher'"
+company=$("$system32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -Command "(Get-Item -LiteralPath '$(cygpath -w "$SETUP")').VersionInfo.CompanyName.Trim()" | tr -d '\r')
+[ "$company" = "$publisher" ] || fail "the installer's CompanyName is '$company', not '$publisher'"
+echo "publisher: Installed apps '$listed', CompanyName '$company'"
 # what Explorer may read as something it is not: no file of the install starts like a zip ("PK"), and the folder's top level is listed in the log
 zips=$(find "$APP" -type f -exec sh -c 'for f; do [ "$(head -c 2 "$f")" = "PK" ] && echo "$f"; done' _ {} +)
 [ -z "$zips" ] || fail "files of the install start like a zip (Explorer may ask for the last disk of a multi-volume set): $zips"
