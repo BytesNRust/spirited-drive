@@ -1991,7 +1991,7 @@ if(NOT EMSCRIPTEN)
         # owner 2026-11-23: the showcase's SETUP tile is the player's car's: on its page, not on a rival's (Stock and Restomod)
         foreach(profile restomod stock restored)   # a test each, side by side: two walks to the showcase apiece
             add_test(NAME showcase_setup_tile_${profile} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/showcase_setup_tile.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
-            set_tests_properties(showcase_setup_tile_${profile} PROPERTIES TIMEOUT 900 ENVIRONMENT "PROFILES=${profile}")
+            set_tests_properties(showcase_setup_tile_${profile} PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77 ENVIRONMENT "PROFILES=${profile}")
         endforeach()
         # Stock and Restored show the original's screens: the front end's pictures against goldens (tests/golden/screens/<profile>), one game session per profile
         foreach(profile stock restored restored-16x9)   # a session each, side by side
