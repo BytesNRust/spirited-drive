@@ -192,6 +192,7 @@
 3.8 resource_exchange_cd_2
 3.8 resource_exchange_cd_3
 3.8 resource_exchange_cd_4
+0.1 resource_exchange_cd_count
 3.7 car_piece_race_refusals
 3.7 tunnel_flare_fade
 3.6 mod_store
