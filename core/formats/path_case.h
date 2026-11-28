@@ -10,4 +10,8 @@
  * 1 with the path as the file system spells it in `out`; 0 when it is not there or does not fit. */
 int path_find_case(const char *dir, const char *rel, char *out, size_t cap);
 
+/* The same for a whole path, when it is not known which folder is spelt right: its parts up to the first that is not there as written are taken as they are, the rest are
+ * found without regard to case. 1 with the path as the file system spells it in `out` (`path` itself when it is there); 0 when it is not there or does not fit. */
+int path_spelled(const char *path, char *out, size_t cap);
+
 #endif

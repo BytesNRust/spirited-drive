@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
 
 enum { FOUND_MAX = 2048 };
 
@@ -39,4 +40,18 @@ int path_find_case(const char *dir, const char *rel, char *out, size_t cap)
         part += len + (part[len] == '/');
     }
     return snprintf(out, cap, "%s", cur) < (int)cap;
+}
+
+int path_spelled(const char *path, char *out, size_t cap)
+{
+    struct stat st;
+    if (path == NULL || path[0] == '\0') return 0;
+    if (stat(path, &st) == 0) return snprintf(out, cap, "%s", path) < (int)cap;
+    char there[FOUND_MAX];
+    if (snprintf(there, sizeof there, "%s", path) >= (int)sizeof there) return 0;
+    for (char *slash = strrchr(there, '/'); slash != NULL && slash != there; slash = strrchr(there, '/')) {
+        *slash = '\0';
+        if (stat(there, &st) == 0) return path_find_case(there, path + (slash - there) + 1, out, cap);
+    }
+    return path[0] != '/' && path_find_case(".", path, out, cap);   /* a relative path none of whose folders is spelt as written */
 }

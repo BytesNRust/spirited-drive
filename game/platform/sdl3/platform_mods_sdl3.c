@@ -209,14 +209,6 @@ static int mod_has(const char *dir, const char *rel, char *candidate, size_t cap
     return path_find_case(dir, rel, candidate, cap) && is_file(candidate, NULL);
 }
 
-/* `path` below the data root as the file system spells it, when its own spelling is not there (a case-sensitive one): 1 and `found` */
-int sdl3_data_any_case(const char *path, char *found, size_t cap)
-{
-    char rel[512];
-    if (mods_data_root[0] == '\0' || !modpath_relative(mods_data_root, path, rel, sizeof rel) || rel[0] == '\0') return 0;
-    return path_find_case(mods_data_root, rel, found, cap) && strcmp(found, path) != 0;
-}
-
 /* The first mod's copy of `path`, validated; *refused is set when there is a copy the game must not get. */
 static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
 {
@@ -270,7 +262,7 @@ uint8_t *platform_read_file(const char *path, size_t *size)
     }
     uint8_t *data = SDL_LoadFile(path, size);
     char found[1600];
-    if (data == NULL && sdl3_data_any_case(path, found, sizeof found)) data = SDL_LoadFile(found, size);
+    if (data == NULL && path_spelled(path, found, sizeof found)) data = SDL_LoadFile(found, size);   /* in another case: the CD's files, a piece's folder */
     if (data == NULL) port_log("platform: cannot read %s: %s\n", path, SDL_GetError());
     return data;
 }

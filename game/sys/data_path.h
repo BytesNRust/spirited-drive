@@ -35,6 +35,7 @@ int data_path_candidates(const char *relative, char paths[DATA_PATH_CANDIDATES][
 /* 1 when `path` is a file that is there (not a folder): an optional file's loader tries only those, so a candidate without it is passed over without a
  * read, and the log's "cannot read" lines are for a file that is there and could not be read (i191) */
 int data_path_exists(const char *path);
+/* both look for `path` in any case, as platform_read_file does */
 /* port (dep59 step 3): 1 with its size when `path` is a regular file (a link is followed); -1 when something else is there (a device, a
  * pipe, a folder); 0 when nothing is */
 int data_path_file_size(const char *path, size_t *size);

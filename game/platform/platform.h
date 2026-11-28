@@ -167,7 +167,8 @@ void platform_open_log(const char *mods_dir);
 /* The last mod file refused, with the reason; "" when none. */
 const char *platform_mods_error(void);
 
-/* Whole file in a platform-owned buffer (release with platform_free_file), or NULL. */
+/* Whole file in a platform-owned buffer (release with platform_free_file), or NULL. A file that is not there as written is looked for in any case
+ * (path_spelled), as platform_list_files looks for its folder. */
 uint8_t *platform_read_file(const char *path, size_t *size);
 void platform_free_file(uint8_t *data);
 
