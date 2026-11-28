@@ -1,0 +1,2 @@
+# The CD data's release asset and the sha256 of the decrypted tar.zst, one line: "asset sha256". Reviewed like code: the hash is what vouches for the data.
+# Empty until the blob is uploaded: the Gate workflow fails saying so.

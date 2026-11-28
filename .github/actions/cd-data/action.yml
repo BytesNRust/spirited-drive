@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The CD data for a job of the environment cd-data (notes: only main and the merge queue get its secrets): fetch.sh downloads and decrypts it into the runner's temp folder and
-# links it as original/ in the checkout. This step alone sees the key and the token; the later steps have neither.
+# links it as original/ in the checkout. Which asset, and the hash it must have, are in blob.txt, reviewed like the code. This step alone sees the key and the token.
 name: CD data
 description: Download and decrypt the CD data, and link it as original/
 inputs:
@@ -9,12 +9,6 @@ inputs:
     required: true
   repo-token:
     description: secrets.CD_REPO_TOKEN
-    required: true
-  asset:
-    description: the release asset's name
-    required: true
-  sha256:
-    description: sha256 of the decrypted tar.zst
     required: true
   repo:
     description: the private data repository
@@ -35,8 +29,6 @@ runs:
         CD_REPO_TOKEN: ${{ inputs.repo-token }}
         CD_REPO: ${{ inputs.repo }}
         CD_TAG: ${{ inputs.tag }}
-        CD_ASSET: ${{ inputs.asset }}
-        CD_SHA256: ${{ inputs.sha256 }}
       run: |
-        sh "$GITHUB_ACTION_PATH/fetch.sh" "${RUNNER_TEMP:?}/cd"
+        sh "$GITHUB_ACTION_PATH/fetch.sh" "${RUNNER_TEMP:?}/cd" "$GITHUB_ACTION_PATH/blob.txt"
         ln -s "$RUNNER_TEMP/cd/original" "${GITHUB_WORKSPACE:?}/original"

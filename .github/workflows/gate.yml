@@ -8,13 +8,6 @@ name: Gate
 
 on:
   workflow_dispatch:
-    inputs:
-      asset:
-        description: the data release's asset name
-        required: true
-      sha256:
-        description: sha256 of the decrypted tar.zst
-        required: true
 
 permissions:
   contents: read
@@ -57,16 +50,15 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
         with:
           persist-credentials: false
-      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
-      - name: Install ccache
-        run: sudo apt-get install -y -qq ccache || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
-      # before the configure: CMake registers the CD tests only when original/ is there
+      # first, right after the checkout: no third-party action or install runs ahead of the step that holds the key. It is also before the configure, which registers the CD tests only
+      # when original/ is there
       - uses: ./.github/actions/cd-data
         with:
           age-key: ${{ secrets.CD_AGE_KEY }}
           repo-token: ${{ secrets.CD_REPO_TOKEN }}
-          asset: ${{ inputs.asset }}
-          sha256: ${{ inputs.sha256 }}
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
+      - name: Install ccache
+        run: sudo apt-get install -y -qq ccache || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
       - name: Restore the ccache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
         with:
@@ -89,6 +81,9 @@ jobs:
           nix develop -c ctest --test-dir build --show-only=json-v1 > tests.json
           select=$(python3 -I tools/ci_shards.py tests.json tests/ci/costs-${{ matrix.build }}.txt ${{ matrix.shards }} ${{ matrix.shard }})
           nix develop -c ctest --test-dir build -I "$select" --output-on-failure --test-output-size-failed 4096 --timeout 1200 -j "$(nproc)"
+      - name: Delete the CD data
+        if: always()
+        run: rm -rf "${RUNNER_TEMP:?}/cd" "${GITHUB_WORKSPACE:?}/original"
 
   gate:
     name: gate

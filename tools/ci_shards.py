@@ -81,6 +81,8 @@ def main(argv):
     if n < 1 or not tests:
         sys.exit("ci_shards.py: no tests, or no shards")
     shards = split(tests, costs, n)
+    unknown = sum(1 for t in tests if t["name"] not in costs)
+    print("ci_shards.py: %d of %d tests have no cost (they count %.0f s)" % (unknown, len(tests), DEFAULT_COST), file=sys.stderr)
     if len(argv) == 5:
         k = int(argv[4])
         if not 1 <= k <= n:
