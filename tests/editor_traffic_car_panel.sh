@@ -4,7 +4,7 @@
 # usage: editor_traffic_car_panel.sh EDITOR TNFS ORIGINAL_DIR PORT_DATA
 . "$(dirname "$0")/editor_headless_common.sh"
 tnfs=$2 orig=$3 data=$4
-[ -r "$orig/SIMDATA/CARFAMS/AXXESS.CFM" ] && [ -d "$data/car_masks/AXXESS" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/AXXESS.CFM" ] && [ -d "$data/car_masks/AXXESS" ] || { echo "skip: no game files in $orig"; exit 77; }
 runs=0
 mkdir -p "$work/ws"
 studio() { runs=$((runs + 1)); "$editor" "$@" --workspace "$work/ws" --user "$work/player$runs" --game "$tnfs" --window 1280x800 --frames 30 >"$work/log" 2>&1; }

@@ -17,7 +17,7 @@ trap 'rm -rf "$work"' EXIT
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no DVIPER.CFM"; exit 0; }
+[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no DVIPER.CFM"; exit 77; }
 export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0
 
 # a game that takes an id in --car answers an unknown one with "no car <id>" (as car_new.sh)
@@ -28,7 +28,7 @@ restomod() {
 restomod
 timeout -k 5 60 "$tnfs" --data "$orig" --user "$work/user" --drive TR1 --car no-such-car --node 1 --screenshot "$work/probe.ppm" \
     >/dev/null 2>"$work/err"
-grep -q "no car no-such-car" "$work/err" || { echo "model_build: the game's --car takes no id: skipped"; exit 0; }
+grep -q "no car no-such-car" "$work/err" || { echo "model_build: the game's --car takes no id: skipped"; exit 77; }
 
 # a sanitizer's report in the game's errors
 clean() { ! grep -qE "ERROR: AddressSanitizer|runtime error:|ERROR: LeakSanitizer" "$1"; }

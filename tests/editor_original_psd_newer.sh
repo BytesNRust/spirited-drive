@@ -6,7 +6,7 @@
 # Needs the game's files (original/). usage: editor_original_psd_newer.sh EDITOR ORIGINAL_DIR DATA_DIR MAKE_TEST_PSD
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$2 data=$3 make_psd=$4
-[ -r "$orig/SIMDATA/CARFAMS/ANSX.CFM" ] && [ -d "$data/car_masks/ANSX" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/ANSX.CFM" ] && [ -d "$data/car_masks/ANSX" ] || { echo "skip: no game files in $orig"; exit 77; }
 runs=0
 studio() { runs=$((runs + 1)); t0=$SECONDS; "$editor" "$@" --user "$work/player$runs" >"$work/log" 2>&1; rc=$?; echo "editor_original_psd_newer: run $runs took $((SECONDS - t0))s" >&2; return $rc; }
 mkdir -p "$work/cars"

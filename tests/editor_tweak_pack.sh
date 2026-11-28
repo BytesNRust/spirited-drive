@@ -9,7 +9,7 @@ repo=$3
 tnfs=$4
 studio_bin=$5
 here=$(dirname "$0")
-[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 77; }
 mkdir -p "$work/ws" "$work/art" || exit 1
 cp -R "$repo/data" "$work/data"
 studio() { "$editor" "$@" --port-data "$work/data" --cd "$orig" --art-dir "$work/art" --user "$work/u" --workspace "$work/ws" >"$work/log" 2>&1; }

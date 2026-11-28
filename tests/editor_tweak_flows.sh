@@ -11,7 +11,7 @@
 orig=$2
 repo=$3
 here=$(dirname "$0")
-[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 77; }
 mkdir -p "$work/ws" "$work/art" "$work/r/core/formats" || exit 1
 cp -R "$repo/data" "$work/r/data" && cp "$repo/core/formats/car_paint.c" "$work/r/core/formats/car_paint.c"
 studio() { "$editor" "$@" --cd "$orig" --art-dir "$work/art" --user "$work/u" --workspace "$work/ws" >"$work/log" 2>&1; }

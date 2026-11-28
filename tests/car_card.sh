@@ -14,12 +14,12 @@ trap 'rm -rf "$work"' EXIT
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no DVIPER.CFM"; exit 0; }
+[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no DVIPER.CFM"; exit 77; }
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0
 mkdir -p "$work/probe" && echo "profile=restomod" > "$work/probe/port.cfg"
 timeout -k 5 60 "$tnfs" --data "$orig" --user "$work/probe" --drive TR1 --car no-such-car --node 1 --screenshot "$work/probe.ppm" \
     >/dev/null 2>"$work/err"
-grep -q "no car no-such-car" "$work/err" || { echo "car_card: the game's --car takes no id: skipped"; exit 0; }
+grep -q "no car no-such-car" "$work/err" || { echo "car_card: the game's --car takes no id: skipped"; exit 77; }
 
 size() { od -An -tu1 -j16 -N8 "$1" 2>/dev/null | tr -s ' \n' ' ' | awk '{ printf "%dx%d", (($1 * 256 + $2) * 256 + $3) * 256 + $4, (($5 * 256 + $6) * 256 + $7) * 256 + $8 }'; }
 

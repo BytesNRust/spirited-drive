@@ -9,7 +9,7 @@
 set -u
 TNFS=$1 REPO=$2 WORK=$3 CASE=$4 DATA=${5:-$2/original}
 RPL=$DATA/GAMEDATA/REPLAY/REPLAY1.RPL
-[ -f "$RPL" ] || { echo "skip (no $RPL)"; exit 0; }
+[ -f "$RPL" ] || { echo "skip (no $RPL)"; exit 77; }
 mkdir -p "$WORK"
 WORK=$(mktemp -d "$WORK/run.XXXXXX")
 trap 'rc=$?; if [ "$rc" -ne 0 ] && [ "${TNFS_KEEP_RUN:-0}" = 1 ]; then echo "kept: $WORK" >&2; else find "$WORK" -delete; fi' EXIT   # its run dir goes with it; kept only on a failure with TNFS_KEEP_RUN=1

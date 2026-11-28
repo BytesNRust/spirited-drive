@@ -21,7 +21,7 @@ touch "$work/marker"
 sleep 1
 
 tri="$orig/SIMDATA/MISC/TR1.TRI"
-[ -f "$tri" ] || { echo "skip: no TR1.TRI"; exit 0; }
+[ -f "$tri" ] || { echo "skip: no TR1.TRI"; exit 77; }
 
 # 1. the original, and the same track from a --mods folder that moves node 21 sideways: not served, the CD's track shows at both nodes
 "$tnfs" --data "$orig" --user "$user" --track TR1 --node 20 --screenshot "$work/orig20.ppm" >/dev/null 2>&1 || fail "the original track did not render"

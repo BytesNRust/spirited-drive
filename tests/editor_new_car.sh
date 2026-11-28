@@ -5,7 +5,7 @@
 # usage: editor_new_car.sh EDITOR REPO
 . "$(dirname "$0")/editor_headless_common.sh"
 repo=$2
-[ -f "$repo/original/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no original/"; exit 0; }
+[ -f "$repo/original/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no original/"; exit 77; }
 ws="$work/ws"
 mkdir -p "$ws"
 run() { "$editor" --workspace "$ws" --user "$work/u" --cd "${CD:-$repo/original}" --port-data "$repo/data" "$@"; }

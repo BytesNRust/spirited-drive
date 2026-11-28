@@ -12,7 +12,7 @@ orig=$(abs "$3")
 shift 3
 parts=${*:-finish replay refusals stock}
 repo=$(cd "$(dirname "$0")/.." && pwd)
-[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI in $orig"; exit 77; }
 work=$(mktemp -d)
 trap '[ -n "${KEEP:-}" ] && echo "kept $work" >&2 || find "$work" -delete' EXIT
 failures=0

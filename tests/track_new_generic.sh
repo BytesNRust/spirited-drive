@@ -10,7 +10,7 @@ trap 'rm -rf "$work"' EXIT
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-python3 - "$work/p.png" <<'PY' || { echo "skip: no python3"; exit 0; }
+python3 - "$work/p.png" <<'PY' || { echo "skip: no python3"; exit 77; }
 import sys, zlib, struct
 w = h = 32
 raw = b"".join(b"\x00" + b"".join(bytes((x * 8 % 256, y * 8 % 256, 90)) for x in range(w)) for y in range(h))

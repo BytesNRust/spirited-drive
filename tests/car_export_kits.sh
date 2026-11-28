@@ -14,7 +14,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
-[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no DVIPER.CFM"; exit 0; }
+[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no DVIPER.CFM"; exit 77; }
 
 "$exporter" "$orig" "$data" "$work/out" >"$work/log" 2>&1 || fail "the export: $(tail -3 "$work/log")"
 grep -q '^20 kits made, 0 failed$' "$work/log" || fail "not 20 kits: $(tail -2 "$work/log")"

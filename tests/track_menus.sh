@@ -17,7 +17,7 @@ studio=$(abs "$2")
 orig=$(abs "$3")
 shift 3
 parts=${*:-central race card}
-[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI in $orig"; exit 77; }
 work=$(mktemp -d)
 trap '[ -n "${KEEP:-}" ] && echo "kept $work" >&2 || find "$work" -delete' EXIT
 failures=0
@@ -116,7 +116,7 @@ part_race() {
 }
 
 part_card() {
-    command -v zsh >/dev/null 2>&1 || { echo "skip: card (needs zsh)"; return; }
+    command -v zsh >/dev/null 2>&1 || { echo "skip: card (needs zsh)"; skipped=1; return; }
     printf 'name=Solo\ncars=supra\ntracks=dune-run\n' > "$work/solo.ini"
     mkdir -p "$work/pics"
     MODS="$work/pieces/dune-run" EDITION="$work/solo.ini" DATA="$orig" zsh "$(dirname "$0")/../tools/menu_walk.sh" "$tnfs" "$work/pics" added-track >"$work/walk.log" 2>&1 ||
@@ -125,7 +125,7 @@ part_card() {
 }
 
 part_page() {
-    command -v zsh >/dev/null 2>&1 || { echo "skip: page (needs zsh)"; return; }
+    command -v zsh >/dev/null 2>&1 || { echo "skip: page (needs zsh)"; skipped=1; return; }
     printf 'name=Solo\ncars=supra\ntracks=dune-run\n' > "$work/solo.ini"
     mkdir -p "$work/pics"
     MODS="$work/pieces/dune-run" EDITION="$work/solo.ini" DATA="$orig" zsh "$(dirname "$0")/../tools/menu_walk.sh" "$tnfs" "$work/pics" added-page >"$work/walk.log" 2>&1 ||
@@ -152,5 +152,6 @@ for part in $parts; do
     *) echo "FAIL: no part $part" >&2; exit 2 ;;
     esac
 done
+[ "$failures" -eq 0 ] && [ -n "${skipped:-}" ] && exit 77   # a part could not run, and nothing else failed: skipped, not passed
 [ "$failures" -eq 0 ] && echo "track_menus ($parts): all checks passed"
 exit "$failures"

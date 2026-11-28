@@ -10,7 +10,7 @@ set -u
 tnfs=$1
 studio=$2
 orig=$3
-[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 77; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0

@@ -18,7 +18,7 @@ studio=$2
 orig=$3
 port=$4
 parts=${5:-cars tweak before tri stock}
-[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no CD in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no CD in $orig"; exit 77; }
 work=$(mktemp -d)
 fixture=${6:-$work/fixture}
 trap 'find "$work" -delete' EXIT

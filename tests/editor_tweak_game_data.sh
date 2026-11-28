@@ -5,7 +5,7 @@
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$(cd "$2" && pwd)
 repo=$3
-[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/track_light" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/track_light" ] || { echo "skip: no game files in $orig"; exit 77; }
 mkdir -p "$work/ws" "$work/art" "$work/prefs" "$work/Studio.app/Contents/Resources" "$work/Game.app/Contents/MacOS" "$work/Game.app/Contents/Resources" "$work/norepo" || exit 1
 cp -R "$repo/data" "$work/Game.app/Contents/Resources/data"
 printf '#!/bin/sh\n' > "$work/Game.app/Contents/MacOS/tnfs" && chmod +x "$work/Game.app/Contents/MacOS/tnfs"

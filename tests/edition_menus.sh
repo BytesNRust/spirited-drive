@@ -26,7 +26,7 @@ tnfs=$(abs "$1")
 orig=$(abs "$3")
 parts=${4:-menus modes race}
 studio=${5:+$(abs "$5")}
-[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 77; }
 work=$(mktemp -d)
 trap '[ -n "${KEEP:-}" ] && echo "kept $work" >&2 || find "$work" -delete' EXIT
 failures=0
@@ -158,7 +158,7 @@ part_race() {
 
 part_trackrace() {
     [ -x "$studio" ] || { echo "FAIL: trackrace needs tnfs-studio (the fifth argument)" >&2; failures=$((failures + 1)); return; }
-    [ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI"; return; }
+    [ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI"; skipped=1; return; }
     printf 'section 24\nsection 40 turn=90 grade=3 bank=6 width=50\nsection 30 turn=-120 grade=-3 bank=-6\nsection 30 bank=0 grade=0 width=40\n' > "$work/loop.trk"
     "$studio" track new "$work/loop.trk" --template AL1 --piece --id dune-run --stem DUNERUN --out "$work/piece" --data "$orig" >"$work/studio.log" 2>&1 ||
         { fail "trackrace: track new --piece: $(cat "$work/studio.log")"; return; }
@@ -178,5 +178,6 @@ for part in $parts; do
     *) echo "FAIL: no part $part" >&2; exit 2 ;;
     esac
 done
+[ "$failures" -eq 0 ] && [ -n "${skipped:-}" ] && exit 77   # a part could not run, and nothing else failed: skipped, not passed
 [ "$failures" -eq 0 ] && echo "edition_menus ($parts): all checks passed"
 exit "$failures"

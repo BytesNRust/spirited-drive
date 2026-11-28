@@ -2790,6 +2790,30 @@ if(UNIX)
 endif()
 include(fuzz/fuzz.cmake)
 
+# a test that cannot run (no CD data, no Pillow, no zsh, not this system) exits 77 and ctest says "Skipped": never "Passed". The tests whose scripts can do that; tests/skip_codes.py
+# fails on a script that skips with exit 0, and on a test of such a script missing here
+set(TNFS_SKIP_TESTS
+    editor_new_car editor_ui_io editor_ui_io_light editor_export_track track_new_generic mods_overlay car_piece_race_quick car_piece_race_giveup car_piece_race_finish
+    car_piece_race_replay car_piece_race_refusals car_piece_race_stock car_card_menus_cards car_card_menus_modes car_card_menus_steps car_card_menus_replays showcase_setup_tile
+    stock_screens_golden_stock stock_screens_golden_restored stock_screens_golden_restored-16x9 tweak_race_facts_A tweak_race_facts_B tweak_race_facts_C tweak_race_facts_compare
+    edition_menus_menus edition_menus_modes edition_menus_race edition_menus_trackrace track_menus_central track_menus_race track_menus_card track_menus_page track_menus_best_times
+    track_piece_run content_menus_own content_menus_standard car_own_behaviour track_new track_piece_drive editor_e2e_track editor_e2e_car editor_copy_originals editor_tweak_list
+    editor_tweak_pack editor_tweak_flows editor_first_start_flow editor_tweak_game_data editor_original_psd_newer editor_e2e_diablo editor_traffic_car_panel editor_real_workspace
+    editor_e2e_cockpit editor_e2e_kit car_new car_card model_build mod_install_game_cars mod_install_game_tweak mod_install_game_before mod_install_game_tri mod_install_game_stock
+    car_import_game car_resize_game car_texture_game car_kit_cli car_export_kits migration_acceptance reference_mod car_mask_psd track_mask_psd track_starter_psds dash_mask_psd
+    dash_psd_update dash_color_draft spirited_logo spirited_icon replay_conditions_cd replay_conditions_recorded replay_conditions_extras replay_conditions_extras_old
+    two_tracks_reflectors trail_frame_skip wipers)
+foreach(t IN LISTS TNFS_SKIP_TESTS)
+    if(TEST ${t})
+        set_tests_properties(${t} PROPERTIES SKIP_RETURN_CODE 77)
+    endif()
+endforeach()
+find_package(Python3 COMPONENTS Interpreter)
+if(NOT EMSCRIPTEN AND Python3_FOUND)
+    add_test(NAME skip_codes COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tests/skip_codes.py ${CMAKE_CTEST_COMMAND} ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR})
+    set_tests_properties(skip_codes PROPERTIES TIMEOUT 120)
+endif()
+
 # port: every test, whenever it was registered above, gets a scratch pref dir, so a test that starts tnfs with no --user (or forgets one) writes in the build, never in the player's own
 # folder; pref_guard fails when a test has none (tests/pref_guard.py)
 if(NOT EMSCRIPTEN)
@@ -2847,7 +2871,7 @@ endif()
 set(TNFS_STATIC_CHECKS
     readme_wording text_binarized_lint car_mask_class_table car_mask_psd masks_status track_mask_psd dash_mask_psd dash_psd_update
     frame_pick free_udp_ports spirited_logo spirited_icon profile_tables profile_tables_sabotage editor_ui_words
-    editor_loose_text track_groups)
+    editor_loose_text track_groups skip_codes)
 set(TNFS_E2E_TESTS
     car_lamps_by_mask_game    editor_headless_track_a
     editor_headless_track_b

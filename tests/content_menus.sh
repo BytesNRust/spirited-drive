@@ -31,7 +31,7 @@ studio=$(abs "$2")
 orig=$(abs "$3")
 port=$(abs "$4")
 parts=${5:-own standard}
-[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no CD in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no CD in $orig"; exit 77; }
 work=$(mktemp -d)
 trap '[ -n "${KEEP:-}" ] && echo "kept $work" >&2 || find "$work" -delete' EXIT
 failures=0

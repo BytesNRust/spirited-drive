@@ -12,7 +12,7 @@ failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 export SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software SDL_AUDIODRIVER=dummy
 
-[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI"; exit 0; }
+[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI"; exit 77; }
 printf 'section 24\nsection 40 turn=90 grade=3 bank=6 width=50\nsection 30 turn=-120 grade=-3 bank=-6\nsection 30 bank=0 grade=0 width=40\n' > "$work/loop.trk"
 "$studio" track new "$work/loop.trk" --template AL1 --piece --id demo-stage --stem DEMOST --out "$work/piece" --data "$orig" >"$work/log" 2>&1 || { echo "FAIL: track new --piece: $(cat "$work/log")" >&2; exit 1; }
 

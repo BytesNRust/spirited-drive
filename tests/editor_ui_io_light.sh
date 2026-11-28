@@ -10,7 +10,7 @@ trap 'rm -rf "$work"' EXIT
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 MAX_TOTAL=30 MAX_OPEN=8
 fail() { echo "FAIL: $*" >&2; exit 1; }
-[ "$(uname)" = Darwin ] || { echo "skip: DYLD_INSERT_LIBRARIES is macOS"; exit 0; }
+[ "$(uname)" = Darwin ] || { echo "skip: DYLD_INSERT_LIBRARIES is macOS"; exit 77; }
 mkdir -p "$work/light/track_light" "$work/cd/SIMDATA/MISC" "$work/user"
 "$make_tri" "$work/cd/SIMDATA/MISC/AL1.TRI" 30 || fail "no fake TRI"
 cat > "$work/light/track_light/AL1.txt" <<'TXT'

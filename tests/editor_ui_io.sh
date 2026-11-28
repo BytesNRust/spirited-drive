@@ -10,7 +10,7 @@ trap 'rm -rf "$work"' EXIT
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 MAX_TOTAL=100 MAX_OPEN=8   # 100 frames at rest (about 8 s on the dummy driver): the watches (the card's files, the masks: every 2.5 s) and a manifest look; the card's files read the two banks' folders (2 directory reads a look, one look every 2.5 s: under a read a second); a look a second or a frame shows as more than the run's seconds + 4; no per-frame work, no hashing of PNGs
 fail() { echo "FAIL: $*" >&2; exit 1; }
-[ "$(uname)" = Darwin ] || { echo "skip: DYLD_INSERT_LIBRARIES is macOS"; exit 0; }
+[ "$(uname)" = Darwin ] || { echo "skip: DYLD_INSERT_LIBRARIES is macOS"; exit 77; }
 
 mkdir -p "$work/kit/model/near/bank" "$work/kit/art-generated/car_masks" "$work/kit/art-source/masks"
 printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/mod.ini"

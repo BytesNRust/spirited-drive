@@ -15,7 +15,7 @@ failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software
 
-[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI"; exit 0; }
+[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI"; exit 77; }
 
 cat > "$work/loop.trk" <<'LAYOUT'
 # a stage: straight, a climbing right-hander with banking, a long left, a flat run-out

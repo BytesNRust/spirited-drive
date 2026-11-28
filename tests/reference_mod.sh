@@ -21,8 +21,8 @@ failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software
 
-[ -f "$orig/SIMDATA/MISC/TR1.TRI" ] && [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD data"; exit 0; }
-command -v python3 >/dev/null 2>&1 || { echo "skip: no python3 for the texture edits"; exit 0; }
+[ -f "$orig/SIMDATA/MISC/TR1.TRI" ] && [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD data"; exit 77; }
+command -v python3 >/dev/null 2>&1 || { echo "skip: no python3 for the texture edits"; exit 77; }
 touch "$work/marker"
 sleep 1
 

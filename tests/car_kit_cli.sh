@@ -16,7 +16,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
-[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no DVIPER.CFM"; exit 0; }
+[ -f "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] || { echo "skip: no DVIPER.CFM"; exit 77; }
 
 # the kit's sources, each file's hash, build/ left out
 sources() { (cd "$1" && find . -type f ! -path './build/*' | LC_ALL=C sort | xargs shasum) }

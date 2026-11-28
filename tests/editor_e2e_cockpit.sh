@@ -7,7 +7,7 @@
 tnfs=$2
 orig=$3
 data=$4
-[ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ] && [ -d "$data/dash_masks/P911" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ] && [ -d "$data/dash_masks/P911" ] || { echo "skip: no game files in $orig"; exit 77; }
 runs=0
 studio() { runs=$((runs + 1)); "$editor" "$@" --user "$work/player$runs" >"$work/log" 2>&1; }
 car="$work/cars/p911"

@@ -6,7 +6,7 @@
 . "$(dirname "$0")/editor_headless_common.sh"
 tnfs=$2
 orig=$3
-[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no game files in $orig"; exit 77; }
 export SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software
 player="$work/player"
 mkdir -p "$player" && echo "profile=restomod" > "$player/port.cfg"   # the profile that loads mods

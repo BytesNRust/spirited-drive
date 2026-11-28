@@ -6,7 +6,7 @@
 # With MIGRATED_DIR "-" the migration is made first, in a scratch folder, by EXPORTER (car_export_kits; no art folder: no PSDs, so nothing may differ at all).
 # usage: migration_acceptance.sh EDITOR ORIGINAL_DIR DATA_DIR MIGRATED_DIR [REPORT [EXPORTER]]
 editor=$1; orig=$2; data=$3; migrated=$4; report=$5; exporter=$6
-[ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ] || { echo "skip: no game files in $orig"; exit 77; }
 work=$(mktemp -d "${TMPDIR:-/tmp}/migration-acceptance-XXXXXX") || exit 1
 trap 'python3 -c "import shutil,sys; shutil.rmtree(sys.argv[1], ignore_errors=True)" "$work"' EXIT
 if [ "$migrated" = "-" ]; then

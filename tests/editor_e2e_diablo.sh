@@ -7,7 +7,7 @@
 . "$(dirname "$0")/editor_headless_common.sh"
 tnfs=$2 orig=$3 data=$4
 repo_src="$(cd "$(dirname "$0")/.." && pwd)"
-[ -r "$orig/SIMDATA/CARFAMS/LDIABL.CFM" ] && [ -d "$data/car_masks/LDiabl" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/LDIABL.CFM" ] && [ -d "$data/car_masks/LDiabl" ] || { echo "skip: no game files in $orig"; exit 77; }
 runs=0
 mkdir -p "$work/ws"
 studio() { runs=$((runs + 1)); "$editor" "$@" --workspace "$work/ws" --user "$work/player$runs" --window 1280x800 >"$work/log" 2>&1; }

@@ -14,7 +14,7 @@ tnfs=$(abs "$1")
 repo=$(abs "$2")
 orig=$(abs "$3")
 part=${4:-all}
-[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 77; }
 if [ -n "${5:-}" ]; then work=$(abs "$5"); mkdir -p "$work"; else work=$(mktemp -d); trap 'find "$work" -delete' EXIT; fi
 export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0
 failures=0

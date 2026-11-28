@@ -23,7 +23,7 @@ studio=$(abs "$2")
 repo=$(abs "$3")
 orig=$(abs "$4")
 parts=${5:-cards modes steps replays}
-[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
+[ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 77; }
 work=$(mktemp -d)
 trap 'find "$work" -delete' EXIT
 failures=0
