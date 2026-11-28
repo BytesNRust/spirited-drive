@@ -82,6 +82,27 @@ static void log_window_sizes(const char *when)
              (double)frect.x, (double)frect.y, (double)frect.w, (double)frect.h, sdl3_fb_width, sdl3_fb_height);
 }
 
+/* port (Wayland): a window asked full screen takes the screen's size only when the compositor says so, and nothing read what it said until the first picture: weston's desktop shell, given that picture first, keeps the place of
+ * the small window when it then grows (cut off on the right and below). The events are pumped until the size is no longer the one asked, WAIT_MS at most; never SDL_SyncWindow, whose round trips have no limit. */
+static void wait_wayland_fullscreen(int asked_w, int asked_h)
+{
+    enum { WAIT_MS = 2000, LOOK_MS = 5 };
+    const char *driver = SDL_GetCurrentVideoDriver();
+    if (driver == NULL || SDL_strcmp(driver, "wayland") != 0) return;
+    int before_w = 0, before_h = 0;
+    SDL_GetWindowSize(sdl3_window, &before_w, &before_h);
+    SDL_Rect screen = { 0, 0, 0, 0 };
+    const bool screen_is_asked = SDL_GetDisplayBounds(SDL_GetDisplayForWindow(sdl3_window), &screen) && screen.w == asked_w && screen.h == asked_h;   /* no size to wait for */
+    int w = before_w, h = before_h;
+    const Uint64 start = SDL_GetTicks();
+    while (!screen_is_asked && w == asked_w && h == asked_h && SDL_GetTicks() - start < WAIT_MS) {
+        SDL_PumpEvents();
+        SDL_Delay(LOOK_MS);
+        SDL_GetWindowSize(sdl3_window, &w, &h);
+    }
+    port_log("platform: Wayland full screen: window %dx%d before, %dx%d after %u ms\n", before_w, before_h, w, h, (unsigned)(SDL_GetTicks() - start));
+}
+
 bool platform_init(const PlatformConfig *config)
 {
     data_path_set_base(SDL_GetBasePath());   /* port: our own data beside the program (the bundle's Contents/Resources/ on macOS): data_path.h */
@@ -110,6 +131,7 @@ bool platform_init(const PlatformConfig *config)
     SDL_SetRenderLogicalPresentation(sdl3_renderer, sdl3_fb_width, sdl3_fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    if (config->fullscreen != 0) wait_wayland_fullscreen(sdl3_fb_width, sdl3_fb_height);
     log_window_sizes("created");
     input_script_load();
     sdl3_window_focused = true;
