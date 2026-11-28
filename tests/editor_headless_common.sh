@@ -12,7 +12,7 @@ failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
 cat > "$work/png_check.py" <<'PY'
-import sys, struct, zlib
+import collections, struct, sys, zlib
 d = open(sys.argv[1], "rb").read()
 mode = sys.argv[2]
 assert d[:8] == b"\x89PNG\r\n\x1a\n"
@@ -31,7 +31,7 @@ rows, prev = [], bytearray(stride)
 for y in range(h):
     f = raw[y * (stride + 1)]
     line = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
-    for x in range(stride):
+    for x in range(stride) if f else ():   # the editor's screenshots are unfiltered (filter 0): nothing to undo, byte by byte (seconds a picture)
         a = line[x - bpp] if x >= bpp else 0
         b = prev[x]
         c = prev[x - bpp] if x >= bpp else 0
@@ -45,12 +45,12 @@ for y in range(h):
     rows.append(line)
     prev = line
 # the road is light grey and the control points blue (viewport.cpp): near those colours, so many pixels, and nothing else is
+colours = collections.Counter()   # each colour of the picture and how many pixels have it: counted once, a few thousand to look through
+for row in rows:
+    colours.update(zip(row[0::bpp], row[1::bpp], row[2::bpp]))
 def count(rgb, tol=12):
-    n = 0
-    for row in rows:
-        n += sum(1 for r, g, b in zip(row[0::bpp], row[1::bpp], row[2::bpp])
-                 if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol)
-    return n
+    return sum(n for (r, g, b), n in colours.items()
+               if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol)
 road, points, red, amber = count((200, 204, 212)), count((90, 160, 255)), count((255, 70, 70)), count((255, 176, 32))
 def band(rgb, y0, y1, tol=6):   # the Distance strip's profile box is in rows 470-650 of the 960x1200 picture; the Viewport ends above it
     return sum(1 for row in rows[y0:y1]
