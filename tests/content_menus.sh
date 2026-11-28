@@ -121,6 +121,7 @@ part_own() {
     section install;   add "500:DROP:test-car.zip,$(wait_for dialog=install),300:ENTER,$(wait_line "saved mine")"
     section live;      add "$done_,$(wait_for edition=mine),$single,$(click 319 197),$(wait_for car=7),$(click 319 197),$(wait_for car=)"
     # Rusty Springs (card 3) from card 1; one lap with the harness's autopilot; Enter on each results screen once it has faded in
+    # The race's clock runs four times faster (TNFS_CLOCK_RATE): the same steps and result, a quarter of the wait
     # (headless the first needs two: one wakes the pointer over Done, the second takes it)
     section race;      add "$(click 535 319),$(wait_for card=2),$(click 535 319),$(wait_for card=3)"
     section race;      add "$(click 56 453),0:WAIT:mark:results=circuit:300,300:ENTER,300:ENTER,$(wait_for results=best_totals)"
@@ -130,7 +131,7 @@ part_own() {
     section uninstall; add "$uninstall,$yes,$(wait_line "uninstalled test-car")"
     section delete;    add "$delete,$yes,$(wait_line "deleted mine")"
     section standard;  add "$done_,$single"
-    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$work/nomods" || fail "own: the walk did not end"
+    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4" walk "$work/nomods" || fail "own: the walk did not end"
     # new: Mine made by the name box, before anything was installed
     before "edition_store: saved mine" "mods: installed test-car 0.1" || fail "new: New did not save Mine before the install"
     # install: the drop installed 0.1, and the prompt's yes added it to Mine (saved again)

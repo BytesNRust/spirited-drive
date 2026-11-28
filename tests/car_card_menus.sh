@@ -198,12 +198,13 @@ replays="$(click 215 450),$(wait_for screen=options),$(click 240 324),300:MOUSE:
 # Rusty Springs (track 3: a circuit, one race; Coastal's three segments would go on), the track arrow twice from a fresh player's 1; one
 # lap with the harness's autopilot; Enter on each results screen once it has faded in (its mark:results=NAME), to Control Central again
 # (headless the pointer is not over Done at first: on the first screen one Enter wakes it there and a second takes Done)
+# (the race's clock runs four times faster, TNFS_CLOCK_RATE: the same steps and result, a quarter of the wait)
 rusty="$(click 535 319),$(wait_for card=),$(click 535 319),$(wait_for card=3)"
 results="0:WAIT:mark:results=circuit:300,300:ENTER,300:ENTER,$(wait_for results=best_totals),300:ENTER,$(wait_for car=16)"
 
 part_replays() {
     user_in restomod
-    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$piece" "$to_central,$car_16,$rival_16,$rusty,$(click 56 453),$results,$replays" ||
+    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4" walk "$piece" "$to_central,$car_16,$rival_16,$rusty,$(click 56 453),$results,$replays" ||
         fail "a race of car 16 against car 16 from the menus did not come back to the replay list"
     log | grep -q "^finish: 0=TESTCAR" || fail "the race of car 16 against car 16 did not finish"
     grep -q "^opponent=test-car$" "$work/user/restomod.cfg" 2>/dev/null || fail "the race did not keep opponent=test-car"

@@ -155,6 +155,9 @@ static int replay_exit_wanted(void)
     return replay_of != NULL && v != NULL && strcmp(v, "1") == 0;
 }
 
+/* port (test harness, env only): drive_clock_rate_of */
+static uint32_t clock_rate(void) { return drive_clock_rate_of(getenv("TNFS_CLOCK_RATE"), drive_link_on); }
+
 static void run_service(void *ctx)
 {
     DriveRun *r = ctx;
@@ -175,8 +178,8 @@ static void run_service(void *ctx)
     if (r->quit) r->w->running = 0;
     const uint32_t now = platform_ticks_ms();
     /* the timer written elsewhere (the start zeroes it): count on from its value */
-    if (r->w->timer != r->timer_written) r->base_ms = now - drive_clock_ms_of(&r->clock, r->w->timer);
-    r->w->timer = drive_clock_steps(&r->clock, now - r->base_ms);
+    if (r->w->timer != r->timer_written) r->base_ms = now - drive_clock_ms_of(&r->clock, r->w->timer) / clock_rate();
+    r->w->timer = drive_clock_steps(&r->clock, (now - r->base_ms) * clock_rate());
     r->timer_written = r->w->timer;
     if (r->w->timer > r->w->done) return;
     /* port: no step due: a frame between steps when one is due on the refresh rate */
@@ -593,7 +596,7 @@ static void render_blended(const Track *t, uint8_t *pixels)
         render_drive(t, pixels);
         return;
     }
-    const uint32_t elapsed = platform_ticks_ms() - drive_interp.cur_ms;
+    const uint32_t elapsed = (platform_ticks_ms() - drive_interp.cur_ms) * clock_rate();
     const int32_t alpha = drive_interp_alpha((uint64_t)elapsed * DRIVE_CLOCK_BASE_HZ * 3,
                                              1000u * (uint32_t)drive_clock_round_ticks(&drive_clock));
     DriveInterpPose saved;

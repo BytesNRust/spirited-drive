@@ -21,5 +21,8 @@ int32_t drive_clock_steps(const DriveClock *c, uint32_t ms);
 int32_t drive_clock_round_ticks(const DriveClock *c);
 /* the first ms at which `steps` are due */
 uint32_t drive_clock_ms_of(const DriveClock *c, int32_t steps);
+/* port (test harness): how many times faster than real time the race's clock runs, from TNFS_CLOCK_RATE's value `v` (2..8; anything else,
+ * or unset, 1). The same steps, more of them a frame, as on a slow machine. A network race is always 1. */
+uint32_t drive_clock_rate_of(const char *v, int network);
 
 #endif

@@ -19,8 +19,9 @@ status=0
 fail() { echo "FAIL: $1"; status=1; }
 "$maker" --scratch "$work/player" "$work/user" || fail "the scratch was not made"
 script="0:WAIT:mark:results=circuit:240,300:ENTER,300:ENTER,0:WAIT:mark:results=best_totals:120,300:ENTER,300:ENTER"
+# the race's clock runs four times faster (TNFS_CLOCK_RATE): the same steps and result, a quarter of the wait
 for race in 1 2; do   # the next race too: nothing fixed is left in the scratch for it to find different
-    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script TNFS_PREF_DIR="$work/pref" \
+    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_CLOCK_RATE=4 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script TNFS_PREF_DIR="$work/pref" \
         timeout -k 5 280 "$bin" --data "$original" --user "$work/user" --drive TR1 --type 0 > "$work/out$race" 2> "$work/err$race"
     [ $? -eq 0 ] || fail "race $race ended with a status"
     log="$work/user/spirited-drive.log"

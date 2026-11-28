@@ -26,5 +26,14 @@ int main(void)
     /* other levels as 0043bb44 leaves them; an unknown one is level 1's */
     CHECK_EQ_INT(drive_clock_of_level(0).long_ticks, 4);
     CHECK_EQ_INT(drive_clock_of_level(9).short_ticks, 3);
+    /* the harness's TNFS_CLOCK_RATE: 1 unset or odd, 2..8 as given, and never in a network race */
+    CHECK_EQ_INT((int32_t)drive_clock_rate_of(NULL, 0), 1);
+    CHECK_EQ_INT((int32_t)drive_clock_rate_of("4", 0), 4);
+    CHECK_EQ_INT((int32_t)drive_clock_rate_of("8", 0), 8);
+    CHECK_EQ_INT((int32_t)drive_clock_rate_of("9", 0), 1);
+    CHECK_EQ_INT((int32_t)drive_clock_rate_of("0", 0), 1);
+    CHECK_EQ_INT((int32_t)drive_clock_rate_of("-4", 0), 1);
+    CHECK_EQ_INT((int32_t)drive_clock_rate_of("fast", 0), 1);
+    CHECK_EQ_INT((int32_t)drive_clock_rate_of("4", 1), 1);
     return TEST_REPORT();
 }

@@ -1,6 +1,8 @@
 /* port: the race's steps by real time (drive_clock.h) */
 #include "game/viewer/drive_clock.h"
 
+#include <stdlib.h>
+
 #include "game/race/race_timer.h"
 
 enum { FIRST_TICKS = 3, STEPS_A_ROUND = 3, MS_PER_SECOND = 1000 };
@@ -32,4 +34,10 @@ uint32_t drive_clock_ms_of(const DriveClock *c, int32_t steps)
     const int64_t k = steps - 1;
     const int64_t base = FIRST_TICKS + k / STEPS_A_ROUND * drive_clock_round_ticks(c) + k % STEPS_A_ROUND * c->short_ticks;
     return (uint32_t)((base * MS_PER_SECOND + DRIVE_CLOCK_BASE_HZ - 1) / DRIVE_CLOCK_BASE_HZ);
+}
+
+uint32_t drive_clock_rate_of(const char *v, int network)
+{
+    const long n = v != NULL ? strtol(v, NULL, 10) : 1;
+    return !network && n >= 2 && n <= 8 ? (uint32_t)n : 1u;
 }
