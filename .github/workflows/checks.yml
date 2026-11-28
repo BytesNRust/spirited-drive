@@ -8,6 +8,9 @@
 # Pushes that touch only docs or notes (*.md, docs/, notes/) run nothing. By hand too (Actions > Checks > Run workflow).
 # The Windows job keeps going past a broken target (ninja -k 0) and runs ctest on all, so its summary lists everything that fails, not the first thing; the logs go up as an artifact.
 # Studio (the editor, TNFS_EDITOR) is built on Linux and macOS: it is not part of the Windows version. ccache keeps the objects between runs: main saves the cache, every branch restores it.
+# ctest starts the longest tests first when it knows their times (build/Testing/Temporary/CTestCostData.txt); a fresh build folder does not, and the longest one
+# (editor_light_window) then started minutes in and set the job's length. So Linux and macOS keep that file from run to run: every run saves it, a branch restores
+# its own last one, or main's.
 # Tests that need the CD's data skip themselves (there is no game data in CI). tests/exe_smoke.sh is the smoke of the exe (not a ctest: CI's macOS has no `timeout`).
 name: Checks
 
@@ -46,7 +49,7 @@ jobs:
           persist-credentials: false
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
       - name: Install ccache
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ccache
+        run: sudo apt-get install -y -qq ccache || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
       - name: Restore the ccache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
         with:
@@ -74,8 +77,20 @@ jobs:
           if grep 'warning:' build.log | sort -u | grep .; then
             echo "::error::the build has compiler warnings"; exit 1
           fi
+      - name: Restore the tests' times
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: build/Testing/Temporary/CTestCostData.txt
+          key: ctest-cost-ubuntu-24.04-release-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ctest-cost-ubuntu-24.04-release-
       - name: Test
         run: nix develop -c ctest --test-dir build --output-on-failure --timeout 600 -j "$(nproc)"
+      - name: Save the tests' times
+        if: success() || failure()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: build/Testing/Temporary/CTestCostData.txt
+          key: ctest-cost-ubuntu-24.04-release-${{ github.run_id }}-${{ github.run_attempt }}
 
   # Apple Silicon, Release, Studio built (TNFS_EDITOR is ON by default): every test of the game and of Studio. Main and runs by hand only.
   macos:
@@ -121,8 +136,20 @@ jobs:
           if grep 'warning:' build.log | grep -v '^ld: warning' | sort -u | grep .; then
             echo "::error::the build has compiler warnings"; exit 1
           fi
+      - name: Restore the tests' times
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: build/Testing/Temporary/CTestCostData.txt
+          key: ctest-cost-macos-15-release-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ctest-cost-macos-15-release-
       - name: Test
         run: ctest --test-dir build --output-on-failure -j "$(sysctl -n hw.ncpu)"
+      - name: Save the tests' times
+        if: success() || failure()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: build/Testing/Temporary/CTestCostData.txt
+          key: ctest-cost-macos-15-release-${{ github.run_id }}-${{ github.run_attempt }}
 
   windows:
     name: windows · build + tests
