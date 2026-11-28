@@ -105,6 +105,8 @@ if [ "$TNFS_LIGHT_EDIT" = 1 ]; then   # the drive, not the photos the window als
   while [ $# -gt 0 ]; do [ "$1" = --user ] && user=$2; [ "$1" = --car ] && car=$2; shift; done
   echo "edit=$TNFS_LIGHT_EDIT time=$TNFS_LIGHT_TIME weather=$TNFS_WEATHER video=$SDL_VIDEO_DRIVER view=$TNFS_VIEW car=$car" > "$LIVE_RECORD"
   cat "$user/port.cfg" "$user/restomod.cfg" > "$LIVE_RECORD.cfg"
+else
+  exit 0   # a photo: nothing to wait for (a run would sit out the 30 s)
 fi
 sleep 30
 SH
