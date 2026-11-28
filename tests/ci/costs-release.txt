@@ -15,7 +15,8 @@
 44.0 car_piece_race_replay
 41.6 light_drive_setup_game
 38.2 light_drive_results_game
-37.5 editor_headless_track_b
+18.8 editor_headless_track_b
+18.8 editor_headless_track_e
 36.1 stats_mods_isolation
 35.5 boot_skip_chain_key
 33.8 editor_headless_track_a

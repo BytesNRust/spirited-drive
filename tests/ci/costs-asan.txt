@@ -6,7 +6,8 @@
 63.5 stock_screens_golden_stock
 61.6 shpi_exchange_cd
 60.7 net_track_guard_15
-60.6 editor_headless_track_b
+30.3 editor_headless_track_b
+30.3 editor_headless_track_e
 58.6 net_track_guard_9
 56.5 net_track_guard_0xffff
 54.1 content_menus_own

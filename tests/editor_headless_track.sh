@@ -4,13 +4,13 @@
 # The track editor runs headless (Dear ImGui over the SDL software renderer): a project folder is made, N frames are drawn and the last one
 # is written as a PNG that has the window's size, the road's line and the control points drawn in the viewport panel; --save writes the
 # project files; --user makes its folder and keeps the layout in it; an unknown option fails. (Without a PROJECT it shows the start screen and makes nothing; a normal run reopens the last project from the recent list, a headless one does not read it.)
-# usage: editor_headless_track.sh EDITOR [a|b|c|d|all]
+# usage: editor_headless_track.sh EDITOR [a|b|c|d|e|all]
 . "$(dirname "$0")/editor_headless_common.sh"
 
-# a: new project, limits, road profile keys; c: several points, Copy, Paste, Mirror; b: Add curve .. Test drive; d: scoped edits, window sizes, the Window menu; all: the four.
+# a: new project, limits, road profile keys; c: several points, Copy, Paste, Mirror; b: Add curve .. Test drive; e: the Distance strip under Colour by; d: scoped edits, window sizes, the Window menu; all: the five.
 # CMake runs each as its own test, side by side (~100 editor runs: one test took minutes). Each part makes what it needs in its own scratch folder.
 part=${2:-all}
-case $part in all|a|b|c|d) ;; *) echo "FAIL: no part '$part'" >&2; exit 1;; esac
+case $part in all|a|b|c|d|e) ;; *) echo "FAIL: no part '$part'" >&2; exit 1;; esac
 want() { [ "$part" = all ] || [ "$part" = "$1" ]; }
 
 if want a; then
@@ -300,10 +300,16 @@ grep -q "^problems: red" "$work/log" && grep -q "radius 15 m (under 20.9 m): not
 "$editor" "$work/curve" --user "$work/cu3" --window 960x600 --frames 12 --steps curve-block,curve:1,90,60,0,status >"$work/log" 2>&1 || fail "Add curve with the block folded: $(cat "$work/log")"
 grep -q "^status: curve added" "$work/log" || fail "Add curve does not work with the block folded: $(grep '^status:' "$work/log")"
 
-# ==== Colour by (dep95): the road coloured by what each stretch is; a double-click on the road selects its stretch ====
+fi
+
+if want b || want e; then   # the road both parts of Colour by use
 # a road that goes straight 300 m, turns right round a U and comes back south: curve mode finds straight, (the corner's wobble to the left), right, straight
 mkdir "$work/cs"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0,0],[0,100],[0,200],[0,300],[30,390],[100,430],[190,420],[260,360],[280,260],[280,160],[280,60]]\n}\n' > "$work/cs/trace.json"
+fi
+
+if want e; then
+# ==== The Distance strip with the Colour by road (dep95): its double-click, the slope preview, the profile's colours ====
 # a double-click on a mark in the strip's profile takes the top view to that point (point 4 of this road is at 30, 390) and zooms in, never out; a click alone moves nothing
 "$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 26 --steps strip,strip-size:370,print-view,strip-dblclick:4,print-view >"$work/log" 2>&1 || fail "strip double-click: $(cat "$work/log")"
 python3 - "$work/log" <<'PY' || fail "the strip's double-click did not centre the top view on point 4 at a working scale: $(grep '^view' "$work/log")"
@@ -324,6 +330,10 @@ png_check "$work/slope-none.png" slope-none
 png_check "$work/profile-curve.png" profile-curve
 "$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 26 --steps strip,strip-size:370 --shot "$work/profile-limits.png" >"$work/log" 2>&1 || fail "profile in Limits: $(cat "$work/log")"
 png_check "$work/profile-limits.png" profile-limits
+fi
+
+if want b; then
+# ==== Colour by (dep95): the road coloured by what each stretch is; a double-click on the road selects its stretch ====
 "$editor" "$work/cs" --user "$work/cs-u" --window 1280x960 --frames 12 --steps colour-by:1,print-classes,dblclick-road:280,200,print-sel,status >"$work/log" 2>&1 || fail "Colour by curve: $(cat "$work/log")"
 python3 - "$work/log" <<'PY' || fail "curve mode did not find a straight, the corner, the right turn and a straight: $(grep '^classes' "$work/log")"
 import sys, re

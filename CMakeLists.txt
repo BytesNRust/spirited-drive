@@ -1349,7 +1349,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_track_help COMMAND test_editor_track_help)
         add_test(NAME generic_art_shades COMMAND test_generic_art_shades ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
         add_test(NAME editor_game_find COMMAND test_editor_game_find)
-        foreach(part a b c d)   # the editor on track projects in four parts side by side (tests/editor_headless_track.sh says which is which)
+        foreach(part a b c d e)   # the editor on track projects in five parts side by side (tests/editor_headless_track.sh says which is which)
             add_test(NAME editor_headless_track_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_track.sh $<TARGET_FILE:tnfs-track-editor> ${part})
             set_tests_properties(editor_headless_track_${part} PROPERTIES TIMEOUT 900)
         endforeach()
@@ -2897,7 +2897,7 @@ set(TNFS_STATIC_CHECKS
     editor_loose_text track_groups skip_codes ci_shards cd_data_fetch)
 set(TNFS_E2E_TESTS
     car_lamps_by_mask_game    editor_headless_track_a
-    editor_headless_track_b editor_headless_track_c editor_headless_track_d
+    editor_headless_track_b editor_headless_track_c editor_headless_track_d editor_headless_track_e
     editor_headless_car_a
     editor_headless_car_b editor_headless_car_c
     editor_car_panel_clicks
