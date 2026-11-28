@@ -34,6 +34,12 @@ own=$(dirname "$fetch")/blob.txt
 mkdir "$work/there"
 refuses "exists already" "$work/there" CD_AGE_KEY=x CD_REPO_TOKEN=x
 
+# the public log of the CD jobs: the workflow never prints a test's output and uploads nothing
+flow=${1}/.github/workflows/gate.yml
+bad=$(sed 's/#.*//' "$flow" | grep -nE -e '--output-on-failure|--test-output-size|--verbose|--extra-verbose| -VV? |CTEST_OUTPUT_ON_FAILURE|upload-artifact|LastTest' || true)
+[ -z "$bad" ] || fail "gate.yml would put test output or files in public: $bad"
+sed 's/#.*//' "$flow" | grep -q 'ctest --test-dir build -I ' || fail "gate.yml's test step is not where this check looks"
+
 if command -v age >/dev/null && command -v age-keygen >/dev/null && command -v zstd >/dev/null; then
   mkdir -p "$work/src/original/SIMDATA" "$work/bin"
   echo made-up > "$work/src/original/SIMDATA/A"
@@ -55,6 +61,7 @@ SH
   out=$(CD_AGE_KEY="$key" CD_REPO_TOKEN=good sh "$fetch" "$work/ok" "$work/blob" 2>&1) || fail "the good case: $out"
   cmp -s "$work/ok/original/SIMDATA/A" "$work/src/original/SIMDATA/A" || fail "the unpacked file differs"
   case $out in *"$key"*) fail "the key was printed";; esac
+  [ "$out" = "cd-data: unpacked" ] || fail "the good case prints more than its one line: $out"
   refuses "could not download" "$work/d4" CD_AGE_KEY="$key" CD_REPO_TOKEN=bad
   refuses "could not decrypt" "$work/d5" CD_AGE_KEY="$other" CD_REPO_TOKEN=good
   echo "cd.tar.zst.age $zeros" > "$work/blob"

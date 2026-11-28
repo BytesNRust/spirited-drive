@@ -37,8 +37,8 @@ with open(sys.argv[1], "rb") as f:
     for block in iter(lambda: f.read(1 << 20), b""):
         h.update(block)
 print(h.hexdigest())' "$tmp/cd.tar.zst")
-[ "$sum" = "$CD_SHA256" ] || die "$CD_ASSET is not the expected data: sha256 $sum, wanted $CD_SHA256"
+[ "$sum" = "$CD_SHA256" ] || die "$CD_ASSET is not the expected data: its sha256 is not blob.txt's"
 mkdir -p "$dest"
-zstd -dc "$tmp/cd.tar.zst" | tar -x -C "$dest" || die "could not unpack $CD_ASSET"
+zstd -dc "$tmp/cd.tar.zst" 2>/dev/null | tar -x -C "$dest" 2>/dev/null || die "could not unpack $CD_ASSET"   # their messages would name the CD's files: not shown
 [ -d "$dest/original/SIMDATA" ] || die "$CD_ASSET holds no original/SIMDATA"
-echo "cd-data: $(find "$dest/original" -type f | wc -l | tr -d ' ') files"
+echo "cd-data: unpacked"

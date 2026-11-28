@@ -2,7 +2,7 @@
 # The gate in CI, being built (by hand only until the CD data's blob exists; later the merge queue runs it): ctest with the CD data in Release (5 shards) and with
 # AddressSanitizer + UndefinedBehaviorSanitizer (8 shards), split by cost (tools/ci_shards.py, tests/ci/costs-*.txt); the job "gate" is the one check to require.
 # The data comes through the action cd-data and the environment cd-data, whose secrets GitHub gives only to main and the merge queue. The repository is public: nothing made
-# from the CD's data goes into an artifact, a cache or a log (no artifact is uploaded here; the caches hold the compiler's objects and ctest's times).
+# from the CD's data goes into an artifact, a cache or a log (no artifact is uploaded here; the caches hold the compiler's objects; no test's output is printed).
 # Never on pull_request_target.
 name: Gate
 
@@ -80,7 +80,9 @@ jobs:
         run: |
           nix develop -c ctest --test-dir build --show-only=json-v1 > tests.json
           select=$(python3 -I tools/ci_shards.py tests.json tests/ci/costs-${{ matrix.build }}.txt ${{ matrix.shards }} ${{ matrix.shard }})
-          nix develop -c ctest --test-dir build -I "$select" --output-on-failure --test-output-size-failed 4096 --timeout 1200 -j "$(nproc)"
+          # the log is public: ctest's own lines only (each test's name, result and time, and the list of the failed ones). Never --output-on-failure or -V: a test's output can
+          # carry what it read from the CD (paths, names, dumps). To see why one failed, run it on a machine that has the data. tests/cd_data_fetch.sh checks this
+          nix develop -c ctest --test-dir build -I "$select" --timeout 1200 -j "$(nproc)"
       - name: Delete the CD data
         if: always()
         run: rm -rf "${RUNNER_TEMP:?}/cd" "${GITHUB_WORKSPACE:?}/original"
