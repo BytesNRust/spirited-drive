@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The gate in CI, being built (by hand only until the CD data's blob exists; later the merge queue runs it): ctest with the CD data in Release (5 shards) and with
-# AddressSanitizer + UndefinedBehaviorSanitizer (8 shards), split by cost (tools/ci_shards.py, tests/ci/costs-*.txt); the job "gate" is the one check to require.
+# AddressSanitizer + UndefinedBehaviorSanitizer (8 shards), on Linux and, when asked, on macOS too (inputs.macos), split by cost (tools/ci_shards.py, tests/ci/costs-*.txt); the job "gate" is the one check to require.
 # The data comes through the action cd-data and the environment cd-data, whose secrets GitHub gives only to main and the merge queue. The repository is public: nothing made
 # from the CD's data goes into an artifact, a cache or a log (no artifact is uploaded here; the caches hold the compiler's objects; no test's output is printed).
 # Never on pull_request_target.
@@ -11,6 +11,10 @@ on:
     inputs:
       leaks:
         description: "LeakSanitizer on in the sanitizer shards (the tests' own detect_leaks=0 switched on for this run); the log still shows names and results only"
+        type: boolean
+        default: false
+      macos:
+        description: "The macOS shards too (Apple Silicon): the same tests and the same public log; off by default"
         type: boolean
         default: false
 
@@ -93,11 +97,94 @@ jobs:
         if: always()
         run: rm -rf "${RUNNER_TEMP:?}/cd" "${GITHUB_WORKSPACE:?}/original"
 
+  # the same on Apple Silicon, when asked (inputs.macos): the shards, the data action and the public log are Linux's. The costs are not measured on these runners (the shards come out
+  # uneven), there is no leak detection (Apple's clang has none) and GitHub runs only a few macOS jobs at once, so the shards take turns
+  test-macos:
+    if: inputs.macos
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [release, asan]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        exclude:
+          - { build: release, shard: 6 }
+          - { build: release, shard: 7 }
+          - { build: release, shard: 8 }
+        include:
+          - build: release
+            shards: 5
+            cache: release
+            cmake: -DCMAKE_BUILD_TYPE=Release
+          - build: asan
+            shards: 8
+            cache: sanitizers
+            cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer"
+    name: gate · macos · ${{ matrix.build == 'release' && 'tests' || 'sanitizers' }} · shard ${{ matrix.shard }}
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: cd-data
+    env:
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      ASAN_OPTIONS: detect_leaks=0
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          persist-credentials: false
+      # first, as on Linux: no third-party action or install runs ahead of the step that holds the key
+      - uses: ./.github/actions/cd-data
+        with:
+          age-key: ${{ secrets.CD_AGE_KEY }}
+          repo-token: ${{ secrets.CD_REPO_TOKEN }}
+      # the tools the CD tests call: timeout (coreutils' gtimeout under that name only: the rest of macOS' own tools stay), rsvg-convert, and the flake's Pillow
+      - name: Install tools
+        run: |
+          brew install --quiet ninja sdl3 ccache coreutils librsvg
+          mkdir -p "${RUNNER_TEMP:?}/bin"
+          ln -s "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout"
+          python3 -m venv "$RUNNER_TEMP/py"
+          "$RUNNER_TEMP/py/bin/pip" install --quiet --only-binary=:all: pillow==12.3.0
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/py/bin" >> "$GITHUB_PATH"
+      - name: Restore the ccache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-macos-15-${{ matrix.cache }}-${{ github.sha }}
+          restore-keys: ccache-macos-15-${{ matrix.cache }}-
+      - name: Configure
+        run: cmake -S . -B build -G Ninja ${{ matrix.cmake }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build.log
+      - name: No compiler warnings
+        run: |
+          if grep 'warning:' build.log | sort -u | grep .; then
+            echo "::error::the build has compiler warnings"; exit 1
+          fi
+      - name: Test (this shard's)
+        run: |
+          ctest --test-dir build --show-only=json-v1 > tests.json
+          select=$(python3 -I tools/ci_shards.py tests.json tests/ci/costs-${{ matrix.build }}.txt ${{ matrix.shards }} ${{ matrix.shard }})
+          # the log is public: as on Linux, ctest's own lines only
+          ctest --test-dir build -I "$select" --timeout 1200 -j "$(sysctl -n hw.ncpu)"
+      - name: Delete the CD data
+        if: always()
+        run: rm -rf "${RUNNER_TEMP:?}/cd" "${GITHUB_WORKSPACE:?}/original"
+
   gate:
     name: gate
-    needs: [test]
+    needs: [test, test-macos]
     if: always()
     runs-on: ubuntu-24.04
     steps:
       - name: Every shard passed
-        run: test "${{ needs.test.result }}" = success
+        run: |
+          test "${{ needs.test.result }}" = success
+          test "${{ needs.test-macos.result }}" = "${{ inputs.macos && 'success' || 'skipped' }}"

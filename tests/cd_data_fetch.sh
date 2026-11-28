@@ -38,7 +38,31 @@ refuses "exists already" "$work/there" CD_AGE_KEY=x CD_REPO_TOKEN=x
 flow=${1}/.github/workflows/gate.yml
 bad=$(sed 's/#.*//' "$flow" | grep -nE -e '--output-on-failure|--test-output-size|--verbose|--extra-verbose| -VV? |CTEST_OUTPUT_ON_FAILURE|upload-artifact|LastTest' || true)
 [ -z "$bad" ] || fail "gate.yml would put test output or files in public: $bad"
-sed 's/#.*//' "$flow" | grep -q 'ctest --test-dir build -I ' || fail "gate.yml's test step is not where this check looks"
+[ "$(sed 's/#.*//' "$flow" | grep -c 'ctest --test-dir build -I ')" = 2 ] || fail "gate.yml's two test steps (Linux, macOS) are not where this check looks"
+# every job that holds the key takes the data before any other action, and deletes it whatever happened
+awkout=$(sed 's/#.*//' "$flow" | awk '
+    /^  [a-z][a-z0-9-]*:[[:space:]]*$/ { job = $1; seen = 0 }
+    /^      - / || /^        uses:/ { if (match($0, /uses: *[^ ]+/)) { u = substr($0, RSTART + 5, RLENGTH - 5); gsub(/^ +/, "", u); if (u !~ /^actions\/checkout@/ && !seen) { if (u == "./.github/actions/cd-data") { seen = 1; held[job] = 1 } else first[job] = u } } }
+    /rm -rf "\$\{RUNNER_TEMP:\?\}\/cd"/ { del[job] = 1 }
+    END { for (j in held) { n++; if (j in first) print j " runs " first[j] " before cd-data"; if (!(j in del)) print j " does not delete the data" } if (n != 2) print "jobs that take the data: " n+0 }')
+[ -z "$awkout" ] || fail "gate.yml's jobs with the data: $awkout"
+
+# age on a macOS runner (install_age.sh): a release archive of a pinned sha256. Here a made-up archive read from a file:// address
+install=$(dirname "$fetch")/install_age.sh
+mkdir -p "$work/rel/age"
+printf '#!/bin/sh\necho made-up age\n' > "$work/rel/age/age"
+chmod +x "$work/rel/age/age"
+tar -C "$work/rel" -czf "$work/age.tar.gz" age
+asum=$(python3 -I -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$work/age.tar.gz")
+out=$(sh "$install" "$work/agebin" "file://$work/age.tar.gz" "$asum" 2>&1) || fail "install_age, the good case: $out"
+[ "$("$work/agebin/age" 2>/dev/null)" = "made-up age" ] || fail "install_age did not leave age in its folder: $out"
+if out=$(sh "$install" "$work/agebad" "file://$work/age.tar.gz" $zeros 2>&1); then fail "install_age took an archive of another sha256: $out"; fi
+case $out in *"not the pinned"*) ;; *) fail "install_age's failure does not say 'not the pinned': $out";; esac
+[ ! -e "$work/agebad/age" ] || fail "install_age installed it though the sha256 was wrong"
+if sh "$install" "$work/agenone" "file://$work/no-such.tar.gz" "$asum" >/dev/null 2>&1; then fail "install_age did not fail with no archive"; fi
+# its own address is a release's, with a version, and its two hashes are written in full (never "latest", never read from the download)
+grep -q 'github.com/FiloSottile/age/releases/download/v[0-9][0-9.]*/' "$install" || fail "install_age.sh's address is not a versioned release"
+[ "$(grep -cE 'sha=[0-9a-f]{64}' "$install")" = 2 ] || fail "install_age.sh does not pin a sha256 for each of the two Mac processors"
 
 if command -v age >/dev/null && command -v age-keygen >/dev/null && command -v zstd >/dev/null; then
   mkdir -p "$work/src/original/SIMDATA" "$work/bin"

@@ -20,8 +20,16 @@ runs:
   using: composite
   steps:
     - name: Install age
+      if: runner.os == 'Linux'
       shell: bash
       run: command -v age >/dev/null || sudo apt-get install -y -qq age || { sudo apt-get update -qq && sudo apt-get install -y -qq age; }
+    - name: Install age (macOS, a pinned release)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        sh "$GITHUB_ACTION_PATH/install_age.sh" "${RUNNER_TEMP:?}/age"
+        echo "$RUNNER_TEMP/age" >> "${GITHUB_PATH:?}"
+        command -v zstd >/dev/null || brew install --quiet zstd
     - name: Fetch, decrypt and link the data
       shell: bash
       env:
