@@ -55,7 +55,7 @@ check("mask_planes alpha", alpha, bytes([0, 255, 255, 255, 255]))
 check("mask_planes colours", list(zip(red, green, blue)), [(255, 255, 255), (0, 0, 255), (255, 0, 0), (255, 255, 0), (255, 255, 255)])
 from PIL import Image
 import tempfile
-with tempfile.TemporaryDirectory() as tmp:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:   # Windows keeps a PSD Pillow still has open: the folder stays, the checks are done
     rgb = Image.new("RGB", (4, 1), (10, 20, 30))
     keep = Image.frombytes("L", (4, 1), bytes([0, 128, 248, 255]))
     out = os.path.join(tmp, "t.psd")

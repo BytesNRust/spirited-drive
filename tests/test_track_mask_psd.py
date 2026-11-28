@@ -149,7 +149,7 @@ check("a track with no list: everything is", (auto.is_candidate("TR9", "scenery_
 check("junk names are not candidates", (auto.is_candidate("CL1", "scenery_x"), auto.is_candidate("CL1", "thing_03")), (False, False))
 check("transparent is never reflective", auto.auto_mask("scenery_09", _Image.new("RGBA", (53, 127), (0, 0, 0, 0))).getbbox(), None)
 
-with tempfile.TemporaryDirectory() as tmp:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:   # Windows keeps a PSD Pillow still has open: the folder stays, the checks are done
     texture = Image.new("RGBA", (6, 4), (10, 20, 30, 255))
     texture.putpixel((0, 0), (200, 100, 50, 0))   # a transparent texel of the texture
     path = os.path.join(tmp, "slot_03.psd")
@@ -182,7 +182,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("--all: CL1 every texture", sorted(os.listdir(os.path.join(out3, "CL1"))), ["scenery_02.psd", "scenery_15.psd"])
     check("the guess PNG is the texture's size, grey", (Image.open(os.path.join(pngs, "CL1", "scenery_02.png")).size, Image.open(os.path.join(pngs, "CL1", "scenery_02.png")).mode), ((6, 4), "L"))
 # a lamp mask's PSD (tools/track_lamp_psd.py): the texture under its mask, the yellow and white as the PNG has them, and back to the same PNG
-with tempfile.TemporaryDirectory() as tmp:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:   # Windows keeps a PSD Pillow still has open: the folder stays, the checks are done
     texture = Image.new("RGBA", (5, 4), (40, 50, 60, 255))
     mask = Image.new("RGBA", (5, 4), (0, 0, 0, 0))
     mask.putpixel((1, 1), (255, 255, 0, 255))
