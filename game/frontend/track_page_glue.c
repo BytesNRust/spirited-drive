@@ -8,6 +8,7 @@
 #include "game/frontend/track_page_row.h"
 
 #include "formats/fsh.h"
+#include "formats/path_case.h"
 #include "formats/png.h"
 #include "game/frontend/added_card.h"
 #include "game/frontend/added_card_text.h"
@@ -419,20 +420,12 @@ static int run_page(Page *p)
     return result;
 }
 
-/* 1 when the file exists, as its folder spells it (a zip's folders are any case: the name in upper case or lower) */
+/* 1 when the file exists, as its folder spells it (a zip's folders are any case) */
 static int file_there(const char *dir, const char *folder, const char *name)
 {
-    for (int lower = 0; lower < 2; lower++) {
-        char path[sizeof((TrackPiece *)0)->dir + 64], f[16], n[24];
-        snprintf(f, sizeof f, "%s", folder), snprintf(n, sizeof n, "%s", name);
-        for (char *c = f; lower && *c != '\0'; c++) *c = (char)tolower((unsigned char)*c);
-        for (char *c = n; lower && *c != '\0'; c++) *c = (char)tolower((unsigned char)*c);
-        snprintf(path, sizeof path, "%s/SIMDATA/%s/%s", dir, f, n);
-        if (lower) snprintf(path, sizeof path, "%s/simdata/%s/%s", dir, f, n);
-        FILE *fp = fopen(path, "rb");
-        if (fp != NULL) return fclose(fp), 1;
-    }
-    return 0;
+    char rel[64], path[sizeof((TrackPiece *)0)->dir + 64];
+    snprintf(rel, sizeof rel, "SIMDATA/%s/%s", folder, name);
+    return path_find_case(dir, rel, path, sizeof path);
 }
 
 int cg_track_has_rally_art(const TrackPiece *t)

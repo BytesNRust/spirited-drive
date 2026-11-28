@@ -31,6 +31,7 @@ extern SDL_AudioStream *sdl3_audio;     /* the open audio stream (platform_audio
 
 const char *sdl3_user_dir(char *out, size_t out_size);
 const char *sdl3_user_path(const char *name, char *out, size_t out_size);
+int sdl3_data_any_case(const char *path, char *found, size_t cap);   /* a path below the data root in the file system's own case (platform_mods_sdl3.c) */
 void sdl3_open_log(void);
 void sdl3_cursor_apply(void);
 void sdl3_drop_push(const char *path);   /* a file dropped on the window (platform_drop_sdl3.c): queued for platform_dropped_file */

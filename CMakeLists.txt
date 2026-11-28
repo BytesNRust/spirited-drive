@@ -135,6 +135,7 @@ add_library(tnfs_core STATIC
     core/formats/mesh_blender.c
     core/formats/mesh_exchange.c
     core/formats/modpath.c
+    core/formats/path_case.c
     core/formats/mod_check.c
     core/formats/light_points.c
     core/formats/mod_ini.c

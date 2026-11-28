@@ -1,6 +1,7 @@
 /* port: see data_check.h. */
 #include "game/sys/data_check.h"
 
+#include "formats/path_case.h"
 #include "game/sys/sha256.h"
 #include "iso/iso9660.h"
 
@@ -11,39 +12,9 @@
 #include <strings.h>
 #include <sys/stat.h>
 
-/* `dir`/`rel` with each part found without regard to case; 0 when it is not there or does not fit */
-static int find_path(const char *dir, const char *rel, char *out, size_t out_size)
-{
-    char cur[1024];
-    if (snprintf(cur, sizeof cur, "%s", dir) >= (int)sizeof cur) return 0;
-    const char *part = rel;
-    while (*part != '\0') {
-        const char *end = strchr(part, '/');
-        const size_t len = end != NULL ? (size_t)(end - part) : strlen(part);
-        DIR *d = opendir(cur);
-        if (d == NULL) return 0;
-        int found = 0;
-        for (struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
-            if (strlen(e->d_name) == len && strncasecmp(e->d_name, part, len) == 0) {
-                char next[1024];
-                if (snprintf(next, sizeof next, "%s/%s", cur, e->d_name) < (int)sizeof next) {
-                    memcpy(cur, next, strlen(next) + 1);
-                    found = 1;
-                }
-                break;
-            }
-        }
-        closedir(d);
-        if (!found) return 0;
-        part += len + (end != NULL ? 1 : 0);
-    }
-    return snprintf(out, out_size, "%s", cur) < (int)out_size;
-}
+static int find_path(const char *dir, const char *rel, char *out, size_t out_size) { return path_find_case(dir, rel, out, out_size); }
 
-int data_find_file(const char *dir, const char *rel, char *out, size_t out_size)
-{
-    return find_path(dir, rel, out, out_size);
-}
+int data_find_file(const char *dir, const char *rel, char *out, size_t out_size) { return path_find_case(dir, rel, out, out_size); }
 
 static int hash_file(const char *path, char hex[65], long *size)
 {

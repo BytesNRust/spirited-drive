@@ -238,6 +238,8 @@ char **platform_list_files(const char *dir, const char *pattern, int *count)
 {
     *count = 0;
     char **names = SDL_GlobDirectory(dir, pattern, SDL_GLOB_CASEINSENSITIVE, count);
+    char found[1600];
+    if (names == NULL && sdl3_data_any_case(dir, found, sizeof found)) names = SDL_GlobDirectory(found, pattern, SDL_GLOB_CASEINSENSITIVE, count);   /* the data's folder in another case */
     if (names == NULL || *count == 0) {
         SDL_free(names);
         *count = 0;

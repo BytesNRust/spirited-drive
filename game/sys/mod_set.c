@@ -3,6 +3,7 @@
 
 #include "formats/mod_check.h"
 #include "formats/mod_ini.h"
+#include "formats/path_case.h"
 #include "formats/stock_content.h"
 #include "game/platform/platform.h"
 #include "game/sys/data_path.h"
@@ -106,15 +107,20 @@ static bool same(const Folders *a, const Folders *b)
     return true;
 }
 
+/* `dir`/`rel` of a mod opened as the overlay finds it: in whatever case the folder spells it */
+static FILE *open_in(const char *dir, const char *rel)
+{
+    char path[DIR_MAX + 512];
+    return path_find_case(dir, rel, path, sizeof path) ? fopen(path, "rb") : NULL;
+}
+
 /* the piece in folder `dir`: its card's id, type and stem; a folder with no card, or one that does not parse, is a tweak by its name */
 static Piece piece_of(const char *dir, bool cli)
 {
     Piece p = { "", MOD_TYPE_TWEAK, "", cli };
     const char *name = strrchr(dir, '/');
     snprintf(p.id, sizeof p.id, "%s", name != NULL && name[1] != '\0' ? name + 1 : dir);
-    char path[DIR_MAX + 16];
-    snprintf(path, sizeof path, "%s/mod.ini", dir);
-    FILE *file = fopen(path, "rb");
+    FILE *file = open_in(dir, "mod.ini");
     if (file == NULL) return p;
     static uint8_t text[MOD_INI_MAX_SIZE + 1];
     const size_t n = fread(text, 1, sizeof text, file);
@@ -150,9 +156,7 @@ static void say_left_out(const Piece *p, const char *rel, ModFileRule rule, cons
 /* whether the track light file `rel` in the folder `dir` holds a fact that changes the race (mod_track_light_changes_race); a file that cannot be read is no such file */
 static bool track_light_text_races(const char *dir, const char *rel)
 {
-    char path[DIR_MAX + 128];
-    snprintf(path, sizeof path, "%s/%s", dir, rel);
-    FILE *file = fopen(path, "rb");
+    FILE *file = open_in(dir, rel);
     if (file == NULL) return false;
     static char text[1 << 16];
     const size_t n = fread(text, 1, sizeof text, file);
