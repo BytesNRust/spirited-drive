@@ -147,8 +147,9 @@ jobs:
           path: build/Testing/Temporary/CTestCostData.txt
           key: ctest-cost-macos-15-release-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ctest-cost-macos-15-release-
+      # twice the runner's CPUs, as on Linux (3-CPU runner, -j 3 Test 135..138 s, -j 6 89..115 s); package_game_only runs alone (RUN_SERIAL)
       - name: Test
-        run: ctest --test-dir build --output-on-failure -j "$(sysctl -n hw.ncpu)"
+        run: ctest --test-dir build --output-on-failure -j "$(( $(sysctl -n hw.ncpu) * 2 ))"
       - name: Save the tests' times
         if: success() || failure()
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
