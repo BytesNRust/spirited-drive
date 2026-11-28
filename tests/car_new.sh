@@ -4,7 +4,7 @@
 # holding the piece is refused before anything is written, and nothing in the data roots is touched. validate checks a piece as the
 # game will load it (car_piece_check), and a card it cannot read is an error. mod pack makes the zip the game installs, the same bytes
 # each time, refusing a file the installation would refuse and writing nothing then. With the game: the piece races in Restomod and
-# draws the frame the Viper draws (skipped when the game does not take a car's id in --car).
+# draws the frame the Viper draws; a game that does not take a car's id in --car (or dies) fails.
 # usage: car_new.sh STUDIO ORIGINAL_DIR PORT_DATA_DIR [TNFS]
 set -u
 studio=$1
@@ -173,15 +173,12 @@ restomod() {
     rm -rf "$work/user"
     mkdir -p "$work/user" && echo "profile=restomod" > "$work/user/port.cfg" && echo "extra_liveries=0" > "$work/user/restomod.cfg"
 }
-# a game that takes an id in --car answers an unknown one with "no car <id>" (its --help shows only N)
-takes_id=0
 if [ -n "$tnfs" ]; then
+    # the game takes an id in --car and answers an unknown one with "no car <id>": a game that does not (or dies) fails, it does not skip the race
     restomod
     timeout -k 5 60 "$tnfs" --data "$orig" --user "$work/user" --drive TR1 --car no-such-car --node 1 --screenshot "$work/probe.ppm" \
         >/dev/null 2>"$work/err"
-    grep -q "no car no-such-car" "$work/err" && takes_id=1
-fi
-if [ "$takes_id" -eq 1 ]; then
+    grep -q "no car no-such-car" "$work/err" || fail "an unknown --car id was not answered with 'no car no-such-car': $(tail -3 "$work/err")"
     restomod
     timeout -k 5 120 "$tnfs" --data "$orig" --user "$work/user" --mods "$p" --drive TR1 --car test-car --racers 1 --node 200 \
         --screenshot "$work/a.ppm" >/dev/null 2>"$work/err" || fail "the piece did not race: $(tail -3 "$work/err")"
