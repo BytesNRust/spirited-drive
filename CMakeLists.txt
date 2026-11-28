@@ -713,6 +713,9 @@ if(NOT TNFS_RELEASE)
     target_compile_definitions(tnfs_game PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # car_mask.c: the source tree's data/car_masks
 endif()
 target_link_libraries(tnfs_game PUBLIC tnfs_core)
+if(WIN32)   # the network driver's sockets and the adapters' list (game/net/net_udp.c)
+    target_link_libraries(tnfs_game PUBLIC ws2_32 iphlpapi)
+endif()
 target_sources(tnfs_game PRIVATE game/exe/exe_tables_store.c)   # the exe's tables live here, filled at start-up (game/exe/exe_tables.h)
 target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 # The recovered game code keeps the original's 32-bit wraparound arithmetic.
@@ -1431,9 +1434,6 @@ foreach(name car_flat_paint first_profile dialog_text car_livery_unlamp track_li
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-    if(WIN32)   # the Windows build has no network yet (docs/online.md): its UDP tests do not run there
-        set_tests_properties(net_udp net_udp_service net_runtime PROPERTIES DISABLED TRUE)
-    endif()
     # the ISO reader on synthetic images (tests/iso_build.c writes them)
     add_executable(test_iso9660 tests/test_iso9660.c tests/iso_build.c)
     target_link_libraries(test_iso9660 PRIVATE tnfs_core)
