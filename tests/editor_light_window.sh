@@ -257,7 +257,8 @@ grep -q '^light state: track AL1 view 4 hud 1 ' "$work/lout" || fail "the HUD bo
 light_flow ui-click:node_p1,ui-click:compare_1,light-state,ui-click:compare_2,light-state,ui-click:compare_0,light-state
 [ "$(grep '^light state' "$work/lout" | sed 's/.* compare \([a-z]*\) .*/\1/' | tr '\n' ' ')" = "before four off " ] || fail "the Light compare radios (Before, Four times, Off) did not set the mode: $(grep '^light state' "$work/lout")"
 # the Test drive button starts a drive on this track, time and node, and the same button, now Stop test drive, stops it: with a game that stays up (the fake one ends at once, and a second click then starts a new drive)
-printf '#!/bin/sh\nexec sleep 30\n' > "$work/slow_game"
+# it stays up only as the drive (TNFS_LIGHT_EDIT); the window's photos are the fake game's, or each would be waited for 30 s
+printf '#!/bin/sh\n[ "$TNFS_LIGHT_EDIT" = 1 ] && exec sleep 30\nexec "%s" "$@"\n' "$work/fake_game" > "$work/slow_game"
 chmod +x "$work/slow_game"
 "$editor" --game "$work/slow_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --steps ui-click:node_p1,ui-click:drive,print-drive,light-state,ui-click:drive,light-state > "$work/lout2" 2>&1 || fail "the Test drive / Stop flow: $(tail -3 "$work/lout2")"
 grep -q '^drive: running AL1 B node ' "$work/lout2" || fail "the Test drive button did not start a drive on AL1's Day: $(grep '^drive' "$work/lout2")"
@@ -268,7 +269,8 @@ counts=$(grep '^light:' "$work/lout" | sed 's/.* brightness \([0-9]*\) .*/\1/' |
 light_flow ui-click:add_brightness,ui-click:track_combo,ui-click:track_CY1,light-state,ui-click:revert,ui-click:track_combo,ui-click:track_CY1,light-state
 grep '^light state' "$work/lout" | sed -n 1p | grep -q 'track AL1 .* error: the file has unsaved changes: Save or Revert before another track$' || fail "a track chosen with unsaved changes was not refused with Save or Revert: $(grep '^light state' "$work/lout")"
 grep '^light state' "$work/lout" | sed -n 2p | grep -q 'Save or Revert' && fail "after Revert the track change was still refused for unsaved changes: $(grep '^light state' "$work/lout")"
-"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
+"$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 30 --steps patience:30,ui-click:no_such_widget > "$work/ui3" 2>&1 && fail "a click on a widget that is not there went"
+grep -q "no such widget drawn" "$work/ui3" || fail "the click on a widget that is not there failed for another reason: $(tail -3 "$work/ui3")"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --frames 30 --steps tunnel-lamps:5,100 > "$work/tunnels" 2>&1 && fail "a tunnel that is not there went"
 "$editor" --game "$work/fake_game" --cd "$work/cd" --light-dir "$work/light" --ask light --window 1280x800 --frames 40 --shot "$work/tunnels.png" > "$work/tunnels" 2>&1 || fail "the window with the new sections: $(tail -3 "$work/tunnels")"
 [ "$failures" = 0 ] && echo "ok"

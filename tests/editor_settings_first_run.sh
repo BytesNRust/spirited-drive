@@ -9,9 +9,11 @@ run() { "$editor" --user "$work/u" --workspace "$work/ws" --window 1280x800 --fr
 
 # 1. the game is not found: the question is on the main menu; Not now answers it, and then it is gone
 run --game "$work/none" --steps ui-click:locate_not_now || fail "Not now was not on the first start: $(tail -3 "$work/log")"
-run --game "$work/none" --steps ui-click:locate_not_now,ui-click:locate_not_now && fail "the question was still there after Not now"
+run --game "$work/none" --steps ui-click:locate_not_now,patience:60,ui-click:locate_not_now && fail "the question was still there after Not now"
+grep -q "locate_not_now: no such widget drawn" "$work/log" || fail "the second Not now failed for another reason: $(tail -3 "$work/log")"
 # 2. the game is found: the question is never shown
-run --game "$work/fake_game" --steps ui-click:locate_not_now && fail "the game is found and the question was asked"
+run --game "$work/fake_game" --steps patience:60,ui-click:locate_not_now && fail "the game is found and the question was asked"
+grep -q "locate_not_now: no such widget drawn" "$work/log" || fail "the click on the question not asked failed for another reason: $(tail -3 "$work/log")"
 # 3. the three doors, each a button; Edit tweak opens the list
 run --game "$work/fake_game" --steps ui-click:door_tweak,ui-click:tweak_tab_car,ui-click:tweak_main || fail "Edit tweak, Car, Main menu: $(tail -3 "$work/log")"
 # 4. Settings: the game, the workspace and the game repo; Clear takes the repo away

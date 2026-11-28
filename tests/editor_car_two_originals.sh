@@ -21,8 +21,8 @@ one_car() {
     studio "$kit" --port-data "$repo/data" --steps repo-ask,status > "$work/log" 2>&1 && fail "$stem: Copy with the game's own colors went on: $(cat "$work/log")"
     # the game's own card shows the lines it has and not empty boxes: Version is there, Year (not in the card) is not drawn
     studio "$kit" --port-data "$repo/data" --steps psd-wait:2,ui-click:card_Version > "$work/log" 2>&1 || fail "$stem: the card's Version line is not on screen: $(cat "$work/log")"
-    studio "$kit" --port-data "$repo/data" --steps psd-wait:2,ui-click:card_Year > "$work/log" 2>&1 && fail "$stem: an empty Year box is drawn on the game's own card"
-    grep -q "no such widget" "$work/log" || fail "$stem: the Year line was not looked for: $(cat "$work/log")"
+    studio "$kit" --port-data "$repo/data" --steps psd-wait:2,ui-click:card_Version,patience:60,ui-click:card_Year > "$work/log" 2>&1 && fail "$stem: an empty Year box is drawn on the game's own card"
+    grep -q "ui-click:card_Year: no such widget drawn" "$work/log" || fail "$stem: the Year line was not looked for: $(cat "$work/log")"
     studio "$kit" --port-data "$repo/data" --steps paint-rgb:"$index",1,2,3,save,repo-ask,print-publish > "$work/log" 2>&1 || fail "$stem: a changed color: $(cat "$work/log")"
     grep -qi "core/formats/car_paint.c, the row of $stem" "$work/log" && grep -q "was: $old" "$work/log" && grep -q "now: $new" "$work/log" && grep -q "^  colors: [0-9]" "$work/log" || fail "$stem: the window does not list was/now and the count of colors: $(cat "$work/log")"
     cmp -s "$table" "$repo_src/core/formats/car_paint.c" || fail "$stem: the preview wrote into car_paint.c"
