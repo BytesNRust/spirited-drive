@@ -11,7 +11,7 @@ trap 'rm -rf "${work:?}"' EXIT
 names() { sed -n 's/^ *Test *#[0-9]*: \([^ ]*\).*/\1/p'; }
 "$ctest" --test-dir "$build" -N | names | sort > "$work/all"
 [ -s "$work/all" ] || { echo "FAIL: ctest lists no test"; exit 1; }
-for pair in "release 5" "asan 8"; do
+for pair in "release 5" "asan 12" "asan 8"; do   # gate.yml's: Linux's two, and macOS's sanitizers
   set -- $pair
   costs="$repo/tests/ci/costs-$1.txt" n=$2
   : > "$work/ran"

@@ -47,6 +47,20 @@ awkout=$(sed 's/#.*//' "$flow" | awk '
     END { for (j in held) { n++; if (j in first) print j " runs " first[j] " before cd-data"; if (!(j in del)) print j " does not delete the data" } if (n != 2) print "jobs that take the data: " n+0 }')
 [ -z "$awkout" ] || fail "gate.yml's jobs with the data: $awkout"
 
+# the one cache a gate run saves: the sanitizers' compiler objects, from main only (a branch's objects must never feed main's gate), after the build and before the tests
+saves=$(sed 's/#.*//' "$flow" | awk '
+    function check() { if (step ~ /uses: *actions\/cache(\/save)?@/) { n++
+            if (step !~ /if: github\.ref == .refs\/heads\/main. && matrix\.build == .asan. && matrix\.shard == 1[[:space:]]*\n/) print "a save without the main-only condition"
+            if (step !~ /key: ccache-ubuntu-24\.04-sanitizers-/) print "a save that is not the sanitizers ccache"
+            if (tested) print "a save after the tests" }
+        step = "" }
+    /^  [a-z][a-z0-9-]*:[[:space:]]*$/ { check(); tested = 0 }
+    /^      - / { check() }
+    /ctest --test-dir build -I / { tested = 1 }
+    { step = step $0 "\n" }
+    END { check(); if (n != 1) print "cache saves: " n+0 }')
+[ -z "$saves" ] || fail "gate.yml's cache saves: $saves"
+
 # age on a macOS runner (install_age.sh): a release archive of a pinned sha256. Here a made-up archive read from a file:// address
 install=$(dirname "$fetch")/install_age.sh
 mkdir -p "$work/rel/age"

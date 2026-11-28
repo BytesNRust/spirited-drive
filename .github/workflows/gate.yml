@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The gate in CI, being built (by hand only until the CD data's blob exists; later the merge queue runs it): ctest with the CD data in Release (5 shards) and with
-# AddressSanitizer + UndefinedBehaviorSanitizer (8 shards), on Linux and, when asked, on macOS too (inputs.macos), split by cost (tools/ci_shards.py, tests/ci/costs-*.txt); the job "gate" is the one check to require.
+# AddressSanitizer + UndefinedBehaviorSanitizer (12 shards), on Linux and, when asked, on macOS too (inputs.macos; 8 sanitizer shards there), split by cost (tools/ci_shards.py, tests/ci/costs-*.txt); the job "gate" is the one check to require.
 # The data comes through the action cd-data and the environment cd-data, whose secrets GitHub gives only to main and the merge queue. The repository is public: nothing made
 # from the CD's data goes into an artifact, a cache or a log (no artifact is uploaded here; the caches hold the compiler's objects; no test's output is printed).
 # Never on pull_request_target.
@@ -30,17 +30,21 @@ jobs:
       fail-fast: false
       matrix:
         build: [release, asan]
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         exclude:
           - { build: release, shard: 6 }
           - { build: release, shard: 7 }
           - { build: release, shard: 8 }
+          - { build: release, shard: 9 }
+          - { build: release, shard: 10 }
+          - { build: release, shard: 11 }
+          - { build: release, shard: 12 }
         include:
           - build: release
             shards: 5
             cmake: -DCMAKE_BUILD_TYPE=Release
           - build: asan
-            shards: 8
+            shards: 12
             cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-stringop-overread"
     name: gate · ${{ matrix.build == 'release' && 'tests' || 'sanitizers' }} · shard ${{ matrix.shard }}   # the names Nightly Checks uses; the matrix words stay (tests/ci/costs-*.txt)
     runs-on: ubuntu-24.04
@@ -81,6 +85,14 @@ jobs:
         run: |
           set -o pipefail
           nix develop -c cmake --build build 2>&1 | tee build.log
+      # main's gate saves the sanitizers' ccache too (Nightly's alone falls a day of merges behind); never from a branch. One shard is enough: all of them build the same. It holds
+      # the compiler's objects of the repository's own sources: no build step reads the CD data
+      - name: Save the sanitizers' ccache (main only)
+        if: github.ref == 'refs/heads/main' && matrix.build == 'asan' && matrix.shard == 1
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830   # v4
+        with:
+          path: .ccache
+          key: ccache-ubuntu-24.04-sanitizers-${{ github.sha }}
       - name: No compiler warnings
         run: |
           if grep 'warning:' build.log | sort -u | grep .; then
@@ -89,7 +101,7 @@ jobs:
       - name: Test (this shard's)
         run: |
           nix develop -c ctest --test-dir build --show-only=json-v1 > tests.json
-          select=$(python3 -I tools/ci_shards.py tests.json tests/ci/costs-${{ matrix.build }}.txt ${{ matrix.shards }} ${{ matrix.shard }})
+          select=$(python3 -I tools/ci_shards.py tests.json tests/ci/costs-${{ matrix.build }}.txt ${{ matrix.shards }} ${{ matrix.shard }} build/Testing/Temporary/CTestCostData.txt)   # ctest starts the longest tests first
           # the log is public: ctest's own lines only (each test's name, result and time, and the list of the failed ones). Never --output-on-failure or -V: a test's output can
           # carry what it read from the CD (paths, names, dumps). To see why one failed, run it on a machine that has the data. tests/cd_data_fetch.sh checks this
           nix develop -c ctest --test-dir build -I "$select" --timeout 1200 -j "$(nproc)"
@@ -97,7 +109,7 @@ jobs:
         if: always()
         run: rm -rf "${RUNNER_TEMP:?}/cd" "${GITHUB_WORKSPACE:?}/original"
 
-  # the same on Apple Silicon, when asked (inputs.macos): the shards, the data action and the public log are Linux's. The costs are not measured on these runners (the shards come out
+  # the same on Apple Silicon, when asked (inputs.macos): the data action and the public log are Linux's; the sanitizers stay in 8 shards (more would only queue more builds). The costs are not measured on these runners (the shards come out
   # uneven), there is no leak detection (Apple's clang has none) and GitHub runs only a few macOS jobs at once, so the shards take turns
   test-macos:
     if: inputs.macos
@@ -171,7 +183,7 @@ jobs:
       - name: Test (this shard's)
         run: |
           ctest --test-dir build --show-only=json-v1 > tests.json
-          select=$(python3 -I tools/ci_shards.py tests.json tests/ci/costs-${{ matrix.build }}.txt ${{ matrix.shards }} ${{ matrix.shard }})
+          select=$(python3 -I tools/ci_shards.py tests.json tests/ci/costs-${{ matrix.build }}.txt ${{ matrix.shards }} ${{ matrix.shard }} build/Testing/Temporary/CTestCostData.txt)   # ctest starts the longest tests first
           # the log is public: as on Linux, ctest's own lines only
           ctest --test-dir build -I "$select" --timeout 1200 -j "$(sysctl -n hw.ncpu)"
       - name: Delete the CD data
