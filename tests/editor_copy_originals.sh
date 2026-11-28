@@ -10,7 +10,7 @@ orig=$2
 repo=$3
 part=${PART:-all}
 case $part in all | cars_a | cars_b | tracks_a | tracks_b) ;; *) echo "FAIL: PART=$part is not cars_a, cars_b, tracks_a, tracks_b or all" >&2; exit 1 ;; esac
-[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ] || { echo "skip: no game files in $orig"; exit 77; }   # 77: ctest reads it as skipped, not passed
 # a repo copy with the layout Copy needs: data/ with core/formats/car_paint.c beside it
 mkdir -p "$work/repo/core/formats" "$work/cars" "$work/art" "$work/ws" || exit 1
 cp -R "$repo/data" "$work/repo/data" && cp "$repo/core/formats/car_paint.c" "$work/repo/core/formats/car_paint.c" || { fail "a copy of the repo"; exit "$failures"; }

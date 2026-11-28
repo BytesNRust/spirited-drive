@@ -7,7 +7,7 @@ orig=$2
 repo=$3
 tnfs=$4
 here=$(dirname "$0")
-[ -r "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] && [ -d "$repo/data/car_masks/DVIPER" ] || { echo "skip: no game files in $orig"; exit 0; }
+[ -r "$orig/SIMDATA/CARFAMS/DVIPER.CFM" ] && [ -d "$repo/data/car_masks/DVIPER" ] || { echo "skip: no game files in $orig"; exit 77; }   # 77: ctest reads it as skipped, not passed
 mkdir -p "$work/ws" "$work/art" "$work/home" || exit 1
 cp -R "$repo/data" "$work/data"
 printf '#!/bin/sh\n' >"$work/none" && chmod +x "$work/none"

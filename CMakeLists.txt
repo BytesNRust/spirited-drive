@@ -2126,7 +2126,7 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_e2e_car PROPERTIES TIMEOUT 300)
             foreach(part cars_a cars_b tracks_a tracks_b)
                 add_test(NAME editor_copy_originals_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_copy_originals.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Copy to game repo for the 20 original cars and the 16 tracks, a clean temp workspace, nothing edited
-                set_tests_properties(editor_copy_originals_${part} PROPERTIES TIMEOUT 900 ENVIRONMENT "PART=${part}")
+                set_tests_properties(editor_copy_originals_${part} PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
             endforeach()
             foreach(part cars tracks)   # Edit tweak step 1: Apply of a tweak folder = Copy to game repo, byte for byte, 20 cars + 16 tracks
                 add_test(NAME editor_tweak_parity_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_parity.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} ${part})
@@ -2134,14 +2134,14 @@ if(NOT EMSCRIPTEN)
             endforeach()
             foreach(part track cars)
                 add_test(NAME editor_tweak_list_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_list.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak step 2: the list, Open, the Tweak panel, Apply, Replace / Skip / Cancel, a traffic car, an old workspace; needs the game's files
-                set_tests_properties(editor_tweak_list_${part} PROPERTIES TIMEOUT 900 ENVIRONMENT "PART=${part}")
+                set_tests_properties(editor_tweak_list_${part} PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
             endforeach()
             add_test(NAME editor_tweak_pack COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_pack.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>)   # Edit tweak step 4: Pack zip and Check; the zip installs and the race reads its light; needs the game's files
             set_tests_properties(editor_tweak_pack PROPERTIES TIMEOUT 900)
             add_test(NAME editor_tweak_flows COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_flows.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak flows the list/parity tests leave: the list with tweaks, reopening, a track mask, Replace/Skip/Cancel on a car with several masks and with colors, Apply with nothing new; needs the game's files
             set_tests_properties(editor_tweak_flows PROPERTIES TIMEOUT 900)
             add_test(NAME editor_first_start_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_first_start_flow.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs>)   # the first start end to end: the game's folder asked once, Edit tweak, a car's mask, Check, Pack zip, installed, raced; needs the game's files
-            set_tests_properties(editor_first_start_flow PROPERTIES TIMEOUT 900)
+            set_tests_properties(editor_first_start_flow PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77)
             add_test(NAME editor_tweak_game_data COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_tweak_game_data.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR})   # Edit tweak > Track on an installed app: no repo -> the game's own data/; the repo kept in workspace.txt is applied at start; needs the game's files
             set_tests_properties(editor_tweak_game_data PROPERTIES TIMEOUT 600)
             add_test(NAME editor_original_psd_newer COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_psd_newer.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:make_test_psd>)   # the owner's ANSX: the game's own PNG with no manifest gives way to a newer PSD, an edited one is kept, Regenerate from PSD is enabled
