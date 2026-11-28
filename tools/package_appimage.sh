@@ -113,7 +113,7 @@ Three ways to play: Stock '96 (the 1996 game as it shipped), Restored '96 (the s
 
 This Linux version is a first test build. It needs a 64-bit PC and a distribution from 2022 or newer (glibc 2.35, as in Ubuntu 22.04).
 
-Your player folder is ~/.local/share/Spirited Drive/. It keeps your settings, your records and your copy of the game's files, and they stay when you replace the AppImage with a newer one.
+Your player folder is ~/.local/share/Spirited Drive/ (\$XDG_DATA_HOME/Spirited Drive/ if you set that variable). It keeps your settings, your records and your copy of the game's files, and they stay when you replace the AppImage with a newer one. To keep them somewhere else, a portable install for instance, start the game with --user and a folder: ./$APPIMAGE_NAME --user /path/to/folder
 The update notice uses your system's curl; without it, or without internet, the game starts as usual and shows no notice.
 The log, spirited-drive.log, is in that folder too. In the game: Customize Game, page 3, Open the log folder. Attach it when you report a bug, with the name and version of your distribution: https://github.com/BytesNRust/spirited-drive/issues (please do not attach files from the original game).
 

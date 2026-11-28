@@ -28,7 +28,7 @@ Next to the rest of the CD's files, in the game-data folder:
 - **By hand.** Copy `NFS_WIN.EXE` into `<player folder>/gamedata/`:
   - macOS: `~/Library/Application Support/Spirited Drive/gamedata/`
   - Windows: `%APPDATA%\Spirited Drive\gamedata\`
-  - Linux: `~/.local/share/Spirited Drive/gamedata/`
+  - Linux: `~/.local/share/Spirited Drive/gamedata/` (`$XDG_DATA_HOME/Spirited Drive/gamedata/` when set)
 - **Another folder.** `tnfs --data DIR` reads the CD's files, `NFS_WIN.EXE` included, from
   `DIR`. A development build also looks in `./original`.
 

@@ -71,7 +71,7 @@ Every setting, its range and what each mode sets is in [settings.md](settings.md
 The game's own `config.dat` is kept as the original writes it. Spirited Drive adds its own files beside it, in **the game's user folder**:
 
 <!-- the one place the folder's name and paths are written: a rename changes this line -->
-the game's user folder is `Spirited Drive` in the OS's per-user data directory: `~/Library/Application Support/Spirited Drive/` on macOS, `%APPDATA%\Spirited Drive\` on Windows, `~/.local/share/Spirited Drive/` on Linux.
+the game's user folder is `Spirited Drive` in the OS's per-user data directory: `~/Library/Application Support/Spirited Drive/` on macOS, `%APPDATA%\Spirited Drive\` on Windows, `~/.local/share/Spirited Drive/` on Linux (`$XDG_DATA_HOME/Spirited Drive/` when that variable holds an absolute path; settings, records and the log are all there, nothing under `~/.config`).
 
 `--user DIR` on the command line puts the game's user folder at `DIR` instead (a portable install). `--mods DIR`
 only says where the mods are (by default the `mods/` folder in the game's user folder, when it exists) and holds none of the player's files.

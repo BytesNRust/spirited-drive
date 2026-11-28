@@ -30,6 +30,16 @@
 #endif
 #include "platform/sdl3/platform_sdl3_private.h"
 
+/* The XDG spec has XDG_DATA_HOME used only when it is an absolute path; SDL takes an empty or a relative one as it is (no folder at all, or one under wherever the game was
+ * started from), so such a value is dropped before SDL is asked. */
+static void ignore_bad_xdg_data_home(void)
+{
+#ifdef SDL_PLATFORM_LINUX
+    const char *const xdg = SDL_getenv("XDG_DATA_HOME");
+    if (xdg != NULL && xdg[0] != '/') SDL_UnsetEnvironmentVariable(SDL_GetEnvironment(), "XDG_DATA_HOME");
+#endif
+}
+
 /* The player's folder: --user DIR, else $TNFS_PREF_DIR (tests, modders), else one folder named USER_FOLDER_NAME in the OS's per-user data directory
  * (SDL_GetPrefPath without an organisation, so no tnfs/tnfs). NULL when the platform has none. --mods has no say in it. */
 const char *sdl3_user_dir(char *out, size_t out_size)
@@ -46,7 +56,10 @@ const char *sdl3_user_dir(char *out, size_t out_size)
         SDL_CreateDirectory(out);
         return out;
     }
-    if (pref == NULL) pref = SDL_GetPrefPath(NULL, USER_FOLDER_NAME);
+    if (pref == NULL) {
+        ignore_bad_xdg_data_home();
+        pref = SDL_GetPrefPath(NULL, USER_FOLDER_NAME);
+    }
     if (pref == NULL) return NULL;
     SDL_snprintf(out, out_size, "%s", pref);
     return out;
