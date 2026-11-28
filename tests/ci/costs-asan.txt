@@ -1,10 +1,14 @@
 # Seconds per test on the gate Mac (2026-11-28, gate 6's sanitizer run), for tools/ci_shards.py; a test with no line counts 5 s.
 # Only the balance of the shards depends on it: a missing or wrong line loses no test.
 # Tests split after that run have estimates (the old time shared among the parts); the Pillow tests, skipped in it, keep their earlier lines.
-179.9 tunnel_pool_lamps_game_AL3_night
-158.2 tunnel_pool_lamps_game_AL1_night
-142.3 tunnel_pool_lamps_game_AL1_day
-129.2 tunnel_pool_lamps_game_AL3_day
+90.0 tunnel_pool_lamps_game_AL3_night_in
+90.0 tunnel_pool_lamps_game_AL3_night_out
+79.1 tunnel_pool_lamps_game_AL1_night_in
+79.1 tunnel_pool_lamps_game_AL1_night_out
+71.2 tunnel_pool_lamps_game_AL1_day_in
+71.2 tunnel_pool_lamps_game_AL1_day_out
+64.6 tunnel_pool_lamps_game_AL3_day_in
+64.6 tunnel_pool_lamps_game_AL3_day_out
 86.4 editor_headless_car_b
 86.4 editor_headless_track_a
 81.7 car_card_menus_cards
