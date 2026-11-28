@@ -5,9 +5,12 @@
 #  - an original track (AL1): the workspace has the OLD light format (four files): opened as it is, the window has no light file (said); after Add originals the new file is there, the sun is
 #    touched with the mouse, saved, and Copy writes that one light file into the repo's data/.
 # A kit of the migration is not a test kit: what this finds is reported by the failing line. Skipped (exit 77) without the backup, the game files, Pillow (to paint the PSD) or a data/ folder.
+# PART=ansx, ldiabl or tracks runs that one alone (ctest runs the three side by side); unset, all of them.
 # usage: editor_real_workspace.sh EDITOR ORIGINAL_DIR DATA_DIR   (TNFS_REAL_WORKSPACE: the backup folder, default ~/workspace/bytes-n-rust/backups/originals-workspace-before-add-originals-2026-11-23)
 . "$(dirname "$0")/editor_headless_common.sh"
 orig=$2 data=$3
+part=${PART:-all}
+case $part in all | ansx | ldiabl | tracks) ;; *) echo "FAIL: PART=$part is not ansx, ldiabl, tracks or all" >&2; exit 1 ;; esac
 repo_src="$(cd "$(dirname "$0")/.." && pwd)"
 backup=${TNFS_REAL_WORKSPACE:-$HOME/workspace/bytes-n-rust/backups/originals-workspace-before-add-originals-2026-11-23}
 [ -d "$backup/cars" ] && [ -d "$backup/tracks" ] || { echo "skip: no backup of the real workspace at $backup"; exit 77; }
@@ -26,7 +29,8 @@ one_car() {   # STEM (lower case folder in the workspace), STEM (upper), car_mas
     [ -d "$data/dash_masks/$up" ] && cp -R "$data/dash_masks/$up" "$repo/data/dash_masks/$up"
     cp "$repo_src/core/formats/car_paint.c" "$repo/core/formats/car_paint.c"
     # the kit as it is, converted once (a run without steps), then what Copy lists already (the owner's own edits), and the Preview of the mask's texture
-    clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 30 --steps psd-wait:5000 > /dev/null 2>&1 || true   # converts by itself: wait for it (bounded), not 250 frames
+    clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 30 --steps psd-settle:5000 > "$work/$low.settle" 2>&1 || true   # it may have nothing to convert (psd-wait would sit out its 120 s)
+    grep -q "^psd: settled" "$work/$low.settle" || fail "$low: the kit as migrated did not settle: $(tail -3 "$work/$low.settle")"
     clicked "$kit" --user "$work/u-$low" --port-data "$repo/data" --cd "$orig" --frames 20 --steps repo-ask,print-publish > "$work/$low.before" 2>&1 || true
     names_of "$work/$low.before" > "$work/$low.n.before"
     psd=; for c in $cands; do grep -qx "${c}_mask.png" "$work/$low.n.before" || { psd=$c.psd; png=${c}_mask.png; break; }; done
@@ -59,10 +63,11 @@ one_car() {   # STEM (lower case folder in the workspace), STEM (upper), car_mas
     cmp -s "$kit/art-generated/car_masks/$png" "$repo/data/car_masks/$folder/$png" || fail "$low: the copied $png is not the kit's"
 }
 # the candidates are textures of the near model only: --preview-tex scrolls to those, so a far one (NAME_lo) would give two pictures of the same unscrolled list
-one_car ansx ANSX ANSX "rsid topv frnt bott"
-one_car ldiabl LDIABL LDiabl "frnt rear wing"
+case $part in all | ansx) one_car ansx ANSX ANSX "rsid topv frnt bott" ;; esac
+case $part in all | ldiabl) one_car ldiabl LDIABL LDiabl "frnt rear wing" ;; esac
 
 # an original track as it is in the migrated workspace: the old light format
+track_flows() {
 tws=$work/ws-tracks trepo=$work/repo-tracks
 mkdir -p "$tws/tracks" "$trepo/data" "$work/art"
 cp -R "$backup/tracks/AL1" "$tws/tracks/AL1"
@@ -88,6 +93,8 @@ sums_repo > "$work/repo.lights.after"
 trun --steps open-original:0,ui-focus:Track\ masks,ui-click:tmask_only,ui-click:tmask2_row,ui-rect:tmask_picture > "$work/t.pic" 2>&1 || fail "the Track masks picture: $(tail -3 "$work/t.pic")"
 pic=$(sed -n 's/^ui rect: tmask_picture //p' "$work/t.pic")
 [ -n "$pic" ] && [ "$(echo "$pic" | awk '{ print ($2 + $4 <= 800 && $4 >= 100) ? "fits" : "cut" }')" = fits ] || fail "the mask's picture does not fit the panel at 1280x800 (x y w h: $pic)"
+}
+case $part in all | tracks) track_flows ;; esac
 
 # the backup was only read
 after=$(cd "$backup" && find . -type f | sort | xargs cksum | cksum)

@@ -2111,8 +2111,10 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(editor_e2e_diablo PROPERTIES TIMEOUT 300)
             add_test(NAME editor_traffic_car_panel COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_traffic_car_panel.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # a traffic car and the police car: the Car panel offers the masks only, true status, Check, Copy and Test drive; the Diablo keeps Add color
             set_tests_properties(editor_traffic_car_panel PROPERTIES TIMEOUT 300)
-            add_test(NAME editor_real_workspace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_real_workspace.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)   # a copy of the owner's migrated workspace (skips without the backup): two original cars and AL1 through the flows
-            set_tests_properties(editor_real_workspace PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+            foreach(part ansx ldiabl tracks)   # a copy of the owner's migrated workspace (skips without the backup): two original cars and AL1 through the flows, side by side
+                add_test(NAME editor_real_workspace_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_real_workspace.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+                set_tests_properties(editor_real_workspace_${part} PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77 ENVIRONMENT "PART=${part}")
+            endforeach()
             add_test(NAME editor_e2e_cockpit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_cockpit.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
             set_tests_properties(editor_e2e_cockpit PROPERTIES TIMEOUT 300)
             add_test(NAME editor_e2e_kit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_kit.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs-studio>)
@@ -2836,7 +2838,9 @@ set(TNFS_E2E_TESTS
     editor_copy_originals
     editor_tweak_parity
     editor_traffic_car_panel
-    editor_real_workspace
+    editor_real_workspace_ansx
+    editor_real_workspace_ldiabl
+    editor_real_workspace_tracks
     net_port_taken
     net_track_guard_9
     net_track_guard_0xffff
