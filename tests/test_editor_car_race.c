@@ -65,6 +65,32 @@ static RaceSetup setup_of(const char *folder, const char *track, int night, int 
     return s;
 }
 
+/* a word of the person's environment longer than any Studio makes itself (a nix shell's NIX_CFLAGS_COMPILE is 13 KB) */
+static char *long_word(void)
+{
+    static char word[3 * RACE_WORD_MAX];
+    const int n = snprintf(word, sizeof word, "NIX_CFLAGS_COMPILE=");
+    memset(word + n, 'x', sizeof word - 1 - (size_t)n);
+    word[sizeof word - 1] = '\0';
+    return word;
+}
+
+static void test_long_inherited_word(void)
+{
+    char *base_env[] = { "HOME=/h", long_word(), "PATH=/bin", NULL };
+    RaceCommand c;
+    char why[300] = "";
+    RaceSetup s = setup_of("P911", "TR5", 0, RACE_TICKS_DRIVEN);   /* a car's photo */
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why));
+    CHECK(has_env(&c, long_word()) && has_env(&c, "HOME=/h") && has_env(&c, "PATH=/bin"));   /* whole, and the rest with it */
+    car_race_command_free(&c);
+    RaceSetup d = { 0 };   /* a piece's test drive */
+    d.game = "/g/tnfs", d.cd = "/cd", d.project = "/p/loop", d.user = "/tmp/u", d.car = car_race_menu_car(3), d.piece = "loop";
+    CHECK(car_race_command(&d, base_env, &c, why, sizeof why));
+    CHECK(has_env(&c, long_word()) && has_env(&c, "PATH=/bin"));
+    car_race_command_free(&c);
+}
+
 static void test_command(void)
 {
     char *base_env[] = { "HOME=/h", "TNFS_CAR_MASKS=/elsewhere", "TNFS_VIEW=1", "SDL_VIDEO_DRIVER=cocoa", "PATH=/bin", NULL };
@@ -790,6 +816,7 @@ int main(void)
     if (realpath(base, real) != NULL) snprintf(base, sizeof base, "%s", real);
     setenv("TMPDIR", base, 1);   /* the scratch folders of the jobs are made here, and counted */
     test_command();
+    test_long_inherited_word();
     test_installed_track_command();
     test_installed_tracks_scan();
     test_tracks();

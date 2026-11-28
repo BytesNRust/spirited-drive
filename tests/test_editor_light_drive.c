@@ -117,6 +117,28 @@ static void test_drive_render_scale(void)
     car_race_set_player(NULL);
 }
 
+/* a word of the person's environment longer than any Studio makes itself (a nix shell's NIX_CFLAGS_COMPILE is 13 KB) */
+static char *long_word(void)
+{
+    static char word[3 * RACE_WORD_MAX];
+    const int n = snprintf(word, sizeof word, "NIX_CFLAGS_COMPILE=");
+    memset(word + n, 'x', sizeof word - 1 - (size_t)n);
+    word[sizeof word - 1] = '\0';
+    return word;
+}
+
+static void test_long_inherited_word(void)
+{
+    char *const base[] = { "PATH=/usr/bin", long_word(), "KEEP_ME=yes", NULL };
+    LightDriveSetup s = { "/g/tnfs", "/cd", "/u", "/m", { 0 }, 'N', 1596, 2, NULL, NULL, 0 };
+    snprintf(s.track, sizeof s.track, "CY1");
+    RaceCommand c;
+    char why[LIGHT_DRIVE_WHY] = "";
+    CHECK(light_drive_command(&s, base, &c, why, sizeof why));
+    CHECK(has(c.envp, long_word()) && has(c.envp, "KEEP_ME=yes"));
+    car_race_command_free(&c);
+}
+
 static void test_command(void)
 {
     char *const base[] = { "PATH=/usr/bin", "TNFS_PERSON=1", "SDL_VIDEO_DRIVER=dummy", "KEEP_ME=yes", NULL };
@@ -288,6 +310,7 @@ int main(int argc, char **argv)
     test_playable_node();
     test_drive_render_scale();
     test_command();
+    test_long_inherited_word();
     test_job();
     test_ends();
     char cmd[600];

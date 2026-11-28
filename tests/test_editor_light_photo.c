@@ -85,6 +85,27 @@ static int has_env(const RaceCommand *c, const char *entry)
     return 0;
 }
 
+/* a word of the person's environment longer than any Studio makes itself (a nix shell's NIX_CFLAGS_COMPILE is 13 KB) */
+static char *long_word(void)
+{
+    static char word[3 * RACE_WORD_MAX];
+    const int n = snprintf(word, sizeof word, "NIX_CFLAGS_COMPILE=");
+    memset(word + n, 'x', sizeof word - 1 - (size_t)n);
+    word[sizeof word - 1] = '\0';
+    return word;
+}
+
+static void test_long_inherited_word(void)
+{
+    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm", NULL };
+    char *const base[] = { "HOME=/h", long_word(), "PATH=/bin", NULL };
+    RaceCommand c;
+    char why[LIGHT_PHOTO_WHY] = "";
+    CHECK(light_photo_command(&s, base, &c, why, sizeof why));
+    CHECK(has_env(&c, long_word()) && has_env(&c, "HOME=/h") && has_env(&c, "PATH=/bin"));
+    car_race_command_free(&c);
+}
+
 static void test_command(void)
 {
     LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm", NULL };
@@ -348,6 +369,7 @@ int main(void)
     write_text(fake, FAKE, 1);
     test_time_words();
     test_command();
+    test_long_inherited_word();
     test_views();
     test_command_refusals();
     test_job_done();

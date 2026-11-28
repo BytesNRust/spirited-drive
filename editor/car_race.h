@@ -21,7 +21,7 @@
 
 enum {
     RACE_ARGS = 24, RACE_ENVS = 1024,   /* words of a command line, and of an environment (a shell's has a hundred or so) */
-    RACE_WORD_MAX = 8192,
+    RACE_WORD_MAX = 8192,   /* a word Studio makes; the person's own environment words are passed whole (car_race_add_inherited) */
     RACE_TICKS_DRIVEN = 200,  /* the photo is the frame after this many ticks: a car you drive (the car card's node) */
     RACE_TICKS_TRAFFIC = 800, /* a traffic car, after the start has put it on the road (found by looking at frames of the follow camera on slots 3 and 4: not on screen before 650) */
     RACE_TICKS_POLICE = 250,  /* the police car, put behind the player chasing (RACE_POLICE_NEAR nodes), so the camera on it has it at any tick */
@@ -100,6 +100,10 @@ typedef struct {
  * NULL for none): its TNFS_* are dropped (so a variable of the person's cannot change the test) and, for a photo, its SDL_* too. 1, or 0 with `why`: the car is a
  * traffic or police car and the track has no traffic, a path is missing. */
 int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, char *why, size_t why_cap);
+/* a copy of `word`, one of the person's environment, appended to `list` (`*count` of `cap`) with no limit of length: the system holds it already (a nix shell's
+ * NIX_CFLAGS_COMPILE is 13 KB). 0 when the list is full or there is no memory */
+int car_race_add_inherited(char **list, int *count, int cap, const char *word);
+
 void car_race_command_free(RaceCommand *c);
 
 /* How a run shows the car (T5, T6): Restomod whole by default, and four switches for the car's look and the render scale. The Race window's, for the session

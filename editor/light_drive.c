@@ -88,7 +88,7 @@ int light_drive_command(const LightDriveSetup *s, char *const *base, RaceCommand
              push(a, ac, RACE_ARGS, "%s", s->track) &&
              push(a, ac, RACE_ARGS, "--type") && push(a, ac, RACE_ARGS, "0");   /* the game's time trial: the player alone, no rivals, no police, no traffic */
     for (char *const *v = base; ok && v != NULL && *v != NULL; ++v)
-        if (strncmp(*v, "TNFS_", 5) != 0 && strncmp(*v, "SDL_", 4) != 0) ok = push(e, ec, RACE_ENVS, "%s", *v);
+        if (strncmp(*v, "TNFS_", 5) != 0 && strncmp(*v, "SDL_", 4) != 0) ok = car_race_add_inherited(e, ec, RACE_ENVS, *v);
     ok = ok && push(e, ec, RACE_ENVS, "TNFS_LIGHT_EDIT=1") && push(e, ec, RACE_ENVS, "TNFS_MUSIC=0") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=%s", WORDS[s->weather]) && push(e, ec, RACE_ENVS, "TNFS_LIGHT_TIME=%s", light_photo_time_word(s->letter)) &&
          push(e, ec, RACE_ENVS, "TNFS_START_NODE=%u", s->node) && push(e, ec, RACE_ENVS, "TNFS_VIEW=%d", light_photo_view_kind(light_photo_view_clamp(s->view))) && (s->masks == NULL || s->masks[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_TRACK_MASKS=%s", s->masks)) &&
          (s->window == NULL || s->window[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_WINDOW_POS=%s", s->window));

@@ -128,6 +128,15 @@ static int add_word(char **list, int *count, int cap, const char *format, va_lis
     return 1;
 }
 
+int car_race_add_inherited(char **list, int *count, int cap, const char *word)
+{
+    if (*count >= cap) return 0;
+    list[*count] = strdup(word);
+    if (list[*count] == NULL) return 0;
+    list[++*count] = NULL;
+    return 1;
+}
+
 static int add_arg(RaceCommand *c, const char *format, ...) __attribute__((format(printf, 2, 3)));
 static int add_arg(RaceCommand *c, const char *format, ...)
 {
@@ -175,7 +184,7 @@ static int drive_command(const RaceSetup *s, char *const *base, RaceCommand *out
              add_arg(out, "--mods") && add_arg(out, "%s/mods/%s", s->user, s->piece) && add_arg(out, "--drive") && add_arg(out, "%s", s->piece) &&
              add_arg(out, "--car") && add_arg(out, "%d", car_race_menu_pick(s->car->model)) && add_arg(out, "--type") && add_arg(out, "0");
     for (char *const *e = base; ok && e != NULL && *e != NULL; ++e)
-        if (strncmp(*e, "TNFS_", 5) != 0) ok = add_env(out, "%s", *e);
+        if (strncmp(*e, "TNFS_", 5) != 0) ok = car_race_add_inherited(out->envp, &out->envc, RACE_ENVS, *e);
     if (ok) return 1;
     car_race_command_free(out);
     return refuse(why, why_cap, "the command is too long");
@@ -210,7 +219,7 @@ int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, ch
     if (s->photo_ticks > 0) ok = ok && add_arg(out, "--node") && add_arg(out, "%d", s->photo_ticks) && add_arg(out, "--screenshot") && add_arg(out, "%s", s->shot);
     for (char *const *e = base; ok && e != NULL && *e != NULL; ++e) {
         if (strncmp(*e, "TNFS_", 5) == 0 || (s->photo_ticks > 0 && strncmp(*e, "SDL_", 4) == 0)) continue;
-        ok = add_env(out, "%s", *e);
+        ok = car_race_add_inherited(out->envp, &out->envc, RACE_ENVS, *e);
     }
     ok = ok && add_env(out, "TNFS_CAR_MASKS=%s/car_masks", s->project);
     if (!traffic) ok = ok && add_env(out, "TNFS_DASH_MASKS=%s/dash_masks", s->project);
