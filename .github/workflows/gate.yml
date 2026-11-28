@@ -33,7 +33,7 @@ jobs:
           - build: asan
             shards: 8
             cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-stringop-overread"
-    name: ${{ matrix.build }} · shard ${{ matrix.shard }}
+    name: gate · ${{ matrix.build == 'release' && 'tests' || 'sanitizers' }} · shard ${{ matrix.shard }}   # the names Nightly Checks uses; the matrix words stay (tests/ci/costs-*.txt)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment: cd-data

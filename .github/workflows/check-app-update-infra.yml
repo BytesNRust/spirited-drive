@@ -38,7 +38,7 @@ jobs:
           persist-credentials: false
       - name: Install tools
         run: brew install ninja sdl3
-      - name: Build the update test (release configuration, old version)
+      - name: Build the update test (as shipped, old version)
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_UPDATE_TEST_VERSION="$UPDATE_TEST_VERSION"
           cmake --build build --target tnfs
@@ -72,7 +72,7 @@ jobs:
             mingw-w64-ucrt-x86_64-sdl3
             mingw-w64-ucrt-x86_64-python
             git
-      - name: Build the update test (release configuration, old version)
+      - name: Build the update test (as shipped, old version)
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DTNFS_UPDATE_TEST_VERSION="$UPDATE_TEST_VERSION"
           cmake --build build --target tnfs
@@ -94,7 +94,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086   # v31
-      - name: Build the update test (release configuration, old version)
+      - name: Build the update test (as shipped, old version)
         run: |
           nix develop -c cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON -DTNFS_EDITOR=OFF -DTNFS_UPDATE_TEST_VERSION="$UPDATE_TEST_VERSION"
           nix develop -c cmake --build build --target tnfs

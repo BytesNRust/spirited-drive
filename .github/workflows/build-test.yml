@@ -74,7 +74,7 @@ jobs:
           key: sdl3-universal-macos-15-${{ env.SDL_COMMIT }}
 
 
-      - name: Build the game (universal, release)
+      - name: Build the game (universal, as shipped)
         env:
           UPDATE_TEST_FLAG: ${{ inputs.update_test && format('-DTNFS_UPDATE_TEST_VERSION={0}', inputs.update_test_version) || '' }}
         run: |
@@ -157,7 +157,7 @@ jobs:
           key: ccache-windows-ucrt64-release-${{ github.sha }}
           restore-keys: ccache-windows-ucrt64-release-
 
-      - name: Build the game (release)
+      - name: Build the game (as shipped)
         env:
           UPDATE_TEST_FLAG: ${{ inputs.update_test && format('-DTNFS_UPDATE_TEST_VERSION={0}', inputs.update_test_version) || '' }}
         run: |
@@ -254,7 +254,7 @@ jobs:
             grep -rqE "^#define SDL_$driver 1" "$RUNNER_TEMP/SDL/build" || { echo "SDL was built without $driver" >&2; exit 1; }
           done
 
-      - name: Build the game (release)
+      - name: Build the game (as shipped)
         env:
           UPDATE_TEST_FLAG: ${{ inputs.update_test && format('-DTNFS_UPDATE_TEST_VERSION={0}', inputs.update_test_version) || '' }}
         run: |
