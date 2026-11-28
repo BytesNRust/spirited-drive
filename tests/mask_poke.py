@@ -24,7 +24,7 @@ def unfilter(raw, w, h):
     for y in range(h):
         f = raw[y * (w + 1)]
         cur = bytearray(raw[y * (w + 1) + 1:(y + 1) * (w + 1)])
-        for x in range(w):
+        for x in range(w) if f else ():   # filter 0: nothing to undo
             a = cur[x - 1] if x else 0
             b = prev[x]
             c = prev[x - 1] if x else 0
