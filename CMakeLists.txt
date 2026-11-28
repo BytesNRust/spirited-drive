@@ -2733,9 +2733,15 @@ set_tests_properties(check_release_notes PROPERTIES TIMEOUT 60)
 include(fuzz/fuzz.cmake)
 
 # port: every test, whenever it was registered above, gets a scratch pref dir, so a test that starts tnfs with no --user (or forgets one) writes in the build, never in the player's own
-# folder; pref_guard fails when a test has none (tests/pref_guard.cmake)
+# folder; pref_guard fails when a test has none (tests/pref_guard.py)
 if(NOT EMSCRIPTEN)
-    add_test(NAME pref_guard COMMAND ${CMAKE_COMMAND} -DCTEST=${CMAKE_CTEST_COMMAND} -DBUILD=${CMAKE_BINARY_DIR} -P ${CMAKE_SOURCE_DIR}/tests/pref_guard.cmake)
+    find_package(Python3 COMPONENTS Interpreter)   # (a CMake script read the whole listing anew for each value: 7 to 9 s)
+    if(Python3_Interpreter_FOUND)
+        set(tnfs_guard_python ${Python3_EXECUTABLE})
+    else()
+        set(tnfs_guard_python python3)   # none: the test fails where it is run, it is not left out
+    endif()
+    add_test(NAME pref_guard COMMAND ${tnfs_guard_python} -I ${CMAKE_SOURCE_DIR}/tests/pref_guard.py ${CMAKE_CTEST_COMMAND} ${CMAKE_BINARY_DIR})
     set_tests_properties(pref_guard PROPERTIES TIMEOUT 180)
     get_property(tnfs_all_tests DIRECTORY PROPERTY TESTS)
     foreach(t IN LISTS tnfs_all_tests)
