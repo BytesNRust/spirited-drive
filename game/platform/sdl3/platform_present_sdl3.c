@@ -194,6 +194,7 @@ static void present_frame(const uint8_t *pixels, const PlatformColor palette[256
         capture_frame();
         SDL_UpdateTexture(sdl3_texture, NULL, sdl3_rgb_buffer, sdl3_fb_width * (int)sizeof *sdl3_rgb_buffer);
     }
+    SDL_SetRenderDrawColor(sdl3_renderer, 0, 0, 0, 255);   /* the bars beside the frame: opaque black. SDL's own is black with alpha 0, and a Wayland compositor showed the desktop through (GNOME Shell) */
     SDL_RenderClear(sdl3_renderer);
     SDL_RenderTexture(sdl3_renderer, sdl3_texture, NULL, NULL);
     SDL_RenderPresent(sdl3_renderer);
